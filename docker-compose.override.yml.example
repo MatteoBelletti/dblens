@@ -1,0 +1,12 @@
+# Copy to docker-compose.override.yml and customize for your local environment.
+# This file is NOT committed to git.
+#
+# Example: change exposed ports if you have conflicts
+services:
+  postgres:
+    ports:
+      - "5433:5432"
+
+  sqlserver:
+    ports:
+      - "1434:1433"
