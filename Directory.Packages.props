@@ -5,6 +5,7 @@
   <ItemGroup>
     <!-- MCP -->
     <PackageVersion Include="ModelContextProtocol" Version="1.2.0" />
+    <PackageVersion Include="ModelContextProtocol.AspNetCore" Version="1.2.0" />
     <!-- Database -->
     <PackageVersion Include="Npgsql" Version="9.0.3" />
     <PackageVersion Include="Microsoft.Data.SqlClient" Version="6.0.1" />
