@@ -11,6 +11,15 @@ TestResults/
 *.snupkg
 publish/
 
+# Build artifacts that may land outside bin/ (e.g. accidental dotnet publish -o <project-dir>)
+*.dll
+*.exe
+*.pdb
+*.deps.json
+*.runtimeconfig.json
+*.staticwebassets.endpoints.json
+web.config
+
 # Environment
 .env
 
