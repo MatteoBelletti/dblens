@@ -6,11 +6,13 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\DbLens.Mcp\DbLens.Mcp.csproj" />
+    <ProjectReference Include="..\..\src\DbLens.Postgres\DbLens.Postgres.csproj" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" />
     <PackageReference Include="xunit" />
     <PackageReference Include="xunit.runner.visualstudio" />
     <PackageReference Include="FluentAssertions" />
     <PackageReference Include="coverlet.collector" />
+    <PackageReference Include="Npgsql" />
   </ItemGroup>
 
   <ItemGroup>

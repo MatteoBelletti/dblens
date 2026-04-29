@@ -3,6 +3,7 @@
   <ItemGroup>
     <ProjectReference Include="..\DbLens.Core\DbLens.Core.csproj" />
     <PackageReference Include="Microsoft.Data.SqlClient" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
   </ItemGroup>
 
 </Project>

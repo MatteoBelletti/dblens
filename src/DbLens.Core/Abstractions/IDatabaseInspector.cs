@@ -12,8 +12,11 @@ public interface IDatabaseInspector
     /// <summary>Opens a connection and executes a trivial query to confirm reachability.</summary>
     Task<bool> TestConnectionAsync(CancellationToken ct = default);
 
-    // Phase 2 — not implemented yet:
-    // Task<IReadOnlyList<TableInfo>> GetTablesAsync(CancellationToken ct = default);
-    // Task<IReadOnlyList<IndexInfo>> GetIndexesAsync(string tableName, CancellationToken ct = default);
-    // Task<QueryAnalysis> AnalyzeQueryAsync(string sql, CancellationToken ct = default);
+    /// <summary>
+    /// Returns a high-level overview of all user tables and views, grouped by schema.
+    /// Column-level details are available via <c>GetTableDetailsAsync</c> (not yet implemented).
+    /// </summary>
+    Task<DbLens.Core.Models.DatabaseSchemaOverview> GetSchemaOverviewAsync(
+        DbLens.Core.Models.SchemaOverviewRequest request,
+        CancellationToken ct = default);
 }

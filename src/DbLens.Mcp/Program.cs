@@ -1,5 +1,6 @@
 using DbLens.Core.Abstractions;
 using DbLens.Core.Models;
+using DbLens.Mcp.Infrastructure;
 using DbLens.Mcp.Tools;
 using DbLens.Postgres;
 using DbLens.SqlServer;
@@ -28,10 +29,13 @@ var ssCs = builder.Configuration["ConnectionStrings:SqlServer"]
 
 builder.Services.AddKeyedSingleton<IDatabaseInspector>(
     DatabaseDialect.PostgreSql,
-    (_, _) => new PostgresInspector(pgCs));
+    (sp, _) => new PostgresInspector(pgCs, sp.GetRequiredService<ILogger<PostgresInspector>>()));
 
 builder.Services.AddKeyedSingleton<IDatabaseInspector>(
     DatabaseDialect.SqlServer,
-    (_, _) => new SqlServerInspector(ssCs));
+    (sp, _) => new SqlServerInspector(ssCs, sp.GetRequiredService<ILogger<SqlServerInspector>>()));
+
+// Factory for on-demand inspectors from a user-supplied connection string.
+builder.Services.AddSingleton<IDatabaseInspectorFactory, DatabaseInspectorFactory>();
 
 await builder.Build().RunAsync();
