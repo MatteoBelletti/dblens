@@ -7,7 +7,7 @@ using NpgsqlTypes;
 
 namespace DbLens.Postgres;
 
-public sealed class PostgresInspector : IDatabaseInspector
+public sealed partial class PostgresInspector : IDatabaseInspector
 {
     private readonly string _connectionString;
     private readonly ILogger<PostgresInspector> _logger;

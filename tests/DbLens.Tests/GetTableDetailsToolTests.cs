@@ -243,5 +243,8 @@ public sealed class GetTableDetailsToolTests
         public Task<TableDetailsResult> GetTableDetailsAsync(
             TableDetailsRequest request, CancellationToken ct = default) =>
             Task.FromResult(handler(request));
+        public Task<DbLens.Core.Analysis.Indexes.AnalyzeIndexesResult> AnalyzeIndexesAsync(
+            DbLens.Core.Analysis.Indexes.AnalyzeIndexesRequest request, CancellationToken ct = default) =>
+            throw new NotSupportedException();
     }
 }

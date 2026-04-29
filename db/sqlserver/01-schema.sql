@@ -104,3 +104,41 @@ CREATE TABLE audit_logs (
     -- INTENTIONAL: no retention_until / temporal policy
 );
 GO
+
+-- INTENTIONAL: deliberately unused index for testing the unused-index rule.
+--  12. idx_orders_status — non-unique, never scanned after seeding (no SELECT WHERE status = ...)
+CREATE INDEX idx_orders_status ON orders(status);
+GO
+
+-- ============================================================
+-- demo_good schema: clean design with no intentional issues.
+-- Used by AnalyzeIndexes tests to assert Findings = [] on a healthy schema.
+-- ============================================================
+CREATE SCHEMA demo_good;
+GO
+
+CREATE TABLE demo_good.departments (
+    id   BIGINT IDENTITY(1,1) PRIMARY KEY,
+    name NVARCHAR(200) NOT NULL
+);
+GO
+
+CREATE TABLE demo_good.employees (
+    id            BIGINT IDENTITY(1,1) PRIMARY KEY,
+    department_id BIGINT        NOT NULL REFERENCES demo_good.departments(id),
+    name          NVARCHAR(200) NOT NULL,
+    email         NVARCHAR(254) NOT NULL UNIQUE
+);
+GO
+CREATE INDEX idx_demo_good_employees_department_id ON demo_good.employees(department_id);
+GO
+
+CREATE TABLE demo_good.projects (
+    id         BIGINT IDENTITY(1,1) PRIMARY KEY,
+    owner_id   BIGINT        NOT NULL REFERENCES demo_good.employees(id),
+    name       NVARCHAR(200) NOT NULL,
+    started_at DATETIME2     NOT NULL DEFAULT SYSUTCDATETIME()
+);
+GO
+CREATE INDEX idx_demo_good_projects_owner_id ON demo_good.projects(owner_id);
+GO

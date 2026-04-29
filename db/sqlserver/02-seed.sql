@@ -328,3 +328,23 @@ INSERT INTO audit_logs (id, user_id, action, entity_type, entity_id, ip_address,
     (100, 15, N'create_order', N'order',   35, N'82.56.70.102', '2023-04-15 14:00:00');
 SET IDENTITY_INSERT audit_logs OFF;
 GO
+
+-- demo_good seed (minimal rows to ensure SQL Server allocates pages, needed for size tests)
+SET IDENTITY_INSERT demo_good.departments ON;
+INSERT INTO demo_good.departments (id, name) VALUES (1, N'Engineering'), (2, N'Design');
+SET IDENTITY_INSERT demo_good.departments OFF;
+GO
+
+SET IDENTITY_INSERT demo_good.employees ON;
+INSERT INTO demo_good.employees (id, department_id, name, email) VALUES
+    (1, 1, N'Alice Rossi',  N'alice@example.com'),
+    (2, 2, N'Bob Verdi',    N'bob@example.com');
+SET IDENTITY_INSERT demo_good.employees OFF;
+GO
+
+SET IDENTITY_INSERT demo_good.projects ON;
+INSERT INTO demo_good.projects (id, owner_id, name) VALUES
+    (1, 1, N'Project Alpha'),
+    (2, 2, N'Project Beta');
+SET IDENTITY_INSERT demo_good.projects OFF;
+GO

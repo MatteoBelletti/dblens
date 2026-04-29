@@ -1,3 +1,5 @@
+using DbLens.Core.Analysis.Indexes;
+
 namespace DbLens.Core.Abstractions;
 
 /// <summary>
@@ -22,5 +24,13 @@ public interface IDatabaseInspector
     /// </summary>
     Task<DbLens.Core.Models.TableDetailsResult> GetTableDetailsAsync(
         DbLens.Core.Models.TableDetailsRequest request,
+        CancellationToken ct = default);
+
+    /// <summary>
+    /// Runs rule-based index analysis and returns diagnostic findings.
+    /// Rules: fk-without-index, duplicate-index, redundant-index, unused-index.
+    /// </summary>
+    Task<AnalyzeIndexesResult> AnalyzeIndexesAsync(
+        AnalyzeIndexesRequest request,
         CancellationToken ct = default);
 }

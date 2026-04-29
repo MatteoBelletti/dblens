@@ -83,9 +83,49 @@ public sealed class MyTool(IServiceProvider services, IDatabaseInspectorFactory 
 ## Adding a new inspector capability
 
 1. Add the method signature to `IDatabaseInspector` in `DbLens.Core`.
-2. Add request/response models to `DbLens.Core/Models/`.
-3. Implement the method in both `PostgresInspector` and `SqlServerInspector`.
-4. Write integration tests in `DbLens.Tests` for both dialects; add a parity test in `TableDetailsParityTests` if relevant.
+2. Add request/response models to `DbLens.Core/Models/` (or `DbLens.Core/Analysis/<FeatureName>/`).
+3. Implement the method in both `PostgresInspector` and `SqlServerInspector` as a **partial class** in a separate file (e.g. `PostgresInspector.Analyze.cs`).
+4. Write integration tests in `DbLens.Tests` for both dialects; add a parity test if relevant.
+
+## Diagnostic tools pattern
+
+Diagnostic tools (e.g. `analyze_indexes`) follow this layout:
+
+```
+DbLens.Core/Analysis/
+  Severity.cs             enum Severity { Critical, High, Medium, Low, Info }
+  FindingCategory.cs      enum FindingCategory { Performance, Compliance, Structure, Naming }
+  Finding.cs              sealed record — permanent product contract (do not change shape)
+  <FeatureName>/
+    <Feature>Request.cs
+    <Feature>Result.cs
+    Rules/
+      <RuleName>Rule.cs   public static class with Apply(tables, dialect) → IEnumerable<Finding>
+```
+
+### `Finding` contract (immutable — do not change without an explicit decision)
+
+```csharp
+public sealed record Finding(
+    string RuleId,
+    Severity Severity,
+    FindingCategory Category,
+    double Confidence,       // 0.0–1.0
+    string Table,            // "schema.table"
+    IReadOnlyList<string>? Columns,
+    string Title,
+    string Description,
+    string? SqlFix,
+    IReadOnlyDictionary<string, object>? Metadata);
+```
+
+### Result summary pattern
+
+Every diagnostic result must include a `Summary` with `BySeverity` and `ByRule` dictionaries that **always contain all keys**, even when the count is zero. This allows callers to read any key without a null check.
+
+### `demo_good` schema
+
+Both databases include a `demo_good` schema with a clean design (FKs fully covered, no duplicates). The acceptance criterion for any diagnostic rule is: `AnalyzeIndexesAsync(schema: "demo_good")` → zero findings.
 
 ## LLM guardrails in tool descriptions
 
@@ -121,11 +161,17 @@ The demo databases run on non-standard ports (5433, 1434) to avoid colliding wit
 |---|---|
 | `src/DbLens.Mcp/Program.cs` | Entry point: transport selection, DI wiring |
 | `src/DbLens.Core/Abstractions/IDatabaseInspector.cs` | Inspector contract |
-| `src/DbLens.Postgres/PostgresInspector.cs` | PostgreSQL implementation |
-| `src/DbLens.SqlServer/SqlServerInspector.cs` | SQL Server implementation |
+| `src/DbLens.Core/Analysis/Finding.cs` | Permanent product contract for all diagnostic findings |
+| `src/DbLens.Core/Analysis/Indexes/` | Request/result types and rules for `analyze_indexes` |
+| `src/DbLens.Postgres/PostgresInspector.cs` | PostgreSQL base implementation |
+| `src/DbLens.Postgres/PostgresInspector.Analyze.cs` | PostgreSQL `AnalyzeIndexesAsync` (partial class) |
+| `src/DbLens.SqlServer/SqlServerInspector.cs` | SQL Server base implementation |
+| `src/DbLens.SqlServer/SqlServerInspector.Analyze.cs` | SQL Server `AnalyzeIndexesAsync` (partial class) |
 | `src/DbLens.Mcp/Infrastructure/DatabaseInspectorFactory.cs` | Creates ad-hoc inspectors for custom connection strings |
 | `src/DbLens.Mcp/Tools/` | All MCP tool classes |
 | `docker-compose.yml` | Demo databases (PostgreSQL 17 on 5433, SQL Server 2022 on 1434) |
+| `db/postgres/01-schema.sql` | PostgreSQL demo schema (`public` + `demo_good`) |
+| `db/sqlserver/01-schema.sql` | SQL Server demo schema (`dbo` + `demo_good`) |
 | `Makefile` | All dev commands |
 | `Directory.Packages.props` | Central NuGet version management |
 | `Directory.Build.props` | Shared build settings (net10.0, C# 14, nullable, warnings as errors) |
@@ -136,3 +182,5 @@ The demo databases run on non-standard ports (5433, 1434) to avoid colliding wit
 - No comments unless the reason is non-obvious.
 - Integration tests must hit real databases — no mocking the data layer.
 - Both PostgreSQL and SQL Server must be kept at feature parity for any new inspector capability.
+- Add a parity test file (`<Feature>ParityTests.cs`) for every new diagnostic tool that compares findings across dialects (strip schema prefix with `f.Table.Split('.')[1]` for bare-table comparisons).
+- Stub inspectors in `GetSchemaToolTests` and `GetTableDetailsToolTests` must implement all `IDatabaseInspector` methods; add `throw new NotSupportedException()` for new methods.

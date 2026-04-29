@@ -7,7 +7,7 @@ using Microsoft.Extensions.Logging;
 
 namespace DbLens.SqlServer;
 
-public sealed class SqlServerInspector : IDatabaseInspector
+public sealed partial class SqlServerInspector : IDatabaseInspector
 {
     private readonly string _connectionString;
     private readonly ILogger<SqlServerInspector> _logger;

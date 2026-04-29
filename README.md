@@ -4,15 +4,16 @@ An MCP server written in .NET 10 that lets Claude inspect the schema of PostgreS
 
 ## What it does
 
-dblens exposes three tools to any MCP-compatible client (Claude Desktop, Claude Code, MCP Inspector):
+dblens exposes four tools to any MCP-compatible client (Claude Desktop, Claude Code, MCP Inspector):
 
 | Tool | What it returns |
 |---|---|
 | `ping` | Server version, timestamp, and available dialects — use to verify the connection |
 | `get_schema` | High-level overview of all tables and views: row-count estimates, sizes, FK/index counts, grouped by schema |
 | `get_table_details` | Full structural detail for 1–20 tables: columns with types and nullability, all indexes, foreign keys (in and out), check constraints, unique constraints |
+| `analyze_indexes` | Diagnostic findings for index health: FK columns without a covering index, duplicate indexes, redundant indexes, and unused indexes (when stats are available) |
 
-The typical workflow is: `get_schema` to orient yourself, then `get_table_details` on the tables that matter.
+The typical workflow is: `get_schema` to orient yourself, then `get_table_details` on the tables that matter, then `analyze_indexes` to surface index problems.
 
 ## Prerequisites
 
@@ -129,6 +130,28 @@ No parameters. Returns server version, UTC timestamp, and the list of supported 
 
 Tables not found in the database are listed in `NotFound`; they are absent from the result — do not infer their structure.
 
+### `analyze_indexes`
+
+| Parameter | Type | Default | Description |
+|---|---|---|---|
+| `dialect` | `PostgreSql` \| `SqlServer` | `PostgreSql` | Target database engine |
+| `connectionString` | string | server default | Custom connection string |
+| `schema` | string | — | Restrict analysis to this schema |
+| `tables` | string[] | — | Restrict analysis to these table names (bare names, no schema prefix) |
+| `includeUnusedIndexes` | bool | `true` | Whether to run the `unused-index` rule |
+| `unusedIndexMinDays` | int | `7` | Minimum DB uptime (days) required before flagging unused indexes; prevents false positives after a restart |
+
+**Rules:**
+
+| Rule ID | Severity | What it detects |
+|---|---|---|
+| `fk-without-index` | High | A foreign-key column (or column set) with no covering index |
+| `duplicate-index` | Medium | Two or more indexes with identical column lists and uniqueness setting |
+| `redundant-index` | Low | A non-unique index whose columns are a strict prefix of another index |
+| `unused-index` | Low | A non-unique index with zero scans since the last DB restart |
+
+Each finding includes a `SqlFix` with a ready-to-run `CREATE INDEX` or `DROP INDEX` statement (dialect-specific syntax). Read `Caveats` before acting on `unused-index` recommendations.
+
 ## Connection strings
 
 By default the server connects to the bundled demo databases:
@@ -142,7 +165,7 @@ To point at a different database, pass a `connectionString` parameter in the too
 
 ## Demo databases
 
-Both databases contain an intentionally flawed e-commerce schema (missing indexes, PII in plaintext, absent CHECK constraints) — useful for practising schema analysis with Claude.
+Both databases contain an intentionally flawed e-commerce schema (missing indexes, PII in plaintext, absent CHECK constraints) — useful for practising schema analysis with Claude. A `demo_good` schema with a clean design (all FK columns indexed, no duplicates or redundancies) is also included; `analyze_indexes` should return zero findings there.
 
 **Manual connection:**
 
