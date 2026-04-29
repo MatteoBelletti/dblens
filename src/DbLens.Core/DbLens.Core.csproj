@@ -4,4 +4,9 @@
     <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" />
   </ItemGroup>
 
+  <ItemGroup>
+    <EmbeddedResource Include="Analysis\Gdpr\Patterns\pii_patterns_en.json" />
+    <EmbeddedResource Include="Analysis\Gdpr\Patterns\pii_patterns_it.json" />
+  </ItemGroup>
+
 </Project>

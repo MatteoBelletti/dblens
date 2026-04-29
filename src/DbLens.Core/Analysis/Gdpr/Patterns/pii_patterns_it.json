@@ -1,0 +1,43 @@
+{
+  "patterns": [
+    { "name": "nome",               "category": "DirectIdentifier", "regex": "^nome$",                                                 "sqlTypes": [],                                               "confidence": 0.85 },
+    { "name": "cognome",            "category": "DirectIdentifier", "regex": "^cognome$",                                              "sqlTypes": [],                                               "confidence": 0.90 },
+    { "name": "nome_completo",      "category": "DirectIdentifier", "regex": "^nome_?completo$",                                       "sqlTypes": [],                                               "confidence": 0.90 },
+    { "name": "data_nascita",       "category": "DirectIdentifier", "regex": "^(data_?nascita|data_di_nascita)$",                      "sqlTypes": [],                                               "confidence": 0.97 },
+    { "name": "sesso",              "category": "DirectIdentifier", "regex": "^sesso$",                                                "sqlTypes": [],                                               "confidence": 0.85 },
+    { "name": "eta",                "category": "DirectIdentifier", "regex": "^eta$",                                                  "sqlTypes": ["int", "smallint", "tinyint", "numeric"],        "confidence": 0.65 },
+
+    { "name": "telefono",           "category": "Contact",          "regex": "^(telefono|cellulare|numero_?telefono|tel)$",            "sqlTypes": [],                                               "confidence": 0.90 },
+    { "name": "indirizzo",          "category": "Contact",          "regex": "^(indirizzo|via|civico)$",                               "sqlTypes": [],                                               "confidence": 0.80 },
+    { "name": "citta",              "category": "Contact",          "regex": "^(citta|città|comune)$",                                 "sqlTypes": [],                                               "confidence": 0.60 },
+    { "name": "cap",                "category": "Contact",          "regex": "^cap$",                                                  "sqlTypes": [],                                               "confidence": 0.80 },
+    { "name": "provincia",          "category": "Contact",          "regex": "^(provincia|regione)$",                                  "sqlTypes": [],                                               "confidence": 0.60 },
+
+    { "name": "codice_fiscale",     "category": "NationalId",       "regex": "^(codice_?fiscale|cf|c_?f)$",                            "sqlTypes": [],                                               "confidence": 0.99 },
+    { "name": "partita_iva",        "category": "NationalId",       "regex": "^(partita_?iva|p_?iva|piva)$",                           "sqlTypes": [],                                               "confidence": 0.99 },
+    { "name": "carta_identita",     "category": "NationalId",       "regex": "^(carta_?identita|numero_?documento|doc_number)$",       "sqlTypes": [],                                               "confidence": 0.97 },
+    { "name": "patente",            "category": "NationalId",       "regex": "^(patente(_guida)?|numero_patente)$",                    "sqlTypes": [],                                               "confidence": 0.97 },
+    { "name": "passaporto",         "category": "NationalId",       "regex": "^passaporto(_numero)?$",                                 "sqlTypes": [],                                               "confidence": 0.97 },
+
+    { "name": "numero_carta",       "category": "Financial",        "regex": "^(numero_carta|n_carta|carta_credito|carta_di_credito)$", "sqlTypes": [],                                              "confidence": 0.98 },
+    { "name": "conto_bancario",     "category": "Financial",        "regex": "^(conto_?bancario|numero_conto|iban)$",                  "sqlTypes": [],                                               "confidence": 0.95 },
+    { "name": "codice_cvv",         "category": "Financial",        "regex": "^(codice_cvv|cvv|cvc|codice_sicurezza)$",                "sqlTypes": [],                                               "confidence": 0.99 },
+
+    { "name": "salute",             "category": "SpecialCategory",  "regex": "^(salute|stato_salute)$",                                "sqlTypes": [],                                               "confidence": 0.90 },
+    { "name": "diagnosi",           "category": "SpecialCategory",  "regex": "^(diagnosi|malattia|patologia|disturbo)$",               "sqlTypes": [],                                               "confidence": 0.90 },
+    { "name": "farmaco",            "category": "SpecialCategory",  "regex": "^(farmaco|medicina|prescrizione|dosaggio)$",             "sqlTypes": [],                                               "confidence": 0.90 },
+    { "name": "allergia",           "category": "SpecialCategory",  "regex": "^(allergia|allergie|intolleranza)$",                     "sqlTypes": [],                                               "confidence": 0.90 },
+    { "name": "impronta",           "category": "SpecialCategory",  "regex": "^(impronta(_digitale)?|dato_biometrico|biometrico)$",    "sqlTypes": [],                                               "confidence": 0.95 },
+    { "name": "religione",          "category": "SpecialCategory",  "regex": "^(religione|fede|credo)$",                               "sqlTypes": [],                                               "confidence": 0.90 },
+    { "name": "orientamento",       "category": "SpecialCategory",  "regex": "^(orientamento_sessuale|sessualita)$",                   "sqlTypes": [],                                               "confidence": 0.95 },
+    { "name": "etnia",              "category": "SpecialCategory",  "regex": "^(etnia|razza|origine_etnica)$",                         "sqlTypes": [],                                               "confidence": 0.90 },
+    { "name": "sindacato",          "category": "SpecialCategory",  "regex": "^(sindacato|appartenenza_sindacale)$",                   "sqlTypes": [],                                               "confidence": 0.90 },
+
+    { "name": "indirizzo_ip",       "category": "OnlineId",         "regex": "^(indirizzo_?ip|ip_utente)$",                            "sqlTypes": [],                                               "confidence": 0.90 },
+    { "name": "nome_utente",        "category": "OnlineId",         "regex": "^(nome_?utente|utente|login)$",                          "sqlTypes": [],                                               "confidence": 0.75 },
+
+    { "name": "latitudine",         "category": "Location",         "regex": "^latitudine$",                                           "sqlTypes": ["float", "double", "decimal", "numeric", "real"], "confidence": 0.90 },
+    { "name": "longitudine",        "category": "Location",         "regex": "^longitudine$",                                          "sqlTypes": ["float", "double", "decimal", "numeric", "real"], "confidence": 0.90 },
+    { "name": "coordinate",         "category": "Location",         "regex": "^(coordinate|posizione|geolocalizzazione)$",             "sqlTypes": [],                                               "confidence": 0.90 }
+  ]
+}

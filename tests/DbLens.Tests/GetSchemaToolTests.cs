@@ -247,5 +247,8 @@ public sealed class GetSchemaToolTests
         public Task<DbLens.Core.Analysis.Indexes.AnalyzeIndexesResult> AnalyzeIndexesAsync(
             DbLens.Core.Analysis.Indexes.AnalyzeIndexesRequest request, CancellationToken ct = default) =>
             throw new NotSupportedException();
+        public Task<DbLens.Core.Analysis.Gdpr.ScanGdprResult> ScanGdprAsync(
+            DbLens.Core.Analysis.Gdpr.ScanGdprRequest request, CancellationToken ct = default) =>
+            throw new NotSupportedException();
     }
 }

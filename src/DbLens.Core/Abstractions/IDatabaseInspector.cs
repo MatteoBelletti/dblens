@@ -1,3 +1,4 @@
+using DbLens.Core.Analysis.Gdpr;
 using DbLens.Core.Analysis.Indexes;
 
 namespace DbLens.Core.Abstractions;
@@ -32,5 +33,13 @@ public interface IDatabaseInspector
     /// </summary>
     Task<AnalyzeIndexesResult> AnalyzeIndexesAsync(
         AnalyzeIndexesRequest request,
+        CancellationToken ct = default);
+
+    /// <summary>
+    /// Scans table columns for potential PII/GDPR-relevant data using name-pattern matching.
+    /// Rules: pii-identifier, pii-contact, pii-financial, pii-special-category, pii-location, missing-gdpr-controls.
+    /// </summary>
+    Task<ScanGdprResult> ScanGdprAsync(
+        ScanGdprRequest request,
         CancellationToken ct = default);
 }
