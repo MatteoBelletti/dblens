@@ -12,11 +12,15 @@ public interface IDatabaseInspector
     /// <summary>Opens a connection and executes a trivial query to confirm reachability.</summary>
     Task<bool> TestConnectionAsync(CancellationToken ct = default);
 
-    /// <summary>
-    /// Returns a high-level overview of all user tables and views, grouped by schema.
-    /// Column-level details are available via <c>GetTableDetailsAsync</c> (not yet implemented).
-    /// </summary>
+    /// <summary>Returns a high-level overview of all user tables and views, grouped by schema.</summary>
     Task<DbLens.Core.Models.DatabaseSchemaOverview> GetSchemaOverviewAsync(
         DbLens.Core.Models.SchemaOverviewRequest request,
+        CancellationToken ct = default);
+
+    /// <summary>
+    /// Returns full detail (columns, indexes, FKs, constraints) for one or more specific tables.
+    /// </summary>
+    Task<DbLens.Core.Models.TableDetailsResult> GetTableDetailsAsync(
+        DbLens.Core.Models.TableDetailsRequest request,
         CancellationToken ct = default);
 }
