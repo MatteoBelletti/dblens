@@ -241,5 +241,8 @@ public sealed class GetSchemaToolTests
         public Task<DatabaseSchemaOverview> GetSchemaOverviewAsync(
             SchemaOverviewRequest request, CancellationToken ct = default) =>
             Task.FromResult(handler(request));
+        public Task<TableDetailsResult> GetTableDetailsAsync(
+            TableDetailsRequest request, CancellationToken ct = default) =>
+            throw new NotSupportedException();
     }
 }
