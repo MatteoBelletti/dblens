@@ -13,10 +13,16 @@ public sealed class GetTableDetailsTool(IServiceProvider services, IDatabaseInsp
     private IKeyedServiceProvider KeyedServices => (IKeyedServiceProvider)services;
 
     [McpServerTool, Description(
-        "Returns detailed schema information for one or more specific tables: columns with types and nullability, " +
-        "all indexes with their definitions, foreign keys (outgoing and incoming), check constraints, and unique constraints. " +
+        "Returns detailed schema information for one or more specific tables or views: " +
+        "columns with types and nullability, all indexes with their definitions, " +
+        "foreign keys (outgoing and incoming), check constraints, and unique constraints. " +
         "Use this after get_schema to inspect specific tables. " +
-        "Pass multiple table names in a single call to avoid round trips.")]
+        "Pass multiple table names in a single call to avoid round trips. " +
+        "IMPORTANT: this tool returns only structural metadata. " +
+        "The following data is NOT included — do NOT infer, guess, or generate it: " +
+        "(1) view SQL bodies (SELECT definitions) — for views only column metadata is returned; " +
+        "(2) actual row data or sample values; " +
+        "(3) structure of tables listed in the NotFound field — those objects do not exist in the database.")]
     public Task<TableDetailsResult> GetTableDetails(
         [Description(
             "Table names to inspect. Format: \"schema.name\" (e.g. \"public.users\") or just \"name\" " +

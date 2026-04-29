@@ -551,7 +551,10 @@ public sealed class PostgresInspector : IDatabaseInspector
                     $"Retrieved details for {found} of {requested} requested table{(requested != 1 ? "s" : "")}. " +
                     $"Found {totalColumns} column{(totalColumns != 1 ? "s" : "")}, " +
                     $"{totalIndexes} index{(totalIndexes != 1 ? "es" : "")}, " +
-                    $"{totalFks} foreign key{(totalFks != 1 ? "s" : "")}.",
+                    $"{totalFks} foreign key{(totalFks != 1 ? "s" : "")}. " +
+                    "NOTE: view SQL bodies (SELECT definitions) are NOT included — do not infer or generate view logic. " +
+                    "Row data is NOT included — do not infer or generate sample values. " +
+                    "Tables in the NotFound list do not exist in this database — do not infer or generate their structure.",
                 Dialect: "PostgreSql",
                 Database: databaseName ?? "unknown",
                 GeneratedAt: DateTime.UtcNow.ToString("O"),
@@ -665,7 +668,9 @@ public sealed class PostgresInspector : IDatabaseInspector
         var rowNote = anyUnanalyzed
             ? $"Total approximate rows: {approxRows} (some tables not yet analyzed; run ANALYZE for accurate counts)."
             : $"Total approximate rows: {approxRows}.";
-        return $"Found {objectDesc} across {schemaDesc}. {rowNote} Total size on disk: {FormatBytes(totalBytes)}.";
+        return $"Found {objectDesc} across {schemaDesc}. {rowNote} Total size on disk: {FormatBytes(totalBytes)}. " +
+               "NOTE: column names are NOT included in this response; only ColumnCount per object is available. " +
+               "Do NOT infer or generate column names. Call get_table_details for exact column information.";
     }
 
     internal static string FormatBytes(long bytes) => bytes switch
