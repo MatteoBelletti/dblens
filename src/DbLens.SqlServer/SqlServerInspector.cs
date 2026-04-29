@@ -652,7 +652,10 @@ public sealed class SqlServerInspector : IDatabaseInspector
                     $"Retrieved details for {found} of {requested} requested table{(requested != 1 ? "s" : "")}. " +
                     $"Found {totalColumns} column{(totalColumns != 1 ? "s" : "")}, " +
                     $"{totalIndexes} index{(totalIndexes != 1 ? "es" : "")}, " +
-                    $"{totalFks} foreign key{(totalFks != 1 ? "s" : "")}.",
+                    $"{totalFks} foreign key{(totalFks != 1 ? "s" : "")}. " +
+                    "NOTE: view SQL bodies (SELECT definitions) are NOT included — do not infer or generate view logic. " +
+                    "Row data is NOT included — do not infer or generate sample values. " +
+                    "Tables in the NotFound list do not exist in this database — do not infer or generate their structure.",
                 Dialect: "SqlServer",
                 Database: databaseName ?? "unknown",
                 GeneratedAt: DateTime.UtcNow.ToString("O"),
@@ -780,7 +783,9 @@ public sealed class SqlServerInspector : IDatabaseInspector
             ? $"{tables} table{(tables != 1 ? "s" : "")} and {views} view{(views != 1 ? "s" : "")}"
             : $"{tables} table{(tables != 1 ? "s" : "")} and 0 views";
         var schemaDesc = $"{schemaCount} schema{(schemaCount != 1 ? "s" : "")}";
-        return $"Found {objectDesc} across {schemaDesc}. Total approximate rows: {approxRows}. Total size on disk: {FormatBytes(totalBytes)}.";
+        return $"Found {objectDesc} across {schemaDesc}. Total approximate rows: {approxRows}. Total size on disk: {FormatBytes(totalBytes)}. " +
+               "NOTE: column names are NOT included in this response; only ColumnCount per object is available. " +
+               "Do NOT infer or generate column names. Call get_table_details for exact column information.";
     }
 
     private static string FormatBytes(long bytes) => bytes switch

@@ -16,8 +16,10 @@ public sealed class GetSchemaTool(IServiceProvider services, IDatabaseInspectorF
     [McpServerTool, Description(
         "Returns an overview of all user tables and views in a database, " +
         "with row count estimates, sizes, and FK/index counts. " +
-        "Use this to explore an unfamiliar database. " +
-        "For column-level details, use get_table_details.")]
+        "IMPORTANT: column names are NOT included in this response — only a ColumnCount integer is returned per object. " +
+        "Do NOT infer, guess, or generate column names from this data. " +
+        "If you need to draw an ER diagram or show columns, first call get_table_details for the relevant tables. " +
+        "Use this tool only to explore table/view names, sizes, and relationship counts.")]
     public Task<DatabaseSchemaOverview> GetSchema(
         [Description("Database dialect: PostgreSql or SqlServer.")]
         DatabaseDialect dialect = DatabaseDialect.PostgreSql,
