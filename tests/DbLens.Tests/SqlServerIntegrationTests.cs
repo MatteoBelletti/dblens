@@ -207,8 +207,11 @@ public sealed class SqlServerIntegrationTests : IClassFixture<SqlServerFixture>
 /// <summary>xUnit fixture for SQL Server integration tests.</summary>
 public sealed class SqlServerFixture : IAsyncLifetime
 {
-    private const string ConnectionString =
+    private const string DefaultConnectionString =
         "Server=localhost,1434;Database=dblens_demo;User Id=sa;Password=DevPassword123!;TrustServerCertificate=true";
+
+    private static string ConnectionString =>
+        Environment.GetEnvironmentVariable("DBLENS_TEST_SS_CONNECTION") ?? DefaultConnectionString;
 
     public bool IsReachable { get; private set; }
     public SqlServerInspector? Inspector { get; private set; }

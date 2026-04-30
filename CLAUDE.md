@@ -162,11 +162,17 @@ The demo databases run on non-standard ports (5433, 1434) to avoid colliding wit
 | `src/DbLens.Mcp/Program.cs` | Entry point: transport selection, DI wiring |
 | `src/DbLens.Core/Abstractions/IDatabaseInspector.cs` | Inspector contract |
 | `src/DbLens.Core/Analysis/Finding.cs` | Permanent product contract for all diagnostic findings |
+| `src/DbLens.Core/Analysis/DiagnosticLimits.cs` | Shared numeric limits (MaxTablesPerRequest, MaxFindingCount) |
+| `src/DbLens.Core/Analysis/RuleIds.cs` | Rule ID string constants (`IndexRuleIds`, `GdprRuleIds`) with `All` arrays |
 | `src/DbLens.Core/Analysis/Indexes/` | Request/result types and rules for `analyze_indexes` |
+| `src/DbLens.Core/Analysis/Gdpr/` | Request/result types, pattern dictionaries, classifier, and engine for `scan_gdpr` |
+| `src/DbLens.Core/Analysis/Gdpr/Patterns/` | Embedded JSON pattern files (`pii_patterns_en.json`, `pii_patterns_it.json`) |
 | `src/DbLens.Postgres/PostgresInspector.cs` | PostgreSQL base implementation |
 | `src/DbLens.Postgres/PostgresInspector.Analyze.cs` | PostgreSQL `AnalyzeIndexesAsync` (partial class) |
+| `src/DbLens.Postgres/PostgresInspector.ScanGdpr.cs` | PostgreSQL `ScanGdprAsync` (partial class) |
 | `src/DbLens.SqlServer/SqlServerInspector.cs` | SQL Server base implementation |
 | `src/DbLens.SqlServer/SqlServerInspector.Analyze.cs` | SQL Server `AnalyzeIndexesAsync` (partial class) |
+| `src/DbLens.SqlServer/SqlServerInspector.ScanGdpr.cs` | SQL Server `ScanGdprAsync` (partial class) |
 | `src/DbLens.Mcp/Infrastructure/DatabaseInspectorFactory.cs` | Creates ad-hoc inspectors for custom connection strings |
 | `src/DbLens.Mcp/Tools/` | All MCP tool classes |
 | `docker-compose.yml` | Demo databases (PostgreSQL 17 on 5433, SQL Server 2022 on 1434) |
@@ -184,3 +190,9 @@ The demo databases run on non-standard ports (5433, 1434) to avoid colliding wit
 - Both PostgreSQL and SQL Server must be kept at feature parity for any new inspector capability.
 - Add a parity test file (`<Feature>ParityTests.cs`) for every new diagnostic tool that compares findings across dialects (strip schema prefix with `f.Table.Split('.')[1]` for bare-table comparisons).
 - Stub inspectors in `GetSchemaToolTests` and `GetTableDetailsToolTests` must implement all `IDatabaseInspector` methods; add `throw new NotSupportedException()` for new methods.
+- Use `DiagnosticLimits` constants (never magic numbers) for `MaxTablesPerRequest` and `MaxFindingCount`. Note: `[Description]` attribute values must be compile-time constants — use literals there, not `nameof` or interpolation.
+- Use rule ID constants from `IndexRuleIds` / `GdprRuleIds` everywhere (rules, summary builders, tests). Never write rule ID strings inline.
+- Command timeouts: all database commands must set `CommandTimeout = QueryTimeoutSeconds` (constant = 30). Npgsql's default is 0 (infinite) unless set in the connection string. SqlClient's default is 30s but set it explicitly for clarity.
+- Do not catch `System.TimeoutException` from database drivers — Npgsql raises `NpgsqlException` and SqlClient raises `SqlException` on command timeout; `TimeoutException` catches are dead code.
+- Test fixture connection strings: use `Environment.GetEnvironmentVariable("DBLENS_TEST_PG_CONNECTION")` / `"DBLENS_TEST_SS_CONNECTION"` with a hardcoded default fallback. Never hardcode credentials as the sole source of truth.
+- `NotFound` propagation: after calling `GetTableDetailsAsync` from a diagnostic method, always check `details.NotFound` and append a caveat to the result using `result = result with { Caveats = [..result.Caveats, extra] }`.

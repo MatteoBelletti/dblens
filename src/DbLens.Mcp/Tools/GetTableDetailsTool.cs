@@ -1,5 +1,6 @@
 using System.ComponentModel;
 using DbLens.Core.Abstractions;
+using DbLens.Core.Analysis;
 using DbLens.Core.Models;
 using DbLens.Mcp.Infrastructure;
 using Microsoft.Extensions.DependencyInjection;
@@ -43,8 +44,9 @@ public sealed class GetTableDetailsTool(IServiceProvider services, IDatabaseInsp
         if (tables is null || tables.Length == 0)
             throw new ArgumentException("tables must not be empty.");
 
-        if (tables.Length > 20)
-            throw new ArgumentException($"tables list must not exceed 20 elements (got {tables.Length}).");
+        if (tables.Length > DiagnosticLimits.MaxTablesPerRequest)
+            throw new ArgumentException(
+                $"tables list must not exceed {DiagnosticLimits.MaxTablesPerRequest} elements (got {tables.Length}).");
 
         var empty = Array.FindIndex(tables, t => string.IsNullOrWhiteSpace(t));
         if (empty >= 0)

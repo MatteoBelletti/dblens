@@ -33,24 +33,22 @@ public static class RedundantIndexRule
                 if (superset is null) continue;
 
                 yield return new Finding(
-                    RuleId: "redundant-index",
-                    Severity: Severity.Low,
-                    Category: FindingCategory.Structure,
-                    Confidence: 1.0,
-                    Table: tableQualified,
-                    Columns: a.Columns,
-                    Title: $"Indice '{a.Name}' ridondante (prefisso di '{superset.Name}')",
-                    Description:
-                        $"L'indice '{a.Name}' su {tableQualified} " +
-                        $"({string.Join(", ", a.Columns)}) è un prefisso esatto di " +
-                        $"'{superset.Name}' ({string.Join(", ", superset.Columns)}). " +
-                        "Qualsiasi query coperta dal primo è già coperta dal secondo.",
-                    SqlFix: DuplicateIndexRule.BuildDropIndex(table.Schema, table.Name, a.Name, dialect),
-                    Metadata: new Dictionary<string, object>
+                    RuleId:      IndexRuleIds.RedundantIndex,
+                    Severity:    Severity.Low,
+                    Category:    FindingCategory.Structure,
+                    Confidence:  1.0,
+                    Table:       tableQualified,
+                    Columns:     a.Columns,
+                    Title:       $"Index '{a.Name}' is redundant (prefix of '{superset.Name}')",
+                    Description: $"Index '{a.Name}' on {tableQualified} " +
+                                 $"({string.Join(", ", a.Columns)}) is an exact prefix of " +
+                                 $"'{superset.Name}' ({string.Join(", ", superset.Columns)}). " +
+                                 "Any query covered by the shorter index is already covered by the longer one.",
+                    SqlFix:      DuplicateIndexRule.BuildDropIndex(table.Schema, table.Name, a.Name, dialect),
+                    Metadata:    new Dictionary<string, object>
                     {
                         ["superset_index"] = superset.Name
-                    }
-                );
+                    });
             }
         }
     }

@@ -1,4 +1,5 @@
 using DbLens.Core.Abstractions;
+using DbLens.Core.Analysis;
 using DbLens.Core.Models;
 using DbLens.Mcp.Infrastructure;
 using DbLens.Mcp.Tools;
@@ -63,20 +64,22 @@ public sealed class GetTableDetailsToolTests
     }
 
     [Fact]
-    public async Task GetTableDetails_TwentyOneElements_ThrowsArgumentException()
+    public async Task GetTableDetails_OneOverLimit_ThrowsArgumentException()
     {
         var tool = MakeTool();
-        var tables = Enumerable.Range(1, 21).Select(i => $"t{i}").ToArray();
+        var tables = Enumerable.Range(1, DiagnosticLimits.MaxTablesPerRequest + 1)
+            .Select(i => $"t{i}").ToArray();
         await tool.Invoking(t => t.GetTableDetails(tables))
             .Should().ThrowAsync<ArgumentException>()
-            .WithMessage("*20*");
+            .WithMessage($"*{DiagnosticLimits.MaxTablesPerRequest}*");
     }
 
     [Fact]
-    public async Task GetTableDetails_TwentyElements_DoesNotThrow()
+    public async Task GetTableDetails_AtLimit_DoesNotThrow()
     {
         var tool = MakeTool();
-        var tables = Enumerable.Range(1, 20).Select(i => $"t{i}").ToArray();
+        var tables = Enumerable.Range(1, DiagnosticLimits.MaxTablesPerRequest)
+            .Select(i => $"t{i}").ToArray();
         await tool.Invoking(t => t.GetTableDetails(tables)).Should().NotThrowAsync();
     }
 

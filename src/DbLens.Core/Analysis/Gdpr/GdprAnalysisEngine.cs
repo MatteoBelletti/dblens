@@ -4,14 +4,11 @@ namespace DbLens.Core.Analysis.Gdpr;
 
 public static class GdprAnalysisEngine
 {
-    internal const string Disclaimer =
+    public const string Disclaimer =
         "DISCLAIMER: This is automated PII detection based on column name pattern matching. " +
         "Results may contain false positives and false negatives. " +
         "This tool is not a substitute for a formal GDPR compliance review by qualified legal " +
         "and technical professionals. Verify all findings before taking action.";
-
-    private static readonly string[] AllRuleIds =
-        ["pii-identifier", "pii-contact", "pii-financial", "pii-special-category", "pii-location", "missing-gdpr-controls"];
 
     public static ScanGdprResult Analyze(
         IReadOnlyList<TableDetail> tables,
@@ -24,7 +21,7 @@ public static class GdprAnalysisEngine
         foreach (var table in tables)
         {
             var gap = GapAnalyzer.Analyze(table);
-            var piiColumns = new List<(ColumnDetail Column, PiiMatch Match)>();
+            var piiColumnCount = 0;
 
             foreach (var col in table.Columns)
             {
@@ -32,28 +29,21 @@ public static class GdprAnalysisEngine
                 if (match is null)
                     continue;
 
-                piiColumns.Add((col, match));
-
-                var finding = BuildPiiFinding(
-                    table.Schema, table.Name, col, match, gap, dialect);
-                findings.Add(finding);
+                piiColumnCount++;
+                findings.Add(BuildPiiFinding(table.Schema, table.Name, col, match, gap));
             }
 
-            if (piiColumns.Count > 0)
-            {
-                var gapFindings = BuildGapFindings(table, gap, piiColumns.Count, dialect);
-                findings.AddRange(gapFindings);
-            }
+            if (piiColumnCount > 0)
+                findings.AddRange(BuildGapFindings(table, gap, piiColumnCount));
         }
 
-        const int maxFindings = 200;
         var truncated = false;
-        if (findings.Count > maxFindings)
+        if (findings.Count > DiagnosticLimits.MaxFindingCount)
         {
-            findings = findings.Take(maxFindings).ToList();
+            findings = findings.Take(DiagnosticLimits.MaxFindingCount).ToList();
             truncated = true;
             caveats.Add(
-                $"Results truncated to {maxFindings} findings. " +
+                $"Results truncated to {DiagnosticLimits.MaxFindingCount} findings. " +
                 "Use schema/tables filters for a more targeted scan.");
         }
 
@@ -73,11 +63,11 @@ public static class GdprAnalysisEngine
     private static Finding BuildPiiFinding(
         string schema, string tableName,
         ColumnDetail col, PiiMatch match,
-        TableGap gap, DatabaseDialect dialect)
+        TableGap gap)
     {
         var (ruleId, baseSeverity) = MapCategoryToRule(match.Category);
 
-        // Critical stays Critical; High drops to Medium when an encryption marker is present
+        // Critical stays Critical; High drops to Medium when an encryption marker is present.
         var severity = baseSeverity == Severity.High && gap.HasEncryptionMarker
             ? Severity.Medium
             : baseSeverity;
@@ -107,51 +97,51 @@ public static class GdprAnalysisEngine
     }
 
     private static IEnumerable<Finding> BuildGapFindings(
-        TableDetail table, TableGap gap, int piiColumnCount, DatabaseDialect dialect)
+        TableDetail table, TableGap gap, int piiColumnCount)
     {
+        var missing = new List<string>();
+        if (!gap.HasSoftDelete)  missing.Add("soft-delete column (e.g. deleted_at / is_deleted)");
+        if (!gap.HasCreatedAt)   missing.Add("created_at audit timestamp");
+        if (!gap.HasUpdatedAt)   missing.Add("updated_at audit timestamp");
+
+        if (missing.Count == 0)
+            yield break;
+
         var qualified = $"{table.Schema}.{table.Name}";
 
-        if (!gap.HasSoftDelete)
-        {
-            var missing = new List<string>();
-            missing.Add("soft-delete column (e.g. deleted_at / is_deleted)");
-            if (!gap.HasCreatedAt)      missing.Add("created_at audit timestamp");
-            if (!gap.HasUpdatedAt)      missing.Add("updated_at audit timestamp");
-
-            yield return new Finding(
-                RuleId:      "missing-gdpr-controls",
-                Severity:    Severity.Medium,
-                Category:    FindingCategory.Compliance,
-                Confidence:  1.0,
-                Table:       qualified,
-                Columns:     null,
-                Title:       $"Table with PII lacks GDPR controls: {table.Name}",
-                Description: $"Table '{qualified}' contains {piiColumnCount} PII column(s) but is missing: " +
-                             string.Join(", ", missing) + ". " +
-                             "Soft-delete supports the GDPR right to erasure; " +
-                             "audit timestamps support data accountability obligations.",
-                SqlFix:      null,
-                Metadata:    new Dictionary<string, object>
-                {
-                    ["hasSoftDelete"]  = gap.HasSoftDelete,
-                    ["hasCreatedAt"]   = gap.HasCreatedAt,
-                    ["hasUpdatedAt"]   = gap.HasUpdatedAt,
-                    ["piiColumnCount"] = piiColumnCount
-                });
-        }
+        yield return new Finding(
+            RuleId:      GdprRuleIds.MissingGdprControls,
+            Severity:    Severity.Medium,
+            Category:    FindingCategory.Compliance,
+            Confidence:  1.0,
+            Table:       qualified,
+            Columns:     null,
+            Title:       $"Table with PII lacks GDPR controls: {table.Name}",
+            Description: $"Table '{qualified}' contains {piiColumnCount} PII column(s) but is missing: " +
+                         string.Join(", ", missing) + ". " +
+                         "Soft-delete supports the GDPR right to erasure; " +
+                         "audit timestamps support data accountability obligations.",
+            SqlFix:      null,
+            Metadata:    new Dictionary<string, object>
+            {
+                ["hasSoftDelete"]  = gap.HasSoftDelete,
+                ["hasCreatedAt"]   = gap.HasCreatedAt,
+                ["hasUpdatedAt"]   = gap.HasUpdatedAt,
+                ["piiColumnCount"] = piiColumnCount
+            });
     }
 
     private static (string RuleId, Severity Severity) MapCategoryToRule(PiiCategory category) =>
         category switch
         {
-            PiiCategory.DirectIdentifier => ("pii-identifier",       Severity.High),
-            PiiCategory.NationalId       => ("pii-identifier",       Severity.Critical),
-            PiiCategory.Contact          => ("pii-contact",          Severity.Medium),
-            PiiCategory.OnlineId         => ("pii-contact",          Severity.Low),
-            PiiCategory.Financial        => ("pii-financial",        Severity.Critical),
-            PiiCategory.SpecialCategory  => ("pii-special-category", Severity.Critical),
-            PiiCategory.Location         => ("pii-location",         Severity.Low),
-            _                            => ("pii-identifier",       Severity.Medium)
+            PiiCategory.DirectIdentifier => (GdprRuleIds.PiiIdentifier,      Severity.High),
+            PiiCategory.NationalId       => (GdprRuleIds.PiiIdentifier,      Severity.Critical),
+            PiiCategory.Contact          => (GdprRuleIds.PiiContact,         Severity.Medium),
+            PiiCategory.OnlineId         => (GdprRuleIds.PiiContact,         Severity.Low),
+            PiiCategory.Financial        => (GdprRuleIds.PiiFinancial,       Severity.Critical),
+            PiiCategory.SpecialCategory  => (GdprRuleIds.PiiSpecialCategory, Severity.Critical),
+            PiiCategory.Location         => (GdprRuleIds.PiiLocation,        Severity.Low),
+            _                            => (GdprRuleIds.PiiIdentifier,      Severity.Medium)
         };
 
     private static GdprSummary BuildSummary(IReadOnlyList<Finding> findings)
@@ -159,7 +149,7 @@ public static class GdprAnalysisEngine
         var bySeverity = Enum.GetValues<Severity>()
             .ToDictionary(s => s.ToString(), s => findings.Count(f => f.Severity == s));
 
-        var byRule = AllRuleIds
+        var byRule = GdprRuleIds.All
             .ToDictionary(r => r, r => findings.Count(f => f.RuleId == r));
 
         var byCategory = Enum.GetValues<PiiCategory>()

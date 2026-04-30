@@ -55,9 +55,9 @@ public sealed partial class PostgresInspector
                 if (stats.UptimeDays < request.UnusedIndexMinDays)
                 {
                     caveats.Add(
-                        $"Uptime DB insufficiente per la regola 'unused-index' " +
-                        $"({stats.UptimeDays:F0} giorni, minimo richiesto: {request.UnusedIndexMinDays} giorni). " +
-                        "La regola è stata saltata.");
+                        $"Insufficient DB uptime for the 'unused-index' rule " +
+                        $"({stats.UptimeDays:F0} day(s), minimum required: {request.UnusedIndexMinDays}). " +
+                        "The rule was skipped.");
                 }
                 else
                 {
@@ -65,21 +65,20 @@ public sealed partial class PostgresInspector
                     findings.AddRange(unusedFindings);
                     if (unusedFindings.Count > 0)
                         caveats.Add(
-                            $"Database uptime: {stats.UptimeDays:F0} giorni. " +
-                            "La regola 'unused-index' considera scan accumulati dall'ultimo restart del DB. " +
-                            "Verifica manualmente prima di droppare un indice.");
+                            $"Database uptime: {stats.UptimeDays:F0} day(s). " +
+                            "The 'unused-index' rule counts scans accumulated since the last DB restart. " +
+                            "Verify manually before dropping any index.");
                 }
             }
 
-            const int maxFindings = 200;
             var truncated = false;
-            if (findings.Count > maxFindings)
+            if (findings.Count > DiagnosticLimits.MaxFindingCount)
             {
-                findings = findings.Take(maxFindings).ToList();
+                findings = findings.Take(DiagnosticLimits.MaxFindingCount).ToList();
                 truncated = true;
                 caveats.Add(
-                    $"Risultati troncati a {maxFindings} finding. " +
-                    "Usa i filtri schema/tables per un'analisi più granulare.");
+                    $"Results truncated to {DiagnosticLimits.MaxFindingCount} findings. " +
+                    "Use the schema/tables filters for a more targeted analysis.");
             }
 
             _logger.LogInformation(
@@ -100,11 +99,6 @@ public sealed partial class PostgresInspector
         {
             throw new DatabaseInspectionException(
                 $"PostgreSQL error during index analysis: {ex.Message}", ex);
-        }
-        catch (TimeoutException ex)
-        {
-            throw new DatabaseInspectionException(
-                $"Timeout during index analysis: {ex.Message}", ex);
         }
     }
 
@@ -144,6 +138,7 @@ public sealed partial class PostgresInspector
         await conn.OpenAsync(ct);
         await using var cmd = conn.CreateCommand();
         cmd.CommandText = IndexUsageStatsSql;
+        cmd.CommandTimeout = QueryTimeoutSeconds;
         cmd.Parameters.Add(new NpgsqlParameter("schemas", NpgsqlDbType.Array | NpgsqlDbType.Text) { Value = schemas });
         cmd.Parameters.Add(new NpgsqlParameter("names", NpgsqlDbType.Array | NpgsqlDbType.Text) { Value = names });
 
@@ -176,7 +171,7 @@ public sealed partial class PostgresInspector
         var bySeverity = Enum.GetValues<Severity>()
             .ToDictionary(s => s.ToString(), s => findings.Count(f => f.Severity == s));
 
-        var byRule = new[] { "fk-without-index", "duplicate-index", "redundant-index", "unused-index" }
+        var byRule = IndexRuleIds.All
             .ToDictionary(r => r, r => findings.Count(f => f.RuleId == r));
 
         return new AnalyzeIndexesSummary(

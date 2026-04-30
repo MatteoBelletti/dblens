@@ -222,6 +222,10 @@ public sealed partial class PostgresInspector : IDatabaseInspector
         ORDER BY n.nspname, c.relname, con.conname
         """;
 
+    // Npgsql default CommandTimeout is 0 (infinite) unless set in the connection string.
+    // Set it explicitly on every command so slow queries don't block indefinitely.
+    private const int QueryTimeoutSeconds = 30;
+
     public PostgresInspector(string connectionString, ILogger<PostgresInspector> logger)
     {
         _connectionString = connectionString;
@@ -257,6 +261,7 @@ public sealed partial class PostgresInspector : IDatabaseInspector
 
             await using var cmd = conn.CreateCommand();
             cmd.CommandText = SchemaOverviewSql;
+            cmd.CommandTimeout = QueryTimeoutSeconds;
 
             cmd.Parameters.Add(new NpgsqlParameter("schema_filter", NpgsqlDbType.Text)
                 { Value = (object?)request.SchemaFilter ?? DBNull.Value });
@@ -317,11 +322,6 @@ public sealed partial class PostgresInspector : IDatabaseInspector
         {
             throw new DatabaseInspectionException(
                 $"PostgreSQL error during schema overview: {ex.Message}", ex);
-        }
-        catch (TimeoutException ex)
-        {
-            throw new DatabaseInspectionException(
-                $"Timeout during schema overview: {ex.Message}", ex);
         }
     }
 
@@ -572,11 +572,6 @@ public sealed partial class PostgresInspector : IDatabaseInspector
             throw new DatabaseInspectionException(
                 $"PostgreSQL error during table details: {ex.Message}", ex);
         }
-        catch (TimeoutException ex)
-        {
-            throw new DatabaseInspectionException(
-                $"Timeout during table details: {ex.Message}", ex);
-        }
     }
 
     // --- helpers ---
@@ -585,6 +580,7 @@ public sealed partial class PostgresInspector : IDatabaseInspector
     {
         var cmd = conn.CreateCommand();
         cmd.CommandText = sql;
+        cmd.CommandTimeout = QueryTimeoutSeconds;
         cmd.Parameters.Add(new NpgsqlParameter("schemas", NpgsqlDbType.Array | NpgsqlDbType.Text) { Value = schemas });
         cmd.Parameters.Add(new NpgsqlParameter("names", NpgsqlDbType.Array | NpgsqlDbType.Text) { Value = names });
         return cmd;

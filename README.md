@@ -4,7 +4,7 @@ An MCP server written in .NET 10 that lets Claude inspect the schema of PostgreS
 
 ## What it does
 
-dblens exposes four tools to any MCP-compatible client (Claude Desktop, Claude Code, MCP Inspector):
+dblens exposes five tools to any MCP-compatible client (Claude Desktop, Claude Code, MCP Inspector):
 
 | Tool | What it returns |
 |---|---|
@@ -12,8 +12,9 @@ dblens exposes four tools to any MCP-compatible client (Claude Desktop, Claude C
 | `get_schema` | High-level overview of all tables and views: row-count estimates, sizes, FK/index counts, grouped by schema |
 | `get_table_details` | Full structural detail for 1–20 tables: columns with types and nullability, all indexes, foreign keys (in and out), check constraints, unique constraints |
 | `analyze_indexes` | Diagnostic findings for index health: FK columns without a covering index, duplicate indexes, redundant indexes, and unused indexes (when stats are available) |
+| `scan_gdpr` | Scans columns for PII/GDPR-relevant data by name and type patterns; identifies 5 PII categories and flags tables missing audit controls |
 
-The typical workflow is: `get_schema` to orient yourself, then `get_table_details` on the tables that matter, then `analyze_indexes` to surface index problems.
+The typical workflow is: `get_schema` to orient yourself, then `get_table_details` on the tables that matter, then `analyze_indexes` to surface index problems. Use `scan_gdpr` to identify GDPR exposure before a compliance review.
 
 ## Prerequisites
 
@@ -151,6 +152,30 @@ Tables not found in the database are listed in `NotFound`; they are absent from 
 | `unused-index` | Low | A non-unique index with zero scans since the last DB restart |
 
 Each finding includes a `SqlFix` with a ready-to-run `CREATE INDEX` or `DROP INDEX` statement (dialect-specific syntax). Read `Caveats` before acting on `unused-index` recommendations.
+
+### `scan_gdpr`
+
+| Parameter | Type | Default | Description |
+|---|---|---|---|
+| `dialect` | `PostgreSql` \| `SqlServer` | `PostgreSql` | Target database engine |
+| `connectionString` | string | server default | Custom connection string |
+| `schema` | string | — | Restrict scan to this schema |
+| `tables` | string[] | — | Restrict scan to these table names |
+| `excludeTables` | string[] | — | Table names to exclude from the scan |
+| `minConfidence` | double | `0.5` | Minimum match confidence to include (0.0–1.0) |
+
+**Rules:**
+
+| Rule ID | Severity | What it detects |
+|---|---|---|
+| `pii-identifier` | High (Medium with encryption marker) | Columns likely containing national IDs, passport numbers, SSN, fiscal codes |
+| `pii-contact` | Medium | Email, phone, address columns |
+| `pii-financial` | High | Credit card numbers, IBAN, bank account columns |
+| `pii-special-category` | Critical | Health data, biometric data, religion, political views (Art. 9 GDPR) |
+| `pii-location` | Low | Precise geolocation columns (latitude/longitude, GPS) |
+| `missing-gdpr-controls` | Medium | PII-containing tables lacking soft-delete, created_at, or updated_at audit columns |
+
+Results always include a `Disclaimer` field reminding you that column-name matching is heuristic — manual review is required. Read `Caveats` for any tables excluded from the scan.
 
 ## Connection strings
 

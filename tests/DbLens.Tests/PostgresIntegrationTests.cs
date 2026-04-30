@@ -194,8 +194,11 @@ public sealed class PostgresIntegrationTests : IClassFixture<PostgresFixture>
 /// <summary>xUnit fixture that opens a PostgreSQL connection and runs ANALYZE before tests.</summary>
 public sealed class PostgresFixture : IAsyncLifetime
 {
-    private const string ConnectionString =
+    private const string DefaultConnectionString =
         "Host=localhost;Port=5433;Database=dblens_demo;Username=postgres;Password=devpassword";
+
+    private static string ConnectionString =>
+        Environment.GetEnvironmentVariable("DBLENS_TEST_PG_CONNECTION") ?? DefaultConnectionString;
 
     public bool IsReachable { get; private set; }
     public PostgresInspector? Inspector { get; private set; }

@@ -265,6 +265,9 @@ public sealed partial class SqlServerInspector : IDatabaseInspector
         ORDER BY s.name, t.name, i.name, ic.index_column_id
         """;
 
+    // SqlClient default CommandTimeout is 30 s; set it explicitly to make the intent clear.
+    private const int QueryTimeoutSeconds = 30;
+
     public SqlServerInspector(string connectionString, ILogger<SqlServerInspector> logger)
     {
         _connectionString = connectionString;
@@ -300,6 +303,7 @@ public sealed partial class SqlServerInspector : IDatabaseInspector
 
             await using var cmd = conn.CreateCommand();
             cmd.CommandText = SchemaOverviewSql;
+            cmd.CommandTimeout = QueryTimeoutSeconds;
 
             cmd.Parameters.Add(new SqlParameter("schema_filter", System.Data.SqlDbType.NVarChar, 128)
                 { Value = (object?)request.SchemaFilter ?? DBNull.Value });
@@ -359,11 +363,6 @@ public sealed partial class SqlServerInspector : IDatabaseInspector
         {
             throw new DatabaseInspectionException(
                 $"SQL Server error during schema overview: {ex.Message}", ex);
-        }
-        catch (TimeoutException ex)
-        {
-            throw new DatabaseInspectionException(
-                $"Timeout during schema overview: {ex.Message}", ex);
         }
     }
 
@@ -673,11 +672,6 @@ public sealed partial class SqlServerInspector : IDatabaseInspector
             throw new DatabaseInspectionException(
                 $"SQL Server error during table details: {ex.Message}", ex);
         }
-        catch (TimeoutException ex)
-        {
-            throw new DatabaseInspectionException(
-                $"Timeout during table details: {ex.Message}", ex);
-        }
     }
 
     // --- helpers ---
@@ -686,6 +680,7 @@ public sealed partial class SqlServerInspector : IDatabaseInspector
     {
         var cmd = conn.CreateCommand();
         cmd.CommandText = sql;
+        cmd.CommandTimeout = QueryTimeoutSeconds;
         cmd.Parameters.Add(new SqlParameter("pairs", System.Data.SqlDbType.NVarChar, -1) { Value = pairs });
         return cmd;
     }

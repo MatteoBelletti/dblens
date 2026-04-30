@@ -9,7 +9,7 @@ public static class PiiClassifier
 
     public static PiiMatch? Classify(string columnName, string sqlType, double minConfidence = 0.5)
     {
-        var lower = columnName.ToLowerInvariant();
+        // Lowercase the SQL type for prefix matching; the column regex uses IgnoreCase directly.
         var typeLower = sqlType.ToLowerInvariant();
 
         PiiMatch? best = null;
@@ -19,7 +19,7 @@ public static class PiiClassifier
             if (entry.Confidence < minConfidence)
                 continue;
 
-            if (!rx.IsMatch(lower))
+            if (!rx.IsMatch(columnName))
                 continue;
 
             if (entry.SqlTypes.Length > 0 &&

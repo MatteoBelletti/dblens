@@ -28,25 +28,23 @@ public static class UnusedIndexRule
                     : $"DROP INDEX [{idx.Name}] ON [{table.Schema}].[{table.Name}];";
 
                 yield return new Finding(
-                    RuleId: "unused-index",
-                    Severity: Severity.Low,
-                    Category: FindingCategory.Performance,
-                    Confidence: 0.9,
-                    Table: tableQualified,
-                    Columns: idx.Columns,
-                    Title: $"Indice '{idx.Name}' non utilizzato",
-                    Description:
-                        $"L'indice '{idx.Name}' su {tableQualified} " +
-                        $"({string.Join(", ", idx.Columns)}) ha registrato 0 scan " +
-                        $"dall'ultimo restart del DB (uptime: {stats.UptimeDays:F0} giorni). " +
-                        "Verifica manualmente prima di droppare.",
-                    SqlFix: sqlFix,
-                    Metadata: new Dictionary<string, object>
+                    RuleId:      IndexRuleIds.UnusedIndex,
+                    Severity:    Severity.Low,
+                    Category:    FindingCategory.Performance,
+                    Confidence:  0.9,
+                    Table:       tableQualified,
+                    Columns:     idx.Columns,
+                    Title:       $"Index '{idx.Name}' has not been used since the last DB restart",
+                    Description: $"Index '{idx.Name}' on {tableQualified} " +
+                                 $"({string.Join(", ", idx.Columns)}) recorded 0 scans " +
+                                 $"since the last DB restart (uptime: {stats.UptimeDays:F0} day(s)). " +
+                                 "Verify manually before dropping — stats reset on every restart.",
+                    SqlFix:      sqlFix,
+                    Metadata:    new Dictionary<string, object>
                     {
-                        ["idx_scan"] = 0L,
-                        ["uptime_days"] = stats.UptimeDays
-                    }
-                );
+                        ["idx_scan"]     = 0L,
+                        ["uptime_days"]  = stats.UptimeDays
+                    });
             }
         }
     }

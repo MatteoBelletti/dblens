@@ -21,24 +21,22 @@ public static class FkWithoutIndexRule
                 var sqlFix = $"CREATE INDEX idx_{table.Name}_{colsUnderscore} ON {tableQualified} ({colList});";
 
                 yield return new Finding(
-                    RuleId: "fk-without-index",
-                    Severity: Severity.High,
-                    Category: FindingCategory.Performance,
-                    Confidence: 1.0,
-                    Table: tableQualified,
-                    Columns: fk.FromColumns,
-                    Title: $"Foreign key '{fk.ConstraintName}' priva di indice di copertura",
-                    Description:
-                        $"La colonna FK {colList} su {tableQualified} " +
-                        $"(referenzia {fk.ToSchema}.{fk.ToTable}) non è coperta da alcun indice. " +
-                        "JOIN e verifiche di integrità referenziale richiedono un sequential scan.",
-                    SqlFix: sqlFix,
-                    Metadata: new Dictionary<string, object>
+                    RuleId:      IndexRuleIds.FkWithoutIndex,
+                    Severity:    Severity.High,
+                    Category:    FindingCategory.Performance,
+                    Confidence:  1.0,
+                    Table:       tableQualified,
+                    Columns:     fk.FromColumns,
+                    Title:       $"Foreign key '{fk.ConstraintName}' has no covering index",
+                    Description: $"FK column(s) {colList} on {tableQualified} " +
+                                 $"(referencing {fk.ToSchema}.{fk.ToTable}) are not covered by any index. " +
+                                 "JOINs and referential integrity checks require a sequential scan.",
+                    SqlFix:      sqlFix,
+                    Metadata:    new Dictionary<string, object>
                     {
-                        ["constraint_name"] = fk.ConstraintName,
+                        ["constraint_name"]  = fk.ConstraintName,
                         ["referenced_table"] = $"{fk.ToSchema}.{fk.ToTable}"
-                    }
-                );
+                    });
             }
         }
     }

@@ -28,6 +28,13 @@ public sealed partial class SqlServerInspector
 
             var result = GdprAnalysisEngine.Analyze(details.Tables, request, Dialect);
 
+            if (details.NotFound.Count > 0)
+            {
+                var extra = $"The following tables could not be inspected and were excluded from the scan: " +
+                            string.Join(", ", details.NotFound) + ".";
+                result = result with { Caveats = [..result.Caveats, extra] };
+            }
+
             _logger.LogInformation(
                 "GDPR scan completed: {FindingCount} findings", result.Findings.Count);
 
