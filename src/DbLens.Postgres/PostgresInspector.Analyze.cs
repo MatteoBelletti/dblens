@@ -1,6 +1,4 @@
-using DbLens.Core.Analysis;
 using DbLens.Core.Analysis.Indexes;
-using DbLens.Core.Analysis.Indexes.Rules;
 using DbLens.Core.Models;
 using Microsoft.Extensions.Logging;
 using Npgsql;
@@ -36,60 +34,30 @@ public sealed partial class PostgresInspector
         {
             var tableScope = await ResolveTableScopeAsync(request, ct);
             if (tableScope.Count == 0)
-                return EmptyAnalysisResult();
+                return IndexAnalysisEngine.Empty();
 
             var tableNames = tableScope.Select(t => $"{t.Schema}.{t.Name}").ToArray();
             var details = await GetTableDetailsAsync(new TableDetailsRequest(tableNames), ct);
 
-            var findings = new List<Finding>();
-            findings.AddRange(FkWithoutIndexRule.Apply(details.Tables, Dialect));
-            findings.AddRange(DuplicateIndexRule.Apply(details.Tables, Dialect));
-            findings.AddRange(RedundantIndexRule.Apply(details.Tables, Dialect));
-
-            var caveats = new List<string>();
-
+            IndexUsageStats? stats = null;
             if (request.IncludeUnusedIndexes)
-            {
-                var stats = await QueryIndexUsageStatsAsync(tableScope, ct);
+                stats = await QueryIndexUsageStatsAsync(tableScope, ct);
 
-                if (stats.UptimeDays < request.UnusedIndexMinDays)
-                {
-                    caveats.Add(
-                        $"Insufficient DB uptime for the 'unused-index' rule " +
-                        $"({stats.UptimeDays:F0} day(s), minimum required: {request.UnusedIndexMinDays}). " +
-                        "The rule was skipped.");
-                }
-                else
-                {
-                    var unusedFindings = UnusedIndexRule.Apply(details.Tables, stats, Dialect).ToList();
-                    findings.AddRange(unusedFindings);
-                    if (unusedFindings.Count > 0)
-                        caveats.Add(
-                            $"Database uptime: {stats.UptimeDays:F0} day(s). " +
-                            "The 'unused-index' rule counts scans accumulated since the last DB restart. " +
-                            "Verify manually before dropping any index.");
-                }
-            }
+            var result = IndexAnalysisEngine.Analyze(details.Tables, stats, request, Dialect);
 
-            var truncated = false;
-            if (findings.Count > DiagnosticLimits.MaxFindingCount)
+            if (details.NotFound.Count > 0)
             {
-                findings = findings.Take(DiagnosticLimits.MaxFindingCount).ToList();
-                truncated = true;
-                caveats.Add(
-                    $"Results truncated to {DiagnosticLimits.MaxFindingCount} findings. " +
-                    "Use the schema/tables filters for a more targeted analysis.");
+                var extra =
+                    $"The following tables could not be inspected and were excluded from the analysis: " +
+                    string.Join(", ", details.NotFound) + ".";
+                result = result with { Caveats = [..result.Caveats, extra] };
             }
 
             _logger.LogInformation(
                 "Index analysis completed: {FindingCount} findings, {Caveats} caveats",
-                findings.Count, caveats.Count);
+                result.Findings.Count, result.Caveats.Count);
 
-            return new AnalyzeIndexesResult(
-                Findings: findings,
-                Summary: BuildAnalysisSummary(findings),
-                Caveats: caveats,
-                Truncated: truncated);
+            return result;
         }
         catch (OperationCanceledException)
         {
@@ -157,26 +125,5 @@ public sealed partial class PostgresInspector
         }
 
         return new IndexUsageStats(scanCounts, uptimeDays);
-    }
-
-    private static AnalyzeIndexesResult EmptyAnalysisResult() =>
-        new(
-            Findings: [],
-            Summary: BuildAnalysisSummary([]),
-            Caveats: [],
-            Truncated: false);
-
-    private static AnalyzeIndexesSummary BuildAnalysisSummary(IReadOnlyList<Finding> findings)
-    {
-        var bySeverity = Enum.GetValues<Severity>()
-            .ToDictionary(s => s.ToString(), s => findings.Count(f => f.Severity == s));
-
-        var byRule = IndexRuleIds.All
-            .ToDictionary(r => r, r => findings.Count(f => f.RuleId == r));
-
-        return new AnalyzeIndexesSummary(
-            TotalFindings: findings.Count,
-            BySeverity: bySeverity,
-            ByRule: byRule);
     }
 }
