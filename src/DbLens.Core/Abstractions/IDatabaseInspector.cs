@@ -1,3 +1,4 @@
+using DbLens.Core.Analysis.Cascade;
 using DbLens.Core.Analysis.Gdpr;
 using DbLens.Core.Analysis.Indexes;
 
@@ -41,5 +42,14 @@ public interface IDatabaseInspector
     /// </summary>
     Task<ScanGdprResult> ScanGdprAsync(
         ScanGdprRequest request,
+        CancellationToken ct = default);
+
+    /// <summary>
+    /// Traces ON DELETE CASCADE chains from a starting table (or all cascade roots when unspecified).
+    /// Rules: cascade-circular-path, cascade-deep-path, cascade-breaks-with-set-null,
+    ///        cascade-breaks-with-restrict, cascade-self-referencing, cascade-summary.
+    /// </summary>
+    Task<CheckCascadePathsResult> CheckCascadePathsAsync(
+        CheckCascadePathsRequest request,
         CancellationToken ct = default);
 }

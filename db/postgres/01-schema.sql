@@ -35,10 +35,11 @@ CREATE TABLE addresses (
     -- INTENTIONAL: no index on user_id
 );
 
+-- CASCADE on parent_id: deleting a category deletes its sub-categories (self-referencing cascade).
 CREATE TABLE categories (
     id        BIGSERIAL PRIMARY KEY,
     name      TEXT   NOT NULL,
-    parent_id BIGINT REFERENCES categories(id)
+    parent_id BIGINT REFERENCES categories(id) ON DELETE CASCADE
     -- INTENTIONAL: no index on parent_id
 );
 
@@ -52,9 +53,10 @@ CREATE TABLE products (
     created_at  TIMESTAMPTZ   NOT NULL DEFAULT NOW()
 );
 
+-- CASCADE on user_id: deleting a user deletes their orders (chain: users → orders → order_items → item_reviews).
 CREATE TABLE orders (
     id         BIGSERIAL    PRIMARY KEY,
-    user_id    BIGINT       NOT NULL REFERENCES users(id),
+    user_id    BIGINT       NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     total      NUMERIC(10,2) NOT NULL,
     status     TEXT         NOT NULL,   -- INTENTIONAL: no CHECK constraint
     created_at TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
@@ -70,6 +72,15 @@ CREATE TABLE order_items (
     unit_price NUMERIC(10,2) NOT NULL
 );
 
+-- Extension table for order_items: deepens the cascade chain to depth 3 from users.
+CREATE TABLE item_reviews (
+    id            BIGSERIAL    PRIMARY KEY,
+    order_item_id BIGINT       NOT NULL REFERENCES order_items(id) ON DELETE CASCADE,
+    rating        INT          NOT NULL,
+    review_text   TEXT,
+    created_at    TIMESTAMPTZ  NOT NULL DEFAULT NOW()
+);
+
 CREATE TABLE payments (
     id             BIGSERIAL    PRIMARY KEY,
     order_id       BIGINT       NOT NULL REFERENCES orders(id),
@@ -79,9 +90,10 @@ CREATE TABLE payments (
     processed_at   TIMESTAMPTZ  NOT NULL DEFAULT NOW()
 );
 
+-- SET NULL on user_id: deleting a user nulls out audit_log references (data retained, not deleted).
 CREATE TABLE audit_logs (
     id          BIGSERIAL   PRIMARY KEY,
-    user_id     BIGINT,     -- nullable: system actions have no user
+    user_id     BIGINT      REFERENCES users(id) ON DELETE SET NULL,
     action      TEXT        NOT NULL,
     entity_type TEXT        NOT NULL,
     entity_id   BIGINT,

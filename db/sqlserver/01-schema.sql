@@ -43,10 +43,11 @@ CREATE TABLE addresses (
 );
 GO
 
+-- CASCADE on parent_id: deleting a category deletes its sub-categories (self-referencing cascade).
 CREATE TABLE categories (
     id        BIGINT IDENTITY(1,1) PRIMARY KEY,
     name      NVARCHAR(100) NOT NULL,
-    parent_id BIGINT        REFERENCES categories(id)
+    parent_id BIGINT        REFERENCES categories(id) ON DELETE CASCADE
     -- INTENTIONAL: no index on parent_id
 );
 GO
@@ -62,9 +63,10 @@ CREATE TABLE products (
 );
 GO
 
+-- CASCADE on user_id: deleting a user deletes their orders (chain: users → orders → order_items → item_reviews).
 CREATE TABLE orders (
     id         BIGINT IDENTITY(1,1) PRIMARY KEY,
-    user_id    BIGINT        NOT NULL REFERENCES users(id),
+    user_id    BIGINT        NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     total      DECIMAL(10,2) NOT NULL,
     status     NVARCHAR(50)  NOT NULL,  -- INTENTIONAL: no CHECK constraint
     created_at DATETIME2     NOT NULL DEFAULT SYSUTCDATETIME(),
@@ -75,10 +77,20 @@ GO
 
 CREATE TABLE order_items (
     id         BIGINT IDENTITY(1,1) PRIMARY KEY,
-    order_id   BIGINT        NOT NULL REFERENCES orders(id),
+    order_id   BIGINT        NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
     product_id BIGINT        NOT NULL REFERENCES products(id),
     quantity   INT           NOT NULL,
     unit_price DECIMAL(10,2) NOT NULL
+);
+GO
+
+-- Extension table for order_items: deepens the cascade chain to depth 3 from users.
+CREATE TABLE item_reviews (
+    id            BIGINT IDENTITY(1,1) PRIMARY KEY,
+    order_item_id BIGINT        NOT NULL REFERENCES order_items(id) ON DELETE CASCADE,
+    rating        INT           NOT NULL,
+    review_text   NVARCHAR(MAX),
+    created_at    DATETIME2     NOT NULL DEFAULT SYSUTCDATETIME()
 );
 GO
 
@@ -92,9 +104,10 @@ CREATE TABLE payments (
 );
 GO
 
+-- SET NULL on user_id: deleting a user nulls out audit_log references (data retained, not deleted).
 CREATE TABLE audit_logs (
     id          BIGINT IDENTITY(1,1) PRIMARY KEY,
-    user_id     BIGINT,       -- nullable: system actions have no user
+    user_id     BIGINT,       -- nullable
     action      NVARCHAR(100) NOT NULL,
     entity_type NVARCHAR(100) NOT NULL,
     entity_id   BIGINT,
@@ -103,6 +116,12 @@ CREATE TABLE audit_logs (
     -- INTENTIONAL: no index on user_id
     -- INTENTIONAL: no retention_until / temporal policy
 );
+GO
+
+-- Add FK with SET NULL after table creation (SQL Server requires the table to exist first)
+ALTER TABLE audit_logs
+    ADD CONSTRAINT fk_audit_logs_user_id
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL;
 GO
 
 -- INTENTIONAL: deliberately unused index for testing the unused-index rule.

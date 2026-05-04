@@ -329,6 +329,32 @@ INSERT INTO audit_logs (id, user_id, action, entity_type, entity_id, ip_address,
 SET IDENTITY_INSERT audit_logs OFF;
 GO
 
+-- Item Reviews (20 — reviews for the first 20 order_items; deepens cascade chain to depth 3 from users)
+SET IDENTITY_INSERT item_reviews ON;
+INSERT INTO item_reviews (id, order_item_id, rating, review_text, created_at) VALUES
+    (1,  1,  5, N'Ottimo prodotto!',            '2023-03-10 08:00:00'),
+    (2,  2,  4, N'Buon rapporto qualità/prezzo', '2023-03-10 09:00:00'),
+    (3,  3,  5, N'Arrivato in anticipo',         '2023-03-10 10:00:00'),
+    (4,  4,  3, N'Nella media',                  '2023-03-10 11:00:00'),
+    (5,  5,  5, N'Consigliatissimo',             '2023-03-10 12:00:00'),
+    (6,  6,  4, N'Soddisfatto',                  '2023-03-10 13:00:00'),
+    (7,  7,  5, N'Perfetto',                     '2023-03-10 14:00:00'),
+    (8,  8,  2, N'Poteva essere meglio',          '2023-03-10 15:00:00'),
+    (9,  9,  4, N'Buono',                        '2023-03-10 16:00:00'),
+    (10, 10, 5, N'Eccellente',                   '2023-03-10 17:00:00'),
+    (11, 11, 3, N'Nella norma',                  '2023-03-11 08:00:00'),
+    (12, 12, 5, N'Fantastico',                   '2023-03-11 09:00:00'),
+    (13, 13, 4, N'Ottima qualità',               '2023-03-11 10:00:00'),
+    (14, 14, 5, N'Molto soddisfatto',             '2023-03-11 11:00:00'),
+    (15, 15, 1, N'Deludente',                    '2023-03-11 12:00:00'),
+    (16, 16, 5, N'Perfetto come descritto',      '2023-03-11 13:00:00'),
+    (17, 17, 4, N'Buona spedizione',             '2023-03-11 14:00:00'),
+    (18, 18, 5, N'Consigliatissimo',             '2023-03-11 15:00:00'),
+    (19, 19, 3, N'Mediocre',                     '2023-03-11 16:00:00'),
+    (20, 20, 4, N'Buono',                        '2023-03-11 17:00:00');
+SET IDENTITY_INSERT item_reviews OFF;
+GO
+
 -- demo_good seed (minimal rows to ensure SQL Server allocates pages, needed for size tests)
 SET IDENTITY_INSERT demo_good.departments ON;
 INSERT INTO demo_good.departments (id, name) VALUES (1, N'Engineering'), (2, N'Design');

@@ -370,3 +370,28 @@ INSERT INTO audit_logs (id, user_id, action, entity_type, entity_id, ip_address,
     (100, 15, 'create_order',  'order',   35, '82.56.70.102',  '2023-04-15 14:00:00+00');
 
 SELECT setval('audit_logs_id_seq', 100);
+
+-- Item Reviews (20 — reviews for the first 20 order_items; deepens cascade chain to depth 3 from users)
+INSERT INTO item_reviews (id, order_item_id, rating, review_text, created_at) VALUES
+    (1,  1,  5, 'Ottimo prodotto!',            '2023-03-10 08:00:00+00'),
+    (2,  2,  4, 'Buon rapporto qualità/prezzo', '2023-03-10 09:00:00+00'),
+    (3,  3,  5, 'Arrivato in anticipo',         '2023-03-10 10:00:00+00'),
+    (4,  4,  3, 'Nella media',                  '2023-03-10 11:00:00+00'),
+    (5,  5,  5, 'Consigliatissimo',             '2023-03-10 12:00:00+00'),
+    (6,  6,  4, 'Soddisfatto',                  '2023-03-10 13:00:00+00'),
+    (7,  7,  5, 'Perfetto',                     '2023-03-10 14:00:00+00'),
+    (8,  8,  2, 'Poteva essere meglio',          '2023-03-10 15:00:00+00'),
+    (9,  9,  4, 'Buono',                        '2023-03-10 16:00:00+00'),
+    (10, 10, 5, 'Eccellente',                   '2023-03-10 17:00:00+00'),
+    (11, 11, 3, 'Nella norma',                  '2023-03-11 08:00:00+00'),
+    (12, 12, 5, 'Fantastico',                   '2023-03-11 09:00:00+00'),
+    (13, 13, 4, 'Ottima qualità',               '2023-03-11 10:00:00+00'),
+    (14, 14, 5, 'Molto soddisfatto',             '2023-03-11 11:00:00+00'),
+    (15, 15, 1, 'Deludente',                    '2023-03-11 12:00:00+00'),
+    (16, 16, 5, 'Perfetto come descritto',      '2023-03-11 13:00:00+00'),
+    (17, 17, 4, 'Buona spedizione',             '2023-03-11 14:00:00+00'),
+    (18, 18, 5, 'Consigliatissimo',             '2023-03-11 15:00:00+00'),
+    (19, 19, 3, 'Mediocre',                     '2023-03-11 16:00:00+00'),
+    (20, 20, 4, 'Buono',                        '2023-03-11 17:00:00+00');
+
+SELECT setval('item_reviews_id_seq', 20);

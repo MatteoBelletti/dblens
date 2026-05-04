@@ -1,0 +1,419 @@
+namespace DbLens.Core.Analysis.Cascade;
+
+/// <summary>
+/// Pure in-memory cascade path analysis. No database access — operates on an FK graph
+/// supplied by the caller (dialect-specific inspector).
+/// </summary>
+public static class CascadeAnalysisEngine
+{
+    public const string Disclaimer =
+        "This tool only analyzes FK constraints declared at the schema level. " +
+        "Application-level deletions (ORM code, custom triggers) are not visible here.";
+
+    private const int MaxDepthHardCap = 50;
+    private const int DeepPathThreshold = 5;
+
+    /// <summary>
+    /// Raw FK edge as fetched from the database catalog.
+    /// FromTable is the referencing (child) table; ToTable is the referenced (parent) table.
+    /// </summary>
+    public sealed record FkEdge(
+        string FromSchema, string FromTable, string ConstraintName,
+        IReadOnlyList<string> FromColumns,
+        string ToSchema, string ToTable,
+        IReadOnlyList<string> ToColumns,
+        string OnDelete);
+
+    public static CheckCascadePathsResult Analyze(
+        IReadOnlyList<FkEdge> allFks,
+        IReadOnlyDictionary<(string Schema, string Name), long?> rowCounts,
+        IReadOnlyList<(string Schema, string Name)> rootTables,
+        CheckCascadePathsRequest request,
+        string dialect,
+        string database)
+    {
+        var effectiveMaxDepth = Math.Min(
+            Math.Max(request.MaxDepth, 1),
+            MaxDepthHardCap);
+
+        var findings = new List<Finding>();
+        var paths = new List<CascadePath>();
+        var caveats = new List<string>();
+
+        // Build lookup: (toSchema, toTable) → list of FkEdges pointing to that table
+        var edgesByTarget = allFks
+            .GroupBy(e => (e.ToSchema, e.ToTable))
+            .ToDictionary(g => g.Key, g => g.ToList());
+
+        foreach (var root in rootTables)
+        {
+            var rootPaths = BuildPathsFromRoot(root, edgesByTarget, rowCounts, effectiveMaxDepth);
+            paths.AddRange(rootPaths);
+        }
+
+        // Produce findings from paths
+        var allTables = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var path in paths)
+        {
+            allTables.Add(path.RootTable);
+            foreach (var step in path.Steps)
+                allTables.Add(step.ToTable);
+
+            if (path.IsCircular)
+                findings.Add(BuildCircularFinding(path));
+
+            if (path.Depth > DeepPathThreshold && !path.IsCircular)
+                findings.Add(BuildDeepPathFinding(path));
+
+            foreach (var step in path.Steps)
+            {
+                if (step.OnDelete == "SET NULL")
+                    findings.Add(BuildSetNullFinding(path.RootTable, step));
+                else if (step.OnDelete is "RESTRICT" or "NO ACTION")
+                    findings.Add(BuildRestrictFinding(path.RootTable, step));
+            }
+
+            // Self-referencing: step where FromTable == ToTable
+            foreach (var step in path.Steps.Where(s => s.FromTable == s.ToTable))
+                findings.Add(BuildSelfReferencingFinding(step));
+        }
+
+        // Deduplicate findings (same RuleId + Table can appear across multiple paths)
+        findings = DeduplicateFindings(findings);
+
+        var truncated = false;
+        if (findings.Count > DiagnosticLimits.MaxFindingCount)
+        {
+            findings = findings.Take(DiagnosticLimits.MaxFindingCount).ToList();
+            truncated = true;
+            caveats.Add(
+                $"Results truncated to {DiagnosticLimits.MaxFindingCount} findings. " +
+                "Use the schema or startingTable filter for a more targeted analysis.");
+        }
+
+        // Always-present cascade-summary finding
+        var maxDepthReached = paths.Count > 0 ? paths.Max(p => p.Depth) : 0;
+        findings.Add(BuildSummaryFinding(paths.Count, maxDepthReached, allTables.Count, rootTables));
+
+        var summary = BuildSummary(findings, paths, maxDepthReached, allTables.Count);
+
+        if (rowCounts.Values.Any(v => v is null))
+            caveats.Add(
+                "Some row counts are null — statistics may not have been collected yet. " +
+                "Run ANALYZE (PostgreSQL) or UPDATE STATISTICS (SQL Server) for accurate estimates.");
+        else if (rowCounts.Count > 0)
+            caveats.Add(
+                "Row counts are approximated from cached database statistics and may not reflect the current state. " +
+                "Run ANALYZE (PostgreSQL) or UPDATE STATISTICS (SQL Server) for more accurate estimates.");
+
+        return new CheckCascadePathsResult(
+            Dialect: dialect,
+            Database: database,
+            GeneratedAt: DateTime.UtcNow.ToString("O"),
+            Paths: paths,
+            Findings: findings,
+            Summary: summary,
+            Caveats: caveats,
+            Truncated: truncated,
+            Disclaimer: Disclaimer);
+    }
+
+    public static CheckCascadePathsResult Empty(string dialect, string database) =>
+        new(
+            Dialect: dialect,
+            Database: database,
+            GeneratedAt: DateTime.UtcNow.ToString("O"),
+            Paths: [],
+            Findings: [BuildSummaryFinding(0, 0, 0, [])],
+            Summary: BuildSummary(
+                [BuildSummaryFinding(0, 0, 0, [])],
+                [], 0, 0),
+            Caveats: [],
+            Truncated: false,
+            Disclaimer: Disclaimer);
+
+    // ── Path building ────────────────────────────────────────────────────────
+
+    private static List<CascadePath> BuildPathsFromRoot(
+        (string Schema, string Name) root,
+        Dictionary<(string, string), List<FkEdge>> edgesByTarget,
+        IReadOnlyDictionary<(string Schema, string Name), long?> rowCounts,
+        int maxDepth)
+    {
+        var result = new List<CascadePath>();
+        var qualifiedRoot = $"{root.Schema}.{root.Name}";
+
+        // Stack item: (steps built so far, current table, set of qualified names already in this path)
+        var stack = new Stack<(List<CascadeStep> Steps, (string Schema, string Name) Current, HashSet<string> Visited)>();
+        stack.Push(([], root, [qualifiedRoot]));
+
+        while (stack.Count > 0)
+        {
+            var (steps, current, visited) = stack.Pop();
+            var qualifiedCurrent = $"{current.Schema}.{current.Name}";
+
+            if (!edgesByTarget.TryGetValue(current, out var incomingEdges) || incomingEdges.Count == 0)
+            {
+                // Leaf node — no tables point to current with any FK
+                if (steps.Count > 0)
+                    result.Add(FinalizePath(qualifiedRoot, steps, brokenAt: null, isCircular: false));
+                continue;
+            }
+
+            foreach (var edge in incomingEdges)
+            {
+                var qualifiedFrom = $"{edge.FromSchema}.{edge.FromTable}";
+                var rowCount = rowCounts.GetValueOrDefault((edge.FromSchema, edge.FromTable));
+
+                var step = new CascadeStep(
+                    FromTable: qualifiedCurrent,
+                    ToTable: qualifiedFrom,
+                    ViaConstraint: edge.ConstraintName,
+                    OnDelete: edge.OnDelete,
+                    EstimatedRowsAffected: rowCount);
+
+                var newSteps = new List<CascadeStep>(steps) { step };
+
+                // Self-referencing FK (table points to itself)
+                if (edge.FromSchema == current.Schema && edge.FromTable == current.Name)
+                {
+                    result.Add(FinalizePath(qualifiedRoot, newSteps, brokenAt: null, isCircular: false));
+                    continue;
+                }
+
+                // Cycle detection: is the from-table already in the current path?
+                if (visited.Contains(qualifiedFrom))
+                {
+                    result.Add(FinalizePath(qualifiedRoot, newSteps, brokenAt: null, isCircular: true));
+                    continue;
+                }
+
+                // Non-CASCADE action → broken chain
+                if (edge.OnDelete != "CASCADE")
+                {
+                    result.Add(FinalizePath(qualifiedRoot, newSteps, brokenAt: qualifiedFrom, isCircular: false));
+                    continue;
+                }
+
+                // Depth cap
+                if (newSteps.Count >= maxDepth)
+                {
+                    result.Add(FinalizePath(qualifiedRoot, newSteps, brokenAt: null, isCircular: false));
+                    continue;
+                }
+
+                // Continue BFS/DFS into the from-table
+                var newVisited = new HashSet<string>(visited, StringComparer.OrdinalIgnoreCase)
+                    { qualifiedFrom };
+                stack.Push((newSteps, (edge.FromSchema, edge.FromTable), newVisited));
+            }
+        }
+
+        return result;
+    }
+
+    private static CascadePath FinalizePath(
+        string rootTable,
+        List<CascadeStep> steps,
+        string? brokenAt,
+        bool isCircular)
+    {
+        var leaves = steps.Count > 0
+            ? [steps[^1].ToTable]
+            : (IReadOnlyList<string>)[rootTable];
+
+        return new CascadePath(
+            RootTable: rootTable,
+            Steps: steps,
+            Depth: steps.Count,
+            LeafTables: leaves,
+            IsCircular: isCircular,
+            BrokenAt: brokenAt);
+    }
+
+    // ── Finding builders ─────────────────────────────────────────────────────
+
+    private static Finding BuildCircularFinding(CascadePath path)
+    {
+        var lastStep = path.Steps[^1];
+        return new Finding(
+            RuleId: CascadeRuleIds.CircularPath,
+            Severity: Severity.Critical,
+            Category: FindingCategory.Structure,
+            Confidence: 1.0,
+            Table: path.RootTable,
+            Columns: null,
+            Title: $"Circular CASCADE path detected from '{path.RootTable}'",
+            Description:
+                $"A circular ON DELETE CASCADE chain was detected: the path starting at '{path.RootTable}' " +
+                $"eventually reaches '{lastStep.ToTable}', which is already in the chain. " +
+                "This can cause runtime errors or unexpected mass deletions.",
+            SqlFix: null,
+            Metadata: new Dictionary<string, object>
+            {
+                ["path"] = string.Join(" → ", path.Steps.Select(s => s.ToTable).Prepend(path.RootTable))
+            });
+    }
+
+    private static Finding BuildDeepPathFinding(CascadePath path)
+    {
+        var chain = string.Join(" → ", path.Steps.Select(s => s.ToTable).Prepend(path.RootTable));
+        return new Finding(
+            RuleId: CascadeRuleIds.DeepPath,
+            Severity: Severity.High,
+            Category: FindingCategory.Structure,
+            Confidence: 1.0,
+            Table: path.RootTable,
+            Columns: null,
+            Title: $"Deep CASCADE path from '{path.RootTable}' (depth {path.Depth})",
+            Description:
+                $"The CASCADE chain from '{path.RootTable}' reaches depth {path.Depth}, " +
+                $"exceeding the warning threshold of {DeepPathThreshold}. " +
+                "Deep cascade chains are hard to reason about and increase the risk of unintended mass deletions.",
+            SqlFix: null,
+            Metadata: new Dictionary<string, object>
+            {
+                ["depth"] = path.Depth,
+                ["chain"] = chain
+            });
+    }
+
+    private static Finding BuildSetNullFinding(string rootTable, CascadeStep step)
+    {
+        return new Finding(
+            RuleId: CascadeRuleIds.BreaksWithSetNull,
+            Severity: Severity.Info,
+            Category: FindingCategory.Structure,
+            Confidence: 1.0,
+            Table: step.ToTable,
+            Columns: null,
+            Title: $"CASCADE chain from '{rootTable}' breaks with SET NULL at '{step.ToTable}'",
+            Description:
+                $"The FK '{step.ViaConstraint}' on '{step.ToTable}' referencing '{step.FromTable}' " +
+                $"uses ON DELETE SET NULL. Rows in '{step.ToTable}' will not be deleted — " +
+                "their FK column will be set to NULL instead. " +
+                "This is relevant for GDPR right-to-erasure: data is retained (possibly anonymized).",
+            SqlFix: null,
+            Metadata: new Dictionary<string, object>
+            {
+                ["rootTable"] = rootTable,
+                ["constraint"] = step.ViaConstraint
+            });
+    }
+
+    private static Finding BuildRestrictFinding(string rootTable, CascadeStep step)
+    {
+        return new Finding(
+            RuleId: CascadeRuleIds.BreaksWithRestrict,
+            Severity: Severity.High,
+            Category: FindingCategory.Structure,
+            Confidence: 1.0,
+            Table: step.ToTable,
+            Columns: null,
+            Title: $"CASCADE chain from '{rootTable}' blocked by NO ACTION/RESTRICT at '{step.ToTable}'",
+            Description:
+                $"The FK '{step.ViaConstraint}' on '{step.ToTable}' referencing '{step.FromTable}' " +
+                $"uses ON DELETE {step.OnDelete}. A DELETE on '{step.FromTable}' will fail at runtime " +
+                $"if any rows in '{step.ToTable}' reference it. " +
+                "This is a latent constraint violation bug.",
+            SqlFix: null,
+            Metadata: new Dictionary<string, object>
+            {
+                ["rootTable"] = rootTable,
+                ["constraint"] = step.ViaConstraint,
+                ["action"] = step.OnDelete
+            });
+    }
+
+    private static Finding BuildSelfReferencingFinding(CascadeStep step)
+    {
+        return new Finding(
+            RuleId: CascadeRuleIds.SelfReferencing,
+            Severity: Severity.Info,
+            Category: FindingCategory.Structure,
+            Confidence: 1.0,
+            Table: step.FromTable,
+            Columns: null,
+            Title: $"Self-referencing CASCADE on '{step.FromTable}'",
+            Description:
+                $"The FK '{step.ViaConstraint}' on '{step.FromTable}' references the same table " +
+                "with ON DELETE CASCADE. Deleting a row will cascade-delete all rows that reference it " +
+                "in the same table (e.g. child nodes in a hierarchy). " +
+                "This is usually intentional but worth documenting.",
+            SqlFix: null,
+            Metadata: new Dictionary<string, object>
+            {
+                ["constraint"] = step.ViaConstraint
+            });
+    }
+
+    private static Finding BuildSummaryFinding(
+        int totalPaths,
+        int maxDepth,
+        int totalTables,
+        IReadOnlyList<(string Schema, string Name)> rootTables)
+    {
+        var rootList = rootTables.Count > 0
+            ? string.Join(", ", rootTables.Select(r => $"{r.Schema}.{r.Name}"))
+            : "none";
+
+        return new Finding(
+            RuleId: CascadeRuleIds.Summary,
+            Severity: Severity.Info,
+            Category: FindingCategory.Structure,
+            Confidence: 1.0,
+            Table: rootList.Length <= 200 ? rootList : $"{rootTables.Count} tables analyzed",
+            Columns: null,
+            Title: $"CASCADE analysis complete: {totalPaths} path(s), max depth {maxDepth}, {totalTables} table(s) involved",
+            Description:
+                $"Analyzed {rootTables.Count} root table(s). " +
+                $"Found {totalPaths} distinct cascade path(s). " +
+                $"Maximum cascade depth: {maxDepth}. " +
+                $"Total tables involved in cascade chains: {totalTables}. " +
+                "Row counts are approximated from cached DBMS statistics.",
+            SqlFix: null,
+            Metadata: new Dictionary<string, object>
+            {
+                ["totalPaths"] = totalPaths,
+                ["maxDepth"] = maxDepth,
+                ["totalTablesInvolved"] = totalTables
+            });
+    }
+
+    // ── Helpers ──────────────────────────────────────────────────────────────
+
+    private static List<Finding> DeduplicateFindings(List<Finding> findings)
+    {
+        // Keep only the first occurrence of (RuleId, Table) pairs
+        var seen = new HashSet<(string, string)>();
+        var result = new List<Finding>(findings.Count);
+        foreach (var f in findings)
+        {
+            if (seen.Add((f.RuleId, f.Table)))
+                result.Add(f);
+        }
+        return result;
+    }
+
+    private static CascadeSummary BuildSummary(
+        IReadOnlyList<Finding> findings,
+        IReadOnlyList<CascadePath> paths,
+        int maxDepth,
+        int totalTables)
+    {
+        var bySeverity = Enum.GetValues<Severity>()
+            .ToDictionary(s => s.ToString(), s => findings.Count(f => f.Severity == s));
+
+        var byRule = CascadeRuleIds.All
+            .ToDictionary(r => r, r => findings.Count(f => f.RuleId == r));
+
+        return new CascadeSummary(
+            TotalFindings: findings.Count,
+            TotalPaths: paths.Count,
+            MaxDepth: maxDepth,
+            TotalTablesInvolved: totalTables,
+            BySeverity: bySeverity,
+            ByRule: byRule);
+    }
+}

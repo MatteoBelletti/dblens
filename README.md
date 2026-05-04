@@ -4,7 +4,7 @@ An MCP server written in .NET 10 that lets Claude inspect the schema of PostgreS
 
 ## What it does
 
-dblens exposes five tools to any MCP-compatible client (Claude Desktop, Claude Code, MCP Inspector):
+dblens exposes six tools to any MCP-compatible client (Claude Desktop, Claude Code, MCP Inspector):
 
 | Tool | What it returns |
 |---|---|
@@ -13,8 +13,9 @@ dblens exposes five tools to any MCP-compatible client (Claude Desktop, Claude C
 | `get_table_details` | Full structural detail for 1–20 tables: columns with types and nullability, all indexes, foreign keys (in and out), check constraints, unique constraints |
 | `analyze_indexes` | Diagnostic findings for index health: FK columns without a covering index, duplicate indexes, redundant indexes, and unused indexes (when stats are available) |
 | `scan_gdpr` | Scans columns for PII/GDPR-relevant data by name and type patterns; identifies 5 PII categories and flags tables missing audit controls |
+| `check_cascade_paths` | Traces ON DELETE CASCADE chains from a starting table; detects circular paths, deep chains, broken chains (SET NULL / RESTRICT), and self-referencing cascades |
 
-The typical workflow is: `get_schema` to orient yourself, then `get_table_details` on the tables that matter, then `analyze_indexes` to surface index problems. Use `scan_gdpr` to identify GDPR exposure before a compliance review.
+The typical workflow is: `get_schema` to orient yourself, then `get_table_details` on the tables that matter, then `analyze_indexes` to surface index problems. Use `scan_gdpr` to identify GDPR exposure, and `check_cascade_paths` to understand or audit delete propagation before dropping rows.
 
 ## Prerequisites
 
@@ -177,6 +178,29 @@ Each finding includes a `SqlFix` with a ready-to-run `CREATE INDEX` or `DROP IND
 
 Results always include a `Disclaimer` field reminding you that column-name matching is heuristic — manual review is required. Read `Caveats` for any tables excluded from the scan.
 
+### `check_cascade_paths`
+
+| Parameter | Type | Default | Description |
+|---|---|---|---|
+| `dialect` | `PostgreSql` \| `SqlServer` | `PostgreSql` | Target database engine |
+| `connectionString` | string | server default | Custom connection string |
+| `startingTable` | string | — | Qualified starting table, e.g. `public.users` or `dbo.orders`. When omitted, analyzes all tables that are the target of at least one `ON DELETE CASCADE` FK |
+| `schema` | string | — | Restrict analysis to this schema |
+| `maxDepth` | int | `10` | Maximum cascade depth to explore (hard cap: 50) |
+
+**Rules:**
+
+| Rule ID | Severity | What it detects |
+|---|---|---|
+| `cascade-circular-path` | Critical | A cycle in the CASCADE chain (would cause runtime errors or mass deletions) |
+| `cascade-deep-path` | High | Chain depth exceeds 5 levels |
+| `cascade-breaks-with-restrict` | High | A `NO ACTION` / `RESTRICT` FK would block the DELETE at runtime (latent bug) |
+| `cascade-breaks-with-set-null` | Info | Chain transitions to `SET NULL` — rows are retained, not deleted (relevant for GDPR right-to-erasure) |
+| `cascade-self-referencing` | Info | Table has a self-referencing CASCADE FK (e.g. tree hierarchy) |
+| `cascade-summary` | Info | Always present; summarizes total paths, max depth, and tables involved |
+
+Results always include a `Disclaimer` field. Only schema-level FK constraints are analyzed — application-level deletions (ORM cascades, custom triggers) are not visible here.
+
 ## Connection strings
 
 By default the server connects to the bundled demo databases:
@@ -211,6 +235,7 @@ sqlcmd -S localhost,1434 -U sa -P DevPassword123! -d dblens_demo -No -C
 | products | 30 |
 | orders | 40 |
 | order_items | 80 |
+| item_reviews | 20 |
 | payments | 35 |
 | audit_logs | 100 |
 

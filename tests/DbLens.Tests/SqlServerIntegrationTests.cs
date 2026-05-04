@@ -73,8 +73,8 @@ public sealed class SqlServerIntegrationTests : IClassFixture<SqlServerFixture>
             .SelectMany(s => s.Objects)
             .Single(o => o.Name == "users" && o.Kind == DatabaseObjectKind.Table);
 
-        // orders and addresses have FK constraints pointing to users
-        users.IncomingForeignKeys.Should().BeGreaterThanOrEqualTo(2);
+        // addresses (CASCADE), orders (CASCADE), audit_logs (SET NULL) all have FKs pointing to users
+        users.IncomingForeignKeys.Should().BeGreaterThanOrEqualTo(3);
     }
 
     [Fact]

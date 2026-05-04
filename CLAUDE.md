@@ -125,7 +125,7 @@ Every diagnostic result must include a `Summary` with `BySeverity` and `ByRule` 
 
 ### `demo_good` schema
 
-Both databases include a `demo_good` schema with a clean design (FKs fully covered, no duplicates). The acceptance criterion for any diagnostic rule is: `AnalyzeIndexesAsync(schema: "demo_good")` → zero findings.
+Both databases include a `demo_good` schema with a clean design (FKs fully covered, no duplicates, no CASCADE chains). The acceptance criterion for any diagnostic rule is: running it scoped to `demo_good` → zero diagnostic findings (only the always-present summary finding is allowed).
 
 ## LLM guardrails in tool descriptions
 
@@ -163,16 +163,19 @@ The demo databases run on non-standard ports (5433, 1434) to avoid colliding wit
 | `src/DbLens.Core/Abstractions/IDatabaseInspector.cs` | Inspector contract |
 | `src/DbLens.Core/Analysis/Finding.cs` | Permanent product contract for all diagnostic findings |
 | `src/DbLens.Core/Analysis/DiagnosticLimits.cs` | Shared numeric limits (MaxTablesPerRequest, MaxFindingCount) |
-| `src/DbLens.Core/Analysis/RuleIds.cs` | Rule ID string constants (`IndexRuleIds`, `GdprRuleIds`) with `All` arrays |
+| `src/DbLens.Core/Analysis/RuleIds.cs` | Rule ID string constants (`IndexRuleIds`, `GdprRuleIds`, `CascadeRuleIds`) with `All` arrays |
 | `src/DbLens.Core/Analysis/Indexes/` | Request/result types and rules for `analyze_indexes` |
 | `src/DbLens.Core/Analysis/Gdpr/` | Request/result types, pattern dictionaries, classifier, and engine for `scan_gdpr` |
 | `src/DbLens.Core/Analysis/Gdpr/Patterns/` | Embedded JSON pattern files (`pii_patterns_en.json`, `pii_patterns_it.json`) |
+| `src/DbLens.Core/Analysis/Cascade/` | Request/result types and `CascadeAnalysisEngine` for `check_cascade_paths` |
 | `src/DbLens.Postgres/PostgresInspector.cs` | PostgreSQL base implementation |
 | `src/DbLens.Postgres/PostgresInspector.Analyze.cs` | PostgreSQL `AnalyzeIndexesAsync` (partial class) |
 | `src/DbLens.Postgres/PostgresInspector.ScanGdpr.cs` | PostgreSQL `ScanGdprAsync` (partial class) |
+| `src/DbLens.Postgres/PostgresInspector.CheckCascade.cs` | PostgreSQL `CheckCascadePathsAsync` (partial class) |
 | `src/DbLens.SqlServer/SqlServerInspector.cs` | SQL Server base implementation |
 | `src/DbLens.SqlServer/SqlServerInspector.Analyze.cs` | SQL Server `AnalyzeIndexesAsync` (partial class) |
 | `src/DbLens.SqlServer/SqlServerInspector.ScanGdpr.cs` | SQL Server `ScanGdprAsync` (partial class) |
+| `src/DbLens.SqlServer/SqlServerInspector.CheckCascade.cs` | SQL Server `CheckCascadePathsAsync` (partial class) |
 | `src/DbLens.Mcp/Infrastructure/DatabaseInspectorFactory.cs` | Creates ad-hoc inspectors for custom connection strings |
 | `src/DbLens.Mcp/Tools/` | All MCP tool classes |
 | `docker-compose.yml` | Demo databases (PostgreSQL 17 on 5433, SQL Server 2022 on 1434) |
@@ -196,3 +199,5 @@ The demo databases run on non-standard ports (5433, 1434) to avoid colliding wit
 - Do not catch `System.TimeoutException` from database drivers — Npgsql raises `NpgsqlException` and SqlClient raises `SqlException` on command timeout; `TimeoutException` catches are dead code.
 - Test fixture connection strings: use `Environment.GetEnvironmentVariable("DBLENS_TEST_PG_CONNECTION")` / `"DBLENS_TEST_SS_CONNECTION"` with a hardcoded default fallback. Never hardcode credentials as the sole source of truth.
 - `NotFound` propagation: after calling `GetTableDetailsAsync` from a diagnostic method, always check `details.NotFound` and append a caveat to the result using `result = result with { Caveats = [..result.Caveats, extra] }`.
+- Always-present summary finding: some tools (e.g. `check_cascade_paths`) include an unconditional `*-summary` finding appended after deduplication. This finding is always exactly one, always `Severity.Info`, and must never be deduplicated away.
+- `CascadeAnalysisEngine` pattern: when analysis logic is purely in-memory (no DB access), extract it into a static engine class in `DbLens.Core/Analysis/<Feature>/`. The dialect-specific inspector only handles DB queries and passes raw data to the engine. This makes the engine fully unit-testable without a database.

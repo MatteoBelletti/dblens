@@ -22,3 +22,16 @@ public static class GdprRuleIds
     public static readonly string[] All =
         [PiiIdentifier, PiiContact, PiiFinancial, PiiSpecialCategory, PiiLocation, MissingGdprControls];
 }
+
+public static class CascadeRuleIds
+{
+    public const string CircularPath     = "cascade-circular-path";
+    public const string DeepPath         = "cascade-deep-path";
+    public const string BreaksWithSetNull  = "cascade-breaks-with-set-null";
+    public const string BreaksWithRestrict = "cascade-breaks-with-restrict";
+    public const string SelfReferencing  = "cascade-self-referencing";
+    public const string Summary          = "cascade-summary";
+
+    public static readonly string[] All =
+        [CircularPath, DeepPath, BreaksWithSetNull, BreaksWithRestrict, SelfReferencing, Summary];
+}

@@ -250,5 +250,8 @@ public sealed class GetSchemaToolTests
         public Task<DbLens.Core.Analysis.Gdpr.ScanGdprResult> ScanGdprAsync(
             DbLens.Core.Analysis.Gdpr.ScanGdprRequest request, CancellationToken ct = default) =>
             throw new NotSupportedException();
+        public Task<DbLens.Core.Analysis.Cascade.CheckCascadePathsResult> CheckCascadePathsAsync(
+            DbLens.Core.Analysis.Cascade.CheckCascadePathsRequest request, CancellationToken ct = default) =>
+            throw new NotSupportedException();
     }
 }

@@ -73,8 +73,8 @@ public sealed class PostgresIntegrationTests : IClassFixture<PostgresFixture>
             .SelectMany(s => s.Objects)
             .Single(o => o.Name == "users" && o.Kind == DatabaseObjectKind.Table);
 
-        // orders and addresses have explicit FK constraints; audit_logs has a loose user_id without FK
-        users.IncomingForeignKeys.Should().BeGreaterThanOrEqualTo(2);
+        // addresses (CASCADE), orders (CASCADE), audit_logs (SET NULL) all have FKs pointing to users
+        users.IncomingForeignKeys.Should().BeGreaterThanOrEqualTo(3);
     }
 
     [Fact]
