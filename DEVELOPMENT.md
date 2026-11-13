@@ -159,15 +159,19 @@ usa-e-getta: `DbLens__AllowWriteCapableLogin=true`. Per abilitare
 
 ## Release
 
-Aggiorna `<Version>` in `src/DbLens.Mcp/DbLens.Mcp.csproj`, poi:
+Aggiorna `<Version>` in `src/DbLens.Mcp/DbLens.Mcp.csproj` e le due versioni in
+`src/DbLens.Mcp/.mcp/server.json`, poi:
 
 ```powershell
 git tag v0.1.0
 git push origin v0.1.0
 ```
 
-Il workflow `release.yml` produce binari self-contained, estensioni `.mcpb` e il pacchetto NuGet
-(pubblicato solo se esiste il secret `NUGET_API_KEY`).
+Il workflow `release.yml` produce binari self-contained, estensioni `.mcpb` e il pacchetto NuGet, e
+pubblica quest'ultimo su nuget.org con Trusted Publishing (token OIDC di GitHub, nessuna API key
+salvata). Serve una volta: la policy su nuget.org (owner `MatteoBelletti`, repo `dblens`, workflow
+`release.yml`) e il secret GitHub `NUGET_USER` con il nome profilo nuget.org. Senza il secret il push
+viene saltato.
 
 ---
 

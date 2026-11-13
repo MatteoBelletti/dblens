@@ -143,5 +143,17 @@ Volumes hold demo data only; `docker compose down -v && docker compose up -d` re
 Pushing a `v*` tag runs `.github/workflows/release.yml`: engine tests, self-contained single-file
 binaries for `win-x64`, `linux-x64` and `osx-arm64`, one Claude Desktop extension per platform
 (`.mcpb`, from `packaging/mcpb/manifest.json`), the NuGet tool package (`dotnet tool install -g
-DbLens.Mcp`, also typed `McpServer` with `.mcp/server.json`), and the GitHub release. The package is
-pushed to nuget.org only when the `NUGET_API_KEY` secret exists.
+DbLens.Mcp`, also typed `McpServer` with `.mcp/server.json`), and the GitHub release. Binaries ship
+without symbols, `web.config` or the IIS module.
+
+The package reaches nuget.org through **Trusted Publishing**: the job's GitHub OIDC token is exchanged
+by `NuGet/login@v1` for an API key valid one hour, so no long-lived key is stored. One-time setup:
+
+1. On nuget.org, *Trusted Publishing* → new policy: owner `MatteoBelletti`, repository `dblens`,
+   workflow file `release.yml` (file name only), no environment.
+2. In the GitHub repository, add the secret `NUGET_USER` with the nuget.org **profile name** (not the
+   e-mail address).
+
+Without `NUGET_USER` the login and push steps are skipped and the `.nupkg` is still attached to the
+release. A policy on a private repository stays provisional for 7 days until the first successful
+publish.
