@@ -1,8 +1,35 @@
 # dblens
 
 An MCP server, written in .NET 10, that lets Claude (or any MCP client) understand and diagnose
-PostgreSQL and SQL Server databases. It runs locally, never writes to the database and never returns
-row data.
+PostgreSQL and SQL Server databases. It runs locally, never writes to the database, and by default
+never returns row data.
+
+## Install
+
+> Releases are built by `.github/workflows/release.yml` when a `v*` tag is pushed. Until the first
+> tag (and, for NuGet, until the `NUGET_API_KEY` secret is set) install from source.
+
+**Claude Desktop** — download `dblens-<version>-<platform>.mcpb` from
+[Releases](https://github.com/MatteoBelletti/dblens/releases), open it, and fill in the connection
+strings when asked.
+
+**Any MCP client, with the .NET 10 runtime** — install the tool and point the client at it:
+
+```bash
+dotnet tool install -g DbLens.Mcp
+```
+
+```bash
+claude mcp add dblens -e "ConnectionStrings__PostgreSql=Host=…;Username=dblens_reader;Password=…" -- dblens
+```
+
+**Without .NET** — the release also carries self-contained binaries (`dblens-<version>-<rid>.zip`);
+use the extracted `DbLens.Mcp` executable as the command.
+
+**From source** — see [Quick start](#quick-start).
+
+**Use a read-only login.** dblens refuses to execute caller SQL on a login that can write, so
+create one first — two statements, in [docs/safety.md](docs/safety.md#creating-the-login).
 
 ## Tools
 
@@ -11,7 +38,8 @@ row data.
 | `ping` | Is the server up? |
 | `get_schema` | What tables and views are there, how big? |
 | `get_table_details` | Columns, indexes, keys and constraints of these tables |
-| `infer_relationships` | How do tables join — including foreign keys nobody declared? |
+| `infer_relationships` | How do tables join — including foreign keys nobody declared, found in views, routines and query history? |
+| `build_glossary` | Write me a data map of this database as a skill |
 | `analyze_indexes` | Which FKs lack an index, which indexes are duplicate, redundant or unused? |
 | `analyze_fragmentation` | Which indexes are fragmented or sparsely packed? |
 | `analyze_denormalization` | Where is data repeated, cached or packed into one column — and has it drifted? |
@@ -19,10 +47,12 @@ row data.
 | `check_cascade_paths` | What does a DELETE on this table actually remove? |
 | `check_migration_safety` | Will this migration lock, rewrite or destroy anything, given real table sizes? |
 | `explain_query` | Why is this query slow? |
+| `query_with_receipt` | What is the figure, and what is the proof? *(off unless the operator enables it)* |
+| `certify_query`, `list_certified_queries` | Remember the queries the user confirmed as right |
 
 Full parameters, rules and limits: **[docs/tools.md](docs/tools.md)**.
 
-A typical session: `get_schema` to orient, `get_table_details` and `infer_relationships` to learn the
+A typical session: `get_schema` to orient, `infer_relationships` and `build_glossary` to learn the
 structure, then the diagnostic tool that fits the question. For a slow query start from
 `explain_query`; before shipping DDL run it through `check_migration_safety`.
 
@@ -32,32 +62,32 @@ Every diagnostic tool returns two lists:
 
 - **`Findings`** — what dblens established: measured (fragmentation, scan counters, counted rows) or
   derived from the catalog (a cascade cycle, a duplicate index, the lock a DDL takes).
-- **`Signals`** — what it suspects from names and structure. `fiscal_code` probably holds a fiscal
-  code. Or nothing. Or something else.
+- **`Signals`** — what it suspects from names, structure or the SQL the database runs. `fiscal_code`
+  probably holds a fiscal code. Or nothing. Or something else.
 
 They are separate lists, not a flag, because a flag disappears the moment a response is summarized.
-`scan_gdpr` reads names only, so its `Findings` list is always empty.
 
 Two tools can test their own guesses. With `verifySignals` / `verifyCandidates`, dblens runs one
-generated, read-only, rolled-back aggregate query per checkable signal and moves the measured ones
-into `Findings`:
+generated, read-only, rolled-back aggregate query per checkable signal and moves the measured ones into
+`Findings`:
 
-> `customer_profiles.order_count` looks like a cached aggregate *(signal, confidence 0.6)*
-
-becomes
-
-> `public.customer_profiles`: **3 of 10 rows** disagree with a live count of child rows *(finding, measured)*
-
-and
-
-> `shipments.order_id` looks like an undeclared reference to `orders.id` *(signal)*
+> `shipments.ship_to` is joined to `addresses.id` by the view `shipment_destinations` *(signal)*
 
 becomes
 
-> all 6 non-null values exist in `public.orders` *(finding, measured, with the `ALTER TABLE` to declare it)*
+> all 6 non-null values exist in `public.addresses` *(finding, measured, with the `ALTER TABLE` to declare it)*
 
-Probes return counts only — how many rows, never which ones. What runs, and what stops it from doing
-harm: **[docs/safety.md](docs/safety.md)**.
+Probes return counts only — how many rows, never which ones.
+
+## Answers with a receipt
+
+When the operator enables it (`DbLens:AllowQueryResults=true`), `query_with_receipt` answers with the
+figure *and* the evidence: the exact SQL, the tables the plan read, and — given a second query that
+computes the same figure another way — whether the two agree. If they disagree, dblens says so instead
+of choosing. Queries the user confirms can be certified and re-run by name; the glossary lists them.
+
+It is off by default because it is the one tool that returns values from the data. What runs, and
+what stops it from doing harm: **[docs/safety.md](docs/safety.md)**.
 
 ## Quick start
 
@@ -72,65 +102,52 @@ dotnet test
 dotnet run --project src/DbLens.Mcp
 ```
 
-The server then waits on stdin: that is the MCP stdio transport working.
-
-## Connect a client
-
-Build a binary with `make publish` (→ `publish/DbLens.Mcp.exe`), then:
-
-**Claude Code**
+The server then waits on stdin: that is the MCP stdio transport working. To use a build from source
+in Claude Code:
 
 ```bash
-claude mcp add dblens "C:\path\to\dblens\publish\DbLens.Mcp.exe"
+claude mcp add dblens dotnet -- run --project "C:\path\to\dblens\src\DbLens.Mcp"
 ```
 
-**Claude Desktop** — `%APPDATA%\Claude\claude_desktop_config.json` on Windows,
-`~/Library/Application Support/Claude/claude_desktop_config.json` on macOS:
+## Configuration
 
-```json
-{
-  "mcpServers": {
-    "dblens": { "command": "C:\\path\\to\\dblens\\publish\\DbLens.Mcp.exe" }
-  }
-}
-```
+| Key (`appsettings.json`) | Environment variable | Default |
+|---|---|---|
+| `ConnectionStrings:PostgreSql` | `ConnectionStrings__PostgreSql` | the demo database, as `dblens_reader` |
+| `ConnectionStrings:SqlServer` | `ConnectionStrings__SqlServer` | the demo database, as `dblens_reader` |
+| `DbLens:AllowQueryResults` | `DbLens__AllowQueryResults` | `false` — enables `query_with_receipt` |
+| `DbLens:AllowWriteCapableLogin` | `DbLens__AllowWriteCapableLogin` | `false` — disposable local databases only |
+| `DbLens:CertifiedQueriesPath` | `DbLens__CertifiedQueriesPath` | `%LOCALAPPDATA%/dblens/certified-queries.json` |
 
-To run from source instead, use `"command": "dotnet"` with
-`"args": ["run", "--project", "C:\\path\\to\\dblens\\src\\DbLens.Mcp"]`. Restart the client after
-each publish.
+A tool call can also pass its own `connectionString`. `analyze_fragmentation` additionally needs
+`pgstattuple` (PostgreSQL) or `VIEW DATABASE STATE` (SQL Server); query history needs
+`pg_stat_statements` or Query Store.
 
-## Connection strings
-
-By default dblens connects to the demo databases:
+Demo logins:
 
 ```
-PostgreSQL  Host=localhost;Port=5433;Database=dblens_demo;Username=postgres;Password=devpassword
-SQL Server  Server=localhost,1434;Database=dblens_demo;User Id=sa;Password=DevPassword123!;TrustServerCertificate=true
+PostgreSQL  Host=localhost;Port=5433;Database=dblens_demo;Username=dblens_reader;Password=readerpassword
+SQL Server  Server=localhost,1434;Database=dblens_demo;User Id=dblens_reader;Password=ReaderPassword123!;TrustServerCertificate=true
 ```
-
-Change them in `src/DbLens.Mcp/appsettings.json` or through environment variables, or pass
-`connectionString` on a single tool call. Use an account with read access to the catalog;
-`analyze_fragmentation` additionally needs `pgstattuple` (PostgreSQL) or `VIEW DATABASE STATE`
-(SQL Server).
 
 ## Demo databases
 
 `public` / `dbo` is an e-commerce schema with deliberate flaws — unindexed foreign keys, duplicate
-indexes, plaintext PII, cascade chains, cached counts that have drifted, an undeclared reference.
-`demo_good` is a clean design on which every tool reports nothing. Details in
-[docs/architecture.md](docs/architecture.md#demo-databases).
+indexes, plaintext PII, cascade chains, cached counts that have drifted, undeclared references (one
+visible only through a view). `demo_good` is a clean design on which every tool reports nothing.
+Details in [docs/architecture.md](docs/architecture.md#demo-databases).
 
 ## Documentation
 
 | Document | For |
 |---|---|
 | [docs/tools.md](docs/tools.md) | Every tool: parameters, rules, severities, limits |
-| [docs/safety.md](docs/safety.md) | What can execute, and the guarantees around it |
-| [docs/architecture.md](docs/architecture.md) | How the code is organized, the verification pipeline, testing |
-| [GLOSSARY.md](GLOSSARY.md) | Finding, signal, evidence, probe… |
+| [docs/safety.md](docs/safety.md) | The contract, what can execute, the read-only login |
+| [docs/architecture.md](docs/architecture.md) | How the code is organized, pipelines, testing, releases |
+| [GLOSSARY.md](GLOSSARY.md) | Finding, signal, evidence, probe, receipt… |
 | [DEVELOPMENT.md](DEVELOPMENT.md) | Dev workflows, MCP Inspector, debugging (Italian) |
 | [CLAUDE.md](CLAUDE.md) | Conventions for contributors and coding agents |
 
 ## Licence
 
-MIT
+[MIT](LICENSE)

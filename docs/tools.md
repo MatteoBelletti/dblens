@@ -25,7 +25,13 @@ table in scope, at most 20).
 | [`explain_query`](#explain_query) | plan | only with `analyze: true`, pure `SELECT`, rolled back | Findings |
 | [`scan_gdpr`](#scan_gdpr) | column names | no | Signals only |
 | [`analyze_denormalization`](#analyze_denormalization) | catalog | only with `verifySignals: true`, counts only | Signals → Findings |
-| [`infer_relationships`](#infer_relationships) | catalog | only with `verifyCandidates: true`, counts only | Signals → Findings |
+| [`infer_relationships`](#infer_relationships) | catalog, views, routines, query history | only with `verifyCandidates: true`, counts only | Signals → Findings |
+| [`build_glossary`](#build_glossary) | as `infer_relationships`, plus comments | only with `verifyJoins: true`, counts only | a SKILL.md |
+| [`query_with_receipt`](#query_with_receipt) | the data | **yes** — disabled unless the operator enables it | rows + receipt |
+| [`certify_query`](#certify_query) / [`list_certified_queries`](#certify_query) | plan only | no | local file |
+
+Caller SQL (`explain_query` with `analyze`, `query_with_receipt`) only runs on a read-only login; see
+[safety.md](safety.md#read-only-login).
 
 Every diagnostic result has the same skeleton: `Findings`, `Signals`, a `Summary` whose `BySeverity`
 and `ByRule` dictionaries always contain every key, `Caveats`, and — where relevant — a `Disclaimer`.
@@ -78,7 +84,9 @@ directions, check and unique constraints, for 1–20 tables or views.
 | `redundant-index` | Low | Derived | A non-unique index that is a strict prefix of another |
 | `unused-index` | Low | Measured | A non-unique index with zero scans |
 
-Every finding has a `SqlFix` with the `CREATE INDEX` / `DROP INDEX` statement (kind `Ddl`).
+Every finding has a `SqlFix` with the `CREATE INDEX` / `DROP INDEX` statement (kind `Ddl`), written
+not to block writes: `CONCURRENTLY` on PostgreSQL, `ONLINE = ON` on SQL Server (Enterprise or Developer
+edition; on Standard drop the option and schedule a window).
 `unused-index` needs at least 7 days of uptime: scan counters reset on restart, so read the `Caveats` before dropping anything.
 
 ## `analyze_fragmentation`
@@ -137,6 +145,9 @@ analyzed: ORM cascades and triggers are invisible.
 | `migration-validated-constraint-scan` | High / Low | FK and check constraints validated against every existing row |
 | `migration-destructive` | Critical | `DROP TABLE`, `DROP COLUMN` |
 | `migration-summary` | Info | Always exactly one |
+
+`ALTER TABLE … VALIDATE CONSTRAINT` (the second half of PostgreSQL's `NOT VALID` pattern) is recognized
+and raises nothing: it scans without blocking reads or writes.
 
 Severity is weighted by the real size of the table: the same statement is Critical on 50 million rows
 and Medium on a lookup table (threshold: 1 million rows). The script is **never executed**.
@@ -223,16 +234,89 @@ Returns `Relationships`: every join path, each with an `Evidence` of its own:
 | `VerifiedWithOrphans` | Checked: at most half the values have no parent — a real but dirty reference |
 
 A candidate with more than half orphans is dropped from the map and reported as an `Info` finding.
-Candidates come from `relationship-undeclared-fk`:
+Candidates come from `relationship-undeclared-fk`, strongest evidence first:
 
 | Basis | Confidence | Example |
 |---|---|---|
+| `observed-join` | 0.8 (0.85 when the name agrees) | a view, routine or logged query joins `s.ship_to = a.id` |
 | `same-name-as-parent-key` | 0.7 | `customer_id` → `customers.customer_id` |
 | `id-name-matches-table` | 0.55 | `order_id`, `id_order`, `orderId` → `orders.id` |
 | `code-name-matches-table` | 0.45 | `cod_cliente`, `codice_cliente` → unique `clienti.codice` |
+
+Observed joins are read from view and routine definitions and, when available, from
+`pg_stat_statements` (extension installed) or Query Store (enabled); a caveat says when the history
+could not be used. A join counts when one side is a single-column key, which gives the direction; the
+signal's `Metadata["seenIn"]` names where it was seen (`view public.shipment_destinations`,
+`workload (Query Store, 1,240 executions)`). Literals are blanked and no SQL text is returned.
+dblens's own probes are excluded from the history. An observed join settles a column whose name
+matched several parents.
 
 Table names are matched with English and Italian plurals (`order/orders`, `cliente/clienti`,
 `fattura/fatture`). A column matching more than one parent is skipped, not guessed, and counted.
 Both sides must be in scope. A `Verified` finding carries the `ALTER TABLE … ADD CONSTRAINT` (kind
 `Ddl`, with `NOT VALID` + `VALIDATE` on PostgreSQL); matching values are evidence of a reference, not
 of intent, so confirm with the schema owner first.
+
+## `build_glossary`
+
+Writes what dblens knows about a schema as a ready `SKILL.md` — a data map a client loads before
+writing SQL.
+
+| Parameter | Default | Meaning |
+|---|---|---|
+| `verifyJoins` | `false` | Count orphans for inferred joins, as `infer_relationships` does |
+| `writeSkillTo` | — | Absolute directory to write `SKILL.md` into, e.g. `<project>/.claude/skills/erp-data-map` |
+| `overwrite` | `false` | Replace an existing `SKILL.md` |
+
+For every table: approximate rows, how many views / routines / logged statements reference it (and
+how often they ran), its documented meaning, its columns (type, key, meaning), its join paths labelled
+`declared`, `inferred (basis)`, `verified` or `verified with orphans`, and candidate measures (numeric
+columns named like amounts or totals). Certified queries come first.
+
+**Meanings come only from schema comments** (`COMMENT ON` / `MS_Description`). An undocumented column
+is shown as `—`; the skill tells the model to ask rather than guess. A caveat says when nothing is
+documented. No row values are included.
+
+## `query_with_receipt`
+
+**Disabled unless the server runs with `DbLens:AllowQueryResults=true`** — it is the one tool that
+returns values from the data. See [safety.md](safety.md#query-results).
+
+| Parameter | Default | Meaning |
+|---|---|---|
+| `sql` | — | One `SELECT` |
+| `certified` | — | Run a certified query by name instead |
+| `crossCheckSql` | — | The same figure computed another way |
+| `tolerance` | `0` | Relative difference allowed between numbers in the cross-check |
+
+Returns at most 100 rows and a **receipt**:
+
+| Receipt field | Content |
+|---|---|
+| `Sql` | exactly what ran |
+| `TablesTouched` | the relations in the plan (views expanded to base tables) |
+| `Database`, `ExecutedAt` | where and when |
+| `CrossCheck` | `Agree`, `Disagree` (with both values) or `NotComparable`, and the second result |
+| `CertifiedAs` | set when the SQL matches a certified query |
+
+A cross-check compares the two results as sets of rows, so row order does not matter and `120.50`
+equals `120.5`. Without one, a caveat says the figure is unconfirmed; with a disagreement, the caveat
+says to report both figures rather than pick one. Useful pairs: two join paths to the same total, or
+line items summed against the stored header total.
+
+## `certify_query`
+
+Saves a query the **user** confirmed as correct, under a name and the question it answers, so it can
+be re-run by name, is cited in receipts and appears in the glossary.
+
+| Parameter | Meaning |
+|---|---|
+| `name` | Short unique name; reusing it replaces the entry |
+| `question` | The question it answers, in the user's words |
+| `sql` | The confirmed `SELECT` |
+
+The SQL is checked by the statement guard and planned with `EXPLAIN`; nothing is executed. Entries are
+scoped to dialect and database and stored in one JSON file — `%LOCALAPPDATA%/dblens/certified-queries.json`
+(or `~/.local/share/dblens/…`), overridable with `DbLens:CertifiedQueriesPath`. `list_certified_queries`
+returns the entries for the current database.
+

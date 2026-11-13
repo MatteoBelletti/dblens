@@ -1,7 +1,9 @@
 # CLAUDE.md — dblens
 
 dblens is a local MCP server in .NET 10 that inspects and diagnoses PostgreSQL and SQL Server
-databases. It never writes to a database and never returns row data.
+databases. It never writes to a database and returns no row data — except `query_with_receipt`, which
+is disabled unless the operator sets `DbLens:AllowQueryResults`. Do not add another path that returns
+values from the data.
 
 Read first: [docs/architecture.md](docs/architecture.md) (layout, data flow, verification pipeline),
 [docs/safety.md](docs/safety.md) (what may execute), [docs/tools.md](docs/tools.md) (every tool and
@@ -64,7 +66,9 @@ public sealed class MyTool(IServiceProvider services, IDatabaseInspectorFactory 
 }
 ```
 
-Tools are discovered automatically. Keep descriptions short: what the tool finds, then `IMPORTANT:`
+Tools are discovered automatically. Throw `ArgumentException` for bad input and
+`ExecutionRefusedException` for a deliberate refusal: `ToolErrors` shows those messages to the model,
+while the SDK hides every other exception's text. Keep descriptions short: what the tool finds, then `IMPORTANT:`
 lines for what is **not** returned and what executes. Expose only parameters a model has a reason to
 set — thresholds stay as request defaults, out of the MCP schema. `[Description]` values must be
 compile-time constants.
@@ -113,12 +117,19 @@ Shared types in `Analysis/Verification/`; flow in docs/architecture.md. Non-nego
 - One rolled-back transaction per probe (a failed statement poisons a PostgreSQL transaction).
 - A probe failure never propagates: the unverified analysis is still returned.
 
-### `explain_query` safety
+### Executing caller SQL
 
-With `analyze = true` the caller's SQL runs. The guard runs in `DatabaseInspectorBase.ExplainQueryAsync`
-before any connection opens; the dialect still runs it in an always-rolled-back transaction
-(`READ ONLY` on PostgreSQL). `StatementGuard` is security-critical — **never relax it to make a query
-work.**
+`explain_query` with `analyze = true` and `query_with_receipt` run the caller's SQL. Three layers,
+all in `DatabaseInspectorBase`, none skippable by a dialect:
+
+1. `StatementGuard` before any connection opens — a filter (keywords, side-effecting functions,
+   locking clauses, linked servers), not a proof. **Never relax it to make a query work**; extend it
+   when a new side effect is found, with a test in `StatementGuardSideEffectTests`.
+2. A transaction that is always rolled back (`READ ONLY` on PostgreSQL).
+3. `EnsureReadOnlyLoginAsync`: refuse when the login can write (`DescribeWriteCapabilityAsync`).
+   `DbLens:AllowWriteCapableLogin` exists for disposable databases only.
+
+Probes are dblens's own SQL and skip layer 3, never layers 1 and 2.
 
 ## Conventions
 
@@ -130,8 +141,12 @@ work.**
 - Integration tests hit real databases — never mock the data layer — and **skip, never pass**, when
   one is unreachable: `[SkippableFact]` + `Skip.If(ShouldSkip, TestSkip.Reason)`, never
   `if (ShouldSkip) return;`. CI fails on any skipped test.
-- Test connection strings come from `DBLENS_TEST_PG_CONNECTION` / `DBLENS_TEST_SS_CONNECTION` with a
-  hardcoded fallback.
+- Test connection strings come from `DBLENS_TEST_PG_CONNECTION` / `DBLENS_TEST_SS_CONNECTION` (the
+  read-only `dblens_reader`) and `DBLENS_TEST_*_ADMIN_CONNECTION` (setup and refusal tests only), with
+  hardcoded fallbacks.
+- Integration tests that count rows must not touch `orders` on SQL Server: `COUNT(*)` is answered by
+  scanning `idx_orders_status`, which the unused-index test needs unscanned.
+- When one tool emits SQL another tool reads (DDL, probes), add a case to `CompositionTestsBase`.
 - Every command sets `CommandTimeout = QueryTimeoutSeconds` (30, in `DatabaseInspectorBase`).
   Don't catch `TimeoutException`: drivers raise `NpgsqlException` / `SqlException`.
 - Generated SQL: `SqlIdentifier.Quote` / `Qualify` for every catalog name, `IndexSql` for index DDL.
@@ -147,9 +162,15 @@ work.**
 ## Defaults
 
 ```
-PostgreSQL  Host=localhost;Port=5433;Database=dblens_demo;Username=postgres;Password=devpassword
-SQL Server  Server=localhost,1434;Database=dblens_demo;User Id=sa;Password=DevPassword123!;TrustServerCertificate=true
+PostgreSQL  Host=localhost;Port=5433;Database=dblens_demo;Username=dblens_reader;Password=readerpassword
+SQL Server  Server=localhost,1434;Database=dblens_demo;User Id=dblens_reader;Password=ReaderPassword123!;TrustServerCertificate=true
 ```
 
-In `appsettings.json`, with the same values as fallbacks in `Program.cs`. Non-standard ports avoid
-clashing with local installs.
+In `appsettings.json`, with the same values as fallbacks in `Program.cs`; an empty value (an unset
+`.mcpb` setting) means the default. The admin logins (`postgres` / `sa`) exist for setup only.
+Non-standard ports avoid clashing with local installs.
+
+## Releasing
+
+Bump `<Version>` in `src/DbLens.Mcp/DbLens.Mcp.csproj`, then push a `v<version>` tag; the release
+workflow builds binaries, `.mcpb` extensions and the NuGet package. See docs/architecture.md#releases.
