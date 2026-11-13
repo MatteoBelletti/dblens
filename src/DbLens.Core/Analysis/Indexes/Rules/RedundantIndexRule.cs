@@ -10,7 +10,7 @@ public static class RedundantIndexRule
     {
         foreach (var table in tables)
         {
-            var tableQualified = $"{table.Schema}.{table.Name}";
+            var tableQualified = table.Qualified();
 
             // Candidates: non-unique, non-primary, non-partial indexes.
             // These are the ones that might be superseded by a longer index.
@@ -37,6 +37,7 @@ public static class RedundantIndexRule
                     Severity:    Severity.Low,
                     Category:    FindingCategory.Structure,
                     Confidence:  1.0,
+                    Evidence:  Evidence.Derived,
                     Table:       tableQualified,
                     Columns:     a.Columns,
                     Title:       $"Index '{a.Name}' is redundant (prefix of '{superset.Name}')",
@@ -44,7 +45,9 @@ public static class RedundantIndexRule
                                  $"({string.Join(", ", a.Columns)}) is an exact prefix of " +
                                  $"'{superset.Name}' ({string.Join(", ", superset.Columns)}). " +
                                  "Any query covered by the shorter index is already covered by the longer one.",
-                    SqlFix:      DuplicateIndexRule.BuildDropIndex(table.Schema, table.Name, a.Name, dialect),
+                    SqlFix:      SqlProposal.Ddl(
+                        IndexSql.DropIndex(table.Schema, table.Name, a.Name, dialect),
+                        "Drops the redundant index."),
                     Metadata:    new Dictionary<string, object>
                     {
                         ["superset_index"] = superset.Name

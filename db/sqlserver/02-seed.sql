@@ -374,3 +374,53 @@ INSERT INTO demo_good.projects (id, owner_id, name) VALUES
     (2, 2, N'Project Beta');
 SET IDENTITY_INSERT demo_good.projects OFF;
 GO
+
+-- ============================================================
+-- Verification fixtures for analyze_denormalization (verifySignals = true).
+-- Mirrors db/postgres/02-seed.sql row for row so the parity tests can compare
+-- verdicts across dialects. Counts are EXACT and asserted by the tests:
+--   order_count wrong on 3 of 10 profiles   (denorm-derived-column    -> Confirmed, 3)
+--   tags containing a delimiter on 4 of 10  (denorm-multivalue-column -> Confirmed, 4)
+--   all three phone slots filled on 2 of 10 (denorm-repeating-group   -> Confirmed, 2)
+--   fiscal_code vs users on 9 of 10 profiles (denorm-duplicated-column -> Confirmed, 9).
+--     fiscal_code also lives on profile_notes, but one finding per column measures only the
+--     first FK-linked pair, customer_profiles -> users.
+-- ============================================================
+SET IDENTITY_INSERT customer_profiles ON;
+INSERT INTO customer_profiles
+    (id, user_id, first_name, last_name, full_name, phone1, phone2, phone3, tags, order_count, fiscal_code) VALUES
+    (1,  1,  N'Mario',  N'Rossi',   N'Mario Rossi',    N'3401111111', N'3402222222', N'3403333333', N'vip,newsletter',   2, N'RSSMRA80A01H501U'),
+    (2,  2,  N'Luca',   N'Bianchi', N'Luca Bianchi',   N'3404444444', NULL,          NULL,          N'newsletter',       9, N'BNCLCU85B02F205X'),
+    (3,  3,  N'Anna',   N'Verdi',   N'Anna Verdi',     N'3405555555', N'3406666666', N'3407777777', N'vip;premium',      0, N'VRDNNA90C03L219Y'),
+    (4,  4,  N'Sara',   N'Neri',    N'Sara Neri',      NULL,          NULL,          NULL,          N'standard',         1, N'NRESRA92D04A271Z'),
+    (5,  5,  N'Paolo',  N'Gialli',  N'Paolo Gialli',   N'3408888888', NULL,          NULL,          N'a|b',              1, N'GLLPLA88E05B354W'),
+    (6,  6,  N'Elena',  N'Blu',     N'Elena Blu',      NULL,          NULL,          NULL,          N'standard',         0, N'BLUELN91F06C351V'),
+    (7,  7,  N'Marco',  N'Viola',   N'Marco Viola',    NULL,          NULL,          NULL,          N'vip,premium,gold', 0, N'VLIMRC87G07D612T'),
+    (8,  8,  N'Giulia', N'Rosa',    N'Giulia Rosa',    NULL,          NULL,          NULL,          N'standard',         0, N'RSOGLI93H08E463S'),
+    (9,  9,  N'Davide', N'Grigi',   N'Davide Grigi',   NULL,          NULL,          NULL,          N'standard',         0, N'GRGDVD89I09F839R'),
+    (10, 10, N'Chiara', N'Marroni', N'Chiara Marroni', NULL,          NULL,          NULL,          N'standard',         0, N'MRRCHR94L10G273Q');
+SET IDENTITY_INSERT customer_profiles OFF;
+GO
+
+-- Two of these five carry a fiscal_code that disagrees with the parent profile.
+SET IDENTITY_INSERT profile_notes ON;
+INSERT INTO profile_notes (id, profile_id, fiscal_code, note) VALUES
+    (1, 1, N'RSSMRA80A01H501U', N'Cliente storico'),
+    (2, 2, N'BNCLCU85B02F205X', N'Preferisce email'),
+    (3, 3, N'WRONGCODE0000001', N'Codice non allineato'),
+    (4, 4, N'NRESRA92D04A271Z', N'Nessuna nota'),
+    (5, 5, N'WRONGCODE0000002', N'Codice non allineato');
+SET IDENTITY_INSERT profile_notes OFF;
+GO
+
+-- infer_relationships fixture: order_id all valid, user_id 1/6 orphaned, product_id 5/6 orphaned.
+SET IDENTITY_INSERT shipments ON;
+INSERT INTO shipments (id, order_id, user_id, product_id, warehouse_id, ship_to, carrier) VALUES
+    (1, 1, 1, 1, 7, 1, N'BRT'),
+    (2, 2, 2, 9001, 7, 2, N'GLS'),
+    (3, 3, 3, 9002, 7, 3, N'BRT'),
+    (4, 4, 4, 9003, 8, 4, N'SDA'),
+    (5, 5, 5, 9004, 8, 5, N'GLS'),
+    (6, 6, 999, 9005, 8, 6, N'BRT');
+SET IDENTITY_INSERT shipments OFF;
+GO

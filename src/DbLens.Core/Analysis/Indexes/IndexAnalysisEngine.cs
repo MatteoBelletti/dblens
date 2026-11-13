@@ -28,7 +28,7 @@ public static class IndexAnalysisEngine
             {
                 caveats.Add(
                     $"Insufficient DB uptime for the 'unused-index' rule " +
-                    $"({stats.UptimeDays:F0} day(s), minimum required: {request.UnusedIndexMinDays}). " +
+                    $"({Num.F0(stats.UptimeDays)} day(s), minimum required: {request.UnusedIndexMinDays}). " +
                     "The rule was skipped.");
             }
             else
@@ -37,47 +37,34 @@ public static class IndexAnalysisEngine
                 findings.AddRange(unusedFindings);
                 if (unusedFindings.Count > 0)
                     caveats.Add(
-                        $"Database uptime: {stats.UptimeDays:F0} day(s). " +
+                        $"Database uptime: {Num.F0(stats.UptimeDays)} day(s). " +
                         "The 'unused-index' rule counts scans accumulated since the last DB restart. " +
                         "Verify manually before dropping any index.");
             }
         }
 
-        var truncated = false;
-        if (findings.Count > DiagnosticLimits.MaxFindingCount)
-        {
-            findings = findings.Take(DiagnosticLimits.MaxFindingCount).ToList();
-            truncated = true;
-            caveats.Add(
-                $"Results truncated to {DiagnosticLimits.MaxFindingCount} findings. " +
-                "Use the schema/tables filters for a more targeted analysis.");
-        }
+        var split = FindingSplit.Partition(findings);
 
-        return new AnalyzeIndexesResult(
-            Findings: findings,
-            Summary: BuildSummary(findings),
-            Caveats: caveats,
-            Truncated: truncated);
+        if (split.TruncationCaveat() is { } truncation)
+            caveats.Add(truncation);
+
+        if (split.SignalCaveat() is { } signalCaveat)
+            caveats.Add(signalCaveat);
+
+        return Build(split, caveats);
     }
 
-    public static AnalyzeIndexesResult Empty() =>
+    public static AnalyzeIndexesResult Empty() => Build(FindingSplit.Empty, []);
+
+    private static AnalyzeIndexesResult Build(FindingSplit split, IReadOnlyList<string> caveats) =>
         new(
-            Findings: [],
-            Summary: BuildSummary([]),
-            Caveats: [],
-            Truncated: false);
-
-    private static AnalyzeIndexesSummary BuildSummary(IReadOnlyList<Finding> findings)
-    {
-        var bySeverity = Enum.GetValues<Severity>()
-            .ToDictionary(s => s.ToString(), s => findings.Count(f => f.Severity == s));
-
-        var byRule = IndexRuleIds.All
-            .ToDictionary(r => r, r => findings.Count(f => f.RuleId == r));
-
-        return new AnalyzeIndexesSummary(
-            TotalFindings: findings.Count,
-            BySeverity: bySeverity,
-            ByRule: byRule);
-    }
+            Findings: split.Findings,
+            Signals: split.Signals,
+            Summary: new AnalyzeIndexesSummary(
+                TotalFindings: split.Findings.Count,
+                TotalSignals: split.Signals.Count,
+                BySeverity: split.BySeverity(),
+                ByRule: split.ByRule(IndexRuleIds.All)),
+            Caveats: caveats,
+            Truncated: split.Truncated);
 }

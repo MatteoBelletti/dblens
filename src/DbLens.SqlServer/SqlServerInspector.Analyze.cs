@@ -1,8 +1,6 @@
 using System.Text.Json;
 using DbLens.Core.Analysis.Indexes;
-using DbLens.Core.Models;
 using Microsoft.Data.SqlClient;
-using Microsoft.Extensions.Logging;
 
 namespace DbLens.SqlServer;
 
@@ -34,82 +32,8 @@ public sealed partial class SqlServerInspector
         )
         """;
 
-    public async Task<AnalyzeIndexesResult> AnalyzeIndexesAsync(
-        AnalyzeIndexesRequest request,
-        CancellationToken ct = default)
-    {
-        _logger.LogInformation(
-            "Starting index analysis (schema={Schema}, tables={Tables}, includeUnused={IncludeUnused})",
-            request.Schema ?? "*", request.Tables is null ? "*" : string.Join(",", request.Tables),
-            request.IncludeUnusedIndexes);
-
-        try
-        {
-            var tableScope = await ResolveTableScopeAsync(request, ct);
-            if (tableScope.Count == 0)
-                return IndexAnalysisEngine.Empty();
-
-            var tableNames = tableScope.Select(t => $"{t.Schema}.{t.Name}").ToArray();
-            var details = await GetTableDetailsAsync(new TableDetailsRequest(tableNames), ct);
-
-            IndexUsageStats? stats = null;
-            if (request.IncludeUnusedIndexes)
-                stats = await QueryIndexUsageStatsAsync(tableScope, ct);
-
-            var result = IndexAnalysisEngine.Analyze(details.Tables, stats, request, Dialect);
-
-            if (details.NotFound.Count > 0)
-            {
-                var extra =
-                    $"The following tables could not be inspected and were excluded from the analysis: " +
-                    string.Join(", ", details.NotFound) + ".";
-                result = result with { Caveats = [..result.Caveats, extra] };
-            }
-
-            _logger.LogInformation(
-                "Index analysis completed: {FindingCount} findings, {Caveats} caveats",
-                result.Findings.Count, result.Caveats.Count);
-
-            return result;
-        }
-        catch (OperationCanceledException)
-        {
-            throw;
-        }
-        catch (SqlException ex)
-        {
-            throw new DatabaseInspectionException(
-                $"SQL Server error during index analysis: {ex.Message}", ex);
-        }
-    }
-
-    private async Task<List<(string Schema, string Name)>> ResolveTableScopeAsync(
-        AnalyzeIndexesRequest request,
-        CancellationToken ct)
-    {
-        var overview = await GetSchemaOverviewAsync(
-            new SchemaOverviewRequest(
-                SchemaFilter: request.Schema,
-                IncludeViews: false,
-                IncludeSystemSchemas: false),
-            ct);
-
-        IEnumerable<(string Schema, string Name)> scope = overview.Schemas
-            .SelectMany(s => s.Objects
-                .Where(o => o.Kind == DatabaseObjectKind.Table)
-                .Select(o => (Schema: s.Name, Name: o.Name)));
-
-        if (request.Tables is { Length: > 0 })
-        {
-            var filter = new HashSet<string>(request.Tables, StringComparer.OrdinalIgnoreCase);
-            scope = scope.Where(t => filter.Contains(t.Name));
-        }
-
-        return scope.ToList();
-    }
-
-    private async Task<IndexUsageStats> QueryIndexUsageStatsAsync(
-        List<(string Schema, string Name)> tables,
+    protected override async Task<IndexUsageStats> QueryIndexUsageStatsAsync(
+        IReadOnlyList<ScopedTable> tables,
         CancellationToken ct)
     {
         var pairs = JsonSerializer.Serialize(

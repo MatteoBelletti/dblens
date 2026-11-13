@@ -15,5 +15,14 @@ public sealed record CheckCascadePathsRequest(
     /// <summary>
     /// Schema filter. When specified, only FKs within that schema are traversed.
     /// </summary>
-    string? Schema = null
+    string? Schema = null,
+
+    /// <summary>
+    /// Maximum number of distinct cascade paths to enumerate before stopping.
+    /// Path enumeration is combinatorial: a table with several CASCADE children, each with
+    /// several of their own, produces the product of those branches, and MaxDepth alone does
+    /// not bound it. Traversal stops as soon as this many paths exist, so the cost is paid in
+    /// paths found rather than in graph size.
+    /// </summary>
+    int MaxPaths = 500
 );

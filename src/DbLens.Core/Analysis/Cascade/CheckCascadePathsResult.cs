@@ -7,15 +7,31 @@ public sealed record CheckCascadePathsResult(
     string Database,
     string GeneratedAt,
     IReadOnlyList<CascadePath> Paths,
+    /// <summary>
+    /// Findings derived from foreign-key metadata. Every rule in this tool reads declared
+    /// constraints, so a cascade cycle reported here is a fact about the schema, not a guess.
+    /// Contains exactly one cascade-summary entry, always.
+    /// </summary>
     IReadOnlyList<Finding> Findings,
+    /// <summary>Heuristic results. Always empty for this tool; present so every result has one shape.</summary>
+    IReadOnlyList<Finding> Signals,
     CascadeSummary Summary,
     IReadOnlyList<string> Caveats,
+    /// <summary>True when the findings list hit the shared finding cap.</summary>
     bool Truncated,
+    /// <summary>
+    /// True when path enumeration stopped at MaxPaths. Distinct from <see cref="Truncated"/>:
+    /// findings can be complete while the path list is partial, and when this is set the
+    /// analysis is a sample of the cascade graph rather than a full picture of it.
+    /// </summary>
+    bool PathsTruncated,
     string Disclaimer
 );
 
 public sealed record CascadeSummary(
     int TotalFindings,
+    /// <summary>Count of inferred signals. Always 0 for this tool.</summary>
+    int TotalSignals,
     int TotalPaths,
     int MaxDepth,
     int TotalTablesInvolved,

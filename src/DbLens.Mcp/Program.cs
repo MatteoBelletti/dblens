@@ -19,7 +19,8 @@ if (transport == "sse")
     builder.Services
         .AddMcpServer()
         .WithHttpTransport()
-        .WithToolsFromAssembly(typeof(PingTool).Assembly);
+        .WithToolsFromAssembly(typeof(PingTool).Assembly)
+        .WithRequestFilters(filters => filters.AddCallToolFilter(ToolErrors.Filter));
     ConfigureDatabase(builder.Services, builder.Configuration);
     var app = builder.Build();
     app.MapMcp("/mcp");
@@ -33,7 +34,8 @@ else
     builder.Services
         .AddMcpServer()
         .WithStdioServerTransport()
-        .WithToolsFromAssembly(typeof(PingTool).Assembly);
+        .WithToolsFromAssembly(typeof(PingTool).Assembly)
+        .WithRequestFilters(filters => filters.AddCallToolFilter(ToolErrors.Filter));
     ConfigureDatabase(builder.Services, builder.Configuration);
     await builder.Build().RunAsync();
 }
@@ -46,18 +48,32 @@ static void ConfigureLogging(ILoggingBuilder logging)
 
 static void ConfigureDatabase(IServiceCollection services, IConfiguration configuration)
 {
-    var pgCs = configuration["ConnectionStrings:PostgreSql"]
-        ?? "Host=localhost;Port=5433;Database=dblens_demo;Username=postgres;Password=devpassword";
-    var ssCs = configuration["ConnectionStrings:SqlServer"]
-        ?? "Server=localhost,1434;Database=dblens_demo;User Id=sa;Password=DevPassword123!;TrustServerCertificate=true";
+    var pgCs = NonEmpty(configuration["ConnectionStrings:PostgreSql"])
+        ?? "Host=localhost;Port=5433;Database=dblens_demo;Username=dblens_reader;Password=readerpassword";
+    var ssCs = NonEmpty(configuration["ConnectionStrings:SqlServer"])
+        ?? "Server=localhost,1434;Database=dblens_demo;User Id=dblens_reader;Password=ReaderPassword123!;TrustServerCertificate=true";
+
+    var policy = ServerPolicy.From(configuration);
+    services.AddSingleton(policy);
 
     services.AddKeyedSingleton<IDatabaseInspector>(
         DatabaseDialect.PostgreSql,
-        (sp, _) => new PostgresInspector(pgCs, sp.GetRequiredService<ILogger<PostgresInspector>>()));
+        (sp, _) => new PostgresInspector(pgCs, sp.GetRequiredService<ILogger<PostgresInspector>>())
+        {
+            AllowWriteCapableLogin = policy.AllowWriteCapableLogin,
+        });
 
     services.AddKeyedSingleton<IDatabaseInspector>(
         DatabaseDialect.SqlServer,
-        (sp, _) => new SqlServerInspector(ssCs, sp.GetRequiredService<ILogger<SqlServerInspector>>()));
+        (sp, _) => new SqlServerInspector(ssCs, sp.GetRequiredService<ILogger<SqlServerInspector>>())
+        {
+            AllowWriteCapableLogin = policy.AllowWriteCapableLogin,
+        });
 
     services.AddSingleton<IDatabaseInspectorFactory, DatabaseInspectorFactory>();
+    services.AddSingleton(new CertifiedQueryStore(
+        configuration["DbLens:CertifiedQueriesPath"] ?? CertifiedQueryStore.DefaultPath()));
 }
+
+// An unset .mcpb user setting arrives as an empty environment variable, which must mean "use the default".
+static string? NonEmpty(string? value) => string.IsNullOrWhiteSpace(value) ? null : value;

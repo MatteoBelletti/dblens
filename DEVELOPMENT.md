@@ -114,11 +114,13 @@ Oppure da Visual Studio: tasto destro su **DbLens.Mcp → Pubblica → Profilo `
 
 ## Struttura del progetto
 
+Dettagli in [docs/architecture.md](docs/architecture.md).
+
 ```
 src/
-  DbLens.Core/        → interfacce e modelli condivisi
-  DbLens.Postgres/    → implementazione PostgreSQL
-  DbLens.SqlServer/   → implementazione SQL Server
+  DbLens.Core/        → interfacce, modelli, engine puri, DatabaseInspectorBase
+  DbLens.Postgres/    → SQL di catalogo e hook PostgreSQL
+  DbLens.SqlServer/   → SQL di catalogo e hook SQL Server
   DbLens.Mcp/         → server MCP — entrypoint, tool, DI
     Properties/
       launchSettings.json     → profili VS (stdio / sse)
@@ -141,6 +143,29 @@ scripts/
 | `sse` | 5050 | Debug con Visual Studio + inspector |
 
 Il profilo VS **`sse`** imposta automaticamente `MCP_TRANSPORT=sse`.
+
+---
+
+## Login di sola lettura
+
+dblens si collega come `dblens_reader` (creato da `db/*/03-reader.sql`) e rifiuta di eseguire SQL del
+chiamante con un login che può scrivere. `postgres` / `sa` servono solo per setup e test di rifiuto.
+Per un database usa-e-getta: `DbLens__AllowWriteCapableLogin=true`. Per abilitare
+`query_with_receipt`: `DbLens__AllowQueryResults=true`.
+
+---
+
+## Release
+
+Aggiorna `<Version>` in `src/DbLens.Mcp/DbLens.Mcp.csproj`, poi:
+
+```powershell
+git tag v0.1.0
+git push origin v0.1.0
+```
+
+Il workflow `release.yml` produce binari self-contained, estensioni `.mcpb` e il pacchetto NuGet
+(pubblicato solo se esiste il secret `NUGET_API_KEY`).
 
 ---
 

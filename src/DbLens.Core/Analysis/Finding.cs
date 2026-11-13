@@ -10,16 +10,30 @@ public sealed record Finding(
     string RuleId,
     Severity Severity,
     FindingCategory Category,
-    /// <summary>Rule confidence in [0,1]. All current rules are deterministic (≥ 0.85).</summary>
+    /// <summary>
+    /// Rule confidence in [0,1]. Read it together with <see cref="Evidence"/>: confidence
+    /// grades how sure the rule is within its own class, and does not promote a heuristic
+    /// into a fact.
+    /// </summary>
     double Confidence,
+    /// <summary>
+    /// What this finding stands on. Required, with no default: classifying a rule is a
+    /// decision every rule author has to make, and a default would let a heuristic be
+    /// published in the factual Findings list by omission.
+    /// </summary>
+    Evidence Evidence,
     /// <summary>Fully qualified table name, e.g. "public.orders".</summary>
     string Table,
     /// <summary>Columns involved in the finding. Null when not column-specific.</summary>
     IReadOnlyList<string>? Columns,
     string Title,
     string Description,
-    /// <summary>Suggested SQL to fix the issue. Null when no safe automated fix exists.</summary>
-    string? SqlFix,
+    /// <summary>
+    /// Suggested SQL, carrying its own kind. Null when the rule has nothing to propose.
+    /// Only <see cref="SqlProposal.SafeToExecuteAutomatically"/> may be run without review —
+    /// the other kinds change the database or are templates with invented names.
+    /// </summary>
+    SqlProposal? SqlFix,
     /// <summary>Rule-specific extra data. Null when not applicable.</summary>
     IReadOnlyDictionary<string, object>? Metadata
 );

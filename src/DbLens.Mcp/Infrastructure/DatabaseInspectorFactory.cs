@@ -11,14 +11,20 @@ public interface IDatabaseInspectorFactory
     IDatabaseInspector Create(DatabaseDialect dialect, string connectionString);
 }
 
-public sealed class DatabaseInspectorFactory(ILoggerFactory loggerFactory) : IDatabaseInspectorFactory
+public sealed class DatabaseInspectorFactory(ILoggerFactory loggerFactory, ServerPolicy policy) : IDatabaseInspectorFactory
 {
     public IDatabaseInspector Create(DatabaseDialect dialect, string connectionString) => dialect switch
     {
         DatabaseDialect.PostgreSql => new PostgresInspector(
-            connectionString, loggerFactory.CreateLogger<PostgresInspector>()),
+            connectionString, loggerFactory.CreateLogger<PostgresInspector>())
+        {
+            AllowWriteCapableLogin = policy.AllowWriteCapableLogin,
+        },
         DatabaseDialect.SqlServer => new SqlServerInspector(
-            connectionString, loggerFactory.CreateLogger<SqlServerInspector>()),
+            connectionString, loggerFactory.CreateLogger<SqlServerInspector>())
+        {
+            AllowWriteCapableLogin = policy.AllowWriteCapableLogin,
+        },
         _ => throw new ArgumentOutOfRangeException(nameof(dialect), $"Unsupported dialect: {dialect}"),
     };
 }

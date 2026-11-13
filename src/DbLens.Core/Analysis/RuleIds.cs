@@ -23,6 +23,53 @@ public static class GdprRuleIds
         [PiiIdentifier, PiiContact, PiiFinancial, PiiSpecialCategory, PiiLocation, MissingGdprControls];
 }
 
+public static class DenormalizationRuleIds
+{
+    public const string RepeatingGroup   = "denorm-repeating-group";
+    public const string DerivedColumn    = "denorm-derived-column";
+    public const string DuplicatedColumn = "denorm-duplicated-column";
+    public const string MultiValueColumn = "denorm-multivalue-column";
+    public const string WideTable        = "denorm-wide-table";
+
+    public static readonly string[] All =
+        [RepeatingGroup, DerivedColumn, DuplicatedColumn, MultiValueColumn, WideTable];
+}
+
+public static class FragmentationRuleIds
+{
+    public const string HighFragmentation     = "idx-fragmentation-high";
+    public const string ModerateFragmentation = "idx-fragmentation-moderate";
+    public const string LowPageDensity        = "idx-low-page-density";
+
+    public static readonly string[] All =
+        [HighFragmentation, ModerateFragmentation, LowPageDensity];
+}
+
+public static class QueryPlanRuleIds
+{
+    public const string SeqScanLargeTable  = "plan-seq-scan-large-table";
+    public const string EstimateMismatch   = "plan-estimate-mismatch";
+    public const string NestedLoopLargeInput = "plan-nested-loop-large-input";
+    public const string SortSpilledToDisk  = "plan-sort-spilled-to-disk";
+    public const string ScanWithFilter     = "plan-scan-with-filter";
+
+    public static readonly string[] All =
+        [SeqScanLargeTable, EstimateMismatch, NestedLoopLargeInput, SortSpilledToDisk, ScanWithFilter];
+}
+
+public static class MigrationRuleIds
+{
+    public const string TableRewrite         = "migration-table-rewrite";
+    public const string BlockingLock         = "migration-blocking-lock";
+    public const string IndexNotConcurrent   = "migration-index-not-concurrent";
+    public const string UnvalidatedConstraint = "migration-validated-constraint-scan";
+    public const string Destructive          = "migration-destructive";
+    public const string Summary              = "migration-summary";
+
+    public static readonly string[] All =
+        [TableRewrite, BlockingLock, IndexNotConcurrent, UnvalidatedConstraint, Destructive, Summary];
+}
+
 public static class CascadeRuleIds
 {
     public const string CircularPath     = "cascade-circular-path";
@@ -34,4 +81,11 @@ public static class CascadeRuleIds
 
     public static readonly string[] All =
         [CircularPath, DeepPath, BreaksWithSetNull, BreaksWithRestrict, SelfReferencing, Summary];
+}
+
+public static class RelationshipRuleIds
+{
+    public const string UndeclaredForeignKey = "relationship-undeclared-fk";
+
+    public static readonly string[] All = [UndeclaredForeignKey];
 }

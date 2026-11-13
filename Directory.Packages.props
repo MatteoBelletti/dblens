@@ -1,26 +1,33 @@
 <Project>
   <PropertyGroup>
     <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
+    <!-- Lets a PackageVersion below override a vulnerable version pulled in transitively. -->
+    <CentralPackageTransitivePinningEnabled>true</CentralPackageTransitivePinningEnabled>
   </PropertyGroup>
   <ItemGroup>
     <!-- MCP -->
-    <PackageVersion Include="ModelContextProtocol" Version="1.2.0" />
-    <PackageVersion Include="ModelContextProtocol.AspNetCore" Version="1.2.0" />
+    <PackageVersion Include="ModelContextProtocol" Version="2.4.0" />
+    <PackageVersion Include="ModelContextProtocol.AspNetCore" Version="2.4.0" />
     <!-- Database -->
-    <PackageVersion Include="Npgsql" Version="9.0.3" />
-    <PackageVersion Include="Microsoft.Data.SqlClient" Version="6.0.1" />
-    <!-- Hosting / DI / Logging -->
-    <PackageVersion Include="Microsoft.Extensions.Hosting" Version="10.0.0" />
-    <PackageVersion Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="10.0.0" />
-    <PackageVersion Include="Microsoft.Extensions.Configuration.Json" Version="10.0.0" />
-    <PackageVersion Include="Microsoft.Extensions.Configuration.EnvironmentVariables" Version="10.0.0" />
-    <PackageVersion Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.0" />
-    <PackageVersion Include="Microsoft.Extensions.Logging.Console" Version="10.0.0" />
+    <PackageVersion Include="Npgsql" Version="10.0.3" />
+    <PackageVersion Include="Microsoft.Data.SqlClient" Version="7.1.2" />
+    <!-- Hosting / DI / Logging. Kept on the 10.x line to match net10.0 and the ASP.NET Core 10
+         shared framework; the 11.x packages belong to .NET 11. -->
+    <PackageVersion Include="Microsoft.Extensions.Hosting" Version="10.0.15" />
+    <PackageVersion Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="10.0.15" />
+    <PackageVersion Include="Microsoft.Extensions.Configuration.Json" Version="10.0.15" />
+    <PackageVersion Include="Microsoft.Extensions.Configuration.EnvironmentVariables" Version="10.0.15" />
+    <PackageVersion Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.15" />
+    <PackageVersion Include="Microsoft.Extensions.Logging.Console" Version="10.0.15" />
+    <!-- Transitive pins. Microsoft.Data.SqlClient pulls 9.0.13, which carries GHSA-846f-f764-76mx
+         (high) and GHSA-2fmv-rv2c-59x7 (moderate). Remove once SqlClient depends on a fixed version. -->
+    <PackageVersion Include="System.Security.Cryptography.Pkcs" Version="10.0.15" />
     <!-- Test -->
-    <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="17.14.0" />
+    <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="18.12.0" />
     <PackageVersion Include="xunit" Version="2.9.3" />
-    <PackageVersion Include="xunit.runner.visualstudio" Version="3.0.2" />
-    <PackageVersion Include="FluentAssertions" Version="8.3.0" />
-    <PackageVersion Include="coverlet.collector" Version="6.0.4" />
+    <PackageVersion Include="xunit.runner.visualstudio" Version="4.0.1" />
+    <PackageVersion Include="FluentAssertions" Version="8.11.0" />
+    <PackageVersion Include="Xunit.SkippableFact" Version="1.5.85" />
+    <PackageVersion Include="coverlet.collector" Version="10.1.0" />
   </ItemGroup>
 </Project>

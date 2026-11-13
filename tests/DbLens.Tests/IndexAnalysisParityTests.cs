@@ -25,10 +25,10 @@ public sealed class IndexAnalysisParityTests :
 
     private bool ShouldSkip => !_pg.IsReachable || !_ss.IsReachable;
 
-    [Fact, Trait("Category", "Integration")]
+    [SkippableFact, Trait("Category", "Integration")]
     public async Task FkWithoutIndex_AffectedTableNames_MatchAcrossDialects()
     {
-        if (ShouldSkip) return;
+        Skip.If(ShouldSkip, TestSkip.Reason);
 
         var pg = await _pg.Inspector!.AnalyzeIndexesAsync(
             new AnalyzeIndexesRequest(Schema: "public", IncludeUnusedIndexes: false));
@@ -51,10 +51,10 @@ public sealed class IndexAnalysisParityTests :
             "both dialects must detect fk-without-index on the same tables");
     }
 
-    [Fact, Trait("Category", "Integration")]
+    [SkippableFact, Trait("Category", "Integration")]
     public async Task FkWithoutIndex_AffectedColumns_MatchAcrossDialects()
     {
-        if (ShouldSkip) return;
+        Skip.If(ShouldSkip, TestSkip.Reason);
 
         var pg = await _pg.Inspector!.AnalyzeIndexesAsync(
             new AnalyzeIndexesRequest(Schema: "public", IncludeUnusedIndexes: false));
@@ -76,10 +76,10 @@ public sealed class IndexAnalysisParityTests :
             "both dialects must report the same FK columns as missing index coverage");
     }
 
-    [Fact, Trait("Category", "Integration")]
+    [SkippableFact, Trait("Category", "Integration")]
     public async Task FkWithoutIndex_FindingCount_IsTheSameOnBothDialects()
     {
-        if (ShouldSkip) return;
+        Skip.If(ShouldSkip, TestSkip.Reason);
 
         var pg = await _pg.Inspector!.AnalyzeIndexesAsync(
             new AnalyzeIndexesRequest(Schema: "public", IncludeUnusedIndexes: false));
@@ -93,10 +93,10 @@ public sealed class IndexAnalysisParityTests :
             "the same number of FK-without-index findings must be produced on both dialects");
     }
 
-    [Fact, Trait("Category", "Integration")]
+    [SkippableFact, Trait("Category", "Integration")]
     public async Task DemoGoodSchema_NoFindings_OnBothDialects()
     {
-        if (ShouldSkip) return;
+        Skip.If(ShouldSkip, TestSkip.Reason);
 
         var pg = await _pg.Inspector!.AnalyzeIndexesAsync(
             new AnalyzeIndexesRequest(Schema: "demo_good", IncludeUnusedIndexes: false));
@@ -107,10 +107,10 @@ public sealed class IndexAnalysisParityTests :
         ss.Findings.Should().BeEmpty("demo_good schema (SS) must have 0 findings");
     }
 
-    [Fact, Trait("Category", "Integration")]
+    [SkippableFact, Trait("Category", "Integration")]
     public async Task Summary_BySeverityKeys_AreConsistentAcrossDialects()
     {
-        if (ShouldSkip) return;
+        Skip.If(ShouldSkip, TestSkip.Reason);
 
         var pg = await _pg.Inspector!.AnalyzeIndexesAsync(
             new AnalyzeIndexesRequest(Schema: "public", IncludeUnusedIndexes: false));
@@ -126,10 +126,10 @@ public sealed class IndexAnalysisParityTests :
             "both dialects must return the same rule keys");
     }
 
-    [Fact, Trait("Category", "Integration")]
+    [SkippableFact, Trait("Category", "Integration")]
     public async Task UnusedIndexRule_SkippedByCaveat_OnBothDialects()
     {
-        if (ShouldSkip) return;
+        Skip.If(ShouldSkip, TestSkip.Reason);
 
         var pg = await _pg.Inspector!.AnalyzeIndexesAsync(
             new AnalyzeIndexesRequest(

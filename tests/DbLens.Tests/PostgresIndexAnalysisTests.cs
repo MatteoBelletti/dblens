@@ -16,10 +16,10 @@ public sealed class PostgresIndexAnalysisTests : IClassFixture<PostgresFixture>
 
     // --- Acceptance criterion 1 ---
 
-    [Fact, Trait("Category", "Integration")]
+    [SkippableFact, Trait("Category", "Integration")]
     public async Task AnalyzeIndexes_PublicSchema_ReturnsAtLeastFourFindings()
     {
-        if (ShouldSkip) return;
+        Skip.If(ShouldSkip, TestSkip.Reason);
 
         var result = await _fixture.Inspector!.AnalyzeIndexesAsync(
             new AnalyzeIndexesRequest(Schema: "public", IncludeUnusedIndexes: false));
@@ -29,10 +29,10 @@ public sealed class PostgresIndexAnalysisTests : IClassFixture<PostgresFixture>
         result.Summary.TotalFindings.Should().Be(result.Findings.Count);
     }
 
-    [Fact, Trait("Category", "Integration")]
+    [SkippableFact, Trait("Category", "Integration")]
     public async Task AnalyzeIndexes_PublicSchema_FkWithoutIndex_DetectedOnExpectedTables()
     {
-        if (ShouldSkip) return;
+        Skip.If(ShouldSkip, TestSkip.Reason);
 
         var result = await _fixture.Inspector!.AnalyzeIndexesAsync(
             new AnalyzeIndexesRequest(Schema: "public", IncludeUnusedIndexes: false));
@@ -47,10 +47,10 @@ public sealed class PostgresIndexAnalysisTests : IClassFixture<PostgresFixture>
         tablesWithIssue.Should().Contain("public.products", "products.category_id has no index");
     }
 
-    [Fact, Trait("Category", "Integration")]
+    [SkippableFact, Trait("Category", "Integration")]
     public async Task AnalyzeIndexes_FkWithoutIndex_SqlFix_UsesExpectedPattern()
     {
-        if (ShouldSkip) return;
+        Skip.If(ShouldSkip, TestSkip.Reason);
 
         var result = await _fixture.Inspector!.AnalyzeIndexesAsync(
             new AnalyzeIndexesRequest(Schema: "public", Tables: ["orders"], IncludeUnusedIndexes: false));
@@ -58,17 +58,17 @@ public sealed class PostgresIndexAnalysisTests : IClassFixture<PostgresFixture>
         var finding = result.Findings.First(f =>
             f.RuleId == "fk-without-index" && f.Table == "public.orders");
 
-        finding.SqlFix.Should().NotBeNull();
-        finding.SqlFix.Should().StartWith("CREATE INDEX idx_orders_");
-        finding.SqlFix.Should().Contain("ON public.orders");
+        finding.SqlFix!.Sql.Should().NotBeNull();
+        finding.SqlFix!.Sql.Should().StartWith("CREATE INDEX CONCURRENTLY \"idx_orders_");
+        finding.SqlFix!.Sql.Should().Contain("ON \"public\".\"orders\"");
     }
 
     // --- Acceptance criterion 3 ---
 
-    [Fact, Trait("Category", "Integration")]
+    [SkippableFact, Trait("Category", "Integration")]
     public async Task AnalyzeIndexes_DemoGoodSchema_ReturnsNoFindings()
     {
-        if (ShouldSkip) return;
+        Skip.If(ShouldSkip, TestSkip.Reason);
 
         // Use includeUnusedIndexes: false to isolate structural analysis.
         // The demo_good schema was designed with all FKs indexed and no duplicate/redundant indexes.
@@ -83,10 +83,10 @@ public sealed class PostgresIndexAnalysisTests : IClassFixture<PostgresFixture>
 
     // --- Acceptance criterion 4 ---
 
-    [Fact, Trait("Category", "Integration")]
+    [SkippableFact, Trait("Category", "Integration")]
     public async Task AnalyzeIndexes_UnusedIndexFound_IncludesUptimeCaveat()
     {
-        if (ShouldSkip) return;
+        Skip.If(ShouldSkip, TestSkip.Reason);
 
         // idx_orders_status is a deliberately unused non-unique index (never scanned during seeding).
         // unusedIndexMinDays = 0 bypasses the uptime threshold.
@@ -109,10 +109,10 @@ public sealed class PostgresIndexAnalysisTests : IClassFixture<PostgresFixture>
 
     // --- Acceptance criterion 5 ---
 
-    [Fact, Trait("Category", "Integration")]
+    [SkippableFact, Trait("Category", "Integration")]
     public async Task AnalyzeIndexes_UnusedIndexMinDays_ExceedsUptimeDays_SkipsRuleAndAddsCaveat()
     {
-        if (ShouldSkip) return;
+        Skip.If(ShouldSkip, TestSkip.Reason);
 
         // int.MaxValue days far exceeds any real DB uptime (~5.9M years).
         var result = await _fixture.Inspector!.AnalyzeIndexesAsync(
@@ -129,10 +129,10 @@ public sealed class PostgresIndexAnalysisTests : IClassFixture<PostgresFixture>
 
     // --- Summary structure ---
 
-    [Fact, Trait("Category", "Integration")]
+    [SkippableFact, Trait("Category", "Integration")]
     public async Task AnalyzeIndexes_Summary_ContainsAllSeveritiesAndRules()
     {
-        if (ShouldSkip) return;
+        Skip.If(ShouldSkip, TestSkip.Reason);
 
         var result = await _fixture.Inspector!.AnalyzeIndexesAsync(
             new AnalyzeIndexesRequest(Schema: "public", IncludeUnusedIndexes: false));
@@ -149,10 +149,10 @@ public sealed class PostgresIndexAnalysisTests : IClassFixture<PostgresFixture>
         result.Summary.ByRule.Should().ContainKey("unused-index");
     }
 
-    [Fact, Trait("Category", "Integration")]
+    [SkippableFact, Trait("Category", "Integration")]
     public async Task AnalyzeIndexes_TableFilter_LimitsScope()
     {
-        if (ShouldSkip) return;
+        Skip.If(ShouldSkip, TestSkip.Reason);
 
         var result = await _fixture.Inspector!.AnalyzeIndexesAsync(
             new AnalyzeIndexesRequest(
@@ -164,10 +164,10 @@ public sealed class PostgresIndexAnalysisTests : IClassFixture<PostgresFixture>
             "table filter must restrict findings to the specified table");
     }
 
-    [Fact, Trait("Category", "Integration")]
+    [SkippableFact, Trait("Category", "Integration")]
     public async Task AnalyzeIndexes_FkCoveredByCompositeIndex_NofFinding()
     {
-        if (ShouldSkip) return;
+        Skip.If(ShouldSkip, TestSkip.Reason);
 
         // demo_good.employees: department_id is covered by idx_demo_good_employees_department_id.
         // Even though that index could be "covered" by a composite, the single-column index exists.

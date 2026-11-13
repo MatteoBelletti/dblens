@@ -10,7 +10,7 @@ public static class DuplicateIndexRule
     {
         foreach (var table in tables)
         {
-            var tableQualified = $"{table.Schema}.{table.Name}";
+            var tableQualified = table.Qualified();
 
             // Group non-partial indexes by (column sequence lowercased, isUnique).
             // Partial indexes have dialect-specific predicates and cannot be safely deduplicated.
@@ -38,13 +38,16 @@ public static class DuplicateIndexRule
                         Severity:    Severity.Medium,
                         Category:    FindingCategory.Structure,
                         Confidence:  1.0,
+                        Evidence:  Evidence.Derived,
                         Table:       tableQualified,
                         Columns:     dup.Columns,
                         Title:       $"Index '{dup.Name}' is a duplicate of '{canonical.Name}'",
                         Description: $"Index '{dup.Name}' on {tableQualified} " +
                                      $"({string.Join(", ", dup.Columns)}) has the same columns and uniqueness " +
                                      $"as '{canonical.Name}'. One of them is redundant.",
-                        SqlFix:      BuildDropIndex(table.Schema, table.Name, dup.Name, dialect),
+                        SqlFix:      SqlProposal.Ddl(
+                            IndexSql.DropIndex(table.Schema, table.Name, dup.Name, dialect),
+                            "Drops the duplicate index."),
                         Metadata:    new Dictionary<string, object>
                         {
                             ["canonical_index"] = canonical.Name,
@@ -55,9 +58,4 @@ public static class DuplicateIndexRule
         }
     }
 
-    public static string BuildDropIndex(
-        string schema, string table, string indexName, DatabaseDialect dialect)
-        => dialect == DatabaseDialect.PostgreSql
-            ? $"DROP INDEX CONCURRENTLY {schema}.{indexName};"
-            : $"DROP INDEX [{indexName}] ON [{schema}].[{table}];";
 }

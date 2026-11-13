@@ -17,10 +17,10 @@ public sealed class PostgresTableDetailsTests : IClassFixture<PostgresFixture>
     public PostgresTableDetailsTests(PostgresFixture fixture) => _fixture = fixture;
     private bool ShouldSkip => !_fixture.IsReachable;
 
-    [Fact, Trait("Category", "Integration")]
+    [SkippableFact, Trait("Category", "Integration")]
     public async Task GetTableDetails_Users_ReturnsTenColumns()
     {
-        if (ShouldSkip) return;
+        Skip.If(ShouldSkip, TestSkip.Reason);
 
         var result = await _fixture.Inspector!.GetTableDetailsAsync(
             new TableDetailsRequest(["users"]));
@@ -29,10 +29,10 @@ public sealed class PostgresTableDetailsTests : IClassFixture<PostgresFixture>
         result.Tables[0].Columns.Should().HaveCount(10);
     }
 
-    [Fact, Trait("Category", "Integration")]
+    [SkippableFact, Trait("Category", "Integration")]
     public async Task GetTableDetails_Users_EmailColumn_IsTextNotNullable()
     {
-        if (ShouldSkip) return;
+        Skip.If(ShouldSkip, TestSkip.Reason);
 
         var result = await _fixture.Inspector!.GetTableDetailsAsync(
             new TableDetailsRequest(["users"]));
@@ -42,10 +42,10 @@ public sealed class PostgresTableDetailsTests : IClassFixture<PostgresFixture>
         email.IsNullable.Should().BeFalse();
     }
 
-    [Fact, Trait("Category", "Integration")]
+    [SkippableFact, Trait("Category", "Integration")]
     public async Task GetTableDetails_Users_IdColumn_IsIdentity()
     {
-        if (ShouldSkip) return;
+        Skip.If(ShouldSkip, TestSkip.Reason);
 
         var result = await _fixture.Inspector!.GetTableDetailsAsync(
             new TableDetailsRequest(["users"]));
@@ -54,10 +54,10 @@ public sealed class PostgresTableDetailsTests : IClassFixture<PostgresFixture>
         id.IsIdentity.Should().BeTrue();
     }
 
-    [Fact, Trait("Category", "Integration")]
+    [SkippableFact, Trait("Category", "Integration")]
     public async Task GetTableDetails_Users_HasPrimaryKey()
     {
-        if (ShouldSkip) return;
+        Skip.If(ShouldSkip, TestSkip.Reason);
 
         var result = await _fixture.Inspector!.GetTableDetailsAsync(
             new TableDetailsRequest(["users"]));
@@ -67,10 +67,10 @@ public sealed class PostgresTableDetailsTests : IClassFixture<PostgresFixture>
         t.PrimaryKey!.Columns.Should().Equal("id");
     }
 
-    [Fact, Trait("Category", "Integration")]
+    [SkippableFact, Trait("Category", "Integration")]
     public async Task GetTableDetails_Users_HasAtLeastOnePrimaryKeyIndex()
     {
-        if (ShouldSkip) return;
+        Skip.If(ShouldSkip, TestSkip.Reason);
 
         var result = await _fixture.Inspector!.GetTableDetailsAsync(
             new TableDetailsRequest(["users"]));
@@ -78,10 +78,10 @@ public sealed class PostgresTableDetailsTests : IClassFixture<PostgresFixture>
         result.Tables[0].Indexes.Should().Contain(i => i.IsPrimary);
     }
 
-    [Fact, Trait("Category", "Integration")]
+    [SkippableFact, Trait("Category", "Integration")]
     public async Task GetTableDetails_Users_HasAtLeastThreeIncomingForeignKeys()
     {
-        if (ShouldSkip) return;
+        Skip.If(ShouldSkip, TestSkip.Reason);
 
         var result = await _fixture.Inspector!.GetTableDetailsAsync(
             new TableDetailsRequest(["users"]));
@@ -90,10 +90,10 @@ public sealed class PostgresTableDetailsTests : IClassFixture<PostgresFixture>
         result.Tables[0].ForeignKeysIncoming.Should().HaveCountGreaterThanOrEqualTo(2);
     }
 
-    [Fact, Trait("Category", "Integration")]
+    [SkippableFact, Trait("Category", "Integration")]
     public async Task GetTableDetails_Users_OutgoingForeignKeysIsEmpty()
     {
-        if (ShouldSkip) return;
+        Skip.If(ShouldSkip, TestSkip.Reason);
 
         var result = await _fixture.Inspector!.GetTableDetailsAsync(
             new TableDetailsRequest(["users"]));
@@ -101,10 +101,10 @@ public sealed class PostgresTableDetailsTests : IClassFixture<PostgresFixture>
         result.Tables[0].ForeignKeysOutgoing.Should().BeEmpty();
     }
 
-    [Fact, Trait("Category", "Integration")]
+    [SkippableFact, Trait("Category", "Integration")]
     public async Task GetTableDetails_ForeignKeyOnDelete_IsPopulated()
     {
-        if (ShouldSkip) return;
+        Skip.If(ShouldSkip, TestSkip.Reason);
 
         // orders has a FK to users with ON DELETE NO ACTION (default)
         var result = await _fixture.Inspector!.GetTableDetailsAsync(
@@ -118,10 +118,10 @@ public sealed class PostgresTableDetailsTests : IClassFixture<PostgresFixture>
             "NO ACTION", "CASCADE", "SET NULL", "SET DEFAULT", "RESTRICT");
     }
 
-    [Fact, Trait("Category", "Integration")]
+    [SkippableFact, Trait("Category", "Integration")]
     public async Task GetTableDetails_Categories_SelfReferentialFk()
     {
-        if (ShouldSkip) return;
+        Skip.If(ShouldSkip, TestSkip.Reason);
 
         var result = await _fixture.Inspector!.GetTableDetailsAsync(
             new TableDetailsRequest(["categories"]));
@@ -134,10 +134,10 @@ public sealed class PostgresTableDetailsTests : IClassFixture<PostgresFixture>
             fk.FromTable == "categories");
     }
 
-    [Fact, Trait("Category", "Integration")]
+    [SkippableFact, Trait("Category", "Integration")]
     public async Task GetTableDetails_NonExistentTable_AppearsInNotFound()
     {
-        if (ShouldSkip) return;
+        Skip.If(ShouldSkip, TestSkip.Reason);
 
         var result = await _fixture.Inspector!.GetTableDetailsAsync(
             new TableDetailsRequest(["users", "nonexistent_xyz"]));
@@ -146,10 +146,10 @@ public sealed class PostgresTableDetailsTests : IClassFixture<PostgresFixture>
         result.NotFound.Should().Contain("nonexistent_xyz");
     }
 
-    [Fact, Trait("Category", "Integration")]
+    [SkippableFact, Trait("Category", "Integration")]
     public async Task GetTableDetails_QualifiedAndUnqualifiedName_ReturnSameTable()
     {
-        if (ShouldSkip) return;
+        Skip.If(ShouldSkip, TestSkip.Reason);
 
         var r1 = await _fixture.Inspector!.GetTableDetailsAsync(
             new TableDetailsRequest(["users"]));
@@ -160,10 +160,10 @@ public sealed class PostgresTableDetailsTests : IClassFixture<PostgresFixture>
         r1.Tables[0].Indexes.Count.Should().Be(r2.Tables[0].Indexes.Count);
     }
 
-    [Fact, Trait("Category", "Integration")]
+    [SkippableFact, Trait("Category", "Integration")]
     public async Task GetTableDetails_MultipleTables_AreAllReturned()
     {
-        if (ShouldSkip) return;
+        Skip.If(ShouldSkip, TestSkip.Reason);
 
         var result = await _fixture.Inspector!.GetTableDetailsAsync(
             new TableDetailsRequest(["users", "orders"]));
@@ -172,10 +172,10 @@ public sealed class PostgresTableDetailsTests : IClassFixture<PostgresFixture>
         result.Tables.Select(t => t.Name).Should().Contain(["users", "orders"]);
     }
 
-    [Fact, Trait("Category", "Integration")]
+    [SkippableFact, Trait("Category", "Integration")]
     public async Task GetTableDetails_MultipleTables_PreservesInputOrder()
     {
-        if (ShouldSkip) return;
+        Skip.If(ShouldSkip, TestSkip.Reason);
 
         var result = await _fixture.Inspector!.GetTableDetailsAsync(
             new TableDetailsRequest(["orders", "users"]));
@@ -184,10 +184,10 @@ public sealed class PostgresTableDetailsTests : IClassFixture<PostgresFixture>
         result.Tables[1].Name.Should().Be("users");
     }
 
-    [Fact, Trait("Category", "Integration")]
+    [SkippableFact, Trait("Category", "Integration")]
     public async Task GetTableDetails_Columns_AreSortedByOrdinalPosition()
     {
-        if (ShouldSkip) return;
+        Skip.If(ShouldSkip, TestSkip.Reason);
 
         var result = await _fixture.Inspector!.GetTableDetailsAsync(
             new TableDetailsRequest(["users"]));
@@ -196,10 +196,10 @@ public sealed class PostgresTableDetailsTests : IClassFixture<PostgresFixture>
         positions.Should().BeInAscendingOrder();
     }
 
-    [Fact, Trait("Category", "Integration")]
+    [SkippableFact, Trait("Category", "Integration")]
     public async Task GetTableDetails_Indexes_AreSortedAlphabetically()
     {
-        if (ShouldSkip) return;
+        Skip.If(ShouldSkip, TestSkip.Reason);
 
         var result = await _fixture.Inspector!.GetTableDetailsAsync(
             new TableDetailsRequest(["users"]));
@@ -207,10 +207,10 @@ public sealed class PostgresTableDetailsTests : IClassFixture<PostgresFixture>
         result.Tables[0].Indexes.Select(i => i.Name).Should().BeInAscendingOrder();
     }
 
-    [Fact, Trait("Category", "Integration")]
+    [SkippableFact, Trait("Category", "Integration")]
     public async Task GetTableDetails_SummaryAndMetadata_AreCorrect()
     {
-        if (ShouldSkip) return;
+        Skip.If(ShouldSkip, TestSkip.Reason);
 
         var result = await _fixture.Inspector!.GetTableDetailsAsync(
             new TableDetailsRequest(["users"]));
@@ -222,10 +222,10 @@ public sealed class PostgresTableDetailsTests : IClassFixture<PostgresFixture>
         result.Truncated.Should().BeFalse();
     }
 
-    [Fact, Trait("Category", "Integration")]
+    [SkippableFact, Trait("Category", "Integration")]
     public async Task GetTableDetails_IndexDefinition_ContainsCreateIndex()
     {
-        if (ShouldSkip) return;
+        Skip.If(ShouldSkip, TestSkip.Reason);
 
         var result = await _fixture.Inspector!.GetTableDetailsAsync(
             new TableDetailsRequest(["users"]));
@@ -234,10 +234,10 @@ public sealed class PostgresTableDetailsTests : IClassFixture<PostgresFixture>
             .Should().OnlyContain(i => i.Definition.StartsWith("CREATE", StringComparison.OrdinalIgnoreCase));
     }
 
-    [Fact, Trait("Category", "Integration")]
+    [SkippableFact, Trait("Category", "Integration")]
     public async Task GetTableDetails_Products_HasNumericPriceColumn()
     {
-        if (ShouldSkip) return;
+        Skip.If(ShouldSkip, TestSkip.Reason);
 
         var result = await _fixture.Inspector!.GetTableDetailsAsync(
             new TableDetailsRequest(["products"]));
@@ -248,10 +248,10 @@ public sealed class PostgresTableDetailsTests : IClassFixture<PostgresFixture>
         price.NumericScale.Should().Be(2);
     }
 
-    [Fact, Trait("Category", "Integration")]
+    [SkippableFact, Trait("Category", "Integration")]
     public async Task GetTableDetails_Users_UniqueEmailConstraint_ExistsAsIndex()
     {
-        if (ShouldSkip) return;
+        Skip.If(ShouldSkip, TestSkip.Reason);
 
         // email TEXT NOT NULL UNIQUE — creates a unique index
         var result = await _fixture.Inspector!.GetTableDetailsAsync(

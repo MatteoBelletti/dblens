@@ -1,6 +1,4 @@
 using DbLens.Core.Analysis.Cascade;
-using DbLens.Core.Models;
-using Microsoft.Extensions.Logging;
 using Npgsql;
 using NpgsqlTypes;
 
@@ -55,51 +53,23 @@ public sealed partial class PostgresInspector
         AND (@schema_filter IS NULL OR n.nspname = @schema_filter)
         """;
 
-    public async Task<CheckCascadePathsResult> CheckCascadePathsAsync(
-        CheckCascadePathsRequest request,
-        CancellationToken ct = default)
+    protected override async Task<CascadeGraph> QueryCascadeGraphAsync(string? schema, CancellationToken ct)
     {
-        _logger.LogInformation(
-            "Starting cascade path check (startingTable={StartingTable}, schema={Schema}, maxDepth={MaxDepth})",
-            request.StartingTable ?? "*", request.Schema ?? "*", request.MaxDepth);
+        await using var conn = new NpgsqlConnection(_connectionString);
+        await conn.OpenAsync(ct);
 
-        try
+        string databaseName;
+        await using (var cmd = conn.CreateCommand())
         {
-            await using var conn = new NpgsqlConnection(_connectionString);
-            await conn.OpenAsync(ct);
-
-            string? databaseName;
-            {
-                await using var cmd = conn.CreateCommand();
-                cmd.CommandText = "SELECT current_database()";
-                cmd.CommandTimeout = QueryTimeoutSeconds;
-                databaseName = (string?)await cmd.ExecuteScalarAsync(ct) ?? "unknown";
-            }
-
-            var allFks = await QueryFkEdgesAsync(conn, request.Schema, ct);
-            var rowCounts = await QueryRowCountsAsync(conn, request.Schema, ct);
-
-            var roots = ResolveRoots(request, allFks);
-            if (roots.Count == 0)
-                return CascadeAnalysisEngine.Empty("PostgreSql", databaseName);
-
-            var result = CascadeAnalysisEngine.Analyze(allFks, rowCounts, roots, request, "PostgreSql", databaseName);
-
-            _logger.LogInformation(
-                "Cascade path check completed: {PathCount} paths, {FindingCount} findings",
-                result.Paths.Count, result.Findings.Count);
-
-            return result;
+            cmd.CommandText = "SELECT current_database()";
+            cmd.CommandTimeout = QueryTimeoutSeconds;
+            databaseName = (string?)await cmd.ExecuteScalarAsync(ct) ?? "unknown";
         }
-        catch (OperationCanceledException)
-        {
-            throw;
-        }
-        catch (NpgsqlException ex)
-        {
-            throw new DatabaseInspectionException(
-                $"PostgreSQL error during cascade path check: {ex.Message}", ex);
-        }
+
+        var edges = await QueryFkEdgesAsync(conn, schema, ct);
+        var rowCounts = await QueryRowCountsAsync(conn, schema, ct);
+
+        return new CascadeGraph(databaseName, edges, rowCounts);
     }
 
     private async Task<List<CascadeAnalysisEngine.FkEdge>> QueryFkEdgesAsync(
@@ -157,25 +127,4 @@ public sealed partial class PostgresInspector
         return counts;
     }
 
-    private static List<(string Schema, string Name)> ResolveRoots(
-        CheckCascadePathsRequest request,
-        IReadOnlyList<CascadeAnalysisEngine.FkEdge> allFks)
-    {
-        if (request.StartingTable is not null)
-        {
-            var parts = request.StartingTable.Split('.', 2);
-            return parts.Length == 2
-                ? [(parts[0], parts[1])]
-                : [("public", parts[0])];
-        }
-
-        // All tables that are the target (ToTable) of at least one CASCADE FK
-        return allFks
-            .Where(e => e.OnDelete == "CASCADE")
-            .Select(e => (e.ToSchema, e.ToTable))
-            .Distinct()
-            .OrderBy(t => t.ToSchema)
-            .ThenBy(t => t.ToTable)
-            .ToList();
-    }
 }

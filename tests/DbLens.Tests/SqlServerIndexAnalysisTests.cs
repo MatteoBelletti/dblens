@@ -18,10 +18,10 @@ public sealed class SqlServerIndexAnalysisTests : IClassFixture<SqlServerFixture
 
     // --- Acceptance criterion 1 (SQL Server) ---
 
-    [Fact, Trait("Category", "Integration")]
+    [SkippableFact, Trait("Category", "Integration")]
     public async Task AnalyzeIndexes_DboSchema_ReturnsAtLeastFourFindings()
     {
-        if (ShouldSkip) return;
+        Skip.If(ShouldSkip, TestSkip.Reason);
 
         var result = await _fixture.Inspector!.AnalyzeIndexesAsync(
             new AnalyzeIndexesRequest(Schema: "dbo", IncludeUnusedIndexes: false));
@@ -31,10 +31,10 @@ public sealed class SqlServerIndexAnalysisTests : IClassFixture<SqlServerFixture
         result.Summary.TotalFindings.Should().Be(result.Findings.Count);
     }
 
-    [Fact, Trait("Category", "Integration")]
+    [SkippableFact, Trait("Category", "Integration")]
     public async Task AnalyzeIndexes_DboSchema_FkWithoutIndex_DetectedOnExpectedTables()
     {
-        if (ShouldSkip) return;
+        Skip.If(ShouldSkip, TestSkip.Reason);
 
         var result = await _fixture.Inspector!.AnalyzeIndexesAsync(
             new AnalyzeIndexesRequest(Schema: "dbo", IncludeUnusedIndexes: false));
@@ -50,10 +50,10 @@ public sealed class SqlServerIndexAnalysisTests : IClassFixture<SqlServerFixture
 
     // --- Acceptance criterion 3 (SQL Server) ---
 
-    [Fact, Trait("Category", "Integration")]
+    [SkippableFact, Trait("Category", "Integration")]
     public async Task AnalyzeIndexes_DemoGoodSchema_ReturnsNoFindings()
     {
-        if (ShouldSkip) return;
+        Skip.If(ShouldSkip, TestSkip.Reason);
 
         var result = await _fixture.Inspector!.AnalyzeIndexesAsync(
             new AnalyzeIndexesRequest(Schema: "demo_good", IncludeUnusedIndexes: false));
@@ -64,10 +64,10 @@ public sealed class SqlServerIndexAnalysisTests : IClassFixture<SqlServerFixture
 
     // --- Acceptance criterion 4 (SQL Server) ---
 
-    [Fact, Trait("Category", "Integration")]
+    [SkippableFact, Trait("Category", "Integration")]
     public async Task AnalyzeIndexes_UnusedIndex_DetectedOnSqlServer()
     {
-        if (ShouldSkip) return;
+        Skip.If(ShouldSkip, TestSkip.Reason);
 
         var result = await _fixture.Inspector!.AnalyzeIndexesAsync(
             new AnalyzeIndexesRequest(
@@ -86,10 +86,10 @@ public sealed class SqlServerIndexAnalysisTests : IClassFixture<SqlServerFixture
 
     // --- Acceptance criterion 5 (SQL Server) ---
 
-    [Fact, Trait("Category", "Integration")]
+    [SkippableFact, Trait("Category", "Integration")]
     public async Task AnalyzeIndexes_HighMinDays_SkipsUnusedRuleAndAddsCaveat()
     {
-        if (ShouldSkip) return;
+        Skip.If(ShouldSkip, TestSkip.Reason);
 
         var result = await _fixture.Inspector!.AnalyzeIndexesAsync(
             new AnalyzeIndexesRequest(
@@ -103,10 +103,10 @@ public sealed class SqlServerIndexAnalysisTests : IClassFixture<SqlServerFixture
 
     // --- SqlFix dialect-specific syntax ---
 
-    [Fact, Trait("Category", "Integration")]
+    [SkippableFact, Trait("Category", "Integration")]
     public async Task AnalyzeIndexes_SqlFix_UsesSqlServerDropSyntax()
     {
-        if (ShouldSkip) return;
+        Skip.If(ShouldSkip, TestSkip.Reason);
 
         // Run with unusedIndexMinDays = 0 to get unused-index findings and their SQL fix
         var result = await _fixture.Inspector!.AnalyzeIndexesAsync(
@@ -119,7 +119,7 @@ public sealed class SqlServerIndexAnalysisTests : IClassFixture<SqlServerFixture
         var unused = result.Findings.FirstOrDefault(f => f.RuleId == "unused-index");
         if (unused is null) return; // no unused index found, test is vacuously true
 
-        unused.SqlFix.Should().Contain("ON [dbo].[orders]",
+        unused.SqlFix!.Sql.Should().Contain("ON [dbo].[orders]",
             "SQL Server DROP INDEX syntax is 'DROP INDEX [name] ON [schema].[table]'");
     }
 }

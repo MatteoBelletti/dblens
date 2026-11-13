@@ -108,6 +108,71 @@ CREATE TABLE audit_logs (
 CREATE INDEX idx_orders_status ON orders(status);
 
 -- ============================================================
+-- Denormalization targets (INTENTIONAL — do not fix).
+-- Each table below exercises one rule of the analyze_denormalization tool.
+--  13. customer_profiles.phone1/2/3   — repeating group (1NF violation)
+--  14. customer_profiles.full_name    — concatenation of first_name/last_name
+--  15. customer_profiles.tags         — collection packed into a scalar text column
+--  16. customer_profiles.order_count  — cached aggregate over a child table
+--  17. profile_notes.fiscal_code      — non-generic column copied from users, FK-linked
+-- ============================================================
+CREATE TABLE customer_profiles (
+    id          BIGSERIAL   PRIMARY KEY,
+    user_id     BIGINT      NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    first_name  TEXT        NOT NULL,
+    last_name   TEXT        NOT NULL,
+    full_name   TEXT,                    -- INTENTIONAL: derived from first_name + last_name
+    phone1      TEXT,                    -- INTENTIONAL: repeating group
+    phone2      TEXT,
+    phone3      TEXT,
+    tags        TEXT,                    -- INTENTIONAL: CSV packed into one column
+    order_count INT         NOT NULL DEFAULT 0,  -- INTENTIONAL: cached aggregate
+    fiscal_code TEXT                     -- INTENTIONAL: copied from users.fiscal_code
+);
+CREATE INDEX idx_customer_profiles_user_id ON customer_profiles(user_id);
+
+CREATE TABLE profile_notes (
+    id          BIGSERIAL   PRIMARY KEY,
+    profile_id  BIGINT      NOT NULL REFERENCES customer_profiles(id) ON DELETE CASCADE,
+    fiscal_code TEXT,                    -- INTENTIONAL: copied again from the parent profile
+    note        TEXT        NOT NULL
+);
+CREATE INDEX idx_profile_notes_profile_id ON profile_notes(profile_id);
+
+
+-- ============================================================
+-- Relationship fixture (INTENTIONAL — do not fix): references with NO declared foreign key.
+--  18. shipments.order_id    -> orders.id    every value resolves      (Verified)
+--  19. shipments.user_id     -> users.id     1 of 6 values orphaned    (VerifiedWithOrphans)
+--  20. shipments.product_id  -> products.id  5 of 6 values orphaned    (contradicted: dropped)
+--  21. shipments.warehouse_id                no warehouses table       (no candidate at all)
+--  22. shipments.ship_to     -> addresses.id no naming hint; only the shipment_destinations
+--                                            view joins on it            (observed-join, Verified)
+-- ============================================================
+CREATE TABLE shipments (
+    id           BIGSERIAL PRIMARY KEY,
+    order_id     BIGINT NOT NULL,
+    user_id      BIGINT,
+    product_id   BIGINT,
+    warehouse_id BIGINT,
+    ship_to      BIGINT,
+    carrier      TEXT   NOT NULL
+);
+
+CREATE VIEW shipment_destinations AS
+SELECT s.id AS shipment_id, s.carrier, a.city, a.country
+FROM shipments s
+JOIN addresses a ON a.id = s.ship_to;
+
+-- Documented meanings, so build_glossary has something to report besides structure.
+COMMENT ON TABLE orders IS 'Customer orders, one row per checkout';
+COMMENT ON COLUMN orders.total IS 'Order total in EUR, VAT included';
+
+-- pgstattuple backs the analyze_fragmentation tool on PostgreSQL. Without it the tool
+-- returns StatsAvailable = false rather than fragmentation findings.
+CREATE EXTENSION IF NOT EXISTS pgstattuple;
+
+-- ============================================================
 -- demo_good schema: clean design with no intentional issues.
 -- Used by AnalyzeIndexes tests to assert Findings = [] on a healthy schema.
 -- ============================================================

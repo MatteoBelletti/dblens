@@ -490,4 +490,99 @@ public sealed class CascadePathsTests
         result.Paths.Select(p => p.RootTable).Should()
             .BeEquivalentTo(["public.users", "public.categories"]);
     }
+
+    // ── Self-references are only "cascade" when they actually cascade ──────────
+
+    [Fact]
+    public void SelfReference_WithNoAction_IsNotReportedAsASelfReferencingCascade()
+    {
+        // SQL Server forbids a self-referencing ON DELETE CASCADE outright (Msg 1785), so a
+        // hierarchy there is NO ACTION. Labelling it "Self-referencing CASCADE" would be a false
+        // statement carrying Derived evidence and confidence 1.0.
+        var result = Analyze(
+            [Edge("public", "categories", "public", "categories", onDelete: "NO ACTION")],
+            [("public", "categories")]);
+
+        result.Findings.Should().NotContain(f => f.RuleId == CascadeRuleIds.SelfReferencing);
+    }
+
+    [Fact]
+    public void SelfReference_WithCascade_IsReported()
+    {
+        var result = Analyze(
+            [Edge("public", "categories", "public", "categories", onDelete: "CASCADE")],
+            [("public", "categories")]);
+
+        result.Findings.Should().Contain(f => f.RuleId == CascadeRuleIds.SelfReferencing);
+    }
+
+    // ── Path enumeration is bounded ────────────────────────────────────────────
+
+    /// <summary>
+    /// A branching factor of 4 over 8 levels is 4^8 = 65,536 paths. MaxDepth alone does not
+    /// bound enumeration, which is what made the unbounded version a memory hazard.
+    /// </summary>
+    private static List<CascadeAnalysisEngine.FkEdge> BranchingGraph(int levels, int branching)
+    {
+        var edges = new List<CascadeAnalysisEngine.FkEdge>();
+
+        for (var level = 0; level < levels; level++)
+            for (var parent = 0; parent < (int)Math.Pow(branching, level); parent++)
+                for (var child = 0; child < branching; child++)
+                    edges.Add(Edge(
+                        "public", $"t{level + 1}_{parent * branching + child}",
+                        "public", level == 0 ? "root" : $"t{level}_{parent}",
+                        constraint: $"fk_{level}_{parent}_{child}"));
+
+        return edges;
+    }
+
+    [Fact]
+    public void PathEnumeration_StopsAtMaxPaths()
+    {
+        var edges = BranchingGraph(levels: 8, branching: 4);
+
+        var result = Analyze(edges, [("public", "root")],
+            new CheckCascadePathsRequest(MaxDepth: 50, MaxPaths: 100));
+
+        result.Paths.Count.Should().BeLessThanOrEqualTo(100);
+        result.PathsTruncated.Should().BeTrue();
+    }
+
+    [Fact]
+    public void PathEnumeration_TruncationIsReportedInCaveats()
+    {
+        var result = Analyze(
+            BranchingGraph(levels: 8, branching: 4),
+            [("public", "root")],
+            new CheckCascadePathsRequest(MaxDepth: 50, MaxPaths: 50));
+
+        result.Caveats.Should().Contain(c =>
+            c.Contains("Path enumeration stopped") && c.Contains("complete picture"));
+    }
+
+    [Fact]
+    public void PathEnumeration_SmallGraphIsNotReportedAsTruncated()
+    {
+        var result = Analyze(
+            [Edge("public", "orders", "public", "users")],
+            [("public", "users")]);
+
+        result.PathsTruncated.Should().BeFalse();
+        result.Caveats.Should().NotContain(c => c.Contains("Path enumeration stopped"));
+    }
+
+    [Fact]
+    public void PathEnumeration_BudgetIsSharedAcrossRoots()
+    {
+        // One pathological root must not consume the budget and starve the others.
+        var edges = BranchingGraph(levels: 8, branching: 4);
+        edges.Add(Edge("public", "b", "public", "other_root"));
+
+        var result = Analyze(edges, [("public", "root"), ("public", "other_root")],
+            new CheckCascadePathsRequest(MaxDepth: 50, MaxPaths: 100));
+
+        result.Paths.Count.Should().BeLessThanOrEqualTo(100);
+        result.PathsTruncated.Should().BeTrue();
+    }
 }

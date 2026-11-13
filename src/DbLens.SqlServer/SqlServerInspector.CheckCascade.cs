@@ -1,7 +1,5 @@
 using DbLens.Core.Analysis.Cascade;
-using DbLens.Core.Models;
 using Microsoft.Data.SqlClient;
-using Microsoft.Extensions.Logging;
 
 namespace DbLens.SqlServer;
 
@@ -60,45 +58,15 @@ public sealed partial class SqlServerInspector
         GROUP BY s.name, t.name
         """;
 
-    public async Task<CheckCascadePathsResult> CheckCascadePathsAsync(
-        CheckCascadePathsRequest request,
-        CancellationToken ct = default)
+    protected override async Task<CascadeGraph> QueryCascadeGraphAsync(string? schema, CancellationToken ct)
     {
-        _logger.LogInformation(
-            "Starting cascade path check (startingTable={StartingTable}, schema={Schema}, maxDepth={MaxDepth})",
-            request.StartingTable ?? "*", request.Schema ?? "*", request.MaxDepth);
+        await using var conn = new SqlConnection(_connectionString);
+        await conn.OpenAsync(ct);
 
-        try
-        {
-            await using var conn = new SqlConnection(_connectionString);
-            await conn.OpenAsync(ct);
+        var edges = await QueryFkEdgesAsync(conn, schema, ct);
+        var rowCounts = await QueryRowCountsAsync(conn, schema, ct);
 
-            var databaseName = conn.Database;
-
-            var allFks = await QueryFkEdgesAsync(conn, request.Schema, ct);
-            var rowCounts = await QueryRowCountsAsync(conn, request.Schema, ct);
-
-            var roots = ResolveRoots(request, allFks);
-            if (roots.Count == 0)
-                return CascadeAnalysisEngine.Empty("SqlServer", databaseName);
-
-            var result = CascadeAnalysisEngine.Analyze(allFks, rowCounts, roots, request, "SqlServer", databaseName);
-
-            _logger.LogInformation(
-                "Cascade path check completed: {PathCount} paths, {FindingCount} findings",
-                result.Paths.Count, result.Findings.Count);
-
-            return result;
-        }
-        catch (OperationCanceledException)
-        {
-            throw;
-        }
-        catch (SqlException ex)
-        {
-            throw new DatabaseInspectionException(
-                $"SQL Server error during cascade path check: {ex.Message}", ex);
-        }
+        return new CascadeGraph(conn.Database, edges, rowCounts);
     }
 
     private async Task<List<CascadeAnalysisEngine.FkEdge>> QueryFkEdgesAsync(
@@ -158,25 +126,4 @@ public sealed partial class SqlServerInspector
         return counts;
     }
 
-    private static List<(string Schema, string Name)> ResolveRoots(
-        CheckCascadePathsRequest request,
-        IReadOnlyList<CascadeAnalysisEngine.FkEdge> allFks)
-    {
-        if (request.StartingTable is not null)
-        {
-            var parts = request.StartingTable.Split('.', 2);
-            return parts.Length == 2
-                ? [(parts[0], parts[1])]
-                : [("dbo", parts[0])];
-        }
-
-        // All tables that are the target (ToTable) of at least one CASCADE FK
-        return allFks
-            .Where(e => e.OnDelete == "CASCADE")
-            .Select(e => (e.ToSchema, e.ToTable))
-            .Distinct()
-            .OrderBy(t => t.ToSchema)
-            .ThenBy(t => t.ToTable)
-            .ToList();
-    }
 }

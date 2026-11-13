@@ -1,5 +1,6 @@
 using System.Diagnostics;
-using DbLens.Core.Abstractions;
+using System.Data.Common;
+using DbLens.Core.Inspection;
 using DbLens.Core.Models;
 using Microsoft.Extensions.Logging;
 using Npgsql;
@@ -7,7 +8,7 @@ using NpgsqlTypes;
 
 namespace DbLens.Postgres;
 
-public sealed partial class PostgresInspector : IDatabaseInspector
+public sealed partial class PostgresInspector : DatabaseInspectorBase
 {
     private readonly string _connectionString;
     private readonly ILogger<PostgresInspector> _logger;
@@ -222,19 +223,23 @@ public sealed partial class PostgresInspector : IDatabaseInspector
         ORDER BY n.nspname, c.relname, con.conname
         """;
 
-    // Npgsql default CommandTimeout is 0 (infinite) unless set in the connection string.
-    // Set it explicitly on every command so slow queries don't block indefinitely.
-    private const int QueryTimeoutSeconds = 30;
 
     public PostgresInspector(string connectionString, ILogger<PostgresInspector> logger)
+        : base(logger)
     {
         _connectionString = connectionString;
         _logger = logger;
     }
 
-    public DatabaseDialect Dialect => DatabaseDialect.PostgreSql;
+    public override DatabaseDialect Dialect => DatabaseDialect.PostgreSql;
 
-    public async Task<bool> TestConnectionAsync(CancellationToken ct = default)
+    protected override string DialectDisplayName => "PostgreSQL";
+
+    protected override string DefaultSchema => "public";
+
+    protected override DbConnection CreateConnection() => new NpgsqlConnection(_connectionString);
+
+    public override async Task<bool> TestConnectionAsync(CancellationToken ct = default)
     {
         await using var conn = new NpgsqlConnection(_connectionString);
         await conn.OpenAsync(ct);
@@ -244,7 +249,7 @@ public sealed partial class PostgresInspector : IDatabaseInspector
         return true;
     }
 
-    public async Task<DatabaseSchemaOverview> GetSchemaOverviewAsync(
+    public override async Task<DatabaseSchemaOverview> GetSchemaOverviewAsync(
         SchemaOverviewRequest request,
         CancellationToken ct = default)
     {
@@ -277,7 +282,7 @@ public sealed partial class PostgresInspector : IDatabaseInspector
                 "include_views={IncludeViews}, include_system={IncludeSystem}",
                 request.SchemaFilter, request.NamePattern, request.IncludeViews, request.IncludeSystemSchemas);
 
-            var rows = new List<RawRow>();
+            var rows = new List<OverviewRow>();
             string? databaseName = null;
 
             await using var reader = await cmd.ExecuteReaderAsync(ct);
@@ -325,11 +330,11 @@ public sealed partial class PostgresInspector : IDatabaseInspector
         }
     }
 
-    public async Task<TableDetailsResult> GetTableDetailsAsync(
+    public override async Task<TableDetailsResult> GetTableDetailsAsync(
         TableDetailsRequest request,
         CancellationToken ct = default)
     {
-        var parsed = ParseTableNames(request.Tables, request.DefaultSchema ?? "public");
+        var parsed = ParseTableNames(request.Tables, request.DefaultSchema);
 
         _logger.LogInformation(
             "Opening PostgreSQL connection for table details ({Count} tables)", parsed.Length);
@@ -598,18 +603,7 @@ public sealed partial class PostgresInspector : IDatabaseInspector
         OnUpdate: fk.OnUpdate
     );
 
-    private static ParsedName[] ParseTableNames(string[] tables, string defaultSchema) =>
-        tables.Select(t =>
-        {
-            var dot = t.IndexOf('.');
-            return dot < 0
-                ? new ParsedName(defaultSchema, t, t)
-                : new ParsedName(t[..dot], t[(dot + 1)..], t);
-        }).ToArray();
-
-    // --- schema overview helpers (unchanged) ---
-
-    private static RawRow ReadRow(NpgsqlDataReader r) => new(
+    private static OverviewRow ReadRow(NpgsqlDataReader r) => new(
         SchemaName: r.GetString(r.GetOrdinal("schema_name")),
         ObjectName: r.GetString(r.GetOrdinal("object_name")),
         ObjectKind: r.GetChar(r.GetOrdinal("object_kind")) == 'v'
@@ -629,31 +623,6 @@ public sealed partial class PostgresInspector : IDatabaseInspector
             : r.GetString(r.GetOrdinal("object_comment"))
     );
 
-    private static SchemaInfo BuildSchemaInfo(IGrouping<string, RawRow> group)
-    {
-        var objects = group
-            .Select(r => new DatabaseObject(
-                Name: r.ObjectName,
-                Kind: r.ObjectKind,
-                ApproximateRowCount: r.ApproximateRowCount,
-                ColumnCount: r.ColumnCount,
-                HasPrimaryKey: r.HasPrimaryKey,
-                OutgoingForeignKeys: r.OutgoingFkCount,
-                IncomingForeignKeys: r.IncomingFkCount,
-                IndexCount: r.IndexCount,
-                TotalSizeBytes: r.TotalSizeBytes,
-                TotalSizeHuman: FormatBytes(r.TotalSizeBytes),
-                Comment: r.Comment))
-            .ToList();
-
-        return new SchemaInfo(
-            Name: group.Key,
-            TableCount: objects.Count(o => o.Kind == DatabaseObjectKind.Table),
-            ViewCount: objects.Count(o => o.Kind == DatabaseObjectKind.View),
-            Objects: objects
-        );
-    }
-
     private static string BuildSummary(
         int tables, int views, int schemaCount, long approxRows, long totalBytes, bool anyUnanalyzed)
     {
@@ -669,16 +638,6 @@ public sealed partial class PostgresInspector : IDatabaseInspector
                "Do NOT infer or generate column names. Call get_table_details for exact column information.";
     }
 
-    internal static string FormatBytes(long bytes) => bytes switch
-    {
-        < 1024L => $"{bytes} B",
-        < 1024L * 1024L => (bytes / 1024.0).ToString("F1", System.Globalization.CultureInfo.InvariantCulture) + " KB",
-        < 1024L * 1024L * 1024L => (bytes / (1024.0 * 1024.0)).ToString("F1", System.Globalization.CultureInfo.InvariantCulture) + " MB",
-        _ => (bytes / (1024.0 * 1024.0 * 1024.0)).ToString("F2", System.Globalization.CultureInfo.InvariantCulture) + " GB",
-    };
-
-    private sealed record ParsedName(string Schema, string Name, string Original);
-
     private sealed record FkRow(
         string FromSchema, string FromTable,
         string ToSchema, string ToTable,
@@ -687,17 +646,4 @@ public sealed partial class PostgresInspector : IDatabaseInspector
         string OnDelete, string OnUpdate
     );
 
-    private sealed record RawRow(
-        string SchemaName,
-        string ObjectName,
-        DatabaseObjectKind ObjectKind,
-        long? ApproximateRowCount,
-        long ColumnCount,
-        bool HasPrimaryKey,
-        long OutgoingFkCount,
-        long IncomingFkCount,
-        long IndexCount,
-        long TotalSizeBytes,
-        string? Comment
-    );
 }

@@ -1,0 +1,133 @@
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+  workflow_dispatch:
+
+env:
+  # Keep tool output parseable regardless of the runner's locale.
+  DOTNET_CLI_UI_LANGUAGE: en
+  DOTNET_NOLOGO: "true"
+  DOTNET_SKIP_FIRST_TIME_EXPERIENCE: "true"
+
+jobs:
+  build:
+    name: Build and test
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.x"
+
+      - name: Cache NuGet packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: nuget-${{ runner.os }}-${{ hashFiles('**/Directory.Packages.props', '**/*.csproj') }}
+          restore-keys: nuget-${{ runner.os }}-
+
+      - name: Restore
+        run: dotnet restore
+
+      # Directory.Build.props sets TreatWarningsAsErrors, so a warning fails here.
+      - name: Build
+        run: dotnet build -c Release --no-restore
+
+      # Fast feedback: the pure analysis engines need no database, so run them before
+      # spending time starting containers.
+      - name: Test — analysis engines
+        run: |
+          dotnet test -c Release --no-build \
+            --filter "FullyQualifiedName!~Postgres&FullyQualifiedName!~SqlServer" \
+            --logger "trx;LogFileName=engines.trx" \
+            --results-directory TestResults
+
+      - name: Start demo databases
+        run: docker compose up -d
+
+      - name: Wait for databases to be healthy
+        run: |
+          wait_healthy() {
+            local name=$1
+            echo "Waiting for $name..."
+            for _ in $(seq 1 60); do
+              status=$(docker inspect -f '{{.State.Health.Status}}' "$name" 2>/dev/null || echo "missing")
+              if [ "$status" = "healthy" ]; then echo "$name is healthy"; return 0; fi
+              sleep 5
+            done
+            echo "::error::$name never became healthy"
+            docker logs "$name" || true
+            return 1
+          }
+          wait_healthy dblens-postgres
+          wait_healthy dblens-sqlserver
+
+      # The SQL Server demo schema is applied by a one-shot container; the tests are
+      # meaningless until it has finished.
+      - name: Wait for SQL Server schema initialization
+        run: |
+          code=$(docker wait dblens-sqlserver-init)
+          docker logs dblens-sqlserver-init
+          if [ "$code" != "0" ]; then
+            echo "::error::sqlserver-init exited with $code"
+            exit 1
+          fi
+
+      - name: Test — full suite against real databases
+        run: |
+          dotnet test -c Release --no-build \
+            --logger "trx;LogFileName=full.trx" \
+            --results-directory TestResults
+
+      # The integration tests skip themselves when a database is unreachable. That is correct
+      # locally and unacceptable here: without this gate, a CI run where the containers failed
+      # to start would report green while having verified nothing.
+      - name: Assert no test was skipped
+        run: |
+          python3 - <<'PY'
+          import glob, sys, xml.etree.ElementTree as ET
+
+          ns = {"t": "http://microsoft.com/schemas/VisualStudio/TeamTest/2010"}
+          failed = False
+
+          for path in sorted(glob.glob("TestResults/full.trx")):
+              counters = ET.parse(path).getroot().find(".//t:Counters", ns)
+              total = int(counters.get("total", 0))
+              executed = int(counters.get("executed", 0))
+              passed = int(counters.get("passed", 0))
+              skipped = total - executed
+
+              print(f"{path}: total={total} executed={executed} passed={passed} skipped={skipped}")
+
+              if skipped:
+                  print(f"::error::{skipped} test(s) were skipped. In CI every integration test "
+                        f"must run against a real database; a skipped test has verified nothing.")
+                  failed = True
+              if total == 0:
+                  print("::error::No tests were discovered.")
+                  failed = True
+
+          sys.exit(1 if failed else 0)
+          PY
+
+      - name: Database logs on failure
+        if: failure()
+        run: docker compose logs --tail 200
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results
+          path: TestResults/*.trx
+
+      - name: Stop demo databases
+        if: always()
+        run: docker compose down -v
