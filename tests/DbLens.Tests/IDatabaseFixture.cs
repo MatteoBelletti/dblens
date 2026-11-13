@@ -14,4 +14,7 @@ public interface IDatabaseFixture
 
     /// <summary>The demo schema holding the deliberately flawed tables: "public" or "dbo".</summary>
     string UserSchema { get; }
+
+    /// <summary>An inspector on the administrator login, which can write.</summary>
+    IDatabaseInspector CreateAdminInspector();
 }

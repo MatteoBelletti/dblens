@@ -219,10 +219,20 @@ public sealed class PostgresIntegrationTests : IClassFixture<PostgresFixture>
 public sealed class PostgresFixture : IAsyncLifetime, IDatabaseFixture
 {
     private const string DefaultConnectionString =
+        "Host=localhost;Port=5433;Database=dblens_demo;Username=dblens_reader;Password=readerpassword";
+
+    // The superuser, for setup and for asserting that a write-capable login is refused.
+    private const string DefaultAdminConnectionString =
         "Host=localhost;Port=5433;Database=dblens_demo;Username=postgres;Password=devpassword";
 
     private static string ConnectionString =>
         Environment.GetEnvironmentVariable("DBLENS_TEST_PG_CONNECTION") ?? DefaultConnectionString;
+
+    private static string AdminConnectionString =>
+        Environment.GetEnvironmentVariable("DBLENS_TEST_PG_ADMIN_CONNECTION") ?? DefaultAdminConnectionString;
+
+    public DbLens.Core.Abstractions.IDatabaseInspector CreateAdminInspector() =>
+        new PostgresInspector(AdminConnectionString, NullLogger<PostgresInspector>.Instance);
 
     public bool IsReachable { get; private set; }
     public PostgresInspector? Inspector { get; private set; }
@@ -242,7 +252,7 @@ public sealed class PostgresFixture : IAsyncLifetime, IDatabaseFixture
             if (!IsReachable) return;
 
             // Ensure reltuples is populated for deterministic row count assertions.
-            await using var conn = new NpgsqlConnection(ConnectionString);
+            await using var conn = new NpgsqlConnection(AdminConnectionString);
             await conn.OpenAsync();
             await using var cmd = conn.CreateCommand();
             cmd.CommandText = "ANALYZE";

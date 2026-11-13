@@ -146,6 +146,8 @@ CREATE INDEX idx_profile_notes_profile_id ON profile_notes(profile_id);
 --  19. shipments.user_id     -> users.id     1 of 6 values orphaned    (VerifiedWithOrphans)
 --  20. shipments.product_id  -> products.id  5 of 6 values orphaned    (contradicted: dropped)
 --  21. shipments.warehouse_id                no warehouses table       (no candidate at all)
+--  22. shipments.ship_to     -> addresses.id no naming hint; only the shipment_destinations
+--                                            view joins on it            (observed-join, Verified)
 -- ============================================================
 CREATE TABLE shipments (
     id           BIGSERIAL PRIMARY KEY,
@@ -153,8 +155,18 @@ CREATE TABLE shipments (
     user_id      BIGINT,
     product_id   BIGINT,
     warehouse_id BIGINT,
+    ship_to      BIGINT,
     carrier      TEXT   NOT NULL
 );
+
+CREATE VIEW shipment_destinations AS
+SELECT s.id AS shipment_id, s.carrier, a.city, a.country
+FROM shipments s
+JOIN addresses a ON a.id = s.ship_to;
+
+-- Documented meanings, so build_glossary has something to report besides structure.
+COMMENT ON TABLE orders IS 'Customer orders, one row per checkout';
+COMMENT ON COLUMN orders.total IS 'Order total in EUR, VAT included';
 
 -- pgstattuple backs the analyze_fragmentation tool on PostgreSQL. Without it the tool
 -- returns StatsAvailable = false rather than fragmentation findings.

@@ -267,6 +267,16 @@ public sealed class GetTableDetailsToolTests
             DbLens.Core.Analysis.QueryPlan.ExplainQueryRequest request,
             CancellationToken ct = default) =>
             throw new NotSupportedException();
+        public string DatabaseName => "stub";
+
+        public Task<DbLens.Core.Analysis.Receipts.QueryWithReceiptResult> QueryWithReceiptAsync(
+            DbLens.Core.Analysis.Receipts.QueryWithReceiptRequest request, CancellationToken ct = default) =>
+            throw new NotSupportedException();
+
+        public Task<DbLens.Core.Analysis.Glossary.GlossaryResult> BuildGlossaryAsync(
+            DbLens.Core.Analysis.Glossary.GlossaryRequest request, CancellationToken ct = default) =>
+            throw new NotSupportedException();
+
         public Task<DbLens.Core.Analysis.Relationships.InferRelationshipsResult> InferRelationshipsAsync(
             DbLens.Core.Analysis.Relationships.InferRelationshipsRequest request,
             CancellationToken ct = default) =>

@@ -31,7 +31,10 @@ public static class FkWithoutIndexRule
                     Description: $"FK column(s) {colList} on {tableQualified} " +
                                  $"(referencing {fk.ToSchema}.{fk.ToTable}) are not covered by any index. " +
                                  "JOINs and referential integrity checks require a sequential scan.",
-                    SqlFix:      SqlProposal.Ddl(sqlFix, "Creates the covering index."),
+                    SqlFix:      SqlProposal.Ddl(sqlFix, dialect == DatabaseDialect.PostgreSql
+                        ? "Creates the covering index without blocking writes."
+                        : "Creates the covering index online. ONLINE = ON needs Enterprise or Developer edition; " +
+                          "on Standard remove it and run the build in a maintenance window."),
                     Metadata:    new Dictionary<string, object>
                     {
                         ["constraint_name"]  = fk.ConstraintName,

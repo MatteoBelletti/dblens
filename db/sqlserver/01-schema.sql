@@ -178,8 +178,19 @@ CREATE TABLE shipments (
     user_id      BIGINT,
     product_id   BIGINT,
     warehouse_id BIGINT,
+    ship_to      BIGINT,
     carrier      NVARCHAR(50)  NOT NULL
 );
+GO
+
+CREATE VIEW shipment_destinations AS
+SELECT s.id AS shipment_id, s.carrier, a.city, a.country
+FROM shipments s
+JOIN addresses a ON a.id = s.ship_to;
+GO
+
+EXEC sp_addextendedproperty 'MS_Description', 'Customer orders, one row per checkout', 'SCHEMA', 'dbo', 'TABLE', 'orders';
+EXEC sp_addextendedproperty 'MS_Description', 'Order total in EUR, VAT included', 'SCHEMA', 'dbo', 'TABLE', 'orders', 'COLUMN', 'total';
 GO
 
 -- ============================================================

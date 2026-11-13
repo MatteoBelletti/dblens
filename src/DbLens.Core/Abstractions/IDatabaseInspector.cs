@@ -2,9 +2,11 @@ using DbLens.Core.Analysis.Cascade;
 using DbLens.Core.Analysis.Denormalization;
 using DbLens.Core.Analysis.Fragmentation;
 using DbLens.Core.Analysis.Gdpr;
+using DbLens.Core.Analysis.Glossary;
 using DbLens.Core.Analysis.Indexes;
 using DbLens.Core.Analysis.Migration;
 using DbLens.Core.Analysis.QueryPlan;
+using DbLens.Core.Analysis.Receipts;
 using DbLens.Core.Analysis.Relationships;
 
 namespace DbLens.Core.Abstractions;
@@ -17,6 +19,9 @@ public interface IDatabaseInspector
 {
     /// <summary>The dialect this inspector targets.</summary>
     DbLens.Core.Models.DatabaseDialect Dialect { get; }
+
+    /// <summary>The database the connection string names. Read without connecting.</summary>
+    string DatabaseName { get; }
 
     /// <summary>Opens a connection and executes a trivial query to confirm reachability.</summary>
     Task<bool> TestConnectionAsync(CancellationToken ct = default);
@@ -97,6 +102,21 @@ public interface IDatabaseInspector
     /// </summary>
     Task<InferRelationshipsResult> InferRelationshipsAsync(
         InferRelationshipsRequest request,
+        CancellationToken ct = default);
+
+    /// <summary>
+    /// Runs a caller's pure SELECT in a rolled-back transaction and returns its result with a receipt:
+    /// the SQL, the tables the plan reads and, optionally, a second query computing the same figure.
+    /// </summary>
+    Task<QueryWithReceiptResult> QueryWithReceiptAsync(
+        QueryWithReceiptRequest request,
+        CancellationToken ct = default);
+
+    /// <summary>
+    /// Renders tables, documented meanings, join paths and candidate measures as a SKILL.md data map.
+    /// </summary>
+    Task<GlossaryResult> BuildGlossaryAsync(
+        GlossaryRequest request,
         CancellationToken ct = default);
 
     /// <summary>

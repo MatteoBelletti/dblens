@@ -29,7 +29,7 @@ public abstract class RelationshipInferenceTestsBase(IDatabaseFixture fixture)
 
     [SkippableFact]
     [Trait("Category", "Integration")]
-    public async Task Unverified_SuggestsExactlyTheThreeUndeclaredReferences()
+    public async Task Unverified_SuggestsExactlyTheFourUndeclaredReferences()
     {
         Skip.If(ShouldSkip, TestSkip.Reason);
 
@@ -38,7 +38,7 @@ public abstract class RelationshipInferenceTestsBase(IDatabaseFixture fixture)
         result.Findings.Should().BeEmpty();
         result.Verification.Should().BeNull();
         result.Signals.Select(s => s.Columns!.Single()).Should()
-            .BeEquivalentTo(["order_id", "user_id", "product_id"],
+            .BeEquivalentTo(["order_id", "user_id", "product_id", "ship_to"],
                 "warehouse_id has no plausible parent and must not be guessed at");
         result.Signals.Should().OnlyContain(s => s.Table == Q("shipments"));
     }
@@ -110,10 +110,27 @@ public abstract class RelationshipInferenceTestsBase(IDatabaseFixture fixture)
 
         var result = await InferAsync(verify: true);
 
-        result.Findings.Should().HaveCount(3);
+        result.Findings.Should().HaveCount(4);
         result.Findings.Should().OnlyContain(f => f.Evidence == Evidence.Measured);
         result.Signals.Should().BeEmpty();
         result.Verification!.Failed.Should().Be(0, "every generated probe must run on this engine");
+    }
+
+    [SkippableFact]
+    [Trait("Category", "Integration")]
+    public async Task ReferenceWithNoNamingHint_IsFoundThroughTheViewThatJoinsOnIt()
+    {
+        Skip.If(ShouldSkip, TestSkip.Reason);
+
+        var result = await InferAsync(verify: true);
+        var finding = ForColumn(result, "ship_to");
+
+        finding.Metadata!["basis"].Should().Be("observed-join");
+        ((IReadOnlyList<string>)finding.Metadata["seenIn"]).Should().ContainSingle(s => s.Contains("shipment_destinations"));
+        Outcome(finding).RowsDiverging.Should().Be(0);
+        result.Relationships.Should().Contain(e =>
+            e.FromTable == Q("shipments") && e.ToTable == Q("addresses") && e.Evidence == RelationshipEvidence.Verified);
+        result.Summary.SqlSourcesRead.Should().BeGreaterThan(0);
     }
 
     [SkippableFact]

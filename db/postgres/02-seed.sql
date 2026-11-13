@@ -433,12 +433,12 @@ INSERT INTO profile_notes (id, profile_id, fiscal_code, note) VALUES
 SELECT setval('profile_notes_id_seq', 5);
 
 -- infer_relationships fixture: order_id all valid, user_id 1/6 orphaned, product_id 5/6 orphaned.
-INSERT INTO shipments (id, order_id, user_id, product_id, warehouse_id, carrier) VALUES
-    (1, 1, 1, 1, 7, 'BRT'),
-    (2, 2, 2, 9001, 7, 'GLS'),
-    (3, 3, 3, 9002, 7, 'BRT'),
-    (4, 4, 4, 9003, 8, 'SDA'),
-    (5, 5, 5, 9004, 8, 'GLS'),
-    (6, 6, 999, 9005, 8, 'BRT');
+INSERT INTO shipments (id, order_id, user_id, product_id, warehouse_id, ship_to, carrier) VALUES
+    (1, 1, 1, 1, 7, 1, 'BRT'),
+    (2, 2, 2, 9001, 7, 2, 'GLS'),
+    (3, 3, 3, 9002, 7, 3, 'BRT'),
+    (4, 4, 4, 9003, 8, 4, 'SDA'),
+    (5, 5, 5, 9004, 8, 5, 'GLS'),
+    (6, 6, 999, 9005, 8, 6, 'BRT');
 
 SELECT setval('shipments_id_seq', 6);

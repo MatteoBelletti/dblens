@@ -16,13 +16,21 @@ public static class IndexSql
             ? $"DROP INDEX CONCURRENTLY {SqlIdentifier.Qualify(schema, index, dialect)};"
             : $"DROP INDEX {SqlIdentifier.Quote(index, dialect)} ON {SqlIdentifier.Qualify(schema, table, dialect)};";
 
+    /// <summary>
+    /// Built without blocking writes — CONCURRENTLY on PostgreSQL, ONLINE = ON on SQL Server — so a
+    /// proposal passes dblens's own check_migration_safety. ONLINE needs Enterprise or Developer
+    /// edition; on Standard the option has to be dropped and the build scheduled.
+    /// </summary>
     public static string CreateIndex(
         string schema, string table, IReadOnlyList<string> columns, DatabaseDialect dialect)
     {
         var name = SqlIdentifier.Quote($"idx_{table}_{string.Join("_", columns)}", dialect);
+        var target = SqlIdentifier.Qualify(schema, table, dialect);
         var columnList = string.Join(", ", columns.Select(c => SqlIdentifier.Quote(c, dialect)));
 
-        return $"CREATE INDEX {name} ON {SqlIdentifier.Qualify(schema, table, dialect)} ({columnList});";
+        return dialect == DatabaseDialect.PostgreSql
+            ? $"CREATE INDEX CONCURRENTLY {name} ON {target} ({columnList});"
+            : $"CREATE INDEX {name} ON {target} ({columnList}) WITH (ONLINE = ON);";
     }
 
     /// <summary>

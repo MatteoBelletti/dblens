@@ -56,7 +56,7 @@ public sealed record InferRelationshipsResult(
     IReadOnlyList<RelationshipEdge> Relationships,
     /// <summary>Inferred relationships that a query measured. Empty unless verification ran.</summary>
     IReadOnlyList<Finding> Findings,
-    /// <summary>Relationships suggested by names and types only.</summary>
+    /// <summary>Relationships suggested by names, types and joins seen in the database's SQL, not measured.</summary>
     IReadOnlyList<Finding> Signals,
     RelationshipSummary Summary,
     IReadOnlyList<string> Caveats,
@@ -74,5 +74,7 @@ public sealed record RelationshipSummary(
     int VerifiedRelationships,
     /// <summary>Columns whose name matched more than one possible parent; no guess was made.</summary>
     int AmbiguousCandidatesSkipped,
+    /// <summary>Views, routines and workload statements read for join evidence.</summary>
+    int SqlSourcesRead,
     IReadOnlyDictionary<string, int> BySeverity,
     IReadOnlyDictionary<string, int> ByRule);

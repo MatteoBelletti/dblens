@@ -21,6 +21,7 @@ public enum MigrationOperationKind
     AddPrimaryKey,
     AddUniqueConstraint,
     DropConstraint,
+    ValidateConstraint,
 }
 
 /// <summary>

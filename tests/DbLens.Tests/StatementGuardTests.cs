@@ -178,3 +178,52 @@ public sealed class StatementGuardTests
         Allows("SELECT * FROM t WHERE name = 'it''s a DELETE'").Should().BeTrue();
     }
 }
+
+/// <summary>
+/// The guard is a filter, not a proof: these are the side effects a pure SELECT can still reach
+/// through functions, remote execution and locking clauses.
+/// </summary>
+public sealed class StatementGuardSideEffectTests
+{
+    private static bool Allows(string sql) => StatementGuard.IsReadOnlySelect(sql).Allowed;
+
+    [Theory]
+    [InlineData("SELECT pg_terminate_backend(123)")]
+    [InlineData("SELECT pg_cancel_backend(pid) FROM pg_stat_activity")]
+    [InlineData("SELECT PG_TERMINATE_BACKEND (1)")]
+    [InlineData("SELECT \"pg_terminate_backend\"(1)")]
+    [InlineData("SELECT pg_catalog.pg_reload_conf()")]
+    [InlineData("SELECT pg_read_file('/etc/passwd')")]
+    [InlineData("SELECT lo_import('/etc/passwd')")]
+    [InlineData("SELECT nextval('orders_id_seq')")]
+    [InlineData("SELECT set_config('statement_timeout', '0', false)")]
+    [InlineData("SELECT pg_advisory_lock(1)")]
+    [InlineData("SELECT pg_sleep(600)")]
+    [InlineData("SELECT query_to_xml('select 1', true, true, '')")]
+    [InlineData("SELECT * FROM dblink('host=x', 'DELETE FROM t') AS t(a int)")]
+    [InlineData("SELECT * FROM OPENQUERY(remote, 'DELETE FROM dbo.users')")]
+    [InlineData("SELECT * FROM [OPENQUERY](remote, 'x')")]
+    [InlineData("SELECT * FROM srv.db.dbo.users")]
+    [InlineData("SELECT * FROM [srv].[db].[dbo].[users]")]
+    [InlineData("SELECT * FROM users FOR UPDATE")]
+    [InlineData("SELECT * FROM users FOR NO KEY UPDATE")]
+    [InlineData("SELECT * FROM users FOR SHARE")]
+    [InlineData("SELECT * FROM users WITH (UPDLOCK)")]
+    [InlineData("SELECT * FROM users WITH (TABLOCKX, HOLDLOCK)")]
+    public void Rejects_SideEffectsReachableFromASelect(string sql)
+    {
+        Allows(sql).Should().BeFalse();
+    }
+
+    [Theory]
+    [InlineData("SELECT COUNT(*), COALESCE(SUM(total), 0) FROM orders")]
+    [InlineData("SELECT * FROM dbo.users")]
+    [InlineData("SELECT * FROM dblens_demo.dbo.users")]
+    [InlineData("SELECT 'pg_terminate_backend(1)' AS harmless_text")]
+    [InlineData("SELECT u.id FROM users u WHERE u.note = 'for update'")]
+    [InlineData("SELECT o.total * 1.22 FROM orders o")]
+    public void Allows_LookalikesThatHaveNoSideEffect(string sql)
+    {
+        Allows(sql).Should().BeTrue();
+    }
+}

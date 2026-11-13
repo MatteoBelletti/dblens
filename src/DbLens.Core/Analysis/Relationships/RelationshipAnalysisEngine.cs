@@ -11,8 +11,8 @@ public static class RelationshipAnalysisEngine
 {
     public const string Disclaimer =
         "Declared relationships come from the catalog and are facts. Inferred relationships come from " +
-        "column names and types only: a name that looks like a reference is a hypothesis, not a " +
-        "relationship, until the data confirms it. Verified entries were checked with read-only " +
+        "column names and types, or from joins the database's views, routines and query history perform: " +
+        "either is a hypothesis, not a relationship, until the data confirms it. Verified entries were checked with read-only " +
         "aggregate queries that read counts only — no row value was returned.";
 
     /// <summary>The unverified analysis, plus the candidates behind its signals for the verification pass.</summary>
@@ -20,7 +20,8 @@ public static class RelationshipAnalysisEngine
         InferRelationshipsResult Result,
         IReadOnlyList<UndeclaredForeignKeyRule.Candidate> Candidates);
 
-    public static Analysis Analyze(IReadOnlyList<TableDetail> tables)
+    public static Analysis Analyze(
+        IReadOnlyList<TableDetail> tables, IReadOnlyList<ObservedJoin>? observed = null, int sqlSourcesRead = 0)
     {
         var declared = tables
             .SelectMany(t => t.ForeignKeysOutgoing.Select(fk => new RelationshipEdge(
@@ -29,7 +30,7 @@ public static class RelationshipAnalysisEngine
                 RelationshipEvidence.Declared, fk.ConstraintName)))
             .ToList();
 
-        var found = UndeclaredForeignKeyRule.Find(tables);
+        var found = UndeclaredForeignKeyRule.Find(tables, observed);
         var split = FindingSplit.Partition(found.Candidates.Select(UndeclaredForeignKeyRule.ToSignal));
 
         var inferred = found.Candidates.Select(c => new RelationshipEdge(
@@ -39,19 +40,19 @@ public static class RelationshipAnalysisEngine
         var caveats = new List<string>();
         if (found.AmbiguousSkipped > 0)
             caveats.Add(
-                $"{found.AmbiguousSkipped} column(s) matched more than one possible parent table by name and " +
-                "were left out rather than guessed at.");
+                $"{found.AmbiguousSkipped} column(s) matched more than one possible parent table and were left " +
+                "out rather than guessed at.");
         if (split.SignalCaveat() is { } signalCaveat) caveats.Add(signalCaveat);
         if (split.TruncationCaveat() is { } truncation) caveats.Add(truncation);
 
         var result = Build(
-            [..declared, ..inferred], split, caveats, tables.Count, found.AmbiguousSkipped, Disclaimer, verification: null);
+            [..declared, ..inferred], split, caveats, tables.Count, found.AmbiguousSkipped, sqlSourcesRead, Disclaimer, verification: null);
 
         return new Analysis(result, found.Candidates);
     }
 
     public static InferRelationshipsResult Empty() =>
-        Build([], FindingSplit.Empty, [], 0, 0, Disclaimer, verification: null);
+        Build([], FindingSplit.Empty, [], 0, 0, 0, Disclaimer, verification: null);
 
     /// <summary>Probes for the candidates still represented by a signal (truncation may have dropped some).</summary>
     public static IReadOnlyList<VerificationProbe> BuildPlan(
@@ -179,7 +180,7 @@ public static class RelationshipAnalysisEngine
         if (split.SignalCaveat() is { } signalCaveat) caveats.Add(signalCaveat);
 
         return Build(edges, split, caveats, unverified.Summary.TablesAnalyzed,
-            unverified.Summary.AmbiguousCandidatesSkipped, Disclaimer,
+            unverified.Summary.AmbiguousCandidatesSkipped, unverified.Summary.SqlSourcesRead, Disclaimer,
             VerificationSummary.From(measurements, attempted: true));
     }
 
@@ -207,6 +208,7 @@ public static class RelationshipAnalysisEngine
         IReadOnlyList<string> caveats,
         int tablesAnalyzed,
         int ambiguous,
+        int sqlSourcesRead,
         string disclaimer,
         VerificationSummary? verification) =>
         new(
@@ -221,6 +223,7 @@ public static class RelationshipAnalysisEngine
                 InferredRelationships: edges.Count(e => e.Evidence == RelationshipEvidence.Inferred),
                 VerifiedRelationships: edges.Count(e => e.Evidence is RelationshipEvidence.Verified or RelationshipEvidence.VerifiedWithOrphans),
                 AmbiguousCandidatesSkipped: ambiguous,
+                SqlSourcesRead: sqlSourcesRead,
                 BySeverity: split.BySeverity(),
                 ByRule: split.ByRule(RelationshipRuleIds.All)),
             Caveats: caveats,

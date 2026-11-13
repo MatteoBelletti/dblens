@@ -44,6 +44,15 @@ public abstract partial class DatabaseInspectorBase : IDatabaseInspector
     /// <summary>A new, unopened connection. The caller owns and disposes it.</summary>
     protected abstract DbConnection CreateConnection();
 
+    public string DatabaseName
+    {
+        get
+        {
+            using var conn = CreateConnection();
+            return conn.Database;
+        }
+    }
+
     public abstract Task<bool> TestConnectionAsync(CancellationToken ct = default);
 
     public abstract Task<DatabaseSchemaOverview> GetSchemaOverviewAsync(

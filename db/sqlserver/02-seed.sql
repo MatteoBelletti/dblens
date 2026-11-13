@@ -415,12 +415,12 @@ GO
 
 -- infer_relationships fixture: order_id all valid, user_id 1/6 orphaned, product_id 5/6 orphaned.
 SET IDENTITY_INSERT shipments ON;
-INSERT INTO shipments (id, order_id, user_id, product_id, warehouse_id, carrier) VALUES
-    (1, 1, 1, 1, 7, N'BRT'),
-    (2, 2, 2, 9001, 7, N'GLS'),
-    (3, 3, 3, 9002, 7, N'BRT'),
-    (4, 4, 4, 9003, 8, N'SDA'),
-    (5, 5, 5, 9004, 8, N'GLS'),
-    (6, 6, 999, 9005, 8, N'BRT');
+INSERT INTO shipments (id, order_id, user_id, product_id, warehouse_id, ship_to, carrier) VALUES
+    (1, 1, 1, 1, 7, 1, N'BRT'),
+    (2, 2, 2, 9001, 7, 2, N'GLS'),
+    (3, 3, 3, 9002, 7, 3, N'BRT'),
+    (4, 4, 4, 9003, 8, 4, N'SDA'),
+    (5, 5, 5, 9004, 8, 5, N'GLS'),
+    (6, 6, 999, 9005, 8, 6, N'BRT');
 SET IDENTITY_INSERT shipments OFF;
 GO

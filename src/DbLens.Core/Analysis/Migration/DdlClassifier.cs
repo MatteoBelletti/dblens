@@ -62,6 +62,11 @@ public static class DdlClassifier
     private static readonly Regex AddConstraintRx =
         new($@"^\s*(?:WITH\s+(?<check>NOCHECK|CHECK)\s+)?ADD\s+(?:CONSTRAINT\s+(?<name>{Ident})\s+)?(?<rest>.*)$", Opts);
 
+    // PostgreSQL's second half of NOT VALID: scans under SHARE UPDATE EXCLUSIVE, which blocks
+    // neither reads nor writes. Recognized so the safe pattern is not reported as unknown.
+    private static readonly Regex ValidateConstraintRx =
+        new($@"^\s*VALIDATE\s+CONSTRAINT\s+(?<name>{Ident})", Opts);
+
     private static readonly Regex DropConstraintRx =
         new($@"^\s*DROP\s+CONSTRAINT\s+(?:IF\s+EXISTS\s+)?(?<name>{Ident})", Opts);
 
@@ -167,6 +172,10 @@ public static class DdlClassifier
         if (DropConstraintRx.Match(rest) is { Success: true } dcon)
             return Build(sql, MigrationOperationKind.DropConstraint, schema, table,
                 Clean(dcon.Groups["name"].Value), false);
+
+        if (ValidateConstraintRx.Match(rest) is { Success: true } vc)
+            return Build(sql, MigrationOperationKind.ValidateConstraint, schema, table,
+                Clean(vc.Groups["name"].Value), false);
 
         if (DropColumnRx.Match(rest) is { Success: true } dc)
             return Build(sql, MigrationOperationKind.DropColumn, schema, table,

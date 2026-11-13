@@ -59,7 +59,7 @@ public sealed class PostgresIndexAnalysisTests : IClassFixture<PostgresFixture>
             f.RuleId == "fk-without-index" && f.Table == "public.orders");
 
         finding.SqlFix!.Sql.Should().NotBeNull();
-        finding.SqlFix!.Sql.Should().StartWith("CREATE INDEX \"idx_orders_");
+        finding.SqlFix!.Sql.Should().StartWith("CREATE INDEX CONCURRENTLY \"idx_orders_");
         finding.SqlFix!.Sql.Should().Contain("ON \"public\".\"orders\"");
     }
 

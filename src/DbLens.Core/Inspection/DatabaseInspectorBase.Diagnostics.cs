@@ -251,6 +251,8 @@ public abstract partial class DatabaseInspectorBase
 
         return RunAsync("query explanation", async () =>
         {
+            if (request.Analyze) await EnsureReadOnlyLoginAsync(ct);
+
             var fetched = await FetchQueryPlanAsync(request, ct);
 
             var result = QueryPlanAnalysisEngine.Analyze(

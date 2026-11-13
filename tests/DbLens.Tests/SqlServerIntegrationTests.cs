@@ -234,10 +234,20 @@ public sealed class SqlServerIntegrationTests : IClassFixture<SqlServerFixture>
 public sealed class SqlServerFixture : IAsyncLifetime, IDatabaseFixture
 {
     private const string DefaultConnectionString =
+        "Server=localhost,1434;Database=dblens_demo;User Id=dblens_reader;Password=ReaderPassword123!;TrustServerCertificate=true";
+
+    // sa, for asserting that a write-capable login is refused.
+    private const string DefaultAdminConnectionString =
         "Server=localhost,1434;Database=dblens_demo;User Id=sa;Password=DevPassword123!;TrustServerCertificate=true";
 
     private static string ConnectionString =>
         Environment.GetEnvironmentVariable("DBLENS_TEST_SS_CONNECTION") ?? DefaultConnectionString;
+
+    private static string AdminConnectionString =>
+        Environment.GetEnvironmentVariable("DBLENS_TEST_SS_ADMIN_CONNECTION") ?? DefaultAdminConnectionString;
+
+    public DbLens.Core.Abstractions.IDatabaseInspector CreateAdminInspector() =>
+        new SqlServerInspector(AdminConnectionString, NullLogger<SqlServerInspector>.Instance);
 
     public bool IsReachable { get; private set; }
     public SqlServerInspector? Inspector { get; private set; }

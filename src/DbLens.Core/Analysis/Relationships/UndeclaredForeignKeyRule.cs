@@ -4,11 +4,12 @@ using DbLens.Core.Models;
 namespace DbLens.Core.Analysis.Relationships;
 
 /// <summary>
-/// Suggests foreign keys the schema does not declare, from naming and type compatibility.
+/// Suggests foreign keys the schema does not declare, from joins the database's own SQL performs
+/// (views, routines, workload history) and, failing that, from naming and type compatibility.
 ///
 /// Legacy and ERP schemas routinely omit them, so declared keys alone give an incomplete map of
-/// how tables join. Every suggestion is a Signal: a name is not a relationship, and the
-/// verification pass is what turns one into a measurement.
+/// how tables join. Every suggestion is a Signal: neither a name nor a join is a constraint, and
+/// the verification pass is what turns one into a measurement.
 /// </summary>
 public static class UndeclaredForeignKeyRule
 {
@@ -19,12 +20,16 @@ public static class UndeclaredForeignKeyRule
         TableDetail Parent,
         string ParentKey,
         string Basis,
-        double Confidence);
+        double Confidence,
+        IReadOnlyList<string> SeenIn);
 
     public sealed record Outcome(IReadOnlyList<Candidate> Candidates, int AmbiguousSkipped);
 
-    public static Outcome Find(IReadOnlyList<TableDetail> tables)
+    public static Outcome Find(IReadOnlyList<TableDetail> tables, IReadOnlyList<ObservedJoin>? observed = null)
     {
+        var joins = (observed ?? [])
+            .ToLookup(j => (j.Child, j.ChildColumn.ToLowerInvariant()));
+
         var candidates = new List<Candidate>();
         var ambiguous = 0;
 
@@ -40,8 +45,23 @@ public static class UndeclaredForeignKeyRule
                 if (declared.Contains(column.Name) || primaryKey.Contains(column.Name)) continue;
 
                 var matches = MatchParents(child, column, tables).ToList();
-                if (matches.Count == 1) candidates.Add(matches[0]);
-                else if (matches.Count > 1) ambiguous++;
+                var seen = joins[(child, column.Name.ToLowerInvariant())]
+                    .Where(j => Compatible(column, j.Parent, j.ParentKey))
+                    .GroupBy(j => (j.Parent, j.ParentKey.ToLowerInvariant()))
+                    .ToList();
+
+                // What the database's own SQL joins on beats what a name suggests, and settles a
+                // name that matched several parents.
+                if (seen.Count == 1)
+                {
+                    var target = seen[0].First();
+                    var alsoNamed = matches.Any(c => ReferenceEquals(c.Parent, target.Parent));
+                    candidates.Add(new Candidate(
+                        child, column, target.Parent, target.ParentKey, "observed-join", alsoNamed ? 0.85 : 0.8,
+                        seen[0].Select(j => j.Describe()).Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal).ToList()));
+                }
+                else if (seen.Count > 1 || matches.Count > 1) ambiguous++;
+                else if (matches.Count == 1) candidates.Add(matches[0]);
             }
         }
 
@@ -61,7 +81,7 @@ public static class UndeclaredForeignKeyRule
                 && !string.Equals(pk, "id", StringComparison.OrdinalIgnoreCase)
                 && Compatible(column, parent, pk))
             {
-                yield return new Candidate(child, column, parent, pk, "same-name-as-parent-key", 0.7);
+                yield return new Candidate(child, column, parent, pk, "same-name-as-parent-key", 0.7, []);
                 continue;
             }
 
@@ -71,8 +91,8 @@ public static class UndeclaredForeignKeyRule
             if (key is null || !Compatible(column, parent, key)) continue;
 
             yield return stem.Family == ReferenceNaming.KeyFamily.Id
-                ? new Candidate(child, column, parent, key, "id-name-matches-table", 0.55)
-                : new Candidate(child, column, parent, key, "code-name-matches-table", 0.45);
+                ? new Candidate(child, column, parent, key, "id-name-matches-table", 0.55, [])
+                : new Candidate(child, column, parent, key, "code-name-matches-table", 0.45, []);
         }
     }
 
@@ -113,10 +133,13 @@ public static class UndeclaredForeignKeyRule
             Columns: [c.Column.Name],
             Title: $"'{c.Child.Qualified()}.{c.Column.Name}' looks like an undeclared reference to '{c.Parent.Qualified()}.{c.ParentKey}'",
             Description:
-                $"No foreign key is declared on '{c.Column.Name}', but its name and type match the key of " +
-                $"'{c.Parent.Qualified()}' (basis: {c.Basis}). If it is a reference, the database is not " +
-                "enforcing it: rows can point at parents that do not exist, deletes do not propagate, and " +
-                "the optimizer cannot use the relationship. This is inferred from naming alone — verify it " +
+                (c.SeenIn.Count > 0
+                    ? $"No foreign key is declared on '{c.Column.Name}', but SQL in the database joins it to the key of " +
+                      $"'{c.Parent.Qualified()}': {string.Join("; ", c.SeenIn)}. "
+                    : $"No foreign key is declared on '{c.Column.Name}', but its name and type match the key of " +
+                      $"'{c.Parent.Qualified()}' (basis: {c.Basis}). ") +
+                "If it is a reference, the database is not enforcing it: rows can point at parents that do not " +
+                "exist, deletes do not propagate, and the optimizer cannot use the relationship. Verify it " +
                 "against the data before relying on it as a join path.",
             SqlFix: null,
             Metadata: new Dictionary<string, object>
@@ -124,6 +147,7 @@ public static class UndeclaredForeignKeyRule
                 ["referencedTable"] = c.Parent.Qualified(),
                 ["referencedColumn"] = c.ParentKey,
                 ["basis"] = c.Basis,
+                ["seenIn"] = c.SeenIn,
             });
 
     /// <summary>
