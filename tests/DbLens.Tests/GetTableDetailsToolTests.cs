@@ -255,5 +255,25 @@ public sealed class GetTableDetailsToolTests
         public Task<DbLens.Core.Analysis.Cascade.CheckCascadePathsResult> CheckCascadePathsAsync(
             DbLens.Core.Analysis.Cascade.CheckCascadePathsRequest request, CancellationToken ct = default) =>
             throw new NotSupportedException();
+        public Task<DbLens.Core.Analysis.Denormalization.AnalyzeDenormalizationResult> AnalyzeDenormalizationAsync(
+            DbLens.Core.Analysis.Denormalization.AnalyzeDenormalizationRequest request,
+            CancellationToken ct = default) =>
+            throw new NotSupportedException();
+        public Task<DbLens.Core.Analysis.Fragmentation.AnalyzeFragmentationResult> AnalyzeFragmentationAsync(
+            DbLens.Core.Analysis.Fragmentation.AnalyzeFragmentationRequest request,
+            CancellationToken ct = default) =>
+            throw new NotSupportedException();
+        public Task<DbLens.Core.Analysis.QueryPlan.ExplainQueryResult> ExplainQueryAsync(
+            DbLens.Core.Analysis.QueryPlan.ExplainQueryRequest request,
+            CancellationToken ct = default) =>
+            throw new NotSupportedException();
+        public Task<DbLens.Core.Analysis.Relationships.InferRelationshipsResult> InferRelationshipsAsync(
+            DbLens.Core.Analysis.Relationships.InferRelationshipsRequest request,
+            CancellationToken ct = default) =>
+            throw new NotSupportedException();
+        public Task<DbLens.Core.Analysis.Migration.CheckMigrationSafetyResult> CheckMigrationSafetyAsync(
+            DbLens.Core.Analysis.Migration.CheckMigrationSafetyRequest request,
+            CancellationToken ct = default) =>
+            throw new NotSupportedException();
     }
 }

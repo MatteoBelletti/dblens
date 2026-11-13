@@ -1,203 +1,155 @@
 # CLAUDE.md — dblens
 
-## What this project is
+dblens is a local MCP server in .NET 10 that inspects and diagnoses PostgreSQL and SQL Server
+databases. It never writes to a database and never returns row data.
 
-dblens is an MCP server written in .NET 10. It connects to PostgreSQL and SQL Server databases and exposes schema inspection tools to Claude (or any MCP-compatible client). Everything runs locally — there is no cloud component.
+Read first: [docs/architecture.md](docs/architecture.md) (layout, data flow, verification pipeline),
+[docs/safety.md](docs/safety.md) (what may execute), [docs/tools.md](docs/tools.md) (every tool and
+rule), [GLOSSARY.md](GLOSSARY.md) (terms). Keep those in sync with any change of behaviour.
 
 ## Build and test
 
 ```bash
+docker compose up -d   # or: make db — PostgreSQL 5433, SQL Server 1434
 dotnet build
-dotnet test
+dotnet test            # integration tests hit both real databases
 ```
 
-Tests require both Docker databases to be running (`make db`). Integration tests hit real databases — there are no mocked database tests.
+Run the server: `dotnet run --project src/DbLens.Mcp` (stdio). `MCP_TRANSPORT=sse` serves
+`http://localhost:5050/mcp` for MCP Inspector; `make dev` / `make dev-server` add auto-rebuild.
+Logging goes to **stderr** only: stdout belongs to the MCP protocol.
 
-```bash
-make db          # docker compose up -d (PostgreSQL 5433, SQL Server 1434)
-make test        # run all xUnit tests
-make test-watch  # watch mode
-```
+Demo volumes hold demo data only; after editing `db/*/0*.sql` recreate them with
+`docker compose down -v && docker compose up -d`.
 
-## Running the server
+## Where code goes
 
-```bash
-# stdio (default) — how Claude Desktop/Code launches it
-dotnet run --project src/DbLens.Mcp
+| Layer | Put here |
+|---|---|
+| `DbLens.Core/Analysis/<Feature>/` | request/result records and a **pure static engine** — no DB access |
+| `DbLens.Core/Inspection/DatabaseInspectorBase*.cs` | orchestration, anything writable without dialect SQL |
+| `DbLens.Postgres` / `DbLens.SqlServer` (partial classes) | catalog SQL and dialect hooks only |
+| `DbLens.Mcp/Tools/` | thin tools deriving from `InspectorTool` |
 
-# SSE (for debugging with MCP Inspector)
-MCP_TRANSPORT=sse dotnet run --project src/DbLens.Mcp
-# → http://localhost:5050/mcp
-```
+Logic goes in the base whenever it can be written without dialect SQL: a rule enforced there cannot
+be forgotten by one dialect, and the dialects cannot drift apart.
 
-Or use the Makefile:
-```bash
-make dev         # MCP Inspector + stdio, auto-rebuild on save
-make dev-server  # SSE on port 5050, auto-rebuild
-```
+### Adding an inspector capability
 
-## Architecture
+1. Add the method to `IDatabaseInspector`.
+2. Add models and a pure engine under `Analysis/<Feature>/`; rule IDs as constants in `RuleIds.cs`.
+3. Implement it once in `DatabaseInspectorBase`, wrapped in `RunAsync`. If it needs dialect SQL,
+   declare an `abstract` hook and implement it in **both** inspectors.
+4. Tests: engine tests with `TestSchema`; integration tests once in an abstract
+   `<Feature>TestsBase(IDatabaseFixture)` derived per dialect; a `<Feature>ParityTests.cs`.
+5. Add `throw new NotSupportedException()` to the stub inspectors in `GetSchemaToolTests` and
+   `GetTableDetailsToolTests`.
+6. Document it in `docs/tools.md`.
 
-```
-DbLens.Core         → interfaces (IDatabaseInspector) and all shared models
-DbLens.Postgres     → PostgresInspector : IDatabaseInspector
-DbLens.SqlServer    → SqlServerInspector : IDatabaseInspector
-DbLens.Mcp          → MCP server: Program.cs, tool classes, DI wiring
-DbLens.Tests        → xUnit tests
-```
-
-**Data flow:** MCP client → `DbLens.Mcp` tool → `IDatabaseInspectorFactory` → dialect-specific `IDatabaseInspector` → database.
-
-Inspectors are registered as **keyed singletons** using `DatabaseDialect` as the key. When a tool call includes a custom `connectionString`, `IDatabaseInspectorFactory.Create(dialect, connectionString)` constructs an ad-hoc inspector instead.
-
-## Adding a new MCP tool
-
-1. Create a class in `src/DbLens.Mcp/Tools/` decorated with `[McpServerToolType]`.
-2. Add a public method decorated with `[McpServerTool]` and a `[Description(...)]`.
-3. Inject `IServiceProvider` and/or `IDatabaseInspectorFactory` via the constructor — no other registration needed.
-4. Tools are discovered automatically via `WithToolsFromAssembly(typeof(PingTool).Assembly)`.
-
-Example skeleton:
+### Adding a tool
 
 ```csharp
 [McpServerToolType]
 public sealed class MyTool(IServiceProvider services, IDatabaseInspectorFactory factory)
+    : InspectorTool(services, factory)
 {
-    private IKeyedServiceProvider KeyedServices => (IKeyedServiceProvider)services;
-
-    [McpServerTool, Description("...")]
-    public async Task<MyResult> MyMethod(
+    [McpServerTool, Description("What it does. IMPORTANT: what the response does NOT contain. Do NOT infer …")]
+    public Task<MyResult> MyMethod(
+        [Description("Database dialect: PostgreSql or SqlServer.")]
         DatabaseDialect dialect = DatabaseDialect.PostgreSql,
+        [Description("Connection string. Omit to use the server's default for the dialect.")]
         string? connectionString = null,
-        CancellationToken cancellationToken = default)
-    {
-        var inspector = connectionString is not null
-            ? factory.Create(dialect, connectionString)
-            : KeyedServices.GetRequiredKeyedService<IDatabaseInspector>(dialect);
-
-        return await inspector.SomeMethodAsync(cancellationToken);
-    }
+        CancellationToken cancellationToken = default) =>
+        ResolveInspector(dialect, connectionString).MyMethodAsync(new MyRequest(), cancellationToken);
 }
 ```
 
-## Adding a new inspector capability
+Tools are discovered automatically. Keep descriptions short: what the tool finds, then `IMPORTANT:`
+lines for what is **not** returned and what executes. Expose only parameters a model has a reason to
+set — thresholds stay as request defaults, out of the MCP schema. `[Description]` values must be
+compile-time constants.
 
-1. Add the method signature to `IDatabaseInspector` in `DbLens.Core`.
-2. Add request/response models to `DbLens.Core/Models/` (or `DbLens.Core/Analysis/<FeatureName>/`).
-3. Implement the method in both `PostgresInspector` and `SqlServerInspector` as a **partial class** in a separate file (e.g. `PostgresInspector.Analyze.cs`).
-4. Write integration tests in `DbLens.Tests` for both dialects; add a parity test if relevant.
+## Product contract
 
-## Diagnostic tools pattern
-
-Diagnostic tools (e.g. `analyze_indexes`) follow this layout:
-
-```
-DbLens.Core/Analysis/
-  Severity.cs             enum Severity { Critical, High, Medium, Low, Info }
-  FindingCategory.cs      enum FindingCategory { Performance, Compliance, Structure, Naming }
-  Finding.cs              sealed record — permanent product contract (do not change shape)
-  <FeatureName>/
-    <Feature>Request.cs
-    <Feature>Result.cs
-    Rules/
-      <RuleName>Rule.cs   public static class with Apply(tables, dialect) → IEnumerable<Finding>
-```
-
-### `Finding` contract (immutable — do not change without an explicit decision)
+### `Finding` — do not change its shape without an explicit decision
 
 ```csharp
 public sealed record Finding(
-    string RuleId,
-    Severity Severity,
-    FindingCategory Category,
-    double Confidence,       // 0.0–1.0
-    string Table,            // "schema.table"
+    string RuleId, Severity Severity, FindingCategory Category,
+    double Confidence,                 // 0.0–1.0, within its evidence class
+    Evidence Evidence,                 // required, no default: Measured / Derived / Inferred
+    string Table,                      // "schema.table"
     IReadOnlyList<string>? Columns,
-    string Title,
-    string Description,
-    string? SqlFix,
+    string Title, string Description,
+    SqlProposal? SqlFix,
     IReadOnlyDictionary<string, object>? Metadata);
 ```
 
-### Result summary pattern
+- Every result has **`Findings`** (Measured + Derived) and **`Signals`** (Inferred) as separate lists.
+  Build them with `FindingSplit.Partition`; always-present summary findings go through `WithMandatory`
+  so the 200-finding cap never drops them.
+- `Summary.BySeverity` / `ByRule` always contain every key (`FindingSplit.BySeverity()` / `ByRule()`).
+- `scan_gdpr` returns only signals. `analyze_denormalization` and `infer_relationships` return only
+  signals unless verification is on.
+- Heuristics are `Evidence.Inferred` with `Confidence < 1.0`, and the tool description says so.
+- A detection tool whose empty result could read as an all-clear must report its blind spots
+  (`scan_gdpr` → `Coverage`).
+- `SqlFix` is a `SqlProposal`: `Ddl` (changes the database) or `ReadOnlyProbe` (aggregate `SELECT`).
+  `SafeToExecuteAutomatically` is computed from the kind.
+- `demo_good` acceptance: every diagnostic tool scoped to it returns nothing but its summary finding.
 
-Every diagnostic result must include a `Summary` with `BySeverity` and `ByRule` dictionaries that **always contain all keys**, even when the count is zero. This allows callers to read any key without a null check.
+### Signal verification
 
-### `demo_good` schema
+Shared types in `Analysis/Verification/`; flow in docs/architecture.md. Non-negotiable:
 
-Both databases include a `demo_good` schema with a clean design (FKs fully covered, no duplicates, no CASCADE chains). The acceptance criterion for any diagnostic rule is: running it scoped to `demo_good` → zero diagnostic findings (only the always-present summary finding is allowed).
+- Probes are **aggregate only**: two counts, never a row value.
+- A measurement promotes only what it measured. The title states the count; the diagnosis goes under
+  `WHAT THIS MAY MEAN:`.
+- `Denominator == 0` is `Inconclusive`, never `Refuted`. A refuted signal is a fact at `Info`.
+- Only the COUNT family is verifiable (`ColumnNameVocabulary.AggregateFamily`); a SUM's source column
+  is not in the catalog.
+- Rule IDs never fork on verification state — it lives in the list, `Evidence` and
+  `Metadata["verification"]`.
+- One rolled-back transaction per probe (a failed statement poisons a PostgreSQL transaction).
+- A probe failure never propagates: the unverified analysis is still returned.
 
-## LLM guardrails in tool descriptions
+### `explain_query` safety
 
-Both `get_schema` and `get_table_details` contain explicit `IMPORTANT:` lines in their `[Description]` attributes instructing Claude not to infer, guess, or hallucinate data that is not present in the response (e.g. column names from `get_schema`, view SQL bodies, row data). When adding new tools, follow this pattern: state explicitly what is **not** included in the response.
+With `analyze = true` the caller's SQL runs. The guard runs in `DatabaseInspectorBase.ExplainQueryAsync`
+before any connection opens; the dialect still runs it in an always-rolled-back transaction
+(`READ ONLY` on PostgreSQL). `StatementGuard` is security-critical — **never relax it to make a query
+work.**
 
-## Transport modes
+## Conventions
 
-| `MCP_TRANSPORT` | Port | When to use |
-|---|---|---|
-| `stdio` (default) | — | Claude Desktop, Claude Code, production |
-| `sse` | 5050 | Debugging with Visual Studio + MCP Inspector |
+- `net10.0`, C# 14, nullable, warnings as errors, central package versions in `Directory.Packages.props`.
+- No comments unless the reason is non-obvious.
+- PostgreSQL and SQL Server stay at feature parity. Genuine differences are asserted as differences
+  (SQL Server rejects a self-referencing `ON DELETE CASCADE`, Msg 1785, so its demo `categories` is
+  `NO ACTION`).
+- Integration tests hit real databases — never mock the data layer — and **skip, never pass**, when
+  one is unreachable: `[SkippableFact]` + `Skip.If(ShouldSkip, TestSkip.Reason)`, never
+  `if (ShouldSkip) return;`. CI fails on any skipped test.
+- Test connection strings come from `DBLENS_TEST_PG_CONNECTION` / `DBLENS_TEST_SS_CONNECTION` with a
+  hardcoded fallback.
+- Every command sets `CommandTimeout = QueryTimeoutSeconds` (30, in `DatabaseInspectorBase`).
+  Don't catch `TimeoutException`: drivers raise `NpgsqlException` / `SqlException`.
+- Generated SQL: `SqlIdentifier.Quote` / `Qualify` for every catalog name, `IndexSql` for index DDL.
+  Never interpolate an identifier unquoted — quoting also keeps names inert to `StatementGuard`.
+- Counts from a reader: `Convert.ToInt64(reader.GetValue(i))`, never `GetInt64` (SQL Server `COUNT`
+  is `int`). Generated SQL Server probes use `COUNT_BIG`.
+- Finding text is a locale-independent contract: `Num.N0` / `F1` / `F0` / `P0`, never `:N0`.
+- Rule IDs and limits by constant: `*RuleIds`, `DiagnosticLimits.MaxTablesPerRequest` /
+  `MaxFindingCount`. Never inline.
+- After `GetTableDetailsAsync`, append `NotFoundCaveat(details)` via `WithCaveat`.
+- Summary findings (`*-summary`) are exactly one, `Info`, never deduplicated.
 
-The launch profile `sse` in `launchSettings.json` sets `MCP_TRANSPORT=sse` automatically.
-
-## Logging
-
-All logging goes to **stderr**. Stdout is reserved exclusively for the MCP protocol. This is configured in `ConfigureLogging` in `Program.cs` via `LogToStandardErrorThreshold = LogLevel.Trace`.
-
-## Connection string defaults
-
-Defaults are in `appsettings.json` and also hardcoded as fallbacks in `Program.cs`:
+## Defaults
 
 ```
 PostgreSQL  Host=localhost;Port=5433;Database=dblens_demo;Username=postgres;Password=devpassword
 SQL Server  Server=localhost,1434;Database=dblens_demo;User Id=sa;Password=DevPassword123!;TrustServerCertificate=true
 ```
 
-The demo databases run on non-standard ports (5433, 1434) to avoid colliding with any locally installed instances.
-
-## Key files
-
-| File | Purpose |
-|---|---|
-| `src/DbLens.Mcp/Program.cs` | Entry point: transport selection, DI wiring |
-| `src/DbLens.Core/Abstractions/IDatabaseInspector.cs` | Inspector contract |
-| `src/DbLens.Core/Analysis/Finding.cs` | Permanent product contract for all diagnostic findings |
-| `src/DbLens.Core/Analysis/DiagnosticLimits.cs` | Shared numeric limits (MaxTablesPerRequest, MaxFindingCount) |
-| `src/DbLens.Core/Analysis/RuleIds.cs` | Rule ID string constants (`IndexRuleIds`, `GdprRuleIds`, `CascadeRuleIds`) with `All` arrays |
-| `src/DbLens.Core/Analysis/Indexes/` | Request/result types and rules for `analyze_indexes` |
-| `src/DbLens.Core/Analysis/Gdpr/` | Request/result types, pattern dictionaries, classifier, and engine for `scan_gdpr` |
-| `src/DbLens.Core/Analysis/Gdpr/Patterns/` | Embedded JSON pattern files (`pii_patterns_en.json`, `pii_patterns_it.json`) |
-| `src/DbLens.Core/Analysis/Cascade/` | Request/result types and `CascadeAnalysisEngine` for `check_cascade_paths` |
-| `src/DbLens.Postgres/PostgresInspector.cs` | PostgreSQL base implementation |
-| `src/DbLens.Postgres/PostgresInspector.Analyze.cs` | PostgreSQL `AnalyzeIndexesAsync` (partial class) |
-| `src/DbLens.Postgres/PostgresInspector.ScanGdpr.cs` | PostgreSQL `ScanGdprAsync` (partial class) |
-| `src/DbLens.Postgres/PostgresInspector.CheckCascade.cs` | PostgreSQL `CheckCascadePathsAsync` (partial class) |
-| `src/DbLens.SqlServer/SqlServerInspector.cs` | SQL Server base implementation |
-| `src/DbLens.SqlServer/SqlServerInspector.Analyze.cs` | SQL Server `AnalyzeIndexesAsync` (partial class) |
-| `src/DbLens.SqlServer/SqlServerInspector.ScanGdpr.cs` | SQL Server `ScanGdprAsync` (partial class) |
-| `src/DbLens.SqlServer/SqlServerInspector.CheckCascade.cs` | SQL Server `CheckCascadePathsAsync` (partial class) |
-| `src/DbLens.Mcp/Infrastructure/DatabaseInspectorFactory.cs` | Creates ad-hoc inspectors for custom connection strings |
-| `src/DbLens.Mcp/Tools/` | All MCP tool classes |
-| `docker-compose.yml` | Demo databases (PostgreSQL 17 on 5433, SQL Server 2022 on 1434) |
-| `db/postgres/01-schema.sql` | PostgreSQL demo schema (`public` + `demo_good`) |
-| `db/sqlserver/01-schema.sql` | SQL Server demo schema (`dbo` + `demo_good`) |
-| `Makefile` | All dev commands |
-| `Directory.Packages.props` | Central NuGet version management |
-| `Directory.Build.props` | Shared build settings (net10.0, C# 14, nullable, warnings as errors) |
-
-## Conventions
-
-- Target framework: `net10.0`, C# 14, nullable reference types enabled, warnings as errors.
-- No comments unless the reason is non-obvious.
-- Integration tests must hit real databases — no mocking the data layer.
-- Both PostgreSQL and SQL Server must be kept at feature parity for any new inspector capability.
-- Add a parity test file (`<Feature>ParityTests.cs`) for every new diagnostic tool that compares findings across dialects (strip schema prefix with `f.Table.Split('.')[1]` for bare-table comparisons).
-- Stub inspectors in `GetSchemaToolTests` and `GetTableDetailsToolTests` must implement all `IDatabaseInspector` methods; add `throw new NotSupportedException()` for new methods.
-- Use `DiagnosticLimits` constants (never magic numbers) for `MaxTablesPerRequest` and `MaxFindingCount`. Note: `[Description]` attribute values must be compile-time constants — use literals there, not `nameof` or interpolation.
-- Use rule ID constants from `IndexRuleIds` / `GdprRuleIds` everywhere (rules, summary builders, tests). Never write rule ID strings inline.
-- Command timeouts: all database commands must set `CommandTimeout = QueryTimeoutSeconds` (constant = 30). Npgsql's default is 0 (infinite) unless set in the connection string. SqlClient's default is 30s but set it explicitly for clarity.
-- Do not catch `System.TimeoutException` from database drivers — Npgsql raises `NpgsqlException` and SqlClient raises `SqlException` on command timeout; `TimeoutException` catches are dead code.
-- Test fixture connection strings: use `Environment.GetEnvironmentVariable("DBLENS_TEST_PG_CONNECTION")` / `"DBLENS_TEST_SS_CONNECTION"` with a hardcoded default fallback. Never hardcode credentials as the sole source of truth.
-- `NotFound` propagation: after calling `GetTableDetailsAsync` from a diagnostic method, always check `details.NotFound` and append a caveat to the result using `result = result with { Caveats = [..result.Caveats, extra] }`.
-- Always-present summary finding: some tools (e.g. `check_cascade_paths`) include an unconditional `*-summary` finding appended after deduplication. This finding is always exactly one, always `Severity.Info`, and must never be deduplicated away.
-- `CascadeAnalysisEngine` pattern: when analysis logic is purely in-memory (no DB access), extract it into a static engine class in `DbLens.Core/Analysis/<Feature>/`. The dialect-specific inspector only handles DB queries and passes raw data to the engine. This makes the engine fully unit-testable without a database.
+In `appsettings.json`, with the same values as fallbacks in `Program.cs`. Non-standard ports avoid
+clashing with local installs.

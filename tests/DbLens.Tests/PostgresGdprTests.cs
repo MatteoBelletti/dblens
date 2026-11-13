@@ -17,10 +17,10 @@ public sealed class PostgresGdprTests : IClassFixture<PostgresFixture>
 
     // --- result always contains Disclaimer ---
 
-    [Fact, Trait("Category", "Integration")]
+    [SkippableFact, Trait("Category", "Integration")]
     public async Task ScanGdpr_Result_AlwaysContainsDisclaimer()
     {
-        if (ShouldSkip) return;
+        Skip.If(ShouldSkip, TestSkip.Reason);
 
         var result = await _fixture.Inspector!.ScanGdprAsync(
             new ScanGdprRequest(Schema: "public"));
@@ -31,15 +31,15 @@ public sealed class PostgresGdprTests : IClassFixture<PostgresFixture>
 
     // --- PII detection on the demo schema ---
 
-    [Fact, Trait("Category", "Integration")]
+    [SkippableFact, Trait("Category", "Integration")]
     public async Task ScanGdpr_UsersTable_DetectsPiiColumns()
     {
-        if (ShouldSkip) return;
+        Skip.If(ShouldSkip, TestSkip.Reason);
 
         var result = await _fixture.Inspector!.ScanGdprAsync(
             new ScanGdprRequest(Schema: "public", Tables: ["users"]));
 
-        var piiColumns = result.Findings
+        var piiColumns = result.Signals
             .Where(f => f.RuleId != "missing-gdpr-controls")
             .SelectMany(f => f.Columns ?? [])
             .ToHashSet(StringComparer.OrdinalIgnoreCase);
@@ -52,15 +52,15 @@ public sealed class PostgresGdprTests : IClassFixture<PostgresFixture>
         piiColumns.Should().Contain("fiscal_code",   "users.fiscal_code is PII (national id)");
     }
 
-    [Fact, Trait("Category", "Integration")]
+    [SkippableFact, Trait("Category", "Integration")]
     public async Task ScanGdpr_UsersTable_FiscalCode_IsNationalId()
     {
-        if (ShouldSkip) return;
+        Skip.If(ShouldSkip, TestSkip.Reason);
 
         var result = await _fixture.Inspector!.ScanGdprAsync(
             new ScanGdprRequest(Schema: "public", Tables: ["users"]));
 
-        var fiscalCodeFinding = result.Findings.FirstOrDefault(
+        var fiscalCodeFinding = result.Signals.FirstOrDefault(
             f => f.Columns?.Contains("fiscal_code") == true);
 
         fiscalCodeFinding.Should().NotBeNull("fiscal_code should be detected");
@@ -69,15 +69,15 @@ public sealed class PostgresGdprTests : IClassFixture<PostgresFixture>
             "national IDs are always Critical");
     }
 
-    [Fact, Trait("Category", "Integration")]
+    [SkippableFact, Trait("Category", "Integration")]
     public async Task ScanGdpr_AuditLogs_IpAddress_DetectedAsOnlineId()
     {
-        if (ShouldSkip) return;
+        Skip.If(ShouldSkip, TestSkip.Reason);
 
         var result = await _fixture.Inspector!.ScanGdprAsync(
             new ScanGdprRequest(Schema: "public", Tables: ["audit_logs"]));
 
-        var ipFinding = result.Findings.FirstOrDefault(
+        var ipFinding = result.Signals.FirstOrDefault(
             f => f.Columns?.Contains("ip_address") == true);
 
         ipFinding.Should().NotBeNull("audit_logs.ip_address should be detected as PII");
@@ -86,15 +86,15 @@ public sealed class PostgresGdprTests : IClassFixture<PostgresFixture>
 
     // --- gap analysis ---
 
-    [Fact, Trait("Category", "Integration")]
+    [SkippableFact, Trait("Category", "Integration")]
     public async Task ScanGdpr_UsersTable_MissingGdprControls_SoftDeleteAbsent()
     {
-        if (ShouldSkip) return;
+        Skip.If(ShouldSkip, TestSkip.Reason);
 
         var result = await _fixture.Inspector!.ScanGdprAsync(
             new ScanGdprRequest(Schema: "public", Tables: ["users"]));
 
-        var gapFinding = result.Findings.FirstOrDefault(f => f.RuleId == "missing-gdpr-controls");
+        var gapFinding = result.Signals.FirstOrDefault(f => f.RuleId == "missing-gdpr-controls");
 
         gapFinding.Should().NotBeNull(
             "users table has PII but no soft-delete column");
@@ -103,17 +103,17 @@ public sealed class PostgresGdprTests : IClassFixture<PostgresFixture>
 
     // --- excludeTables ---
 
-    [Fact, Trait("Category", "Integration")]
+    [SkippableFact, Trait("Category", "Integration")]
     public async Task ScanGdpr_ExcludeTables_RemovesTableFromResults()
     {
-        if (ShouldSkip) return;
+        Skip.If(ShouldSkip, TestSkip.Reason);
 
         var result = await _fixture.Inspector!.ScanGdprAsync(
             new ScanGdprRequest(
                 Schema: "public",
                 ExcludeTables: ["users", "addresses", "audit_logs", "payments"]));
 
-        var tables = result.Findings
+        var tables = result.Signals
             .Select(f => f.Table.Split('.')[1])
             .Distinct()
             .ToList();
@@ -125,28 +125,28 @@ public sealed class PostgresGdprTests : IClassFixture<PostgresFixture>
 
     // --- minConfidence ---
 
-    [Fact, Trait("Category", "Integration")]
+    [SkippableFact, Trait("Category", "Integration")]
     public async Task ScanGdpr_HighMinConfidence_ProducesFewerFindings()
     {
-        if (ShouldSkip) return;
+        Skip.If(ShouldSkip, TestSkip.Reason);
 
         var lowConf = await _fixture.Inspector!.ScanGdprAsync(
             new ScanGdprRequest(Schema: "public", MinConfidence: 0.5));
         var highConf = await _fixture.Inspector!.ScanGdprAsync(
             new ScanGdprRequest(Schema: "public", MinConfidence: 0.95));
 
-        highConf.Findings.Count(f => f.RuleId != "missing-gdpr-controls")
+        highConf.Signals.Count(f => f.RuleId != "missing-gdpr-controls")
             .Should().BeLessThanOrEqualTo(
-                lowConf.Findings.Count(f => f.RuleId != "missing-gdpr-controls"),
+                lowConf.Signals.Count(f => f.RuleId != "missing-gdpr-controls"),
                 "higher confidence threshold should suppress low-confidence matches");
     }
 
     // --- summary always-keys ---
 
-    [Fact, Trait("Category", "Integration")]
+    [SkippableFact, Trait("Category", "Integration")]
     public async Task ScanGdpr_Summary_ContainsAllRuleKeys()
     {
-        if (ShouldSkip) return;
+        Skip.If(ShouldSkip, TestSkip.Reason);
 
         var result = await _fixture.Inspector!.ScanGdprAsync(
             new ScanGdprRequest(Schema: "public"));
@@ -163,15 +163,15 @@ public sealed class PostgresGdprTests : IClassFixture<PostgresFixture>
 
     // --- FindingCategory is always Compliance ---
 
-    [Fact, Trait("Category", "Integration")]
+    [SkippableFact, Trait("Category", "Integration")]
     public async Task ScanGdpr_AllFindings_HaveComplianceCategory()
     {
-        if (ShouldSkip) return;
+        Skip.If(ShouldSkip, TestSkip.Reason);
 
         var result = await _fixture.Inspector!.ScanGdprAsync(
             new ScanGdprRequest(Schema: "public"));
 
-        result.Findings.Should().AllSatisfy(f =>
+        result.Signals.Should().AllSatisfy(f =>
             f.Category.Should().Be(FindingCategory.Compliance));
     }
 }

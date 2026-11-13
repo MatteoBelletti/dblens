@@ -25,11 +25,13 @@ public sealed class PostgresIntegrationTests : IClassFixture<PostgresFixture>
     // xUnit v2 has no dynamic skip API; tests simply return early and pass without assertions.
     private bool ShouldSkip => !_fixture.IsReachable;
 
-    [Fact]
+
+    [SkippableFact]
+
     [Trait("Category", "Integration")]
     public async Task GetSchemaOverview_DefaultRequest_ReturnsAtLeastEightTables()
     {
-        if (ShouldSkip) return;
+        Skip.If(ShouldSkip, TestSkip.Reason);
 
         var result = await _fixture.Inspector!.GetSchemaOverviewAsync(new SchemaOverviewRequest());
 
@@ -37,11 +39,13 @@ public sealed class PostgresIntegrationTests : IClassFixture<PostgresFixture>
         publicSchema.TableCount.Should().BeGreaterThanOrEqualTo(8);
     }
 
-    [Fact]
+
+    [SkippableFact]
+
     [Trait("Category", "Integration")]
     public async Task GetSchemaOverview_ExcludesSystemSchemas_ByDefault()
     {
-        if (ShouldSkip) return;
+        Skip.If(ShouldSkip, TestSkip.Reason);
 
         var result = await _fixture.Inspector!.GetSchemaOverviewAsync(new SchemaOverviewRequest());
 
@@ -49,11 +53,13 @@ public sealed class PostgresIntegrationTests : IClassFixture<PostgresFixture>
             s.Name.StartsWith("pg_") || s.Name == "information_schema");
     }
 
-    [Fact]
+
+    [SkippableFact]
+
     [Trait("Category", "Integration")]
     public async Task GetSchemaOverview_IncludeSystemSchemas_ContainsPgCatalog()
     {
-        if (ShouldSkip) return;
+        Skip.If(ShouldSkip, TestSkip.Reason);
 
         var result = await _fixture.Inspector!.GetSchemaOverviewAsync(
             new SchemaOverviewRequest(IncludeSystemSchemas: true));
@@ -61,11 +67,13 @@ public sealed class PostgresIntegrationTests : IClassFixture<PostgresFixture>
         result.Schemas.Should().Contain(s => s.Name == "pg_catalog" || s.Name.StartsWith("pg_"));
     }
 
-    [Fact]
+
+    [SkippableFact]
+
     [Trait("Category", "Integration")]
     public async Task GetSchemaOverview_UsersTable_HasAtLeastThreeIncomingForeignKeys()
     {
-        if (ShouldSkip) return;
+        Skip.If(ShouldSkip, TestSkip.Reason);
 
         var result = await _fixture.Inspector!.GetSchemaOverviewAsync(new SchemaOverviewRequest());
 
@@ -77,11 +85,13 @@ public sealed class PostgresIntegrationTests : IClassFixture<PostgresFixture>
         users.IncomingForeignKeys.Should().BeGreaterThanOrEqualTo(3);
     }
 
-    [Fact]
+
+    [SkippableFact]
+
     [Trait("Category", "Integration")]
     public async Task GetSchemaOverview_UsersTable_HasApproximateRowCountInExpectedRange()
     {
-        if (ShouldSkip) return;
+        Skip.If(ShouldSkip, TestSkip.Reason);
 
         var result = await _fixture.Inspector!.GetSchemaOverviewAsync(new SchemaOverviewRequest());
 
@@ -94,11 +104,13 @@ public sealed class PostgresIntegrationTests : IClassFixture<PostgresFixture>
         users.ApproximateRowCount.Should().BeInRange(15, 25);
     }
 
-    [Fact]
+
+    [SkippableFact]
+
     [Trait("Category", "Integration")]
     public async Task GetSchemaOverview_CategoriesTable_HasOneOutgoingForeignKey()
     {
-        if (ShouldSkip) return;
+        Skip.If(ShouldSkip, TestSkip.Reason);
 
         var result = await _fixture.Inspector!.GetSchemaOverviewAsync(new SchemaOverviewRequest());
 
@@ -110,11 +122,13 @@ public sealed class PostgresIntegrationTests : IClassFixture<PostgresFixture>
         categories.OutgoingForeignKeys.Should().Be(1);
     }
 
-    [Fact]
+
+    [SkippableFact]
+
     [Trait("Category", "Integration")]
     public async Task GetSchemaOverview_AllPopulatedTables_HavePositiveTotalSizeBytes()
     {
-        if (ShouldSkip) return;
+        Skip.If(ShouldSkip, TestSkip.Reason);
 
         var result = await _fixture.Inspector!.GetSchemaOverviewAsync(new SchemaOverviewRequest());
 
@@ -125,11 +139,13 @@ public sealed class PostgresIntegrationTests : IClassFixture<PostgresFixture>
         tables.Should().OnlyContain(o => o.TotalSizeBytes > 0);
     }
 
-    [Fact]
+
+    [SkippableFact]
+
     [Trait("Category", "Integration")]
     public async Task GetSchemaOverview_NamePatternFilter_ReturnsOnlyMatchingObjects()
     {
-        if (ShouldSkip) return;
+        Skip.If(ShouldSkip, TestSkip.Reason);
 
         var result = await _fixture.Inspector!.GetSchemaOverviewAsync(
             new SchemaOverviewRequest(NamePattern: "order%"));
@@ -139,11 +155,13 @@ public sealed class PostgresIntegrationTests : IClassFixture<PostgresFixture>
         names.Should().OnlyContain(n => n.StartsWith("order"));
     }
 
-    [Fact]
+
+    [SkippableFact]
+
     [Trait("Category", "Integration")]
     public async Task GetSchemaOverview_NamePatternOrder_ReturnsTwoResults()
     {
-        if (ShouldSkip) return;
+        Skip.If(ShouldSkip, TestSkip.Reason);
 
         var result = await _fixture.Inspector!.GetSchemaOverviewAsync(
             new SchemaOverviewRequest(NamePattern: "order%"));
@@ -151,11 +169,13 @@ public sealed class PostgresIntegrationTests : IClassFixture<PostgresFixture>
         result.Schemas.SelectMany(s => s.Objects).Should().HaveCount(2);
     }
 
-    [Fact]
+
+    [SkippableFact]
+
     [Trait("Category", "Integration")]
     public async Task GetSchemaOverview_SchemasAndObjects_AreSortedAlphabetically()
     {
-        if (ShouldSkip) return;
+        Skip.If(ShouldSkip, TestSkip.Reason);
 
         var result = await _fixture.Inspector!.GetSchemaOverviewAsync(new SchemaOverviewRequest());
 
@@ -164,11 +184,13 @@ public sealed class PostgresIntegrationTests : IClassFixture<PostgresFixture>
             schema.Objects.Select(o => o.Name).Should().BeInAscendingOrder();
     }
 
-    [Fact]
+
+    [SkippableFact]
+
     [Trait("Category", "Integration")]
     public async Task GetSchemaOverview_SummaryString_IsNonEmpty()
     {
-        if (ShouldSkip) return;
+        Skip.If(ShouldSkip, TestSkip.Reason);
 
         var result = await _fixture.Inspector!.GetSchemaOverviewAsync(new SchemaOverviewRequest());
 
@@ -178,11 +200,13 @@ public sealed class PostgresIntegrationTests : IClassFixture<PostgresFixture>
         result.GeneratedAt.Should().NotBeNullOrWhiteSpace();
     }
 
-    [Fact]
+
+    [SkippableFact]
+
     [Trait("Category", "Integration")]
     public async Task GetSchemaOverview_AllObjects_HaveTotalSizeHuman()
     {
-        if (ShouldSkip) return;
+        Skip.If(ShouldSkip, TestSkip.Reason);
 
         var result = await _fixture.Inspector!.GetSchemaOverviewAsync(new SchemaOverviewRequest());
 
@@ -192,7 +216,7 @@ public sealed class PostgresIntegrationTests : IClassFixture<PostgresFixture>
 }
 
 /// <summary>xUnit fixture that opens a PostgreSQL connection and runs ANALYZE before tests.</summary>
-public sealed class PostgresFixture : IAsyncLifetime
+public sealed class PostgresFixture : IAsyncLifetime, IDatabaseFixture
 {
     private const string DefaultConnectionString =
         "Host=localhost;Port=5433;Database=dblens_demo;Username=postgres;Password=devpassword";
@@ -202,6 +226,10 @@ public sealed class PostgresFixture : IAsyncLifetime
 
     public bool IsReachable { get; private set; }
     public PostgresInspector? Inspector { get; private set; }
+
+    DbLens.Core.Abstractions.IDatabaseInspector? IDatabaseFixture.Inspector => Inspector;
+
+    public string UserSchema => "public";
 
     public async Task InitializeAsync()
     {

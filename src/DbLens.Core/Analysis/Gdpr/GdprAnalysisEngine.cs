@@ -17,11 +17,13 @@ public static class GdprAnalysisEngine
     {
         var findings = new List<Finding>();
         var caveats = new List<string>();
+        var matchedColumns = new List<(string Table, string Column)>();
 
         foreach (var table in tables)
         {
             var gap = GapAnalyzer.Analyze(table);
             var piiColumnCount = 0;
+            var qualified = table.Qualified();
 
             foreach (var col in table.Columns)
             {
@@ -30,6 +32,7 @@ public static class GdprAnalysisEngine
                     continue;
 
                 piiColumnCount++;
+                matchedColumns.Add((qualified, col.Name));
                 findings.Add(BuildPiiFinding(table.Schema, table.Name, col, match, gap));
             }
 
@@ -37,28 +40,41 @@ public static class GdprAnalysisEngine
                 findings.AddRange(BuildGapFindings(table, gap, piiColumnCount));
         }
 
-        var truncated = false;
-        if (findings.Count > DiagnosticLimits.MaxFindingCount)
-        {
-            findings = findings.Take(DiagnosticLimits.MaxFindingCount).ToList();
-            truncated = true;
-            caveats.Add(
-                $"Results truncated to {DiagnosticLimits.MaxFindingCount} findings. " +
-                "Use schema/tables filters for a more targeted scan.");
-        }
+        var coverage = GdprCoverageAnalyzer.Analyze(tables, matchedColumns);
+        var split = FindingSplit.Partition(findings);
+
+        if (split.TruncationCaveat() is { } truncation)
+            caveats.Add(truncation);
 
         if (request.MinConfidence > 0.5)
             caveats.Add(
-                $"MinConfidence set to {request.MinConfidence:P0}. " +
+                $"MinConfidence set to {Num.P0(request.MinConfidence)}. " +
                 "Lower it to surface more potential PII columns.");
 
-        return new ScanGdprResult(
-            Disclaimer: Disclaimer,
-            Findings: findings,
-            Summary: BuildSummary(findings),
-            Caveats: caveats,
-            Truncated: truncated);
+        // An empty result from a name-matching scan is the most misreadable thing this tool can
+        // return, so it is always accompanied by an explicit statement of what it does not mean.
+        if (split.Total == 0 && coverage.ColumnsScanned > 0)
+            caveats.Add(GdprCoverageAnalyzer.BuildNoMatchCaveat(coverage));
+
+        if (GdprCoverageAnalyzer.BuildCaveat(coverage) is { } coverageCaveat)
+            caveats.Add(coverageCaveat);
+
+        if (split.SignalCaveat() is { } signalCaveat)
+            caveats.Add(signalCaveat);
+
+        return Build(split, coverage, caveats);
     }
+
+    private static ScanGdprResult Build(
+        FindingSplit split, GdprCoverage coverage, IReadOnlyList<string> caveats) =>
+        new(
+            Disclaimer: Disclaimer,
+            Findings: split.Findings,
+            Signals: split.Signals,
+            Summary: BuildSummary(split),
+            Coverage: coverage,
+            Caveats: caveats,
+            Truncated: split.Truncated);
 
     private static Finding BuildPiiFinding(
         string schema, string tableName,
@@ -82,6 +98,7 @@ public static class GdprAnalysisEngine
             Severity:    severity,
             Category:    FindingCategory.Compliance,
             Confidence:  match.Confidence,
+            Evidence:  Evidence.Inferred,
             Table:       table,
             Columns:     [col.Name],
             Title:       $"PII column detected: {col.Name} ({match.Category})",
@@ -107,13 +124,14 @@ public static class GdprAnalysisEngine
         if (missing.Count == 0)
             yield break;
 
-        var qualified = $"{table.Schema}.{table.Name}";
+        var qualified = table.Qualified();
 
         yield return new Finding(
             RuleId:      GdprRuleIds.MissingGdprControls,
             Severity:    Severity.Medium,
             Category:    FindingCategory.Compliance,
             Confidence:  1.0,
+            Evidence:  Evidence.Inferred,
             Table:       qualified,
             Columns:     null,
             Title:       $"Table with PII lacks GDPR controls: {table.Name}",
@@ -144,34 +162,27 @@ public static class GdprAnalysisEngine
             _                            => (GdprRuleIds.PiiIdentifier,      Severity.Medium)
         };
 
-    private static GdprSummary BuildSummary(IReadOnlyList<Finding> findings)
+    private static GdprSummary BuildSummary(FindingSplit split)
     {
-        var bySeverity = Enum.GetValues<Severity>()
-            .ToDictionary(s => s.ToString(), s => findings.Count(f => f.Severity == s));
-
-        var byRule = GdprRuleIds.All
-            .ToDictionary(r => r, r => findings.Count(f => f.RuleId == r));
-
         var byCategory = Enum.GetValues<PiiCategory>()
             .ToDictionary(
                 c => c.ToString(),
-                c => findings.Count(f =>
+                c => split.All.Count(f =>
                     f.Metadata is not null &&
                     f.Metadata.TryGetValue("piiCategory", out var v) &&
                     v is string s && s == c.ToString()));
 
         return new GdprSummary(
-            TotalFindings: findings.Count,
-            BySeverity: bySeverity,
-            ByRule: byRule,
+            TotalFindings: split.Findings.Count,
+            TotalSignals: split.Signals.Count,
+            BySeverity: split.BySeverity(),
+            ByRule: split.ByRule(GdprRuleIds.All),
             ByCategory: byCategory);
     }
 
     public static ScanGdprResult Empty() =>
-        new(
-            Disclaimer: Disclaimer,
-            Findings: [],
-            Summary: BuildSummary([]),
-            Caveats: [],
-            Truncated: false);
+        Build(
+            FindingSplit.Empty,
+            new GdprCoverage(0, 0, 0, 0, [], 1.0),
+            []);
 }

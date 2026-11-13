@@ -15,10 +15,10 @@ public sealed class SqlServerGdprTests : IClassFixture<SqlServerFixture>
     public SqlServerGdprTests(SqlServerFixture fixture) => _fixture = fixture;
     private bool ShouldSkip => !_fixture.IsReachable;
 
-    [Fact, Trait("Category", "Integration")]
+    [SkippableFact, Trait("Category", "Integration")]
     public async Task ScanGdpr_Result_AlwaysContainsDisclaimer()
     {
-        if (ShouldSkip) return;
+        Skip.If(ShouldSkip, TestSkip.Reason);
 
         var result = await _fixture.Inspector!.ScanGdprAsync(
             new ScanGdprRequest(Schema: "dbo"));
@@ -26,15 +26,15 @@ public sealed class SqlServerGdprTests : IClassFixture<SqlServerFixture>
         result.Disclaimer.Should().NotBeNullOrWhiteSpace();
     }
 
-    [Fact, Trait("Category", "Integration")]
+    [SkippableFact, Trait("Category", "Integration")]
     public async Task ScanGdpr_UsersTable_DetectsPiiColumns()
     {
-        if (ShouldSkip) return;
+        Skip.If(ShouldSkip, TestSkip.Reason);
 
         var result = await _fixture.Inspector!.ScanGdprAsync(
             new ScanGdprRequest(Schema: "dbo", Tables: ["users"]));
 
-        var piiColumns = result.Findings
+        var piiColumns = result.Signals
             .Where(f => f.RuleId != "missing-gdpr-controls")
             .SelectMany(f => f.Columns ?? [])
             .ToHashSet(StringComparer.OrdinalIgnoreCase);
@@ -47,10 +47,10 @@ public sealed class SqlServerGdprTests : IClassFixture<SqlServerFixture>
         piiColumns.Should().Contain("fiscal_code",   "users.fiscal_code is PII");
     }
 
-    [Fact, Trait("Category", "Integration")]
+    [SkippableFact, Trait("Category", "Integration")]
     public async Task ScanGdpr_Summary_ContainsAllRuleKeys()
     {
-        if (ShouldSkip) return;
+        Skip.If(ShouldSkip, TestSkip.Reason);
 
         var result = await _fixture.Inspector!.ScanGdprAsync(
             new ScanGdprRequest(Schema: "dbo"));
@@ -62,17 +62,17 @@ public sealed class SqlServerGdprTests : IClassFixture<SqlServerFixture>
         result.Summary.BySeverity.Keys.Should().Contain(Enum.GetNames<Severity>());
     }
 
-    [Fact, Trait("Category", "Integration")]
+    [SkippableFact, Trait("Category", "Integration")]
     public async Task ScanGdpr_ExcludeTables_RemovesTableFromResults()
     {
-        if (ShouldSkip) return;
+        Skip.If(ShouldSkip, TestSkip.Reason);
 
         var result = await _fixture.Inspector!.ScanGdprAsync(
             new ScanGdprRequest(
                 Schema: "dbo",
                 ExcludeTables: ["users", "addresses", "audit_logs", "payments"]));
 
-        var tables = result.Findings
+        var tables = result.Signals
             .Select(f => f.Table.Split('.')[1])
             .Distinct()
             .ToList();

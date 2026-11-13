@@ -1,33 +1,22 @@
 using System.ComponentModel;
-using DbLens.Core.Abstractions;
 using DbLens.Core.Models;
 using DbLens.Mcp.Infrastructure;
-using Microsoft.Extensions.DependencyInjection;
 using ModelContextProtocol.Server;
 
 namespace DbLens.Mcp.Tools;
 
 [McpServerToolType]
 public sealed class GetSchemaTool(IServiceProvider services, IDatabaseInspectorFactory factory)
+    : InspectorTool(services, factory)
 {
-    // IServiceProvider is always injectable; cast to IKeyedServiceProvider at call time.
-    private IKeyedServiceProvider KeyedServices => (IKeyedServiceProvider)services;
-
     [McpServerTool, Description(
-        "Returns an overview of all user tables and views in a database, " +
-        "with row count estimates, sizes, and FK/index counts. " +
-        "IMPORTANT: column names are NOT included in this response — only a ColumnCount integer is returned per object. " +
-        "Do NOT infer, guess, or generate column names from this data. " +
-        "If you need to draw an ER diagram or show columns, first call get_table_details for the relevant tables. " +
-        "Use this tool only to explore table/view names, sizes, and relationship counts.")]
+        "Lists the user tables and views of a database with row estimates, sizes and FK/index counts. " +
+        "IMPORTANT: column names are NOT included, only a ColumnCount — do NOT infer them; call " +
+        "get_table_details for the tables you need.")]
     public Task<DatabaseSchemaOverview> GetSchema(
         [Description("Database dialect: PostgreSql or SqlServer.")]
         DatabaseDialect dialect = DatabaseDialect.PostgreSql,
-        [Description(
-            "Connection string to the target database. " +
-            "PostgreSQL example: 'Host=myserver;Port=5432;Database=mydb;Username=user;Password=pass'. " +
-            "SQL Server example: 'Server=myserver,1433;Database=mydb;User Id=user;Password=pass;TrustServerCertificate=true'. " +
-            "If omitted, uses the server's configured default for the chosen dialect.")]
+        [Description("Connection string. Omit to use the server's default for the dialect.")]
         string? connectionString = null,
         [Description("Exact schema name to filter by. Omit to return all user schemas.")]
         string? schemaFilter = null,
@@ -39,9 +28,7 @@ public sealed class GetSchemaTool(IServiceProvider services, IDatabaseInspectorF
         bool includeSystemSchemas = false,
         CancellationToken cancellationToken = default)
     {
-        var inspector = connectionString is not null
-            ? factory.Create(dialect, connectionString)
-            : KeyedServices.GetRequiredKeyedService<IDatabaseInspector>(dialect);
+        var inspector = ResolveInspector(dialect, connectionString);
 
         var request = new SchemaOverviewRequest(schemaFilter, namePattern, includeViews, includeSystemSchemas);
         return inspector.GetSchemaOverviewAsync(request, cancellationToken);

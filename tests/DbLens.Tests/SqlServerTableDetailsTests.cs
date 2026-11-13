@@ -17,10 +17,10 @@ public sealed class SqlServerTableDetailsTests : IClassFixture<SqlServerFixture>
     public SqlServerTableDetailsTests(SqlServerFixture fixture) => _fixture = fixture;
     private bool ShouldSkip => !_fixture.IsReachable;
 
-    [Fact, Trait("Category", "Integration")]
+    [SkippableFact, Trait("Category", "Integration")]
     public async Task GetTableDetails_Users_ReturnsTenColumns()
     {
-        if (ShouldSkip) return;
+        Skip.If(ShouldSkip, TestSkip.Reason);
 
         var result = await _fixture.Inspector!.GetTableDetailsAsync(
             new TableDetailsRequest(["users"]));
@@ -29,10 +29,10 @@ public sealed class SqlServerTableDetailsTests : IClassFixture<SqlServerFixture>
         result.Tables[0].Columns.Should().HaveCount(10);
     }
 
-    [Fact, Trait("Category", "Integration")]
+    [SkippableFact, Trait("Category", "Integration")]
     public async Task GetTableDetails_Users_EmailColumn_IsNvarcharNotNullable()
     {
-        if (ShouldSkip) return;
+        Skip.If(ShouldSkip, TestSkip.Reason);
 
         var result = await _fixture.Inspector!.GetTableDetailsAsync(
             new TableDetailsRequest(["users"]));
@@ -42,10 +42,10 @@ public sealed class SqlServerTableDetailsTests : IClassFixture<SqlServerFixture>
         email.IsNullable.Should().BeFalse();
     }
 
-    [Fact, Trait("Category", "Integration")]
+    [SkippableFact, Trait("Category", "Integration")]
     public async Task GetTableDetails_Users_IdColumn_IsIdentity()
     {
-        if (ShouldSkip) return;
+        Skip.If(ShouldSkip, TestSkip.Reason);
 
         var result = await _fixture.Inspector!.GetTableDetailsAsync(
             new TableDetailsRequest(["users"]));
@@ -54,10 +54,10 @@ public sealed class SqlServerTableDetailsTests : IClassFixture<SqlServerFixture>
         id.IsIdentity.Should().BeTrue();
     }
 
-    [Fact, Trait("Category", "Integration")]
+    [SkippableFact, Trait("Category", "Integration")]
     public async Task GetTableDetails_Users_HasPrimaryKey()
     {
-        if (ShouldSkip) return;
+        Skip.If(ShouldSkip, TestSkip.Reason);
 
         var result = await _fixture.Inspector!.GetTableDetailsAsync(
             new TableDetailsRequest(["users"]));
@@ -67,10 +67,10 @@ public sealed class SqlServerTableDetailsTests : IClassFixture<SqlServerFixture>
         t.PrimaryKey!.Columns.Should().Equal("id");
     }
 
-    [Fact, Trait("Category", "Integration")]
+    [SkippableFact, Trait("Category", "Integration")]
     public async Task GetTableDetails_Users_HasPrimaryKeyIndex()
     {
-        if (ShouldSkip) return;
+        Skip.If(ShouldSkip, TestSkip.Reason);
 
         var result = await _fixture.Inspector!.GetTableDetailsAsync(
             new TableDetailsRequest(["users"]));
@@ -78,10 +78,10 @@ public sealed class SqlServerTableDetailsTests : IClassFixture<SqlServerFixture>
         result.Tables[0].Indexes.Should().Contain(i => i.IsPrimary);
     }
 
-    [Fact, Trait("Category", "Integration")]
+    [SkippableFact, Trait("Category", "Integration")]
     public async Task GetTableDetails_Users_HasAtLeastTwoIncomingForeignKeys()
     {
-        if (ShouldSkip) return;
+        Skip.If(ShouldSkip, TestSkip.Reason);
 
         var result = await _fixture.Inspector!.GetTableDetailsAsync(
             new TableDetailsRequest(["users"]));
@@ -89,10 +89,10 @@ public sealed class SqlServerTableDetailsTests : IClassFixture<SqlServerFixture>
         result.Tables[0].ForeignKeysIncoming.Should().HaveCountGreaterThanOrEqualTo(2);
     }
 
-    [Fact, Trait("Category", "Integration")]
+    [SkippableFact, Trait("Category", "Integration")]
     public async Task GetTableDetails_Users_OutgoingForeignKeysIsEmpty()
     {
-        if (ShouldSkip) return;
+        Skip.If(ShouldSkip, TestSkip.Reason);
 
         var result = await _fixture.Inspector!.GetTableDetailsAsync(
             new TableDetailsRequest(["users"]));
@@ -100,10 +100,10 @@ public sealed class SqlServerTableDetailsTests : IClassFixture<SqlServerFixture>
         result.Tables[0].ForeignKeysOutgoing.Should().BeEmpty();
     }
 
-    [Fact, Trait("Category", "Integration")]
+    [SkippableFact, Trait("Category", "Integration")]
     public async Task GetTableDetails_ForeignKeyOnDelete_IsNormalizedString()
     {
-        if (ShouldSkip) return;
+        Skip.If(ShouldSkip, TestSkip.Reason);
 
         var result = await _fixture.Inspector!.GetTableDetailsAsync(
             new TableDetailsRequest(["orders"]));
@@ -117,10 +117,10 @@ public sealed class SqlServerTableDetailsTests : IClassFixture<SqlServerFixture>
             "NO ACTION", "CASCADE", "SET NULL", "SET DEFAULT", "RESTRICT");
     }
 
-    [Fact, Trait("Category", "Integration")]
+    [SkippableFact, Trait("Category", "Integration")]
     public async Task GetTableDetails_Categories_SelfReferentialFk()
     {
-        if (ShouldSkip) return;
+        Skip.If(ShouldSkip, TestSkip.Reason);
 
         var result = await _fixture.Inspector!.GetTableDetailsAsync(
             new TableDetailsRequest(["categories"]));
@@ -130,10 +130,10 @@ public sealed class SqlServerTableDetailsTests : IClassFixture<SqlServerFixture>
         t.ForeignKeysIncoming.Should().ContainSingle(fk => fk.FromTable == "categories");
     }
 
-    [Fact, Trait("Category", "Integration")]
+    [SkippableFact, Trait("Category", "Integration")]
     public async Task GetTableDetails_NonExistentTable_AppearsInNotFound()
     {
-        if (ShouldSkip) return;
+        Skip.If(ShouldSkip, TestSkip.Reason);
 
         var result = await _fixture.Inspector!.GetTableDetailsAsync(
             new TableDetailsRequest(["users", "nonexistent_xyz"]));
@@ -142,10 +142,10 @@ public sealed class SqlServerTableDetailsTests : IClassFixture<SqlServerFixture>
         result.NotFound.Should().Contain("nonexistent_xyz");
     }
 
-    [Fact, Trait("Category", "Integration")]
+    [SkippableFact, Trait("Category", "Integration")]
     public async Task GetTableDetails_QualifiedAndUnqualifiedName_ReturnSameTable()
     {
-        if (ShouldSkip) return;
+        Skip.If(ShouldSkip, TestSkip.Reason);
 
         var r1 = await _fixture.Inspector!.GetTableDetailsAsync(
             new TableDetailsRequest(["users"]));
@@ -156,10 +156,10 @@ public sealed class SqlServerTableDetailsTests : IClassFixture<SqlServerFixture>
         r1.Tables[0].Indexes.Count.Should().Be(r2.Tables[0].Indexes.Count);
     }
 
-    [Fact, Trait("Category", "Integration")]
+    [SkippableFact, Trait("Category", "Integration")]
     public async Task GetTableDetails_MultipleTables_PreservesInputOrder()
     {
-        if (ShouldSkip) return;
+        Skip.If(ShouldSkip, TestSkip.Reason);
 
         var result = await _fixture.Inspector!.GetTableDetailsAsync(
             new TableDetailsRequest(["orders", "users"]));
@@ -168,10 +168,10 @@ public sealed class SqlServerTableDetailsTests : IClassFixture<SqlServerFixture>
         result.Tables[1].Name.Should().Be("users");
     }
 
-    [Fact, Trait("Category", "Integration")]
+    [SkippableFact, Trait("Category", "Integration")]
     public async Task GetTableDetails_SummaryAndMetadata_AreCorrect()
     {
-        if (ShouldSkip) return;
+        Skip.If(ShouldSkip, TestSkip.Reason);
 
         var result = await _fixture.Inspector!.GetTableDetailsAsync(
             new TableDetailsRequest(["users"]));
@@ -183,10 +183,10 @@ public sealed class SqlServerTableDetailsTests : IClassFixture<SqlServerFixture>
         result.Truncated.Should().BeFalse();
     }
 
-    [Fact, Trait("Category", "Integration")]
+    [SkippableFact, Trait("Category", "Integration")]
     public async Task GetTableDetails_Products_HasDecimalPriceColumn()
     {
-        if (ShouldSkip) return;
+        Skip.If(ShouldSkip, TestSkip.Reason);
 
         var result = await _fixture.Inspector!.GetTableDetailsAsync(
             new TableDetailsRequest(["products"]));
@@ -197,10 +197,10 @@ public sealed class SqlServerTableDetailsTests : IClassFixture<SqlServerFixture>
         price.NumericScale.Should().Be(2);
     }
 
-    [Fact, Trait("Category", "Integration")]
+    [SkippableFact, Trait("Category", "Integration")]
     public async Task GetTableDetails_UniqueConstraints_AreInUniqueConstraintsNotIndexes()
     {
-        if (ShouldSkip) return;
+        Skip.If(ShouldSkip, TestSkip.Reason);
 
         // users.email has a UNIQUE constraint in SQL Server schema
         var result = await _fixture.Inspector!.GetTableDetailsAsync(

@@ -26,10 +26,10 @@ public sealed class TableDetailsParityTests :
 
     private bool ShouldSkip => !_pg.IsReachable || !_ss.IsReachable;
 
-    [Fact, Trait("Category", "Integration")]
+    [SkippableFact, Trait("Category", "Integration")]
     public async Task Users_ColumnCount_IsTheSameOnBothDialects()
     {
-        if (ShouldSkip) return;
+        Skip.If(ShouldSkip, TestSkip.Reason);
 
         var pg = await _pg.Inspector!.GetTableDetailsAsync(new TableDetailsRequest(["users"]));
         var ss = await _ss.Inspector!.GetTableDetailsAsync(new TableDetailsRequest(["users"]));
@@ -38,10 +38,10 @@ public sealed class TableDetailsParityTests :
             "both dialects must return the same number of columns for users");
     }
 
-    [Fact, Trait("Category", "Integration")]
+    [SkippableFact, Trait("Category", "Integration")]
     public async Task Users_ColumnNames_AreTheSameOnBothDialects()
     {
-        if (ShouldSkip) return;
+        Skip.If(ShouldSkip, TestSkip.Reason);
 
         var pg = await _pg.Inspector!.GetTableDetailsAsync(new TableDetailsRequest(["users"]));
         var ss = await _ss.Inspector!.GetTableDetailsAsync(new TableDetailsRequest(["users"]));
@@ -53,10 +53,10 @@ public sealed class TableDetailsParityTests :
             "column names must be identical across dialects");
     }
 
-    [Fact, Trait("Category", "Integration")]
+    [SkippableFact, Trait("Category", "Integration")]
     public async Task Users_Nullability_IsConsistentAcrossDialects()
     {
-        if (ShouldSkip) return;
+        Skip.If(ShouldSkip, TestSkip.Reason);
 
         var pg = await _pg.Inspector!.GetTableDetailsAsync(new TableDetailsRequest(["users"]));
         var ss = await _ss.Inspector!.GetTableDetailsAsync(new TableDetailsRequest(["users"]));
@@ -74,10 +74,10 @@ public sealed class TableDetailsParityTests :
             "nullability must be the same on both dialects for each column");
     }
 
-    [Fact, Trait("Category", "Integration")]
+    [SkippableFact, Trait("Category", "Integration")]
     public async Task Users_IncomingFkCount_IsTheSameOnBothDialects()
     {
-        if (ShouldSkip) return;
+        Skip.If(ShouldSkip, TestSkip.Reason);
 
         var pg = await _pg.Inspector!.GetTableDetailsAsync(new TableDetailsRequest(["users"]));
         var ss = await _ss.Inspector!.GetTableDetailsAsync(new TableDetailsRequest(["users"]));
@@ -87,10 +87,10 @@ public sealed class TableDetailsParityTests :
                 "incoming FK count must match across dialects");
     }
 
-    [Fact, Trait("Category", "Integration")]
+    [SkippableFact, Trait("Category", "Integration")]
     public async Task Orders_OutgoingFkCount_IsTheSameOnBothDialects()
     {
-        if (ShouldSkip) return;
+        Skip.If(ShouldSkip, TestSkip.Reason);
 
         var pg = await _pg.Inspector!.GetTableDetailsAsync(new TableDetailsRequest(["orders"]));
         var ss = await _ss.Inspector!.GetTableDetailsAsync(new TableDetailsRequest(["orders"]));
@@ -100,10 +100,10 @@ public sealed class TableDetailsParityTests :
                 "outgoing FK count must match across dialects");
     }
 
-    [Fact, Trait("Category", "Integration")]
+    [SkippableFact, Trait("Category", "Integration")]
     public async Task MultipleTable_IndexCount_IsConsistentAcrossDialects()
     {
-        if (ShouldSkip) return;
+        Skip.If(ShouldSkip, TestSkip.Reason);
 
         var tables = new[] { "users", "orders", "products" };
         var pg = await _pg.Inspector!.GetTableDetailsAsync(new TableDetailsRequest(tables));
@@ -121,10 +121,10 @@ public sealed class TableDetailsParityTests :
         }
     }
 
-    [Fact, Trait("Category", "Integration")]
+    [SkippableFact, Trait("Category", "Integration")]
     public async Task Users_IdIsIdentity_OnBothDialects()
     {
-        if (ShouldSkip) return;
+        Skip.If(ShouldSkip, TestSkip.Reason);
 
         var pg = await _pg.Inspector!.GetTableDetailsAsync(new TableDetailsRequest(["users"]));
         var ss = await _ss.Inspector!.GetTableDetailsAsync(new TableDetailsRequest(["users"]));
@@ -135,10 +135,10 @@ public sealed class TableDetailsParityTests :
             .Should().BeTrue("SS: id must be identity");
     }
 
-    [Fact, Trait("Category", "Integration")]
+    [SkippableFact, Trait("Category", "Integration")]
     public async Task NotFound_BehavesTheSameOnBothDialects()
     {
-        if (ShouldSkip) return;
+        Skip.If(ShouldSkip, TestSkip.Reason);
 
         var pg = await _pg.Inspector!.GetTableDetailsAsync(
             new TableDetailsRequest(["users", "does_not_exist_xyz"]));

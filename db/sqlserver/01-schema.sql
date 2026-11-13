@@ -43,11 +43,13 @@ CREATE TABLE addresses (
 );
 GO
 
--- CASCADE on parent_id: deleting a category deletes its sub-categories (self-referencing cascade).
+-- NO ACTION on parent_id, deliberately different from PostgreSQL: SQL Server rejects a
+-- self-referencing ON DELETE CASCADE outright (Msg 1785, "may cause cycles or multiple cascade
+-- paths"). This is a genuine dialect difference, and the parity tests assert it as one.
 CREATE TABLE categories (
     id        BIGINT IDENTITY(1,1) PRIMARY KEY,
     name      NVARCHAR(100) NOT NULL,
-    parent_id BIGINT        REFERENCES categories(id) ON DELETE CASCADE
+    parent_id BIGINT        REFERENCES categories(id) ON DELETE NO ACTION
     -- INTENTIONAL: no index on parent_id
 );
 GO
@@ -127,6 +129,57 @@ GO
 -- INTENTIONAL: deliberately unused index for testing the unused-index rule.
 --  12. idx_orders_status — non-unique, never scanned after seeding (no SELECT WHERE status = ...)
 CREATE INDEX idx_orders_status ON orders(status);
+GO
+
+-- ============================================================
+-- Denormalization targets (INTENTIONAL — do not fix).
+-- Each table below exercises one rule of the analyze_denormalization tool.
+--  13. customer_profiles.phone1/2/3   — repeating group (1NF violation)
+--  14. customer_profiles.full_name    — concatenation of first_name/last_name
+--  15. customer_profiles.tags         — collection packed into a scalar text column
+--  16. customer_profiles.order_count  — cached aggregate over a child table
+--  17. profile_notes.fiscal_code      — non-generic column copied from users, FK-linked
+-- ============================================================
+CREATE TABLE customer_profiles (
+    id          BIGINT IDENTITY(1,1) PRIMARY KEY,
+    user_id     BIGINT        NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    first_name  NVARCHAR(100) NOT NULL,
+    last_name   NVARCHAR(100) NOT NULL,
+    full_name   NVARCHAR(201),                  -- INTENTIONAL: derived from first_name + last_name
+    phone1      NVARCHAR(30),                   -- INTENTIONAL: repeating group
+    phone2      NVARCHAR(30),
+    phone3      NVARCHAR(30),
+    tags        NVARCHAR(500),                  -- INTENTIONAL: CSV packed into one column
+    order_count INT           NOT NULL DEFAULT 0, -- INTENTIONAL: cached aggregate
+    fiscal_code NVARCHAR(16)                    -- INTENTIONAL: copied from users.fiscal_code
+);
+GO
+CREATE INDEX idx_customer_profiles_user_id ON customer_profiles(user_id);
+GO
+
+CREATE TABLE profile_notes (
+    id          BIGINT IDENTITY(1,1) PRIMARY KEY,
+    profile_id  BIGINT        NOT NULL REFERENCES customer_profiles(id) ON DELETE CASCADE,
+    fiscal_code NVARCHAR(16),                   -- INTENTIONAL: copied again from the parent profile
+    note        NVARCHAR(MAX) NOT NULL
+);
+GO
+CREATE INDEX idx_profile_notes_profile_id ON profile_notes(profile_id);
+GO
+
+
+-- ============================================================
+-- Relationship fixture (INTENTIONAL — do not fix): references with NO declared foreign key.
+-- Mirrors db/postgres/01-schema.sql; see there for the expected outcome of each column.
+-- ============================================================
+CREATE TABLE shipments (
+    id           BIGINT IDENTITY(1,1) PRIMARY KEY,
+    order_id     BIGINT        NOT NULL,
+    user_id      BIGINT,
+    product_id   BIGINT,
+    warehouse_id BIGINT,
+    carrier      NVARCHAR(50)  NOT NULL
+);
 GO
 
 -- ============================================================

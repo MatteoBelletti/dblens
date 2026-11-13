@@ -114,11 +114,13 @@ Oppure da Visual Studio: tasto destro su **DbLens.Mcp → Pubblica → Profilo `
 
 ## Struttura del progetto
 
+Dettagli in [docs/architecture.md](docs/architecture.md).
+
 ```
 src/
-  DbLens.Core/        → interfacce e modelli condivisi
-  DbLens.Postgres/    → implementazione PostgreSQL
-  DbLens.SqlServer/   → implementazione SQL Server
+  DbLens.Core/        → interfacce, modelli, engine puri, DatabaseInspectorBase
+  DbLens.Postgres/    → SQL di catalogo e hook PostgreSQL
+  DbLens.SqlServer/   → SQL di catalogo e hook SQL Server
   DbLens.Mcp/         → server MCP — entrypoint, tool, DI
     Properties/
       launchSettings.json     → profili VS (stdio / sse)

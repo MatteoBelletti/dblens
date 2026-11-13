@@ -1,43 +1,28 @@
 using System.ComponentModel;
-using DbLens.Core.Abstractions;
 using DbLens.Core.Analysis;
 using DbLens.Core.Models;
 using DbLens.Mcp.Infrastructure;
-using Microsoft.Extensions.DependencyInjection;
 using ModelContextProtocol.Server;
 
 namespace DbLens.Mcp.Tools;
 
 [McpServerToolType]
 public sealed class GetTableDetailsTool(IServiceProvider services, IDatabaseInspectorFactory factory)
+    : InspectorTool(services, factory)
 {
-    private IKeyedServiceProvider KeyedServices => (IKeyedServiceProvider)services;
-
     [McpServerTool, Description(
-        "Returns detailed schema information for one or more specific tables or views: " +
-        "columns with types and nullability, all indexes with their definitions, " +
-        "foreign keys (outgoing and incoming), check constraints, and unique constraints. " +
-        "Use this after get_schema to inspect specific tables. " +
-        "Pass multiple table names in a single call to avoid round trips. " +
-        "IMPORTANT: this tool returns only structural metadata. " +
-        "The following data is NOT included — do NOT infer, guess, or generate it: " +
-        "(1) view SQL bodies (SELECT definitions) — for views only column metadata is returned; " +
-        "(2) actual row data or sample values; " +
-        "(3) structure of tables listed in the NotFound field — those objects do not exist in the database.")]
+        "Returns columns, indexes, foreign keys (both directions), check and unique constraints for one or more " +
+        "tables or views. Pass several tables in one call. " +
+        "IMPORTANT: NOT included — do NOT infer them: view SQL bodies, row data or sample values, and anything " +
+        "about objects listed in NotFound, which do not exist.")]
     public Task<TableDetailsResult> GetTableDetails(
-        [Description(
-            "Table names to inspect. Format: \"schema.name\" (e.g. \"public.users\") or just \"name\" " +
-            "(uses default schema). Pass multiple tables to retrieve all in a single call. Maximum 20 tables.")]
+        [Description("Tables as \"schema.name\" or \"name\" (default schema). Up to 20 per call.")]
         string[] tables,
         [Description("Database dialect: PostgreSql or SqlServer.")]
         DatabaseDialect dialect = DatabaseDialect.PostgreSql,
-        [Description(
-            "Default schema when table names have no schema prefix. " +
-            "Defaults to \"public\" for PostgreSQL and \"dbo\" for SQL Server when omitted.")]
+        [Description("Schema for unqualified names. Defaults to public / dbo.")]
         string? defaultSchema = null,
-        [Description(
-            "Connection string to the target database. " +
-            "If omitted, uses the server's configured default for the chosen dialect.")]
+        [Description("Connection string. Omit to use the server's default for the dialect.")]
         string? connectionString = null,
         CancellationToken cancellationToken = default)
     {
@@ -52,9 +37,7 @@ public sealed class GetTableDetailsTool(IServiceProvider services, IDatabaseInsp
         if (empty >= 0)
             throw new ArgumentException($"tables[{empty}] is empty or whitespace.");
 
-        var inspector = connectionString is not null
-            ? factory.Create(dialect, connectionString)
-            : KeyedServices.GetRequiredKeyedService<IDatabaseInspector>(dialect);
+        var inspector = ResolveInspector(dialect, connectionString);
 
         return inspector.GetTableDetailsAsync(new TableDetailsRequest(tables, defaultSchema), cancellationToken);
     }

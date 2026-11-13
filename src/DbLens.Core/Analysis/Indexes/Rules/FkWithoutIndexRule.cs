@@ -16,22 +16,22 @@ public static class FkWithoutIndexRule
                     continue;
 
                 var colList = string.Join(", ", fk.FromColumns);
-                var tableQualified = $"{table.Schema}.{table.Name}";
-                var colsUnderscore = string.Join("_", fk.FromColumns);
-                var sqlFix = $"CREATE INDEX idx_{table.Name}_{colsUnderscore} ON {tableQualified} ({colList});";
+                var tableQualified = table.Qualified();
+                var sqlFix = IndexSql.CreateIndex(table.Schema, table.Name, fk.FromColumns, dialect);
 
                 yield return new Finding(
                     RuleId:      IndexRuleIds.FkWithoutIndex,
                     Severity:    Severity.High,
                     Category:    FindingCategory.Performance,
                     Confidence:  1.0,
+                    Evidence:  Evidence.Derived,
                     Table:       tableQualified,
                     Columns:     fk.FromColumns,
                     Title:       $"Foreign key '{fk.ConstraintName}' has no covering index",
                     Description: $"FK column(s) {colList} on {tableQualified} " +
                                  $"(referencing {fk.ToSchema}.{fk.ToTable}) are not covered by any index. " +
                                  "JOINs and referential integrity checks require a sequential scan.",
-                    SqlFix:      sqlFix,
+                    SqlFix:      SqlProposal.Ddl(sqlFix, "Creates the covering index."),
                     Metadata:    new Dictionary<string, object>
                     {
                         ["constraint_name"]  = fk.ConstraintName,

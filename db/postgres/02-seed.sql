@@ -395,3 +395,50 @@ INSERT INTO item_reviews (id, order_item_id, rating, review_text, created_at) VA
     (20, 20, 4, 'Buono',                        '2023-03-11 17:00:00+00');
 
 SELECT setval('item_reviews_id_seq', 20);
+
+-- ============================================================
+-- Verification fixtures for analyze_denormalization (verifySignals = true).
+-- Counts here are EXACT and asserted by the integration tests, so changing a row
+-- changes a test. Deliberately dirty:
+--   order_count wrong on 3 of 10 profiles   (denorm-derived-column   -> Confirmed, 3)
+--   tags containing a delimiter on 4 of 10  (denorm-multivalue-column -> Confirmed, 4)
+--   all three phone slots filled on 2 of 10 (denorm-repeating-group   -> Confirmed, 2)
+--   fiscal_code vs users on 9 of 10 profiles (denorm-duplicated-column -> Confirmed, 9).
+--     fiscal_code also lives on profile_notes, but one finding per column measures only the
+--     first FK-linked pair, customer_profiles -> users.
+-- ============================================================
+INSERT INTO customer_profiles
+    (id, user_id, first_name, last_name, full_name, phone1, phone2, phone3, tags, order_count, fiscal_code) VALUES
+    (1,  1, 'Mario',   'Rossi',   'Mario Rossi',    '3401111111', '3402222222', '3403333333', 'vip,newsletter',  2, 'RSSMRA80A01H501U'),
+    (2,  2, 'Luca',    'Bianchi', 'Luca Bianchi',   '3404444444', NULL,         NULL,         'newsletter',      9, 'BNCLCU85B02F205X'),
+    (3,  3, 'Anna',    'Verdi',   'Anna Verdi',     '3405555555', '3406666666', '3407777777', 'vip;premium',     0, 'VRDNNA90C03L219Y'),
+    (4,  4, 'Sara',    'Neri',    'Sara Neri',      NULL,         NULL,         NULL,         'standard',        1, 'NRESRA92D04A271Z'),
+    (5,  5, 'Paolo',   'Gialli',  'Paolo Gialli',   '3408888888', NULL,         NULL,         'a|b',             1, 'GLLPLA88E05B354W'),
+    (6,  6, 'Elena',   'Blu',     'Elena Blu',      NULL,         NULL,         NULL,         'standard',        0, 'BLUELN91F06C351V'),
+    (7,  7, 'Marco',   'Viola',   'Marco Viola',    NULL,         NULL,         NULL,         'vip,premium,gold',0, 'VLIMRC87G07D612T'),
+    (8,  8, 'Giulia',  'Rosa',    'Giulia Rosa',    NULL,         NULL,         NULL,         'standard',        0, 'RSOGLI93H08E463S'),
+    (9,  9, 'Davide',  'Grigi',   'Davide Grigi',   NULL,         NULL,         NULL,         'standard',        0, 'GRGDVD89I09F839R'),
+    (10, 10,'Chiara',  'Marroni', 'Chiara Marroni', NULL,         NULL,         NULL,         'standard',        0, 'MRRCHR94L10G273Q');
+
+SELECT setval('customer_profiles_id_seq', 10);
+
+-- Two of these five carry a fiscal_code that disagrees with the parent profile.
+INSERT INTO profile_notes (id, profile_id, fiscal_code, note) VALUES
+    (1, 1, 'RSSMRA80A01H501U', 'Cliente storico'),
+    (2, 2, 'BNCLCU85B02F205X', 'Preferisce email'),
+    (3, 3, 'WRONGCODE0000001', 'Codice non allineato'),
+    (4, 4, 'NRESRA92D04A271Z', 'Nessuna nota'),
+    (5, 5, 'WRONGCODE0000002', 'Codice non allineato');
+
+SELECT setval('profile_notes_id_seq', 5);
+
+-- infer_relationships fixture: order_id all valid, user_id 1/6 orphaned, product_id 5/6 orphaned.
+INSERT INTO shipments (id, order_id, user_id, product_id, warehouse_id, carrier) VALUES
+    (1, 1, 1, 1, 7, 'BRT'),
+    (2, 2, 2, 9001, 7, 'GLS'),
+    (3, 3, 3, 9002, 7, 'BRT'),
+    (4, 4, 4, 9003, 8, 'SDA'),
+    (5, 5, 5, 9004, 8, 'GLS'),
+    (6, 6, 999, 9005, 8, 'BRT');
+
+SELECT setval('shipments_id_seq', 6);

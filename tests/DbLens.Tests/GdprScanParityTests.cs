@@ -23,16 +23,16 @@ public sealed class GdprScanParityTests :
 
     private bool ShouldSkip => !_pg.IsReachable || !_ss.IsReachable;
 
-    [Fact, Trait("Category", "Integration")]
+    [SkippableFact, Trait("Category", "Integration")]
     public async Task PiiFindings_AffectedTableNames_MatchAcrossDialects()
     {
-        if (ShouldSkip) return;
+        Skip.If(ShouldSkip, TestSkip.Reason);
 
         var pg = await _pg.Inspector!.ScanGdprAsync(new ScanGdprRequest(Schema: "public"));
         var ss = await _ss.Inspector!.ScanGdprAsync(new ScanGdprRequest(Schema: "dbo"));
 
         static IEnumerable<string> PiiTables(ScanGdprResult r) =>
-            r.Findings
+            r.Signals
                 .Where(f => f.RuleId != "missing-gdpr-controls")
                 .Select(f => f.Table.Split('.')[1])
                 .Distinct()
@@ -42,16 +42,16 @@ public sealed class GdprScanParityTests :
             "both dialects must detect PII on the same set of tables");
     }
 
-    [Fact, Trait("Category", "Integration")]
+    [SkippableFact, Trait("Category", "Integration")]
     public async Task PiiFindings_AffectedColumns_MatchAcrossDialects()
     {
-        if (ShouldSkip) return;
+        Skip.If(ShouldSkip, TestSkip.Reason);
 
         var pg = await _pg.Inspector!.ScanGdprAsync(new ScanGdprRequest(Schema: "public"));
         var ss = await _ss.Inspector!.ScanGdprAsync(new ScanGdprRequest(Schema: "dbo"));
 
         static IEnumerable<(string Table, string Col)> PiiPairs(ScanGdprResult r) =>
-            r.Findings
+            r.Signals
                 .Where(f => f.RuleId != "missing-gdpr-controls" && f.Columns is { Count: > 0 })
                 .Select(f => (Table: f.Table.Split('.')[1], Col: f.Columns![0]))
                 .OrderBy(x => x.Table)
@@ -61,10 +61,10 @@ public sealed class GdprScanParityTests :
             "both dialects must detect the same PII columns");
     }
 
-    [Fact, Trait("Category", "Integration")]
+    [SkippableFact, Trait("Category", "Integration")]
     public async Task Summary_RuleKeys_AreConsistentAcrossDialects()
     {
-        if (ShouldSkip) return;
+        Skip.If(ShouldSkip, TestSkip.Reason);
 
         var pg = await _pg.Inspector!.ScanGdprAsync(new ScanGdprRequest(Schema: "public"));
         var ss = await _ss.Inspector!.ScanGdprAsync(new ScanGdprRequest(Schema: "dbo"));
@@ -78,15 +78,15 @@ public sealed class GdprScanParityTests :
             "both dialects must return the same severity keys");
     }
 
-    [Fact, Trait("Category", "Integration")]
+    [SkippableFact, Trait("Category", "Integration")]
     public async Task FindingCount_IsTheSameOnBothDialects()
     {
-        if (ShouldSkip) return;
+        Skip.If(ShouldSkip, TestSkip.Reason);
 
         var pg = await _pg.Inspector!.ScanGdprAsync(new ScanGdprRequest(Schema: "public"));
         var ss = await _ss.Inspector!.ScanGdprAsync(new ScanGdprRequest(Schema: "dbo"));
 
-        pg.Findings.Count.Should().Be(ss.Findings.Count,
+        pg.Signals.Count.Should().Be(ss.Signals.Count,
             "the same number of GDPR findings must be produced on both dialects");
     }
 }

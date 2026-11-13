@@ -1,13 +1,14 @@
 using System.Diagnostics;
 using System.Text.Json;
-using DbLens.Core.Abstractions;
+using System.Data.Common;
+using DbLens.Core.Inspection;
 using DbLens.Core.Models;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Logging;
 
 namespace DbLens.SqlServer;
 
-public sealed partial class SqlServerInspector : IDatabaseInspector
+public sealed partial class SqlServerInspector : DatabaseInspectorBase
 {
     private readonly string _connectionString;
     private readonly ILogger<SqlServerInspector> _logger;
@@ -265,18 +266,23 @@ public sealed partial class SqlServerInspector : IDatabaseInspector
         ORDER BY s.name, t.name, i.name, ic.index_column_id
         """;
 
-    // SqlClient default CommandTimeout is 30 s; set it explicitly to make the intent clear.
-    private const int QueryTimeoutSeconds = 30;
 
     public SqlServerInspector(string connectionString, ILogger<SqlServerInspector> logger)
+        : base(logger)
     {
         _connectionString = connectionString;
         _logger = logger;
     }
 
-    public DatabaseDialect Dialect => DatabaseDialect.SqlServer;
+    public override DatabaseDialect Dialect => DatabaseDialect.SqlServer;
 
-    public async Task<bool> TestConnectionAsync(CancellationToken ct = default)
+    protected override string DialectDisplayName => "SQL Server";
+
+    protected override string DefaultSchema => "dbo";
+
+    protected override DbConnection CreateConnection() => new SqlConnection(_connectionString);
+
+    public override async Task<bool> TestConnectionAsync(CancellationToken ct = default)
     {
         await using var conn = new SqlConnection(_connectionString);
         await conn.OpenAsync(ct);
@@ -286,7 +292,7 @@ public sealed partial class SqlServerInspector : IDatabaseInspector
         return true;
     }
 
-    public async Task<DatabaseSchemaOverview> GetSchemaOverviewAsync(
+    public override async Task<DatabaseSchemaOverview> GetSchemaOverviewAsync(
         SchemaOverviewRequest request,
         CancellationToken ct = default)
     {
@@ -319,7 +325,7 @@ public sealed partial class SqlServerInspector : IDatabaseInspector
                 "include_views={IncludeViews}, include_system={IncludeSystem}",
                 request.SchemaFilter, request.NamePattern, request.IncludeViews, request.IncludeSystemSchemas);
 
-            var rows = new List<RawRow>();
+            var rows = new List<OverviewRow>();
             string? databaseName = null;
 
             await using var reader = await cmd.ExecuteReaderAsync(ct);
@@ -366,11 +372,11 @@ public sealed partial class SqlServerInspector : IDatabaseInspector
         }
     }
 
-    public async Task<TableDetailsResult> GetTableDetailsAsync(
+    public override async Task<TableDetailsResult> GetTableDetailsAsync(
         TableDetailsRequest request,
         CancellationToken ct = default)
     {
-        var parsed = ParseTableNames(request.Tables, request.DefaultSchema ?? "dbo");
+        var parsed = ParseTableNames(request.Tables, request.DefaultSchema);
 
         _logger.LogInformation(
             "Opening SQL Server connection for table details ({Count} tables)", parsed.Length);
@@ -715,18 +721,7 @@ public sealed partial class SqlServerInspector : IDatabaseInspector
         return parts.ToString();
     }
 
-    private static ParsedName[] ParseTableNames(string[] tables, string defaultSchema) =>
-        tables.Select(t =>
-        {
-            var dot = t.IndexOf('.');
-            return dot < 0
-                ? new ParsedName(defaultSchema, t, t)
-                : new ParsedName(t[..dot], t[(dot + 1)..], t);
-        }).ToArray();
-
-    // --- schema overview helpers (unchanged) ---
-
-    private static RawRow ReadRow(SqlDataReader r) => new(
+    private static OverviewRow ReadRow(SqlDataReader r) => new(
         SchemaName: r.GetString(r.GetOrdinal("schema_name")),
         ObjectName: r.GetString(r.GetOrdinal("object_name")),
         ObjectKind: r.GetString(r.GetOrdinal("object_type")) is "V" or "SV"
@@ -746,31 +741,6 @@ public sealed partial class SqlServerInspector : IDatabaseInspector
             : r.GetString(r.GetOrdinal("object_comment"))
     );
 
-    private static SchemaInfo BuildSchemaInfo(IGrouping<string, RawRow> group)
-    {
-        var objects = group
-            .Select(r => new DatabaseObject(
-                Name: r.ObjectName,
-                Kind: r.ObjectKind,
-                ApproximateRowCount: r.ApproximateRowCount,
-                ColumnCount: r.ColumnCount,
-                HasPrimaryKey: r.HasPrimaryKey,
-                OutgoingForeignKeys: r.OutgoingFkCount,
-                IncomingForeignKeys: r.IncomingFkCount,
-                IndexCount: r.IndexCount,
-                TotalSizeBytes: r.TotalSizeBytes,
-                TotalSizeHuman: FormatBytes(r.TotalSizeBytes),
-                Comment: r.Comment))
-            .ToList();
-
-        return new SchemaInfo(
-            Name: group.Key,
-            TableCount: objects.Count(o => o.Kind == DatabaseObjectKind.Table),
-            ViewCount: objects.Count(o => o.Kind == DatabaseObjectKind.View),
-            Objects: objects
-        );
-    }
-
     private static string BuildSummary(
         int tables, int views, int schemaCount, long approxRows, long totalBytes)
     {
@@ -782,16 +752,6 @@ public sealed partial class SqlServerInspector : IDatabaseInspector
                "NOTE: column names are NOT included in this response; only ColumnCount per object is available. " +
                "Do NOT infer or generate column names. Call get_table_details for exact column information.";
     }
-
-    private static string FormatBytes(long bytes) => bytes switch
-    {
-        < 1024L => $"{bytes} B",
-        < 1024L * 1024L => (bytes / 1024.0).ToString("F1", System.Globalization.CultureInfo.InvariantCulture) + " KB",
-        < 1024L * 1024L * 1024L => (bytes / (1024.0 * 1024.0)).ToString("F1", System.Globalization.CultureInfo.InvariantCulture) + " MB",
-        _ => (bytes / (1024.0 * 1024.0 * 1024.0)).ToString("F2", System.Globalization.CultureInfo.InvariantCulture) + " GB",
-    };
-
-    private sealed record ParsedName(string Schema, string Name, string Original);
 
     private sealed record FkRow(
         string FromSchema, string FromTable,
@@ -820,17 +780,4 @@ public sealed partial class SqlServerInspector : IDatabaseInspector
         string ConstraintName, int IndexColumnId, string ColumnName
     );
 
-    private sealed record RawRow(
-        string SchemaName,
-        string ObjectName,
-        DatabaseObjectKind ObjectKind,
-        long? ApproximateRowCount,
-        long ColumnCount,
-        bool HasPrimaryKey,
-        long OutgoingFkCount,
-        long IncomingFkCount,
-        long IndexCount,
-        long TotalSizeBytes,
-        string? Comment
-    );
 }

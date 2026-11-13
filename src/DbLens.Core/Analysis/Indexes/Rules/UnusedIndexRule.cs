@@ -11,7 +11,7 @@ public static class UnusedIndexRule
     {
         foreach (var table in tables)
         {
-            var tableQualified = $"{table.Schema}.{table.Name}";
+            var tableQualified = table.Qualified();
 
             foreach (var idx in table.Indexes)
             {
@@ -23,23 +23,22 @@ public static class UnusedIndexRule
                 if (!stats.ScanCounts.TryGetValue(key, out var scans)) continue;
                 if (scans > 0) continue;
 
-                var sqlFix = dialect == DatabaseDialect.PostgreSql
-                    ? $"DROP INDEX CONCURRENTLY {table.Schema}.{idx.Name};"
-                    : $"DROP INDEX [{idx.Name}] ON [{table.Schema}].[{table.Name}];";
+                var sqlFix = IndexSql.DropIndex(table.Schema, table.Name, idx.Name, dialect);
 
                 yield return new Finding(
                     RuleId:      IndexRuleIds.UnusedIndex,
                     Severity:    Severity.Low,
                     Category:    FindingCategory.Performance,
                     Confidence:  0.9,
+                    Evidence:  Evidence.Measured,
                     Table:       tableQualified,
                     Columns:     idx.Columns,
                     Title:       $"Index '{idx.Name}' has not been used since the last DB restart",
                     Description: $"Index '{idx.Name}' on {tableQualified} " +
                                  $"({string.Join(", ", idx.Columns)}) recorded 0 scans " +
-                                 $"since the last DB restart (uptime: {stats.UptimeDays:F0} day(s)). " +
+                                 $"since the last DB restart (uptime: {Num.F0(stats.UptimeDays)} day(s)). " +
                                  "Verify manually before dropping — stats reset on every restart.",
-                    SqlFix:      sqlFix,
+                    SqlFix:      SqlProposal.Ddl(sqlFix, "Drops the unused index."),
                     Metadata:    new Dictionary<string, object>
                     {
                         ["idx_scan"]     = 0L,

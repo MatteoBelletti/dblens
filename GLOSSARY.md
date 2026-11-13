@@ -1,0 +1,152 @@
+# Glossary
+
+The words dblens uses in its results and its code, and what each one commits to.
+
+## Results
+
+**Finding**
+: A statement dblens stands behind: either measured, or true by construction from the catalog.
+  Returned in the `Findings` list. The shape (`Finding` record) is a permanent product contract.
+
+**Signal**
+: A guess from names or structure — "this column is named like an email address". Returned in the
+  separate `Signals` list so that no summary can flatten it into a fact. Same `Finding` shape.
+
+**Evidence**
+: What a result stands on. Independent of severity and confidence.
+  - `Measured` — read from a physical measurement: fragmentation, scan counters, counted rows.
+  - `Derived` — follows from catalog metadata: a cascade cycle, a duplicate index, a lock.
+  - `Inferred` — a naming or structural heuristic. Always a signal.
+
+**Severity**
+: How much a problem matters if it is real: `Critical`, `High`, `Medium`, `Low`, `Info`.
+
+**Confidence**
+: 0.0–1.0, how sure a rule is *within its own evidence class*. A 0.9 signal is still a signal.
+
+**Category**
+: `Performance`, `Compliance`, `Structure` or `Naming`.
+
+**Rule ID**
+: A stable kebab-case name for what was detected (`fk-without-index`). It never changes with
+  verification; constants live in `RuleIds.cs`.
+
+**Summary**
+: Counts `BySeverity` and `ByRule`. Every key is always present, zero included.
+
+**Summary finding**
+: A tool's always-present `Info` finding (`cascade-summary`, `migration-summary`). Exactly one, never
+  deduplicated or truncated away.
+
+**Caveat**
+: A sentence about the limits of this particular result: a skipped rule, truncation, a missing
+  permission, tables not found.
+
+**Disclaimer**
+: A fixed sentence about the limits of the tool itself, to be shown to the user.
+
+**Coverage**
+: `scan_gdpr`'s count of the columns it could not interpret at all — its blind spot, reported so an
+  empty scan cannot read as an all-clear.
+
+**Truncation**
+: Results are capped at 200 per call. Facts are kept before signals; a caveat says what was cut.
+
+## SQL in results
+
+**SqlFix / SqlProposal**
+: SQL attached to a finding, with its kind:
+  - `Ddl` — changes the database. Review it; never run it automatically.
+  - `ReadOnlyProbe` — a single aggregate `SELECT`. `SafeToExecuteAutomatically` is true only for this
+    kind, and it is computed, not settable.
+
+**Statement guard**
+: The allow-list (`StatementGuard`) that decides whether a statement is a pure `SELECT` and may run.
+
+**Quoted identifier**
+: Every catalog name in generated SQL goes through `SqlIdentifier.Quote`, which makes it both correct
+  on mixed-case names and inert to the guard.
+
+## Verification
+
+**Verification**
+: Turning a checkable signal into a measurement by running a probe. Opt-in (`verifySignals`,
+  `verifyCandidates`).
+
+**Probe**
+: A dblens-generated aggregate query returning exactly two numbers: rows compared and rows
+  diverging. Never a row value.
+
+**Budget**
+: The limits on one call's probes: 20 queries, 10 s each, 30 s total, tables up to 5 million rows.
+
+**Confirmed / Refuted / Inconclusive**
+: Some rows diverge / none do / nothing was compared. Inconclusive is never reported as refuted.
+
+**Skipped / Failed**
+: Not run because of the budget or table size / run but errored. Either way the signal stays a signal.
+
+**Divergence**
+: Rows whose stored value differs from its source. A fact about the data, not a verdict: a deliberate
+  snapshot and a stale cache look the same.
+
+**Orphan**
+: A non-null referencing value with no matching parent row.
+
+## Schema concepts
+
+**Scope**
+: The tables a call analyzes: `schema` + `tables`, at most 20 named tables.
+
+**Declared / Inferred / Verified / VerifiedWithOrphans**
+: The evidence on a relationship edge in `infer_relationships`: a real FK / a name match / a name
+  match whose values all resolve / one where at most half do not.
+
+**Undeclared foreign key**
+: A column that behaves as a reference without a constraint — common in legacy and ERP schemas.
+
+**Cascade root**
+: A table targeted by at least one `ON DELETE CASCADE` key, where `check_cascade_paths` starts.
+
+**Repeating group**
+: Numbered columns for the same thing (`phone1`, `phone2`) — a first normal form violation.
+
+**Derived column**
+: A stored value computable from other data: a child count, a concatenation.
+
+**Wide table**
+: More than 40 columns; often several entities merged into one.
+
+**PII / special category**
+: Personal data; GDPR Article 9 categories (health, biometrics, religion, politics, ethnicity,
+  orientation) get the highest severity.
+
+**Fragmentation / page density**
+: How out of order an index's pages are / how full they are. Only measured, never inferred.
+
+**Table rewrite / blocking lock**
+: A migration that copies every row / holds a lock that stops normal traffic.
+
+## Code
+
+**Dialect**
+: `PostgreSql` or `SqlServer`. Every capability exists for both.
+
+**Inspector**
+: `IDatabaseInspector`, the per-dialect object a tool calls. Registered as a keyed singleton by dialect;
+  an ad-hoc one is built for a custom connection string.
+
+**DatabaseInspectorBase**
+: The dialect-independent half of every inspector: scope, error wrapping, guard, verification loop.
+
+**Hook**
+: An abstract member of the base that a dialect implements, usually one catalog query.
+
+**Engine**
+: A static, pure class in `Analysis/<Feature>/` that turns metadata into findings. No database access.
+
+**Parity test**
+: A test that runs the same analysis on both dialects and compares the findings.
+
+**`demo_good`**
+: The clean demo schema. Every diagnostic tool must find nothing there but its summary finding.

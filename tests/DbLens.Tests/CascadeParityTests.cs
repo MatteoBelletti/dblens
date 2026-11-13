@@ -24,11 +24,13 @@ public sealed class CascadeParityTests :
 
     private bool ShouldSkip => !_pg.IsReachable || !_ss.IsReachable;
 
-    [Fact]
+
+    [SkippableFact]
+
     [Trait("Category", "Integration")]
     public async Task CheckCascadePaths_Users_FindingRuleIds_MatchAcrossDialects()
     {
-        if (ShouldSkip) return;
+        Skip.If(ShouldSkip, TestSkip.Reason);
 
         var pg = await _pg.Inspector!.CheckCascadePathsAsync(
             new CheckCascadePathsRequest("public.users"));
@@ -49,11 +51,13 @@ public sealed class CascadeParityTests :
             "both dialects should emit the same set of rule IDs for the users table");
     }
 
-    [Fact]
+
+    [SkippableFact]
+
     [Trait("Category", "Integration")]
     public async Task CheckCascadePaths_Users_FindingSeverities_MatchAcrossDialects()
     {
-        if (ShouldSkip) return;
+        Skip.If(ShouldSkip, TestSkip.Reason);
 
         var pg = await _pg.Inspector!.CheckCascadePathsAsync(
             new CheckCascadePathsRequest("public.users"));
@@ -67,11 +71,13 @@ public sealed class CascadeParityTests :
             "both dialects should count findings by severity identically");
     }
 
-    [Fact]
+
+    [SkippableFact]
+
     [Trait("Category", "Integration")]
     public async Task CheckCascadePaths_Users_FindingTables_MatchAcrossDialects()
     {
-        if (ShouldSkip) return;
+        Skip.If(ShouldSkip, TestSkip.Reason);
 
         var pg = await _pg.Inspector!.CheckCascadePathsAsync(
             new CheckCascadePathsRequest("public.users"));
@@ -95,26 +101,33 @@ public sealed class CascadeParityTests :
             "both dialects should identify the same bare table names in findings");
     }
 
-    [Fact]
+
+    [SkippableFact]
+
     [Trait("Category", "Integration")]
-    public async Task CheckCascadePaths_Categories_SelfReferencingFinding_PresentInBothDialects()
+    public async Task CheckCascadePaths_Categories_SelfReference_DiffersByDialectAsDocumented()
     {
-        if (ShouldSkip) return;
+        Skip.If(ShouldSkip, TestSkip.Reason);
 
         var pg = await _pg.Inspector!.CheckCascadePathsAsync(
             new CheckCascadePathsRequest("public.categories"));
         var ss = await _ss.Inspector!.CheckCascadePathsAsync(
             new CheckCascadePathsRequest("dbo.categories"));
 
+        // Not a parity gap: SQL Server cannot express a self-referencing ON DELETE CASCADE
+        // (Msg 1785), so its demo schema uses NO ACTION. The tool must report what each schema
+        // actually declares rather than paper over the difference.
         pg.Findings.Should().Contain(f => f.RuleId == CascadeRuleIds.SelfReferencing);
-        ss.Findings.Should().Contain(f => f.RuleId == CascadeRuleIds.SelfReferencing);
+        ss.Findings.Should().NotContain(f => f.RuleId == CascadeRuleIds.SelfReferencing);
     }
 
-    [Fact]
+
+    [SkippableFact]
+
     [Trait("Category", "Integration")]
     public async Task CheckCascadePaths_Users_MaxDepth_MatchAcrossDialects()
     {
-        if (ShouldSkip) return;
+        Skip.If(ShouldSkip, TestSkip.Reason);
 
         var pg = await _pg.Inspector!.CheckCascadePathsAsync(
             new CheckCascadePathsRequest("public.users"));
@@ -125,11 +138,13 @@ public sealed class CascadeParityTests :
             "both dialects should reach the same maximum cascade depth");
     }
 
-    [Fact]
+
+    [SkippableFact]
+
     [Trait("Category", "Integration")]
     public async Task CheckCascadePaths_Users_PathCount_MatchAcrossDialects()
     {
-        if (ShouldSkip) return;
+        Skip.If(ShouldSkip, TestSkip.Reason);
 
         var pg = await _pg.Inspector!.CheckCascadePathsAsync(
             new CheckCascadePathsRequest("public.users"));

@@ -23,11 +23,13 @@ public sealed class PostgresCascadeTests : IClassFixture<PostgresFixture>
 
     private bool ShouldSkip => !_fixture.IsReachable;
 
-    [Fact]
+
+    [SkippableFact]
+
     [Trait("Category", "Integration")]
     public async Task CheckCascadePaths_UsersTable_ReturnsPathWithDepthAtLeast3()
     {
-        if (ShouldSkip) return;
+        Skip.If(ShouldSkip, TestSkip.Reason);
 
         var result = await _fixture.Inspector!.CheckCascadePathsAsync(
             new CheckCascadePathsRequest("public.users"));
@@ -37,11 +39,13 @@ public sealed class PostgresCascadeTests : IClassFixture<PostgresFixture>
         result.Paths.Max(p => p.Depth).Should().BeGreaterThanOrEqualTo(3);
     }
 
-    [Fact]
+
+    [SkippableFact]
+
     [Trait("Category", "Integration")]
     public async Task CheckCascadePaths_NullStartingTable_ReturnsAllCascadeRoots()
     {
-        if (ShouldSkip) return;
+        Skip.If(ShouldSkip, TestSkip.Reason);
 
         var result = await _fixture.Inspector!.CheckCascadePathsAsync(
             new CheckCascadePathsRequest());
@@ -52,11 +56,13 @@ public sealed class PostgresCascadeTests : IClassFixture<PostgresFixture>
             .Contain(t => t.EndsWith(".users") || t.EndsWith(".categories"));
     }
 
-    [Fact]
+
+    [SkippableFact]
+
     [Trait("Category", "Integration")]
     public async Task CheckCascadePaths_SetNullChain_ProducesBreaksWithSetNullFinding()
     {
-        if (ShouldSkip) return;
+        Skip.If(ShouldSkip, TestSkip.Reason);
 
         // audit_logs.user_id → users(id) ON DELETE SET NULL
         var result = await _fixture.Inspector!.CheckCascadePathsAsync(
@@ -67,11 +73,13 @@ public sealed class PostgresCascadeTests : IClassFixture<PostgresFixture>
             f.Table.EndsWith(".audit_logs"));
     }
 
-    [Fact]
+
+    [SkippableFact]
+
     [Trait("Category", "Integration")]
     public async Task CheckCascadePaths_SelfReferencing_ProducesSelfReferencingFinding()
     {
-        if (ShouldSkip) return;
+        Skip.If(ShouldSkip, TestSkip.Reason);
 
         // categories.parent_id → categories(id) ON DELETE CASCADE
         var result = await _fixture.Inspector!.CheckCascadePathsAsync(
@@ -82,11 +90,13 @@ public sealed class PostgresCascadeTests : IClassFixture<PostgresFixture>
             f.Table.EndsWith(".categories"));
     }
 
-    [Fact]
+
+    [SkippableFact]
+
     [Trait("Category", "Integration")]
     public async Task CheckCascadePaths_DisclaimerAlwaysPresent()
     {
-        if (ShouldSkip) return;
+        Skip.If(ShouldSkip, TestSkip.Reason);
 
         var result = await _fixture.Inspector!.CheckCascadePathsAsync(
             new CheckCascadePathsRequest("public.users"));
@@ -94,11 +104,13 @@ public sealed class PostgresCascadeTests : IClassFixture<PostgresFixture>
         result.Disclaimer.Should().NotBeNullOrWhiteSpace();
     }
 
-    [Fact]
+
+    [SkippableFact]
+
     [Trait("Category", "Integration")]
     public async Task CheckCascadePaths_SummaryFindingAlwaysPresent()
     {
-        if (ShouldSkip) return;
+        Skip.If(ShouldSkip, TestSkip.Reason);
 
         var result = await _fixture.Inspector!.CheckCascadePathsAsync(
             new CheckCascadePathsRequest("public.users"));
@@ -106,11 +118,13 @@ public sealed class PostgresCascadeTests : IClassFixture<PostgresFixture>
         result.Findings.Should().Contain(f => f.RuleId == CascadeRuleIds.Summary);
     }
 
-    [Fact]
+
+    [SkippableFact]
+
     [Trait("Category", "Integration")]
     public async Task CheckCascadePaths_SummaryByRule_ContainsAllCascadeRules()
     {
-        if (ShouldSkip) return;
+        Skip.If(ShouldSkip, TestSkip.Reason);
 
         var result = await _fixture.Inspector!.CheckCascadePathsAsync(
             new CheckCascadePathsRequest("public.users"));
@@ -119,11 +133,13 @@ public sealed class PostgresCascadeTests : IClassFixture<PostgresFixture>
             result.Summary.ByRule.Should().ContainKey(ruleId);
     }
 
-    [Fact]
+
+    [SkippableFact]
+
     [Trait("Category", "Integration")]
     public async Task CheckCascadePaths_SummaryBySeverity_ContainsAllSeverities()
     {
-        if (ShouldSkip) return;
+        Skip.If(ShouldSkip, TestSkip.Reason);
 
         var result = await _fixture.Inspector!.CheckCascadePathsAsync(
             new CheckCascadePathsRequest("public.users"));
@@ -132,11 +148,13 @@ public sealed class PostgresCascadeTests : IClassFixture<PostgresFixture>
             result.Summary.BySeverity.Should().ContainKey(sev);
     }
 
-    [Fact]
+
+    [SkippableFact]
+
     [Trait("Category", "Integration")]
     public async Task CheckCascadePaths_Metadata_AreCorrect()
     {
-        if (ShouldSkip) return;
+        Skip.If(ShouldSkip, TestSkip.Reason);
 
         var result = await _fixture.Inspector!.CheckCascadePathsAsync(
             new CheckCascadePathsRequest("public.users"));
@@ -146,11 +164,13 @@ public sealed class PostgresCascadeTests : IClassFixture<PostgresFixture>
         result.GeneratedAt.Should().NotBeNullOrWhiteSpace();
     }
 
-    [Fact]
+
+    [SkippableFact]
+
     [Trait("Category", "Integration")]
     public async Task CheckCascadePaths_SchemaFilter_RestrictsResults()
     {
-        if (ShouldSkip) return;
+        Skip.If(ShouldSkip, TestSkip.Reason);
 
         var result = await _fixture.Inspector!.CheckCascadePathsAsync(
             new CheckCascadePathsRequest(Schema: "public"));
@@ -160,11 +180,13 @@ public sealed class PostgresCascadeTests : IClassFixture<PostgresFixture>
         result.Paths.Should().OnlyContain(p => p.RootTable.StartsWith("public."));
     }
 
-    [Fact]
+
+    [SkippableFact]
+
     [Trait("Category", "Integration")]
     public async Task CheckCascadePaths_UsersTable_PathContainsOrderItems()
     {
-        if (ShouldSkip) return;
+        Skip.If(ShouldSkip, TestSkip.Reason);
 
         var result = await _fixture.Inspector!.CheckCascadePathsAsync(
             new CheckCascadePathsRequest("public.users"));
@@ -177,11 +199,13 @@ public sealed class PostgresCascadeTests : IClassFixture<PostgresFixture>
         allToTables.Should().Contain(t => t.EndsWith(".order_items"));
     }
 
-    [Fact]
+
+    [SkippableFact]
+
     [Trait("Category", "Integration")]
     public async Task CheckCascadePaths_DemoGoodSchema_ProducesNoFindings_ExceptSummary()
     {
-        if (ShouldSkip) return;
+        Skip.If(ShouldSkip, TestSkip.Reason);
 
         var result = await _fixture.Inspector!.CheckCascadePathsAsync(
             new CheckCascadePathsRequest(Schema: "demo_good"));

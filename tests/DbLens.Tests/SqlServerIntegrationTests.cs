@@ -22,11 +22,13 @@ public sealed class SqlServerIntegrationTests : IClassFixture<SqlServerFixture>
 
     private bool ShouldSkip => !_fixture.IsReachable;
 
-    [Fact]
+
+    [SkippableFact]
+
     [Trait("Category", "Integration")]
     public async Task GetSchemaOverview_DefaultRequest_ReturnsAtLeastEightTables()
     {
-        if (ShouldSkip) return;
+        Skip.If(ShouldSkip, TestSkip.Reason);
 
         var result = await _fixture.Inspector!.GetSchemaOverviewAsync(new SchemaOverviewRequest());
 
@@ -34,11 +36,13 @@ public sealed class SqlServerIntegrationTests : IClassFixture<SqlServerFixture>
         dboSchema.TableCount.Should().BeGreaterThanOrEqualTo(8);
     }
 
-    [Fact]
+
+    [SkippableFact]
+
     [Trait("Category", "Integration")]
     public async Task GetSchemaOverview_ExcludesSystemSchemas_ByDefault()
     {
-        if (ShouldSkip) return;
+        Skip.If(ShouldSkip, TestSkip.Reason);
 
         var result = await _fixture.Inspector!.GetSchemaOverviewAsync(new SchemaOverviewRequest());
 
@@ -46,11 +50,13 @@ public sealed class SqlServerIntegrationTests : IClassFixture<SqlServerFixture>
             s.Name == "sys" || s.Name == "INFORMATION_SCHEMA" || s.Name.StartsWith("db_"));
     }
 
-    [Fact]
+
+    [SkippableFact]
+
     [Trait("Category", "Integration")]
     public async Task GetSchemaOverview_IncludeSystemSchemas_DoesNotThrowAndReturnsTables()
     {
-        if (ShouldSkip) return;
+        Skip.If(ShouldSkip, TestSkip.Reason);
 
         // In SQL Server user databases, sys.objects does not expose system catalog views,
         // so IncludeSystemSchemas has no practical effect — but it must not throw.
@@ -61,11 +67,13 @@ public sealed class SqlServerIntegrationTests : IClassFixture<SqlServerFixture>
         result.Schemas.SelectMany(s => s.Objects).Should().NotBeEmpty();
     }
 
-    [Fact]
+
+    [SkippableFact]
+
     [Trait("Category", "Integration")]
     public async Task GetSchemaOverview_UsersTable_HasAtLeastTwoIncomingForeignKeys()
     {
-        if (ShouldSkip) return;
+        Skip.If(ShouldSkip, TestSkip.Reason);
 
         var result = await _fixture.Inspector!.GetSchemaOverviewAsync(new SchemaOverviewRequest());
 
@@ -77,11 +85,13 @@ public sealed class SqlServerIntegrationTests : IClassFixture<SqlServerFixture>
         users.IncomingForeignKeys.Should().BeGreaterThanOrEqualTo(3);
     }
 
-    [Fact]
+
+    [SkippableFact]
+
     [Trait("Category", "Integration")]
     public async Task GetSchemaOverview_UsersTable_HasApproximateRowCountInExpectedRange()
     {
-        if (ShouldSkip) return;
+        Skip.If(ShouldSkip, TestSkip.Reason);
 
         var result = await _fixture.Inspector!.GetSchemaOverviewAsync(new SchemaOverviewRequest());
 
@@ -94,11 +104,13 @@ public sealed class SqlServerIntegrationTests : IClassFixture<SqlServerFixture>
         users.ApproximateRowCount.Should().BeInRange(15, 25);
     }
 
-    [Fact]
+
+    [SkippableFact]
+
     [Trait("Category", "Integration")]
     public async Task GetSchemaOverview_CategoriesTable_HasOneOutgoingForeignKey()
     {
-        if (ShouldSkip) return;
+        Skip.If(ShouldSkip, TestSkip.Reason);
 
         var result = await _fixture.Inspector!.GetSchemaOverviewAsync(new SchemaOverviewRequest());
 
@@ -110,11 +122,13 @@ public sealed class SqlServerIntegrationTests : IClassFixture<SqlServerFixture>
         categories.OutgoingForeignKeys.Should().Be(1);
     }
 
-    [Fact]
+
+    [SkippableFact]
+
     [Trait("Category", "Integration")]
     public async Task GetSchemaOverview_AllPopulatedTables_HavePositiveTotalSizeBytes()
     {
-        if (ShouldSkip) return;
+        Skip.If(ShouldSkip, TestSkip.Reason);
 
         var result = await _fixture.Inspector!.GetSchemaOverviewAsync(new SchemaOverviewRequest());
 
@@ -125,11 +139,13 @@ public sealed class SqlServerIntegrationTests : IClassFixture<SqlServerFixture>
         tables.Should().OnlyContain(o => o.TotalSizeBytes > 0);
     }
 
-    [Fact]
+
+    [SkippableFact]
+
     [Trait("Category", "Integration")]
     public async Task GetSchemaOverview_NamePatternFilter_ReturnsOnlyMatchingObjects()
     {
-        if (ShouldSkip) return;
+        Skip.If(ShouldSkip, TestSkip.Reason);
 
         var result = await _fixture.Inspector!.GetSchemaOverviewAsync(
             new SchemaOverviewRequest(NamePattern: "order%"));
@@ -139,11 +155,13 @@ public sealed class SqlServerIntegrationTests : IClassFixture<SqlServerFixture>
         names.Should().OnlyContain(n => n.StartsWith("order"));
     }
 
-    [Fact]
+
+    [SkippableFact]
+
     [Trait("Category", "Integration")]
     public async Task GetSchemaOverview_NamePatternOrder_ReturnsTwoResults()
     {
-        if (ShouldSkip) return;
+        Skip.If(ShouldSkip, TestSkip.Reason);
 
         var result = await _fixture.Inspector!.GetSchemaOverviewAsync(
             new SchemaOverviewRequest(NamePattern: "order%"));
@@ -151,11 +169,13 @@ public sealed class SqlServerIntegrationTests : IClassFixture<SqlServerFixture>
         result.Schemas.SelectMany(s => s.Objects).Should().HaveCount(2);
     }
 
-    [Fact]
+
+    [SkippableFact]
+
     [Trait("Category", "Integration")]
     public async Task GetSchemaOverview_SchemasAndObjects_AreSortedAlphabetically()
     {
-        if (ShouldSkip) return;
+        Skip.If(ShouldSkip, TestSkip.Reason);
 
         var result = await _fixture.Inspector!.GetSchemaOverviewAsync(new SchemaOverviewRequest());
 
@@ -164,11 +184,13 @@ public sealed class SqlServerIntegrationTests : IClassFixture<SqlServerFixture>
             schema.Objects.Select(o => o.Name).Should().BeInAscendingOrder();
     }
 
-    [Fact]
+
+    [SkippableFact]
+
     [Trait("Category", "Integration")]
     public async Task GetSchemaOverview_SummaryAndMetadata_AreCorrect()
     {
-        if (ShouldSkip) return;
+        Skip.If(ShouldSkip, TestSkip.Reason);
 
         var result = await _fixture.Inspector!.GetSchemaOverviewAsync(new SchemaOverviewRequest());
 
@@ -178,11 +200,13 @@ public sealed class SqlServerIntegrationTests : IClassFixture<SqlServerFixture>
         result.GeneratedAt.Should().NotBeNullOrWhiteSpace();
     }
 
-    [Fact]
+
+    [SkippableFact]
+
     [Trait("Category", "Integration")]
     public async Task GetSchemaOverview_AllObjects_HaveTotalSizeHuman()
     {
-        if (ShouldSkip) return;
+        Skip.If(ShouldSkip, TestSkip.Reason);
 
         var result = await _fixture.Inspector!.GetSchemaOverviewAsync(new SchemaOverviewRequest());
 
@@ -190,11 +214,13 @@ public sealed class SqlServerIntegrationTests : IClassFixture<SqlServerFixture>
             .Should().OnlyContain(o => !string.IsNullOrEmpty(o.TotalSizeHuman));
     }
 
-    [Fact]
+
+    [SkippableFact]
+
     [Trait("Category", "Integration")]
     public async Task GetSchemaOverview_ViewsExcluded_WhenIncludeViewsFalse()
     {
-        if (ShouldSkip) return;
+        Skip.If(ShouldSkip, TestSkip.Reason);
 
         var result = await _fixture.Inspector!.GetSchemaOverviewAsync(
             new SchemaOverviewRequest(IncludeViews: false));
@@ -205,7 +231,7 @@ public sealed class SqlServerIntegrationTests : IClassFixture<SqlServerFixture>
 }
 
 /// <summary>xUnit fixture for SQL Server integration tests.</summary>
-public sealed class SqlServerFixture : IAsyncLifetime
+public sealed class SqlServerFixture : IAsyncLifetime, IDatabaseFixture
 {
     private const string DefaultConnectionString =
         "Server=localhost,1434;Database=dblens_demo;User Id=sa;Password=DevPassword123!;TrustServerCertificate=true";
@@ -215,6 +241,10 @@ public sealed class SqlServerFixture : IAsyncLifetime
 
     public bool IsReachable { get; private set; }
     public SqlServerInspector? Inspector { get; private set; }
+
+    DbLens.Core.Abstractions.IDatabaseInspector? IDatabaseFixture.Inspector => Inspector;
+
+    public string UserSchema => "dbo";
 
     public async Task InitializeAsync()
     {

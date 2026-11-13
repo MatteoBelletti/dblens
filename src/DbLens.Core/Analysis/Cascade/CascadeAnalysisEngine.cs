@@ -45,10 +45,24 @@ public static class CascadeAnalysisEngine
             .GroupBy(e => (e.ToSchema, e.ToTable))
             .ToDictionary(g => g.Key, g => g.ToList());
 
+        // The path budget is global, not per root: a single pathological root must not be able
+        // to exhaust memory before the remaining roots are even reached.
+        var maxPaths = Math.Max(request.MaxPaths, 1);
+        var pathsTruncated = false;
+
         foreach (var root in rootTables)
         {
-            var rootPaths = BuildPathsFromRoot(root, edgesByTarget, rowCounts, effectiveMaxDepth);
-            paths.AddRange(rootPaths);
+            if (paths.Count >= maxPaths)
+            {
+                pathsTruncated = true;
+                break;
+            }
+
+            var rootPaths = BuildPathsFromRoot(
+                root, edgesByTarget, rowCounts, effectiveMaxDepth, maxPaths - paths.Count);
+
+            paths.AddRange(rootPaths.Paths);
+            if (rootPaths.Truncated) pathsTruncated = true;
         }
 
         // Produce findings from paths
@@ -74,29 +88,26 @@ public static class CascadeAnalysisEngine
                     findings.Add(BuildRestrictFinding(path.RootTable, step));
             }
 
-            // Self-referencing: step where FromTable == ToTable
-            foreach (var step in path.Steps.Where(s => s.FromTable == s.ToTable))
+            // Only a self-reference that actually cascades is one. A NO ACTION hierarchy — the only
+            // kind SQL Server allows — is already reported by the restrict rule.
+            foreach (var step in path.Steps.Where(s => s.FromTable == s.ToTable && s.OnDelete == "CASCADE"))
                 findings.Add(BuildSelfReferencingFinding(step));
         }
 
         // Deduplicate findings (same RuleId + Table can appear across multiple paths)
         findings = DeduplicateFindings(findings);
 
-        var truncated = false;
-        if (findings.Count > DiagnosticLimits.MaxFindingCount)
-        {
-            findings = findings.Take(DiagnosticLimits.MaxFindingCount).ToList();
-            truncated = true;
-            caveats.Add(
-                $"Results truncated to {DiagnosticLimits.MaxFindingCount} findings. " +
-                "Use the schema or startingTable filter for a more targeted analysis.");
-        }
+        var split = FindingSplit.Partition(findings);
 
-        // Always-present cascade-summary finding
+        if (split.TruncationCaveat("Use the schema or startingTable filter for a more targeted analysis.") is { } truncation)
+            caveats.Add(truncation);
+
+        // Always-present cascade-summary finding, appended after truncation so it is never dropped.
         var maxDepthReached = paths.Count > 0 ? paths.Max(p => p.Depth) : 0;
-        findings.Add(BuildSummaryFinding(paths.Count, maxDepthReached, allTables.Count, rootTables));
+        split = split.WithMandatory(
+            BuildSummaryFinding(paths.Count, maxDepthReached, allTables.Count, rootTables));
 
-        var summary = BuildSummary(findings, paths, maxDepthReached, allTables.Count);
+        var summary = BuildSummary(split, paths, maxDepthReached, allTables.Count);
 
         if (rowCounts.Values.Any(v => v is null))
             caveats.Add(
@@ -107,41 +118,57 @@ public static class CascadeAnalysisEngine
                 "Row counts are approximated from cached database statistics and may not reflect the current state. " +
                 "Run ANALYZE (PostgreSQL) or UPDATE STATISTICS (SQL Server) for more accurate estimates.");
 
+        if (pathsTruncated)
+            caveats.Add(
+                $"Path enumeration stopped at the limit of {Num.N0(maxPaths)} paths, so the cascade " +
+                "graph was only partially explored and findings below that point are missing. " +
+                "This normally means the schema has a densely branching CASCADE structure. " +
+                "Narrow the analysis with startingTable or schema, or raise maxPaths, " +
+                "and do NOT read the result as a complete picture of the cascade graph.");
+
         return new CheckCascadePathsResult(
             Dialect: dialect,
             Database: database,
             GeneratedAt: DateTime.UtcNow.ToString("O"),
             Paths: paths,
-            Findings: findings,
+            Findings: split.Findings,
+            Signals: split.Signals,
             Summary: summary,
             Caveats: caveats,
-            Truncated: truncated,
+            Truncated: split.Truncated,
+            PathsTruncated: pathsTruncated,
             Disclaimer: Disclaimer);
     }
 
-    public static CheckCascadePathsResult Empty(string dialect, string database) =>
-        new(
+    public static CheckCascadePathsResult Empty(string dialect, string database)
+    {
+        var split = FindingSplit.Empty.WithMandatory(BuildSummaryFinding(0, 0, 0, []));
+
+        return new CheckCascadePathsResult(
             Dialect: dialect,
             Database: database,
             GeneratedAt: DateTime.UtcNow.ToString("O"),
             Paths: [],
-            Findings: [BuildSummaryFinding(0, 0, 0, [])],
-            Summary: BuildSummary(
-                [BuildSummaryFinding(0, 0, 0, [])],
-                [], 0, 0),
+            Findings: split.Findings,
+            Signals: split.Signals,
+            Summary: BuildSummary(split, [], 0, 0),
             Caveats: [],
             Truncated: false,
+            PathsTruncated: false,
             Disclaimer: Disclaimer);
+    }
 
     // ── Path building ────────────────────────────────────────────────────────
 
-    private static List<CascadePath> BuildPathsFromRoot(
+    private static (List<CascadePath> Paths, bool Truncated) BuildPathsFromRoot(
         (string Schema, string Name) root,
         Dictionary<(string, string), List<FkEdge>> edgesByTarget,
         IReadOnlyDictionary<(string Schema, string Name), long?> rowCounts,
-        int maxDepth)
+        int maxDepth,
+        int maxPaths)
     {
         var result = new List<CascadePath>();
+        var truncated = false;
         var qualifiedRoot = $"{root.Schema}.{root.Name}";
 
         // Stack item: (steps built so far, current table, set of qualified names already in this path)
@@ -150,6 +177,14 @@ public static class CascadeAnalysisEngine
 
         while (stack.Count > 0)
         {
+            // Stop as soon as the budget is met: the traversal is abandoned rather than
+            // completed and then trimmed, so an exploding graph is never fully materialized.
+            if (result.Count >= maxPaths)
+            {
+                truncated = true;
+                break;
+            }
+
             var (steps, current, visited) = stack.Pop();
             var qualifiedCurrent = $"{current.Schema}.{current.Name}";
 
@@ -210,7 +245,10 @@ public static class CascadeAnalysisEngine
             }
         }
 
-        return result;
+        // Work left on the stack means the budget cut the traversal short.
+        if (stack.Count > 0) truncated = true;
+
+        return (result, truncated);
     }
 
     private static CascadePath FinalizePath(
@@ -242,6 +280,7 @@ public static class CascadeAnalysisEngine
             Severity: Severity.Critical,
             Category: FindingCategory.Structure,
             Confidence: 1.0,
+            Evidence: Evidence.Derived,
             Table: path.RootTable,
             Columns: null,
             Title: $"Circular CASCADE path detected from '{path.RootTable}'",
@@ -264,6 +303,7 @@ public static class CascadeAnalysisEngine
             Severity: Severity.High,
             Category: FindingCategory.Structure,
             Confidence: 1.0,
+            Evidence: Evidence.Derived,
             Table: path.RootTable,
             Columns: null,
             Title: $"Deep CASCADE path from '{path.RootTable}' (depth {path.Depth})",
@@ -286,6 +326,7 @@ public static class CascadeAnalysisEngine
             Severity: Severity.Info,
             Category: FindingCategory.Structure,
             Confidence: 1.0,
+            Evidence: Evidence.Derived,
             Table: step.ToTable,
             Columns: null,
             Title: $"CASCADE chain from '{rootTable}' breaks with SET NULL at '{step.ToTable}'",
@@ -309,6 +350,7 @@ public static class CascadeAnalysisEngine
             Severity: Severity.High,
             Category: FindingCategory.Structure,
             Confidence: 1.0,
+            Evidence: Evidence.Derived,
             Table: step.ToTable,
             Columns: null,
             Title: $"CASCADE chain from '{rootTable}' blocked by NO ACTION/RESTRICT at '{step.ToTable}'",
@@ -333,6 +375,7 @@ public static class CascadeAnalysisEngine
             Severity: Severity.Info,
             Category: FindingCategory.Structure,
             Confidence: 1.0,
+            Evidence: Evidence.Derived,
             Table: step.FromTable,
             Columns: null,
             Title: $"Self-referencing CASCADE on '{step.FromTable}'",
@@ -363,6 +406,7 @@ public static class CascadeAnalysisEngine
             Severity: Severity.Info,
             Category: FindingCategory.Structure,
             Confidence: 1.0,
+            Evidence: Evidence.Derived,
             Table: rootList.Length <= 200 ? rootList : $"{rootTables.Count} tables analyzed",
             Columns: null,
             Title: $"CASCADE analysis complete: {totalPaths} path(s), max depth {maxDepth}, {totalTables} table(s) involved",
@@ -397,23 +441,16 @@ public static class CascadeAnalysisEngine
     }
 
     private static CascadeSummary BuildSummary(
-        IReadOnlyList<Finding> findings,
+        FindingSplit split,
         IReadOnlyList<CascadePath> paths,
         int maxDepth,
-        int totalTables)
-    {
-        var bySeverity = Enum.GetValues<Severity>()
-            .ToDictionary(s => s.ToString(), s => findings.Count(f => f.Severity == s));
-
-        var byRule = CascadeRuleIds.All
-            .ToDictionary(r => r, r => findings.Count(f => f.RuleId == r));
-
-        return new CascadeSummary(
-            TotalFindings: findings.Count,
+        int totalTables) =>
+        new(
+            TotalFindings: split.Findings.Count,
+            TotalSignals: split.Signals.Count,
             TotalPaths: paths.Count,
             MaxDepth: maxDepth,
             TotalTablesInvolved: totalTables,
-            BySeverity: bySeverity,
-            ByRule: byRule);
-    }
+            BySeverity: split.BySeverity(),
+            ByRule: split.ByRule(CascadeRuleIds.All));
 }
