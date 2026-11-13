@@ -1,0 +1,43 @@
+{
+  "manifest_version": "0.2",
+  "name": "dblens",
+  "display_name": "dblens",
+  "version": "__VERSION__",
+  "description": "Inspect and diagnose PostgreSQL and SQL Server databases from Claude. Read-only; returns no row data by default.",
+  "long_description": "Schema overview, undeclared foreign keys (from naming, views, routines and query history), index health, fragmentation, GDPR exposure, cascade paths, migration safety, query plans and a generated data map. Connect it with a read-only database login: dblens refuses to execute caller SQL on a login that can write.",
+  "author": { "name": "Matteo Belletti", "url": "https://github.com/MatteoBelletti" },
+  "repository": { "type": "git", "url": "https://github.com/MatteoBelletti/dblens" },
+  "homepage": "https://github.com/MatteoBelletti/dblens",
+  "documentation": "https://github.com/MatteoBelletti/dblens/blob/master/docs/tools.md",
+  "license": "MIT",
+  "keywords": ["database", "postgresql", "sqlserver", "schema", "gdpr"],
+  "server": {
+    "type": "binary",
+    "entry_point": "server/__ENTRY__",
+    "mcp_config": {
+      "command": "${__dirname}/server/__ENTRY__",
+      "args": [],
+      "env": {
+        "ConnectionStrings__PostgreSql": "${user_config.postgres_connection}",
+        "ConnectionStrings__SqlServer": "${user_config.sqlserver_connection}"
+      }
+    }
+  },
+  "user_config": {
+    "postgres_connection": {
+      "type": "string",
+      "title": "PostgreSQL connection string",
+      "description": "For a read-only login, e.g. Host=localhost;Port=5432;Database=erp;Username=dblens_reader;Password=…",
+      "sensitive": true,
+      "required": false
+    },
+    "sqlserver_connection": {
+      "type": "string",
+      "title": "SQL Server connection string",
+      "description": "For a read-only login, e.g. Server=localhost;Database=erp;User Id=dblens_reader;Password=…;TrustServerCertificate=true",
+      "sensitive": true,
+      "required": false
+    }
+  },
+  "compatibility": { "platforms": ["__PLATFORM__"] }
+}

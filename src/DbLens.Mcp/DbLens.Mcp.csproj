@@ -2,7 +2,32 @@
 
   <PropertyGroup>
     <OutputType>Exe</OutputType>
+    <AssemblyName>DbLens.Mcp</AssemblyName>
+    <Version>0.1.0</Version>
+
+    <!-- dotnet tool install -g DbLens.Mcp, then run as `dblens`; also listed as an MCP server package. -->
+    <IsPackable>true</IsPackable>
+    <PackAsTool>true</PackAsTool>
+    <ToolCommandName>dblens</ToolCommandName>
+    <PackageType>McpServer</PackageType>
+    <PackageId>DbLens.Mcp</PackageId>
+    <Authors>Matteo Belletti</Authors>
+    <Description>Local MCP server that lets Claude inspect and diagnose PostgreSQL and SQL Server databases: schema, undeclared foreign keys, indexes, GDPR exposure, cascades, migration safety and query plans. Read-only; returns no row data by default.</Description>
+    <PackageTags>mcp;model-context-protocol;postgresql;sqlserver;database;schema;claude</PackageTags>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PackageProjectUrl>https://github.com/MatteoBelletti/dblens</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/MatteoBelletti/dblens</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
   </PropertyGroup>
+
+  <!-- A local `make publish` lands in publish/ (gitignored); keep it out of the build and the package. -->
+  <ItemGroup>
+    <Content Remove="publish\**" />
+    <None Remove="publish\**" />
+    <Compile Remove="publish\**" />
+    <Content Update="appsettings.json" Pack="false" />
+  </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\DbLens.Core\DbLens.Core.csproj" />
@@ -12,5 +37,9 @@
     <PackageReference Include="ModelContextProtocol.AspNetCore" />
   </ItemGroup>
 
+  <ItemGroup>
+    <None Include="..\..\README.md" Pack="true" PackagePath="/" />
+    <None Include=".mcp\server.json" Pack="true" PackagePath="/.mcp/" />
+  </ItemGroup>
 
 </Project>
