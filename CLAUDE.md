@@ -126,8 +126,10 @@ all in `DatabaseInspectorBase`, none skippable by a dialect:
    locking clauses, linked servers), not a proof. **Never relax it to make a query work**; extend it
    when a new side effect is found, with a test in `StatementGuardSideEffectTests`.
 2. A transaction that is always rolled back (`READ ONLY` on PostgreSQL).
-3. `EnsureReadOnlyLoginAsync`: refuse when the login can write (`DescribeWriteCapabilityAsync`).
-   `DbLens:AllowWriteCapableLogin` exists for disposable databases only.
+3. `EnsureReadOnlyLoginAsync`: refuse when the login can write (`DescribeWriteCapabilityAsync`) —
+   unless every server in the connection string is this machine (`LocalServer.IsLocal`, address only,
+   no DNS). `DbLens:ReadOnlyLoginOnLocalhost` re-applies it locally (dblens on a real DB server);
+   `DbLens:AllowWriteCapableLogin` disables it, for disposable databases only.
 
 Probes are dblens's own SQL and skip layer 3, never layers 1 and 2.
 

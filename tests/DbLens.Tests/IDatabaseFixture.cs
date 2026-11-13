@@ -16,5 +16,5 @@ public interface IDatabaseFixture
     string UserSchema { get; }
 
     /// <summary>An inspector on the administrator login, which can write.</summary>
-    IDatabaseInspector CreateAdminInspector();
+    IDatabaseInspector CreateAdminInspector(bool readOnlyLoginOnLocalhost = false);
 }

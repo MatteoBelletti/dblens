@@ -12,7 +12,8 @@ that can execute, and what stops each of those things from doing harm.
   ([below](#query-results)). With it off, dblens never returns a value from the data.
 - **No cloud.** The server runs locally over stdio; nothing leaves the machine except the tool results
   the MCP client asked for.
-- **Caller SQL runs only on a read-only login.** Enforced, not advised ([below](#read-only-login)).
+- **Caller SQL runs only on a read-only login** when the database is on another machine. Enforced,
+  not advised ([below](#read-only-login)); a database on this machine is exempt.
 
 ## What can execute
 
@@ -75,8 +76,19 @@ and refuses if so:
   permissions).
 
 The refusal names the reason. Estimated plans, catalog reads and the diagnostic tools still work on
-any login. A disposable local database can opt out with `DbLens:AllowWriteCapableLogin=true`; never
-set it against shared data.
+any login.
+
+**Local databases are exempt.** When every server in the connection string is this machine —
+`localhost`, a loopback address, a PostgreSQL socket directory, `.`, `(local)`, LocalDB, a local named
+pipe or the machine's own name — the check is skipped: that is a developer's own instance (the demo
+containers included), where the admin login is the normal one. The test is on the address only; no
+DNS lookup is made, so an alias that happens to resolve to `127.0.0.1` still counts as remote.
+
+| Setting | Effect |
+|---|---|
+| *(default)* | check remote servers, skip local ones |
+| `DbLens:ReadOnlyLoginOnLocalhost=true` | check local servers too — set it when dblens runs **on** a real database server, where "local" is production |
+| `DbLens:AllowWriteCapableLogin=true` | never check; for a disposable remote database only, never against shared data |
 
 #### Creating the login
 

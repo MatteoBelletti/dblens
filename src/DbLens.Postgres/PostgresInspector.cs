@@ -239,6 +239,11 @@ public sealed partial class PostgresInspector : DatabaseInspectorBase
 
     protected override DbConnection CreateConnection() => new NpgsqlConnection(_connectionString);
 
+    // Host may list several servers for failover; an unset Host means the local default socket or localhost.
+    protected override IReadOnlyList<string> ServerHosts =>
+        (new NpgsqlConnectionStringBuilder(_connectionString).Host ?? "localhost")
+            .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+
     public override async Task<bool> TestConnectionAsync(CancellationToken ct = default)
     {
         await using var conn = new NpgsqlConnection(_connectionString);

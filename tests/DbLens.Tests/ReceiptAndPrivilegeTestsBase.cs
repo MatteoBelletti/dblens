@@ -87,11 +87,24 @@ public abstract class ReceiptAndPrivilegeTestsBase(IDatabaseFixture fixture)
 
     [SkippableFact]
     [Trait("Category", "Integration")]
-    public async Task WriteCapableLogin_IsRefusedForCallerSql()
+    public async Task WriteCapableLogin_OnThisMachine_MayExecute()
     {
         Skip.If(ShouldSkip, TestSkip.Reason);
 
         var admin = Fixture.CreateAdminInspector();
+
+        (await admin.ExplainQueryAsync(new ExplainQueryRequest("SELECT 1", Analyze: true))).Should().NotBeNull(
+            "a database on localhost is the developer's own; the read-only-login check does not apply");
+        (await admin.QueryWithReceiptAsync(new QueryWithReceiptRequest("SELECT 1"))).Result.Rows.Should().ContainSingle();
+    }
+
+    [SkippableFact]
+    [Trait("Category", "Integration")]
+    public async Task WriteCapableLogin_IsRefused_WhenTheCheckCoversLocalhost()
+    {
+        Skip.If(ShouldSkip, TestSkip.Reason);
+
+        var admin = Fixture.CreateAdminInspector(readOnlyLoginOnLocalhost: true);
 
         await ((Func<Task>)(() => admin.QueryWithReceiptAsync(new QueryWithReceiptRequest("SELECT 1"))))
             .Should().ThrowAsync<DbLens.Core.Models.ExecutionRefusedException>().WithMessage("*login can write*");

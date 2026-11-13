@@ -148,9 +148,11 @@ Il profilo VS **`sse`** imposta automaticamente `MCP_TRANSPORT=sse`.
 
 ## Login di sola lettura
 
-dblens si collega come `dblens_reader` (creato da `db/*/03-reader.sql`) e rifiuta di eseguire SQL del
-chiamante con un login che può scrivere. `postgres` / `sa` servono solo per setup e test di rifiuto.
-Per un database usa-e-getta: `DbLens__AllowWriteCapableLogin=true`. Per abilitare
+dblens si collega come `dblens_reader` (creato da `db/*/03-reader.sql`). Su un server remoto rifiuta di
+eseguire SQL del chiamante con un login che può scrivere; su un database locale (localhost, loopback,
+socket, `(local)`, LocalDB) il controllo è saltato, quindi `postgres` / `sa` funzionano. Se dblens gira
+su un vero server di database: `DbLens__ReadOnlyLoginOnLocalhost=true`. Per un database remoto
+usa-e-getta: `DbLens__AllowWriteCapableLogin=true`. Per abilitare
 `query_with_receipt`: `DbLens__AllowQueryResults=true`.
 
 ---
