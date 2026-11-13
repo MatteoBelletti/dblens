@@ -19,11 +19,13 @@ public sealed class DatabaseInspectorFactory(ILoggerFactory loggerFactory, Serve
             connectionString, loggerFactory.CreateLogger<PostgresInspector>())
         {
             AllowWriteCapableLogin = policy.AllowWriteCapableLogin,
+            ReadOnlyLoginOnLocalhost = policy.ReadOnlyLoginOnLocalhost,
         },
         DatabaseDialect.SqlServer => new SqlServerInspector(
             connectionString, loggerFactory.CreateLogger<SqlServerInspector>())
         {
             AllowWriteCapableLogin = policy.AllowWriteCapableLogin,
+            ReadOnlyLoginOnLocalhost = policy.ReadOnlyLoginOnLocalhost,
         },
         _ => throw new ArgumentOutOfRangeException(nameof(dialect), $"Unsupported dialect: {dialect}"),
     };

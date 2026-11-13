@@ -28,8 +28,10 @@ use the extracted `DbLens.Mcp` executable as the command.
 
 **From source** — see [Quick start](#quick-start).
 
-**Use a read-only login.** dblens refuses to execute caller SQL on a login that can write, so
-create one first — two statements, in [docs/safety.md](docs/safety.md#creating-the-login).
+**Use a read-only login for any shared database.** dblens refuses to execute caller SQL on a login
+that can write when the server is on another machine, so create one first — two statements, in
+[docs/safety.md](docs/safety.md#creating-the-login). A database on your own machine (localhost,
+loopback, socket, `(local)`, LocalDB) is exempt: the admin login works there.
 
 ## Tools
 
@@ -116,7 +118,8 @@ claude mcp add dblens dotnet -- run --project "C:\path\to\dblens\src\DbLens.Mcp"
 | `ConnectionStrings:PostgreSql` | `ConnectionStrings__PostgreSql` | the demo database, as `dblens_reader` |
 | `ConnectionStrings:SqlServer` | `ConnectionStrings__SqlServer` | the demo database, as `dblens_reader` |
 | `DbLens:AllowQueryResults` | `DbLens__AllowQueryResults` | `false` — enables `query_with_receipt` |
-| `DbLens:AllowWriteCapableLogin` | `DbLens__AllowWriteCapableLogin` | `false` — disposable local databases only |
+| `DbLens:AllowWriteCapableLogin` | `DbLens__AllowWriteCapableLogin` | `false` — skips the read-only-login check on remote servers too; disposable databases only |
+| `DbLens:ReadOnlyLoginOnLocalhost` | `DbLens__ReadOnlyLoginOnLocalhost` | `false` — applies the check to a local server as well, for dblens installed on a real database server |
 | `DbLens:CertifiedQueriesPath` | `DbLens__CertifiedQueriesPath` | `%LOCALAPPDATA%/dblens/certified-queries.json` |
 
 A tool call can also pass its own `connectionString`. `analyze_fragmentation` additionally needs

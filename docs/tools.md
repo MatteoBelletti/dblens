@@ -30,8 +30,8 @@ table in scope, at most 20).
 | [`query_with_receipt`](#query_with_receipt) | the data | **yes** — disabled unless the operator enables it | rows + receipt |
 | [`certify_query`](#certify_query) / [`list_certified_queries`](#certify_query) | plan only | no | local file |
 
-Caller SQL (`explain_query` with `analyze`, `query_with_receipt`) only runs on a read-only login; see
-[safety.md](safety.md#read-only-login).
+Caller SQL (`explain_query` with `analyze`, `query_with_receipt`) only runs on a read-only login when
+the server is on another machine; see [safety.md](safety.md#read-only-login).
 
 Every diagnostic result has the same skeleton: `Findings`, `Signals`, a `Summary` whose `BySeverity`
 and `ByRule` dictionaries always contain every key, `Caveats`, and — where relevant — a `Disclaimer`.

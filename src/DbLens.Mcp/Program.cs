@@ -61,6 +61,7 @@ static void ConfigureDatabase(IServiceCollection services, IConfiguration config
         (sp, _) => new PostgresInspector(pgCs, sp.GetRequiredService<ILogger<PostgresInspector>>())
         {
             AllowWriteCapableLogin = policy.AllowWriteCapableLogin,
+            ReadOnlyLoginOnLocalhost = policy.ReadOnlyLoginOnLocalhost,
         });
 
     services.AddKeyedSingleton<IDatabaseInspector>(
@@ -68,6 +69,7 @@ static void ConfigureDatabase(IServiceCollection services, IConfiguration config
         (sp, _) => new SqlServerInspector(ssCs, sp.GetRequiredService<ILogger<SqlServerInspector>>())
         {
             AllowWriteCapableLogin = policy.AllowWriteCapableLogin,
+            ReadOnlyLoginOnLocalhost = policy.ReadOnlyLoginOnLocalhost,
         });
 
     services.AddSingleton<IDatabaseInspectorFactory, DatabaseInspectorFactory>();

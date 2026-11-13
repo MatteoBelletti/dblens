@@ -95,7 +95,8 @@ See [safety.md](safety.md#signal-verification) for the guarantees.
 `DbLens.Mcp` holds what is not about databases:
 
 - `ServerPolicy` — operator settings that change the contract (`AllowQueryResults`,
-  `AllowWriteCapableLogin`). Configuration only; never a tool parameter a model could set.
+  `AllowWriteCapableLogin`, `ReadOnlyLoginOnLocalhost`). Configuration only; never a tool parameter a
+  model could set.
 - `CertifiedQueryStore` — the certified queries, one local JSON file.
 - `ToolErrors` — a call-tool filter. The SDK hides exception messages; this one turns
   `ArgumentException`, `ExecutionRefusedException` and `DatabaseInspectionException` into readable tool
@@ -114,7 +115,8 @@ See [safety.md](safety.md#signal-verification) for the guarantees.
   flagged — by `check_migration_safety`; a verification probe must pass `explain_query` and reproduce
   its counts through `query_with_receipt`; the glossary must list every path of the relationship map.
 - Integration tests connect as `dblens_reader`; the admin login (`DBLENS_TEST_*_ADMIN_CONNECTION`) is
-  used only for setup and to assert that a write-capable login is refused.
+  used for setup, to show that a local server is exempt from the read-only-login check, and — with
+  `ReadOnlyLoginOnLocalhost` — that a write-capable login is refused.
 - `demo_good` is the acceptance schema: every diagnostic tool must report nothing there except its
   always-present summary finding.
 

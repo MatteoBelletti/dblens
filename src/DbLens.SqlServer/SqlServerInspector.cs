@@ -282,6 +282,9 @@ public sealed partial class SqlServerInspector : DatabaseInspectorBase
 
     protected override DbConnection CreateConnection() => new SqlConnection(_connectionString);
 
+    protected override IReadOnlyList<string> ServerHosts =>
+        [new SqlConnectionStringBuilder(_connectionString).DataSource];
+
     public override async Task<bool> TestConnectionAsync(CancellationToken ct = default)
     {
         await using var conn = new SqlConnection(_connectionString);
