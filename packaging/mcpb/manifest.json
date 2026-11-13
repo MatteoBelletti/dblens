@@ -1,5 +1,5 @@
 {
-  "manifest_version": "0.2",
+  "manifest_version": "0.3",
   "name": "dblens",
   "display_name": "dblens",
   "version": "__VERSION__",
@@ -27,14 +27,14 @@
     "postgres_connection": {
       "type": "string",
       "title": "PostgreSQL connection string",
-      "description": "For a read-only login, e.g. Host=localhost;Port=5432;Database=erp;Username=dblens_reader;Password=…",
+      "description": "Leave empty to use the local demo database (localhost:5433, see the README). Otherwise a read-only login, e.g. Host=db;Port=5432;Database=erp;Username=dblens_reader;Password=…",
       "sensitive": true,
       "required": false
     },
     "sqlserver_connection": {
       "type": "string",
       "title": "SQL Server connection string",
-      "description": "For a read-only login, e.g. Server=localhost;Database=erp;User Id=dblens_reader;Password=…;TrustServerCertificate=true",
+      "description": "Leave empty to use the local demo database (localhost,1434, see the README). Otherwise a read-only login, e.g. Server=db;Database=erp;User Id=dblens_reader;Password=…;TrustServerCertificate=true",
       "sensitive": true,
       "required": false
     }

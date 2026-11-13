@@ -6,8 +6,9 @@ never returns row data.
 
 ## Install
 
-> Releases are built by `.github/workflows/release.yml` when a `v*` tag is pushed. Until the first
-> tag (and, for NuGet, until the `NUGET_API_KEY` secret is set) install from source.
+> Releases are built by `.github/workflows/release.yml` when a `v*` tag is pushed. The NuGet package
+> is published with Trusted Publishing once it is configured (see docs/architecture.md#releases);
+> until then use the release downloads.
 
 **Claude Desktop** — download `dblens-<version>-<platform>.mcpb` from
 [Releases](https://github.com/MatteoBelletti/dblens/releases), open it, and fill in the connection

@@ -2,13 +2,15 @@ name: Release
 
 # Push a tag such as v0.1.0 to publish. The workflow builds self-contained binaries, one Claude
 # Desktop extension (.mcpb) per platform and the NuGet tool package, then creates the GitHub
-# release. The package goes to nuget.org only when the NUGET_API_KEY secret is set.
+# release. The package goes to nuget.org through Trusted Publishing (GitHub OIDC, no stored API key)
+# once the NUGET_USER secret holds the nuget.org profile name; until then the step is skipped.
 on:
   push:
     tags: ["v*"]
 
 permissions:
   contents: write
+  id-token: write   # OIDC token for NuGet Trusted Publishing
 
 env:
   DOTNET_CLI_UI_LANGUAGE: en
@@ -18,6 +20,8 @@ jobs:
   release:
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    env:
+      NUGET_USER: ${{ secrets.NUGET_USER }}   # nuget.org profile name, not the e-mail address
 
     steps:
       - uses: actions/checkout@v4
@@ -47,7 +51,11 @@ jobs:
 
             out="build/$rid"
             dotnet publish src/DbLens.Mcp -c Release -r "$rid" --self-contained \
-              -p:PublishSingleFile=true -p:Version="$VERSION" -o "$out/server"
+              -p:PublishSingleFile=true -p:Version="$VERSION" \
+              -p:DebugType=none -p:IsTransformWebConfigDisabled=true -o "$out/server"
+
+            # IIS and static-asset leftovers of the Web SDK; a stdio server needs neither.
+            rm -f "$out/server/aspnetcorev2_inprocess.dll" "$out/server/"*.staticwebassets.endpoints.json
 
             (cd "$out/server" && zip -qr "$GITHUB_WORKSPACE/dist/dblens-$VERSION-$rid.zip" .)
 
@@ -62,11 +70,20 @@ jobs:
           sed -i "s/\"version\": \"[^\"]*\"/\"version\": \"$VERSION\"/g" src/DbLens.Mcp/.mcp/server.json
           dotnet pack src/DbLens.Mcp -c Release -p:Version="$VERSION" -o dist
 
+      # The temporary key lives one hour and each OIDC token buys one key, so log in right before pushing.
+      - name: NuGet login (OIDC -> temporary API key)
+        id: nuget-login
+        if: env.NUGET_USER != ''
+        uses: NuGet/login@v1
+        with:
+          user: ${{ secrets.NUGET_USER }}
+
       - name: Push to nuget.org
-        env:
-          NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
-        if: env.NUGET_API_KEY != ''
-        run: dotnet nuget push "dist/*.nupkg" --api-key "$NUGET_API_KEY" --source https://api.nuget.org/v3/index.json --skip-duplicate
+        if: steps.nuget-login.outcome == 'success'
+        run: >
+          dotnet nuget push "dist/*.nupkg"
+          --api-key "${{ steps.nuget-login.outputs.NUGET_API_KEY }}"
+          --source https://api.nuget.org/v3/index.json --skip-duplicate
 
       - name: Create GitHub release
         env:
