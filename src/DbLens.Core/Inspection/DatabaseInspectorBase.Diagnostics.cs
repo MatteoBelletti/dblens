@@ -19,9 +19,24 @@ public abstract partial class DatabaseInspectorBase
 {
     // ── Dialect hooks ──────────────────────────────────────────────────────────
 
-    /// <summary>Scan counters per index, and the server uptime they accumulated over.</summary>
-    protected abstract Task<IndexUsageStats> QueryIndexUsageStatsAsync(
-        IReadOnlyList<ScopedTable> tables, CancellationToken ct);
+    /// <summary>
+    /// A command returning schema_name, table_name, index_name, scans and uptime_days: the scan
+    /// counter of every index of the tables, and how long the server has been counting.
+    /// </summary>
+    protected abstract DbCommand IndexUsageCommand(DbConnection conn, IReadOnlyList<ScopedTable> tables);
+
+    private async Task<IndexUsageStats> QueryIndexUsageStatsAsync(IReadOnlyList<ScopedTable> tables, CancellationToken ct)
+    {
+        await using var conn = await OpenAsync(ct);
+
+        var rows = await ReadAllAsync(IndexUsageCommand(conn, tables), r => (
+            Index: (r.Text("schema_name"), r.Text("table_name"), r.Text("index_name")),
+            Scans: r.Number("scans"),
+            UptimeDays: r.RealOrNull("uptime_days") ?? 0), ct);
+
+        return new IndexUsageStats(
+            rows.ToDictionary(r => r.Index, r => r.Scans), rows.Select(r => r.UptimeDays).FirstOrDefault());
+    }
 
     /// <summary>
     /// Physical fragmentation per index. Must return <c>StatsAvailable = false</c> with a reason,
@@ -30,14 +45,6 @@ public abstract partial class DatabaseInspectorBase
     /// </summary>
     protected abstract Task<IndexFragmentationStats> QueryFragmentationStatsAsync(
         IReadOnlyList<ScopedTable> tables, AnalyzeFragmentationRequest request, CancellationToken ct);
-
-    /// <summary>The foreign-key graph, row counts and database name for cascade analysis.</summary>
-    protected abstract Task<CascadeGraph> QueryCascadeGraphAsync(string? schema, CancellationToken ct);
-
-    protected sealed record CascadeGraph(
-        string DatabaseName,
-        IReadOnlyList<CascadeAnalysisEngine.FkEdge> Edges,
-        IReadOnlyDictionary<(string Schema, string Name), long?> RowCounts);
 
     /// <summary>
     /// The plan for a statement that has already passed the guard when Analyze is set.
@@ -217,14 +224,28 @@ public abstract partial class DatabaseInspectorBase
 
         return RunAsync("cascade path check", async () =>
         {
-            var graph = await QueryCascadeGraphAsync(request.Schema, ct);
+            var (scope, _) = await ResolveTableScopeAsync(request.Schema, tables: null, ct);
+            var details = await GetTableDetailsAsync(scope, ct);
             var dialect = Dialect.ToString();
 
-            var roots = ResolveCascadeRoots(request, graph);
-            if (roots.Count == 0) return CascadeAnalysisEngine.Empty(dialect, graph.DatabaseName);
+            // Each table lists its keys in both directions, so the tables in scope are the whole graph.
+            var edges = details.Tables
+                .SelectMany(t => t.ForeignKeysOutgoing.Concat(t.ForeignKeysIncoming))
+                .DistinctBy(fk => (fk.FromSchema, fk.FromTable, fk.ConstraintName))
+                .OrderBy(fk => fk.FromSchema, StringComparer.Ordinal)
+                .ThenBy(fk => fk.FromTable, StringComparer.Ordinal)
+                .ThenBy(fk => fk.ConstraintName, StringComparer.Ordinal)
+                .Select(fk => new CascadeAnalysisEngine.FkEdge(
+                    fk.FromSchema, fk.FromTable, fk.ConstraintName, fk.FromColumns,
+                    fk.ToSchema, fk.ToTable, fk.ToColumns, fk.OnDelete))
+                .ToList();
+
+            var roots = ResolveCascadeRoots(request, scope, edges);
+            if (roots.Count == 0) return CascadeAnalysisEngine.Empty(dialect, details.Database);
 
             var result = CascadeAnalysisEngine.Analyze(
-                graph.Edges, graph.RowCounts, roots, request, dialect, graph.DatabaseName);
+                edges, scope.ToDictionary(t => (t.Schema, t.Name), t => t.ApproximateRowCount),
+                roots, request, dialect, details.Database);
 
             Log.LogInformation(
                 "Cascade path check completed: {PathCount} paths, {FindingCount} findings",
@@ -235,13 +256,15 @@ public abstract partial class DatabaseInspectorBase
     }
 
     private List<(string Schema, string Name)> ResolveCascadeRoots(
-        CheckCascadePathsRequest request, CascadeGraph graph)
+        CheckCascadePathsRequest request,
+        IReadOnlyList<ScopedTable> scope,
+        IReadOnlyList<CascadeAnalysisEngine.FkEdge> edges)
     {
         if (request.StartingTable is not null)
         {
             // "No cascade from this table" must never be the answer for a table that is not there.
-            var known = graph.RowCounts.Keys
-                .Concat(graph.Edges.SelectMany(e => new[] { (e.FromSchema, e.FromTable), (e.ToSchema, e.ToTable) }))
+            var known = scope.Select(t => (t.Schema, t.Name))
+                .Concat(edges.SelectMany(e => new[] { (e.FromSchema, e.FromTable), (e.ToSchema, e.ToTable) }))
                 .ToHashSet();
             var readings = ParseTableNames([request.StartingTable], defaultSchema: null)
                 .Select(n => (n.Schema, n.Name))
@@ -260,7 +283,7 @@ public abstract partial class DatabaseInspectorBase
         }
 
         // Every table that is the parent of at least one CASCADE foreign key.
-        return graph.Edges
+        return edges
             .Where(e => e.OnDelete == "CASCADE")
             .Select(e => (e.ToSchema, e.ToTable))
             .Distinct()

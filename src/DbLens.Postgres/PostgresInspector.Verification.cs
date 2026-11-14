@@ -22,9 +22,7 @@ public sealed partial class PostgresInspector
     // "could this login change any user table" without reimplementing PostgreSQL's privilege rules.
     protected override async Task<string?> DescribeWriteCapabilityAsync(DbConnection conn, CancellationToken ct)
     {
-        await using var cmd = conn.CreateCommand();
-        cmd.CommandTimeout = QueryTimeoutSeconds;
-        cmd.CommandText = """
+        await using var cmd = Command(conn, """
             SELECT CASE
                 WHEN (SELECT rolsuper FROM pg_roles WHERE rolname = current_user) THEN 'superuser ' || current_user
                 WHEN EXISTS (
@@ -34,7 +32,7 @@ public sealed partial class PostgresInspector
                       AND has_table_privilege(c.oid, 'INSERT, UPDATE, DELETE, TRUNCATE'))
                     THEN current_user || ' can modify user tables'
             END
-            """;
+            """);
         return await cmd.ExecuteScalarAsync(ct) as string;
     }
 

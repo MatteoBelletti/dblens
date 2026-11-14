@@ -1,3 +1,4 @@
+using System.Data.Common;
 using System.Globalization;
 using System.Xml.Linq;
 using DbLens.Core.Analysis.QueryPlan;
@@ -26,92 +27,52 @@ public sealed partial class SqlServerInspector
     /// <summary>SHOWPLAN_XML returns the plan without running the statement.</summary>
     private async Task<string> FetchEstimatedPlanAsync(ExplainQueryRequest request, CancellationToken ct)
     {
-        await using var conn = new SqlConnection(_connectionString);
-        await conn.OpenAsync(ct);
+        await using var conn = await OpenAsync(ct);
 
-        await ExecuteAsync(conn, null, "SET SHOWPLAN_XML ON", ct);
+        await ExecuteAsync(conn, "SET SHOWPLAN_XML ON", null, ct);
         try
         {
-            await using var cmd = conn.CreateCommand();
-            cmd.CommandText = request.Sql;
-            cmd.CommandTimeout = QueryTimeoutSeconds;
-            return await ReadFirstStringAsync(cmd, ct);
+            await using var cmd = Command(conn, request.Sql);
+            return await cmd.ExecuteScalarAsync(ct) as string ?? "";
         }
         finally
         {
-            await ExecuteAsync(conn, null, "SET SHOWPLAN_XML OFF", ct);
+            await ExecuteAsync(conn, "SET SHOWPLAN_XML OFF", null, ct);
         }
     }
 
     /// <summary>
-    /// STATISTICS XML runs the statement and returns the plan with actual row counts appended
-    /// as a trailing result set. The transaction is always rolled back.
+    /// STATISTICS XML runs the statement and appends the plan, with actual row counts, as a
+    /// trailing result set: the last one that looks like a showplan document.
     /// </summary>
     private async Task<string> FetchActualPlanAsync(ExplainQueryRequest request, CancellationToken ct)
     {
-        await using var conn = new SqlConnection(_connectionString);
-        await conn.OpenAsync(ct);
+        await using var conn = await OpenAsync(ct);
 
-        await using var tx = (SqlTransaction)await conn.BeginTransactionAsync(ct);
-        try
+        return await InRolledBackTransactionAsync(conn, ReadOnlyQuerySetupSql, ct, async tx =>
         {
-            await ExecuteAsync(conn, tx, ReadOnlyQuerySetupSql, ct);
-            await ExecuteAsync(conn, tx, "SET STATISTICS XML ON", ct);
+            await ExecuteAsync(conn, "SET STATISTICS XML ON", tx, ct);
 
-            await using var cmd = conn.CreateCommand();
-            cmd.Transaction = tx;
-            cmd.CommandText = request.Sql;
-            cmd.CommandTimeout = QueryTimeoutSeconds;
+            await using var cmd = Command(conn, request.Sql, tx);
+            await using var reader = await cmd.ExecuteReaderAsync(ct);
+            var plan = "";
 
-            return await ReadPlanFromResultSetsAsync(cmd, ct);
-        }
-        finally
-        {
-            await tx.RollbackAsync(CancellationToken.None);
-        }
-    }
-
-    private static async Task ExecuteAsync(
-        SqlConnection conn, SqlTransaction? tx, string sql, CancellationToken ct)
-    {
-        await using var cmd = conn.CreateCommand();
-        if (tx is not null) cmd.Transaction = tx;
-        cmd.CommandText = sql;
-        cmd.CommandTimeout = QueryTimeoutSeconds;
-        await cmd.ExecuteNonQueryAsync(ct);
-    }
-
-    private static async Task<string> ReadFirstStringAsync(SqlCommand cmd, CancellationToken ct)
-    {
-        await using var reader = await cmd.ExecuteReaderAsync(ct);
-        if (await reader.ReadAsync(ct) && !reader.IsDBNull(0))
-            return reader.GetString(0);
-        return "";
-    }
-
-    /// <summary>
-    /// Walks every result set and returns the last one that looks like a showplan document,
-    /// which is where STATISTICS XML puts the plan carrying actual row counts.
-    /// </summary>
-    private static async Task<string> ReadPlanFromResultSetsAsync(SqlCommand cmd, CancellationToken ct)
-    {
-        await using var reader = await cmd.ExecuteReaderAsync(ct);
-        var plan = "";
-
-        do
-        {
-            while (await reader.ReadAsync(ct))
+            do
             {
-                if (reader.FieldCount != 1 || reader.IsDBNull(0)) continue;
-                if (reader.GetFieldType(0) != typeof(string)) continue;
+                while (await reader.ReadAsync(ct))
+                    if (reader.FieldCount == 1 && reader.GetFieldType(0) == typeof(string) && !reader.IsDBNull(0)
+                        && reader.GetString(0) is var value && value.Contains("ShowPlanXML", StringComparison.Ordinal))
+                        plan = value;
+            } while (await reader.NextResultAsync(ct));
 
-                var value = reader.GetString(0);
-                if (value.Contains("ShowPlanXML", StringComparison.Ordinal))
-                    plan = value;
-            }
-        } while (await reader.NextResultAsync(ct));
+            return plan;
+        });
+    }
 
-        return plan;
+    private static async Task ExecuteAsync(DbConnection conn, string sql, DbTransaction? tx, CancellationToken ct)
+    {
+        await using var cmd = Command(conn, sql, tx);
+        await cmd.ExecuteNonQueryAsync(ct);
     }
 
     private static QueryPlanNode? ParsePlan(string xml)

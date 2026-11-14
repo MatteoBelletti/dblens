@@ -1,4 +1,6 @@
+using System.Data.Common;
 using DbLens.Core.Analysis.Fragmentation;
+using DbLens.Core.Inspection;
 using Npgsql;
 using NpgsqlTypes;
 
@@ -81,17 +83,11 @@ public sealed partial class PostgresInspector
         AnalyzeFragmentationRequest request,
         CancellationToken ct)
     {
-        await using var conn = new NpgsqlConnection(_connectionString);
-        await conn.OpenAsync(ct);
+        await using var conn = await OpenAsync(ct);
 
-        await using (var probe = conn.CreateCommand())
+        await using (var installed = Command(conn, PgStatTupleAvailableSql))
         {
-            probe.CommandText = PgStatTupleAvailableSql;
-            probe.CommandTimeout = QueryTimeoutSeconds;
-            var available = await probe.ExecuteScalarAsync(ct) as bool? ?? false;
-
-            if (!available)
-            {
+            if (await installed.ExecuteScalarAsync(ct) is not true)
                 return new IndexFragmentationStats(
                     Indexes: [],
                     StatsAvailable: false,
@@ -102,37 +98,20 @@ public sealed partial class PostgresInspector
                         "(requires superuser or a role with CREATE on the database). " +
                         "No fragmentation findings were produced.",
                     SourceDescription: "pgstattuple extension not installed.");
-            }
         }
 
-        var schemas = tables.Select(t => t.Schema).ToArray();
-        var names = tables.Select(t => t.Name).ToArray();
-
-        await using var cmd = conn.CreateCommand();
-        cmd.CommandText = IndexFragmentationSql;
-        cmd.CommandTimeout = QueryTimeoutSeconds;
-        cmd.Parameters.Add(new NpgsqlParameter("schemas", NpgsqlDbType.Array | NpgsqlDbType.Text) { Value = schemas });
-        cmd.Parameters.Add(new NpgsqlParameter("names", NpgsqlDbType.Array | NpgsqlDbType.Text) { Value = names });
+        var cmd = ScopedCommand(conn, IndexFragmentationSql, tables.Select(t => (t.Schema, t.Name)));
         cmd.Parameters.Add(new NpgsqlParameter("min_pages", NpgsqlDbType.Bigint) { Value = request.MinPageCount });
 
-        var indexes = new List<IndexFragmentation>();
-
-        await using var r = await cmd.ExecuteReaderAsync(ct);
-        while (await r.ReadAsync(ct))
-        {
-            var fragOrdinal = r.GetOrdinal("leaf_fragmentation");
-            var densityOrdinal = r.GetOrdinal("avg_leaf_density");
-
-            indexes.Add(new IndexFragmentation(
-                Schema: r.GetString(r.GetOrdinal("schema_name")),
-                Table: r.GetString(r.GetOrdinal("table_name")),
-                IndexName: r.GetString(r.GetOrdinal("index_name")),
-                FragmentationPercent: ReadPercent(r, fragOrdinal) ?? 0,
-                PageCount: r.GetInt64(r.GetOrdinal("page_count")),
-                PageDensityPercent: request.IncludePageDensity ? ReadPercent(r, densityOrdinal) : null,
-                IsPrimary: r.GetBoolean(r.GetOrdinal("is_primary")),
-                Method: r.GetString(r.GetOrdinal("method"))));
-        }
+        var indexes = await ReadAllAsync(cmd, r => new IndexFragmentation(
+            Schema: r.Text("schema_name"),
+            Table: r.Text("table_name"),
+            IndexName: r.Text("index_name"),
+            FragmentationPercent: Percent(r, "leaf_fragmentation") ?? 0,
+            PageCount: r.Number("page_count"),
+            PageDensityPercent: request.IncludePageDensity ? Percent(r, "avg_leaf_density") : null,
+            IsPrimary: r.Flag("is_primary"),
+            Method: r.Text("method")), ct);
 
         return new IndexFragmentationStats(
             Indexes: indexes,
@@ -144,14 +123,7 @@ public sealed partial class PostgresInspector
                 "(gin, gist, hash, brin) are not reported.");
     }
 
-    /// <summary>
-    /// pgstatindex returns NaN for degenerate cases such as an empty index; those are not
-    /// meaningful percentages and are treated as absent.
-    /// </summary>
-    private static double? ReadPercent(NpgsqlDataReader reader, int ordinal)
-    {
-        if (reader.IsDBNull(ordinal)) return null;
-        var value = reader.GetDouble(ordinal);
-        return double.IsNaN(value) || double.IsInfinity(value) ? null : value;
-    }
+    // An empty index reports NaN.
+    private static double? Percent(DbDataReader reader, string column) =>
+        reader.RealOrNull(column) is { } value && double.IsFinite(value) ? value : null;
 }

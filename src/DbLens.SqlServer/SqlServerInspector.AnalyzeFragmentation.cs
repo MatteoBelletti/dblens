@@ -1,5 +1,5 @@
-using System.Text.Json;
 using DbLens.Core.Analysis.Fragmentation;
+using DbLens.Core.Inspection;
 using Microsoft.Data.SqlClient;
 
 namespace DbLens.SqlServer;
@@ -70,40 +70,23 @@ public sealed partial class SqlServerInspector
         AnalyzeFragmentationRequest request,
         CancellationToken ct)
     {
-        var pairs = JsonSerializer.Serialize(
-            tables.Select(t => new { s = t.Schema, n = t.Name }));
-
         // LIMITED reads only the parent level of the b-tree and is cheap, but does not report
         // page density. SAMPLED reads 1% of leaf pages, which is what page density requires.
         var mode = request.IncludePageDensity ? "SAMPLED" : "LIMITED";
 
-        await using var conn = new SqlConnection(_connectionString);
-        await conn.OpenAsync(ct);
-        await using var cmd = conn.CreateCommand();
-        cmd.CommandText = IndexFragmentationSql;
-        cmd.CommandTimeout = QueryTimeoutSeconds;
-        cmd.Parameters.Add(new SqlParameter("pairs", System.Data.SqlDbType.NVarChar, -1) { Value = pairs });
+        await using var conn = await OpenAsync(ct);
+        var cmd = ScopedCommand(conn, IndexFragmentationSql, tables.Select(t => (t.Schema, t.Name)));
         cmd.Parameters.Add(new SqlParameter("mode", System.Data.SqlDbType.NVarChar, 128) { Value = mode });
 
-        var indexes = new List<IndexFragmentation>();
-
-        await using var r = await cmd.ExecuteReaderAsync(ct);
-        while (await r.ReadAsync(ct))
-        {
-            var densityOrdinal = r.GetOrdinal("avg_page_space_used_in_percent");
-            var pageCountOrdinal = r.GetOrdinal("page_count");
-            var fragOrdinal = r.GetOrdinal("avg_fragmentation_in_percent");
-
-            indexes.Add(new IndexFragmentation(
-                Schema: r.GetString(r.GetOrdinal("schema_name")),
-                Table: r.GetString(r.GetOrdinal("table_name")),
-                IndexName: r.GetString(r.GetOrdinal("index_name")),
-                FragmentationPercent: r.IsDBNull(fragOrdinal) ? 0 : r.GetDouble(fragOrdinal),
-                PageCount: r.IsDBNull(pageCountOrdinal) ? 0 : r.GetInt64(pageCountOrdinal),
-                PageDensityPercent: r.IsDBNull(densityOrdinal) ? null : r.GetDouble(densityOrdinal),
-                IsPrimary: r.GetBoolean(r.GetOrdinal("is_primary_key")),
-                Method: r.GetString(r.GetOrdinal("method"))));
-        }
+        var indexes = await ReadAllAsync(cmd, r => new IndexFragmentation(
+            Schema: r.Text("schema_name"),
+            Table: r.Text("table_name"),
+            IndexName: r.Text("index_name"),
+            FragmentationPercent: r.RealOrNull("avg_fragmentation_in_percent") ?? 0,
+            PageCount: r.NumberOrNull("page_count") ?? 0,
+            PageDensityPercent: r.RealOrNull("avg_page_space_used_in_percent"),
+            IsPrimary: r.Flag("is_primary_key"),
+            Method: r.Text("method")), ct);
 
         return new IndexFragmentationStats(
             Indexes: indexes,

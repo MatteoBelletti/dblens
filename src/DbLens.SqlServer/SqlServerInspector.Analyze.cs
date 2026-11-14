@@ -1,6 +1,4 @@
-using System.Text.Json;
-using DbLens.Core.Analysis.Indexes;
-using Microsoft.Data.SqlClient;
+using System.Data.Common;
 
 namespace DbLens.SqlServer;
 
@@ -13,7 +11,7 @@ public sealed partial class SqlServerInspector
             i.name          AS index_name,
             ISNULL(u.user_seeks,   0)
             + ISNULL(u.user_scans,   0)
-            + ISNULL(u.user_lookups, 0) AS total_scans,
+            + ISNULL(u.user_lookups, 0) AS scans,
             CAST(DATEDIFF(SECOND, si.sqlserver_start_time, GETUTCDATE()) AS FLOAT) / 86400.0
                             AS uptime_days
         FROM sys.indexes i
@@ -32,34 +30,6 @@ public sealed partial class SqlServerInspector
         )
         """;
 
-    protected override async Task<IndexUsageStats> QueryIndexUsageStatsAsync(
-        IReadOnlyList<ScopedTable> tables,
-        CancellationToken ct)
-    {
-        var pairs = JsonSerializer.Serialize(
-            tables.Select(t => new { s = t.Schema, n = t.Name }));
-
-        await using var conn = new SqlConnection(_connectionString);
-        await conn.OpenAsync(ct);
-        await using var cmd = conn.CreateCommand();
-        cmd.CommandText = IndexUsageStatsSql;
-        cmd.CommandTimeout = QueryTimeoutSeconds;
-        cmd.Parameters.Add(new SqlParameter("pairs", System.Data.SqlDbType.NVarChar, -1) { Value = pairs });
-
-        var scanCounts = new Dictionary<(string, string, string), long>();
-        double uptimeDays = 0;
-
-        await using var r = await cmd.ExecuteReaderAsync(ct);
-        while (await r.ReadAsync(ct))
-        {
-            uptimeDays = r.GetDouble(r.GetOrdinal("uptime_days"));
-            scanCounts[(
-                r.GetString(r.GetOrdinal("schema_name")),
-                r.GetString(r.GetOrdinal("table_name")),
-                r.GetString(r.GetOrdinal("index_name"))
-            )] = r.GetInt64(r.GetOrdinal("total_scans"));
-        }
-
-        return new IndexUsageStats(scanCounts, uptimeDays);
-    }
+    protected override DbCommand IndexUsageCommand(DbConnection conn, IReadOnlyList<ScopedTable> tables) =>
+        ScopedCommand(conn, IndexUsageStatsSql, tables.Select(t => (t.Schema, t.Name)));
 }

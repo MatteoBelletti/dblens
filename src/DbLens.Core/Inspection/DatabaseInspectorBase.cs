@@ -8,38 +8,25 @@ using Microsoft.Extensions.Logging;
 namespace DbLens.Core.Inspection;
 
 /// <summary>
-/// Everything an inspector does that does not depend on the SQL dialect.
+/// Everything an inspector does that does not depend on the SQL dialect: scope resolution, error
+/// wrapping, caveats, the statement guard, the verification loop. A dialect supplies a connection
+/// and catalog SQL. Built on System.Data.Common, so it needs no driver.
 ///
-/// A dialect supplies connections, catalog queries and plan parsing; this class owns the
-/// orchestration around them — scope resolution, error wrapping, the NotFound caveat, the
-/// explain_query statement guard, and the signal verification loop. Built on System.Data.Common
-/// so it needs no driver: both NpgsqlException and SqlException are DbExceptions.
-///
-/// The point is less line count than enforcement. A guard or caveat implemented once here cannot
-/// be forgotten by a dialect, and the two dialects cannot drift apart in behaviour the parity
-/// tests would only catch against a live database.
+/// A rule enforced here cannot be forgotten by one dialect, and the two cannot drift apart.
 /// </summary>
-public abstract partial class DatabaseInspectorBase : IDatabaseInspector
+public abstract partial class DatabaseInspectorBase(ILogger logger) : IDatabaseInspector
 {
-    /// <summary>
-    /// Applied to every command. Npgsql's default is 0 (infinite) unless set in the connection
-    /// string; SqlClient's is 30 seconds but is set explicitly so the intent is visible.
-    /// </summary>
+    /// <summary>Applied to every command: Npgsql's own default is no timeout at all.</summary>
     protected const int QueryTimeoutSeconds = 30;
 
-    private readonly ILogger _log;
-
-    protected DatabaseInspectorBase(ILogger logger)
-    {
-        _log = logger;
-    }
+    protected ILogger Log { get; } = logger;
 
     public abstract DatabaseDialect Dialect { get; }
 
-    /// <summary>Engine name for messages, e.g. "PostgreSQL" or "SQL Server".</summary>
+    /// <summary>Engine name for messages: "PostgreSQL" or "SQL Server".</summary>
     protected abstract string DialectDisplayName { get; }
 
-    /// <summary>Schema used when a table name carries no prefix: "public" or "dbo".</summary>
+    /// <summary>Schema of a table name without a prefix: "public" or "dbo".</summary>
     protected abstract string DefaultSchema { get; }
 
     /// <summary>A new, unopened connection. The caller owns and disposes it.</summary>
@@ -54,27 +41,78 @@ public abstract partial class DatabaseInspectorBase : IDatabaseInspector
         }
     }
 
-    public abstract Task<bool> TestConnectionAsync(CancellationToken ct = default);
+    public async Task<bool> TestConnectionAsync(CancellationToken ct = default)
+    {
+        await using var conn = await OpenAsync(ct);
+        await using var cmd = Command(conn, "SELECT 1");
+        await cmd.ExecuteScalarAsync(ct);
+        return true;
+    }
 
-    public abstract Task<DatabaseSchemaOverview> GetSchemaOverviewAsync(
-        SchemaOverviewRequest request, CancellationToken ct = default);
+    // ── Connections, commands, errors ──────────────────────────────────────────
 
-    public Task<TableDetailsResult> GetTableDetailsAsync(
-        TableDetailsRequest request, CancellationToken ct = default) =>
-        GetTableDetailsAsync(ParseTableNames(request.Tables, request.DefaultSchema), ct);
+    protected async Task<DbConnection> OpenAsync(CancellationToken ct)
+    {
+        var conn = CreateConnection();
+        try
+        {
+            await conn.OpenAsync(ct);
+            return conn;
+        }
+        catch
+        {
+            await conn.DisposeAsync();
+            throw;
+        }
+    }
+
+    protected static DbCommand Command(DbConnection conn, string sql, DbTransaction? tx = null)
+    {
+        var cmd = conn.CreateCommand();
+        cmd.CommandText = sql;
+        cmd.CommandTimeout = QueryTimeoutSeconds;
+        cmd.Transaction = tx;
+        return cmd;
+    }
+
+    /// <summary>Maps every row of the command's result, then disposes the command.</summary>
+    protected static async Task<List<T>> ReadAllAsync<T>(DbCommand cmd, Func<DbDataReader, T> map, CancellationToken ct)
+    {
+        await using (cmd)
+        {
+            var rows = new List<T>();
+            await using var reader = await cmd.ExecuteReaderAsync(ct);
+            while (await reader.ReadAsync(ct))
+                rows.Add(map(reader));
+            return rows;
+        }
+    }
 
     /// <summary>
-    /// Reads the catalog for the given names. Entries sharing an <see cref="ParsedName.Original"/>
-    /// are alternative readings of one requested name; the first that exists is the table.
+    /// Runs <paramref name="body"/> in a transaction of its own that is configured by
+    /// <paramref name="setupSql"/> and never committed. One per statement: an error poisons a
+    /// PostgreSQL transaction for everything after it.
     /// </summary>
-    protected abstract Task<TableDetailsResult> GetTableDetailsAsync(
-        IReadOnlyList<ParsedName> names, CancellationToken ct);
+    protected static async Task<T> InRolledBackTransactionAsync<T>(
+        DbConnection conn, string setupSql, CancellationToken ct, Func<DbTransaction, Task<T>> body)
+    {
+        await using var tx = await conn.BeginTransactionAsync(ct);
+        try
+        {
+            await using (var setup = Command(conn, setupSql, tx))
+                await setup.ExecuteNonQueryAsync(ct);
 
-    // ── Error handling ─────────────────────────────────────────────────────────
+            return await body(tx);
+        }
+        finally
+        {
+            await tx.RollbackAsync(CancellationToken.None);
+        }
+    }
 
     /// <summary>
-    /// Runs an operation and wraps driver errors in <see cref="DatabaseInspectionException"/>.
-    /// Cancellation passes through untouched: it is not a DbException, so it is never caught.
+    /// Wraps driver errors in <see cref="DatabaseInspectionException"/>. Cancellation is not a
+    /// DbException and passes through.
     /// </summary>
     protected async Task<T> RunAsync<T>(string operation, Func<Task<T>> body)
     {
@@ -89,108 +127,7 @@ public abstract partial class DatabaseInspectorBase : IDatabaseInspector
         }
     }
 
-    // ── Scope ──────────────────────────────────────────────────────────────────
-
-    /// <summary>A table in scope, with the catalog facts the engines size their work by.</summary>
-    protected sealed record ScopedTable(
-        string Schema,
-        string Name,
-        long? ApproximateRowCount,
-        long TotalSizeBytes,
-        long IncomingForeignKeys,
-        bool IsPartition = false)
-    {
-        public string Qualified => $"{Schema}.{Name}";
-    }
-
-    /// <summary>
-    /// The user tables an operation applies to. One overview call yields both the scope and the
-    /// row counts, so nothing downstream needs a second round trip to size its work.
-    /// </summary>
-    /// <param name="tables">Bare names to include; matched case-insensitively across schemas.</param>
-    /// <param name="excludeTables">Bare names to drop after inclusion.</param>
-    /// <param name="includePartitions">
-    /// A partition holds rows of its partitioned table and repeats its structure, so the structural
-    /// analyses read the parent alone unless a partition is named. Physical ones need the partitions.
-    /// </param>
-    protected async Task<TableScope> ResolveTableScopeAsync(
-        string? schema,
-        string[]? tables,
-        CancellationToken ct,
-        string[]? excludeTables = null,
-        bool includePartitions = false)
-    {
-        var overview = await GetSchemaOverviewAsync(
-            new SchemaOverviewRequest(SchemaFilter: schema, IncludeViews: false, IncludeSystemSchemas: false),
-            ct);
-
-        IEnumerable<ScopedTable> scope = overview.Schemas
-            .SelectMany(s => s.Objects
-                .Where(o => o.Kind == DatabaseObjectKind.Table)
-                .Select(o => new ScopedTable(
-                    s.Name, o.Name, o.ApproximateRowCount, o.TotalSizeBytes, o.IncomingForeignKeys,
-                    IsPartition: o.PartitionOf is not null)));
-
-        string? caveat = null;
-        var where = schema is null ? "" : $" in schema '{schema}'";
-
-        if (tables is { Length: > 0 })
-        {
-            var include = new HashSet<string>(tables, StringComparer.OrdinalIgnoreCase);
-            scope = scope.Where(t => include.Contains(t.Name)).ToList();
-
-            var missing = include.Except(scope.Select(t => t.Name), StringComparer.OrdinalIgnoreCase).ToList();
-            if (missing.Count > 0)
-                caveat = $"No table named {string.Join(", ", missing.Select(m => $"'{m}'"))} was found{where}, " +
-                         "so nothing was analyzed for it. Pass bare table names, as get_schema lists them.";
-        }
-        else
-        {
-            if (!includePartitions) scope = scope.Where(t => !t.IsPartition);
-
-            scope = scope.ToList();
-            if (!scope.Any())
-                caveat = $"No tables were found{where}: nothing was analyzed, which is not the same as nothing to report.";
-        }
-
-        if (excludeTables is { Length: > 0 })
-        {
-            var exclude = new HashSet<string>(excludeTables, StringComparer.OrdinalIgnoreCase);
-            scope = scope.Where(t => !exclude.Contains(t.Name));
-        }
-
-        return new TableScope(scope.ToList(), caveat);
-    }
-
-    /// <summary>
-    /// The tables in scope, and what to tell the caller when the request named something that is not
-    /// there: an empty analysis of a mistyped schema must not read as a clean one.
-    /// </summary>
-    protected sealed record TableScope(IReadOnlyList<ScopedTable> Tables, string? Caveat);
-
-    // Names from the catalog are passed as they are: joining them into "schema.name" and splitting
-    // again would misread any name that contains a dot.
-    protected Task<TableDetailsResult> GetTableDetailsAsync(
-        IReadOnlyList<ScopedTable> scope, CancellationToken ct) =>
-        GetTableDetailsAsync(scope.Select(t => new ParsedName(t.Schema, t.Name, t.Qualified)).ToList(), ct);
-
-    /// <summary>
-    /// The caveat every diagnostic appends when some requested tables could not be inspected.
-    /// Null when nothing was missing.
-    /// </summary>
-    protected static string? NotFoundCaveat(TableDetailsResult details) =>
-        details.NotFound.Count == 0
-            ? null
-            : "The following tables could not be inspected and were excluded from the analysis: " +
-              string.Join(", ", details.NotFound) + ".";
-
-    protected static IReadOnlyList<string> WithCaveats(IReadOnlyList<string> caveats, params string?[] extra) =>
-        [..caveats, ..extra.OfType<string>()];
-
-    protected static string Describe(string[]? tables) =>
-        tables is null ? "*" : string.Join(",", tables);
-
-    // ── Shared catalog helpers for GetSchemaOverviewAsync / GetTableDetailsAsync ──
+    // ── Schema overview ────────────────────────────────────────────────────────
 
     /// <summary>A row of the schema overview query, identical in shape on both dialects.</summary>
     protected sealed record OverviewRow(
@@ -207,7 +144,31 @@ public abstract partial class DatabaseInspectorBase : IDatabaseInspector
         string? Comment,
         string? PartitionOf = null);
 
-    protected static SchemaInfo BuildSchemaInfo(IGrouping<string, OverviewRow> group)
+    protected abstract Task<List<OverviewRow>> QueryOverviewAsync(
+        DbConnection conn, SchemaOverviewRequest request, CancellationToken ct);
+
+    public Task<DatabaseSchemaOverview> GetSchemaOverviewAsync(
+        SchemaOverviewRequest request, CancellationToken ct = default) =>
+        RunAsync("schema overview", async () =>
+        {
+            await using var conn = await OpenAsync(ct);
+            var rows = await QueryOverviewAsync(conn, request, ct);
+
+            var schemas = rows
+                .GroupBy(r => r.SchemaName)
+                .OrderBy(g => g.Key)
+                .Select(BuildSchemaInfo)
+                .ToList();
+
+            return new DatabaseSchemaOverview(
+                Summary: BuildOverviewSummary(schemas),
+                Dialect: Dialect.ToString(),
+                Database: conn.Database,
+                GeneratedAt: Now(),
+                Schemas: schemas);
+        });
+
+    private static SchemaInfo BuildSchemaInfo(IGrouping<string, OverviewRow> group)
     {
         var objects = group
             .Select(r => new DatabaseObject(
@@ -232,15 +193,80 @@ public abstract partial class DatabaseInspectorBase : IDatabaseInspector
             Objects: objects);
     }
 
+    private static string BuildOverviewSummary(IReadOnlyList<SchemaInfo> schemas)
+    {
+        var objects = schemas.SelectMany(s => s.Objects).ToList();
+
+        // A partition's rows and bytes are already in its partitioned table's figures.
+        var counted = objects.Where(o => o.PartitionOf is null).ToList();
+        var tables = schemas.Sum(s => s.TableCount);
+        var views = schemas.Sum(s => s.ViewCount);
+        var partitions = objects.Count - counted.Count;
+        var unanalyzed = counted.Any(o => o.Kind == DatabaseObjectKind.Table && o.ApproximateRowCount is null);
+
+        return $"Found {Plural(tables, "table")} and {(views == 0 ? "0 views" : Plural(views, "view"))} " +
+               $"across {Plural(schemas.Count, "schema")}. " +
+               $"Total approximate rows: {counted.Sum(o => o.ApproximateRowCount ?? 0)}" +
+               (unanalyzed ? " (some tables not yet analyzed; run ANALYZE for accurate counts)" : "") + ". " +
+               $"Total size on disk: {FormatBytes(counted.Sum(o => o.TotalSizeBytes))}." +
+               (partitions > 0
+                   ? $" {partitions} of the tables are partitions (PartitionOf set): their rows and size are " +
+                     "counted once, in their partitioned table."
+                   : "") +
+               " NOTE: column names are NOT included in this response; only ColumnCount per object is available. " +
+               "Do NOT infer or generate column names. Call get_table_details for exact column information.";
+    }
+
+    // ── Table details ──────────────────────────────────────────────────────────
+
     /// <summary>One reading of a table name as the caller wrote it.</summary>
     protected sealed record ParsedName(string Schema, string Name, string Original);
 
     /// <summary>
-    /// Every reading of each name, most likely first. A dot usually separates schema from table, but
-    /// it may belong to either ("my.schema.orders"), so each split is offered and the catalog decides.
+    /// The catalog rows of the requested tables, keyed by each table's real (schema, name).
+    /// <see cref="ActualNames"/> maps a requested reading to that name, which differs in case on a
+    /// case-insensitive database.
+    /// </summary>
+    protected sealed record TableCatalog(
+        IReadOnlyDictionary<(string Schema, string Name), (string Schema, string Name)> ActualNames,
+        IReadOnlyDictionary<(string Schema, string Name), (string Kind, string? Comment)> Tables,
+        ILookup<(string Schema, string Name), ColumnDetail> Columns,
+        ILookup<(string Schema, string Name), IndexDetail> Indexes,
+        IReadOnlyList<ForeignKeyDetail> ForeignKeys,
+        ILookup<(string Schema, string Name), CheckConstraintDetail> Checks,
+        ILookup<(string Schema, string Name), UniqueConstraintDetail> Uniques);
+
+    /// <summary>
+    /// Reads the catalog for the given names. Entries sharing an <see cref="ParsedName.Original"/>
+    /// are alternative readings of one requested name.
+    /// </summary>
+    protected abstract Task<TableCatalog> ReadTableCatalogAsync(
+        DbConnection conn, IReadOnlyList<ParsedName> names, CancellationToken ct);
+
+    public Task<TableDetailsResult> GetTableDetailsAsync(
+        TableDetailsRequest request, CancellationToken ct = default) =>
+        GetTableDetailsAsync(ParseTableNames(request.Tables, request.DefaultSchema), ct);
+
+    // Catalog names are passed as pairs: joined into "schema.name" and split again, a name that
+    // contains a dot would be misread.
+    protected Task<TableDetailsResult> GetTableDetailsAsync(
+        IReadOnlyList<ScopedTable> scope, CancellationToken ct) =>
+        GetTableDetailsAsync(scope.Select(t => new ParsedName(t.Schema, t.Name, t.Qualified)).ToList(), ct);
+
+    private Task<TableDetailsResult> GetTableDetailsAsync(IReadOnlyList<ParsedName> names, CancellationToken ct) =>
+        RunAsync("table details", async () =>
+        {
+            await using var conn = await OpenAsync(ct);
+            return BuildTableDetails(names, conn.Database, await ReadTableCatalogAsync(conn, names, ct));
+        });
+
+    /// <summary>
+    /// Every reading of each name, most likely first. A dot usually separates schema from table but
+    /// may belong to either ("my.schema.orders"), so each split is offered and the catalog decides.
     /// </summary>
     protected IReadOnlyList<ParsedName> ParseTableNames(string[] tables, string? defaultSchema)
     {
+        var schema = defaultSchema ?? DefaultSchema;
         var parsed = new List<ParsedName>();
 
         foreach (var table in tables)
@@ -249,7 +275,7 @@ public abstract partial class DatabaseInspectorBase : IDatabaseInspector
             {
                 parsed.Add(quoted.Length == 2
                     ? new ParsedName(quoted[0], quoted[1], table)
-                    : new ParsedName(defaultSchema ?? DefaultSchema, quoted[0], table));
+                    : new ParsedName(schema, quoted[0], table));
                 continue;
             }
 
@@ -257,7 +283,7 @@ public abstract partial class DatabaseInspectorBase : IDatabaseInspector
                 if (dot > 0 && dot < table.Length - 1)
                     parsed.Add(new ParsedName(table[..dot], table[(dot + 1)..], table));
 
-            parsed.Add(new ParsedName(defaultSchema ?? DefaultSchema, table, table));
+            parsed.Add(new ParsedName(schema, table, table));
         }
 
         return parsed;
@@ -288,22 +314,7 @@ public abstract partial class DatabaseInspectorBase : IDatabaseInspector
         return parts.Count <= 2 ? parts.Select(p => p.Trim()).ToArray() : null;
     }
 
-    /// <summary>The catalog rows of a table-details read, keyed by the table's real (schema, name).</summary>
-    protected sealed record TableCatalog(
-        string? Database,
-        IReadOnlyDictionary<(string Schema, string Name), (string Schema, string Name)> ActualNames,
-        IReadOnlyDictionary<(string Schema, string Name), (string Kind, string? Comment)> Tables,
-        IReadOnlyDictionary<(string Schema, string Name), List<ColumnDetail>> Columns,
-        IReadOnlyDictionary<(string Schema, string Name), List<IndexDetail>> Indexes,
-        IReadOnlyList<ForeignKeyDetail> ForeignKeys,
-        IReadOnlyDictionary<(string Schema, string Name), List<CheckConstraintDetail>> Checks,
-        IReadOnlyDictionary<(string Schema, string Name), List<UniqueConstraintDetail>> Uniques);
-
-    /// <summary>
-    /// Assembles the result in request order. <see cref="TableCatalog.ActualNames"/> maps a requested
-    /// reading to the name the catalog holds, which differs in case on a case-insensitive database.
-    /// </summary>
-    protected TableDetailsResult BuildTableDetails(IReadOnlyList<ParsedName> names, TableCatalog catalog)
+    private TableDetailsResult BuildTableDetails(IReadOnlyList<ParsedName> names, string database, TableCatalog catalog)
     {
         var notFound = new List<string>();
         var tables = new List<TableDetail>();
@@ -326,16 +337,15 @@ public abstract partial class DatabaseInspectorBase : IDatabaseInspector
             var key = match[0];
             if (!seen.Add(key)) continue;
 
-            var info = catalog.Tables[key];
-            var indexes = catalog.Indexes.GetValueOrDefault(key, []).OrderBy(i => i.Name, StringComparer.Ordinal).ToList();
+            var indexes = catalog.Indexes[key].OrderBy(i => i.Name, StringComparer.Ordinal).ToList();
             var primaryKey = indexes.FirstOrDefault(i => i.IsPrimary);
 
             tables.Add(new TableDetail(
                 Schema: key.Schema,
                 Name: key.Name,
-                Kind: info.Kind,
-                Comment: info.Comment,
-                Columns: catalog.Columns.GetValueOrDefault(key, []),
+                Kind: catalog.Tables[key].Kind,
+                Comment: catalog.Tables[key].Comment,
+                Columns: catalog.Columns[key].ToList(),
                 PrimaryKey: primaryKey is null ? null : new PrimaryKeyInfo(primaryKey.Name, primaryKey.Columns),
                 Indexes: indexes,
                 ForeignKeysOutgoing: catalog.ForeignKeys
@@ -344,31 +354,118 @@ public abstract partial class DatabaseInspectorBase : IDatabaseInspector
                 ForeignKeysIncoming: catalog.ForeignKeys
                     .Where(fk => (fk.ToSchema, fk.ToTable) == key)
                     .OrderBy(fk => fk.ConstraintName, StringComparer.Ordinal).ToList(),
-                CheckConstraints: catalog.Checks.GetValueOrDefault(key, []).OrderBy(c => c.Name, StringComparer.Ordinal).ToList(),
-                UniqueConstraints: catalog.Uniques.GetValueOrDefault(key, []).OrderBy(u => u.Name, StringComparer.Ordinal).ToList()));
+                CheckConstraints: catalog.Checks[key].OrderBy(c => c.Name, StringComparer.Ordinal).ToList(),
+                UniqueConstraints: catalog.Uniques[key].OrderBy(u => u.Name, StringComparer.Ordinal).ToList()));
         }
-
-        var requested = tables.Count + notFound.Count;
-        var totalColumns = tables.Sum(t => t.Columns.Count);
-        var totalIndexes = tables.Sum(t => t.Indexes.Count);
-        var totalFks = catalog.ForeignKeys.Count;
 
         return new TableDetailsResult(
             Summary:
-                $"Retrieved details for {tables.Count} of {requested} requested table{(requested != 1 ? "s" : "")}. " +
-                $"Found {totalColumns} column{(totalColumns != 1 ? "s" : "")}, " +
-                $"{totalIndexes} index{(totalIndexes != 1 ? "es" : "")}, " +
-                $"{totalFks} foreign key{(totalFks != 1 ? "s" : "")}. " +
+                $"Retrieved details for {tables.Count} of {Plural(tables.Count + notFound.Count, "requested table")}. " +
+                $"Found {Plural(tables.Sum(t => t.Columns.Count), "column")}, " +
+                $"{Plural(tables.Sum(t => t.Indexes.Count), "index", "indexes")}, " +
+                $"{Plural(catalog.ForeignKeys.Count, "foreign key")}. " +
                 "NOTE: view SQL bodies (SELECT definitions) are NOT included — do not infer or generate view logic. " +
                 "Row data is NOT included — do not infer or generate sample values. " +
                 "Tables in the NotFound list do not exist in this database — do not infer or generate their structure.",
             Dialect: Dialect.ToString(),
-            Database: catalog.Database ?? "unknown",
-            GeneratedAt: DateTime.UtcNow.ToString("O", CultureInfo.InvariantCulture),
+            Database: database,
+            GeneratedAt: Now(),
             Truncated: false,
             NotFound: notFound,
             Tables: tables);
     }
+
+    // ── Scope ──────────────────────────────────────────────────────────────────
+
+    /// <summary>A table in scope, with the catalog facts the engines size their work by.</summary>
+    protected sealed record ScopedTable(
+        string Schema,
+        string Name,
+        long? ApproximateRowCount,
+        long TotalSizeBytes,
+        long IncomingForeignKeys,
+        bool IsPartition = false)
+    {
+        public string Qualified => $"{Schema}.{Name}";
+    }
+
+    /// <summary>
+    /// The tables in scope, and what to tell the caller when the request named something that is
+    /// not there: an empty analysis of a mistyped schema must not read as a clean one.
+    /// </summary>
+    protected sealed record TableScope(IReadOnlyList<ScopedTable> Tables, string? Caveat);
+
+    /// <summary>
+    /// The user tables an operation applies to. One overview call yields both the scope and the
+    /// row counts, so nothing downstream needs a second round trip to size its work.
+    /// </summary>
+    /// <param name="tables">Bare names to include; matched case-insensitively across schemas.</param>
+    /// <param name="excludeTables">Bare names to drop after inclusion.</param>
+    /// <param name="includePartitions">
+    /// A partition repeats its partitioned table's structure, so the structural analyses read the
+    /// parent alone unless a partition is named. The physical ones need the partitions.
+    /// </param>
+    protected async Task<TableScope> ResolveTableScopeAsync(
+        string? schema,
+        string[]? tables,
+        CancellationToken ct,
+        string[]? excludeTables = null,
+        bool includePartitions = false)
+    {
+        var overview = await GetSchemaOverviewAsync(
+            new SchemaOverviewRequest(SchemaFilter: schema, IncludeViews: false, IncludeSystemSchemas: false),
+            ct);
+
+        var scope = overview.Schemas
+            .SelectMany(s => s.Objects.Select(o => new ScopedTable(
+                s.Name, o.Name, o.ApproximateRowCount, o.TotalSizeBytes, o.IncomingForeignKeys,
+                IsPartition: o.PartitionOf is not null)))
+            .ToList();
+
+        string? caveat = null;
+        var where = schema is null ? "" : $" in schema '{schema}'";
+
+        if (tables is { Length: > 0 })
+        {
+            var include = new HashSet<string>(tables, StringComparer.OrdinalIgnoreCase);
+            scope = scope.Where(t => include.Contains(t.Name)).ToList();
+
+            var missing = include.Except(scope.Select(t => t.Name), StringComparer.OrdinalIgnoreCase).ToList();
+            if (missing.Count > 0)
+                caveat = $"No table named {string.Join(", ", missing.Select(m => $"'{m}'"))} was found{where}, " +
+                         "so nothing was analyzed for it. Pass bare table names, as get_schema lists them.";
+        }
+        else
+        {
+            if (!includePartitions) scope = scope.Where(t => !t.IsPartition).ToList();
+
+            if (scope.Count == 0)
+                caveat = $"No tables were found{where}: nothing was analyzed, which is not the same as nothing to report.";
+        }
+
+        if (excludeTables is { Length: > 0 })
+        {
+            var exclude = new HashSet<string>(excludeTables, StringComparer.OrdinalIgnoreCase);
+            scope = scope.Where(t => !exclude.Contains(t.Name)).ToList();
+        }
+
+        return new TableScope(scope, caveat);
+    }
+
+    /// <summary>The caveat for requested tables that could not be inspected; null when none.</summary>
+    protected static string? NotFoundCaveat(TableDetailsResult details) =>
+        details.NotFound.Count == 0
+            ? null
+            : "The following tables could not be inspected and were excluded from the analysis: " +
+              string.Join(", ", details.NotFound) + ".";
+
+    protected static IReadOnlyList<string> WithCaveats(IReadOnlyList<string> caveats, params string?[] extra) =>
+        [..caveats, ..extra.OfType<string>()];
+
+    protected static string Describe(string[]? tables) =>
+        tables is null ? "*" : string.Join(",", tables);
+
+    // ── Formatting ─────────────────────────────────────────────────────────────
 
     public static string FormatBytes(long bytes) => bytes switch
     {
@@ -378,5 +475,8 @@ public abstract partial class DatabaseInspectorBase : IDatabaseInspector
         _ => (bytes / (1024.0 * 1024.0 * 1024.0)).ToString("F2", CultureInfo.InvariantCulture) + " GB",
     };
 
-    protected ILogger Log => _log;
+    private static string Plural(int count, string singular, string? plural = null) =>
+        $"{count} {(count == 1 ? singular : plural ?? singular + "s")}";
+
+    private static string Now() => DateTime.UtcNow.ToString("O", CultureInfo.InvariantCulture);
 }

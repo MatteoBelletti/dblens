@@ -41,8 +41,7 @@ public abstract partial class DatabaseInspectorBase
                 .Distinct(StringComparer.OrdinalIgnoreCase).Order(StringComparer.OrdinalIgnoreCase)
                 .ToList() ?? [];
 
-            await using var conn = CreateConnection();
-            await conn.OpenAsync(ct);
+            await using var conn = await OpenAsync(ct);
 
             var primary = await RunReadOnlyAsync(conn, request.Sql, request.MaxRows, ct);
 
@@ -83,27 +82,15 @@ public abstract partial class DatabaseInspectorBase
             throw new ArgumentException($"Refusing to run the {what}. {guard.RejectionReason}");
     }
 
-    private async Task<QueryResult> RunReadOnlyAsync(DbConnection conn, string sql, int maxRows, CancellationToken ct)
+    private Task<QueryResult> RunReadOnlyAsync(DbConnection conn, string sql, int maxRows, CancellationToken ct)
     {
         var sw = Stopwatch.StartNew();
 
-        await using var tx = await conn.BeginTransactionAsync(ct);
-        try
+        return InRolledBackTransactionAsync(conn, ReadOnlyQuerySetupSql, ct, async tx =>
         {
-            await using (var setup = conn.CreateCommand())
-            {
-                setup.Transaction = tx;
-                setup.CommandText = ReadOnlyQuerySetupSql;
-                setup.CommandTimeout = QueryTimeoutSeconds;
-                await setup.ExecuteNonQueryAsync(ct);
-            }
-
-            await using var cmd = conn.CreateCommand();
-            cmd.Transaction = tx;
-            cmd.CommandText = sql;
-            cmd.CommandTimeout = QueryTimeoutSeconds;
-
+            await using var cmd = Command(conn, sql, tx);
             await using var reader = await cmd.ExecuteReaderAsync(ct);
+
             var columns = Enumerable.Range(0, reader.FieldCount).Select(reader.GetName).ToList();
             var rows = new List<IReadOnlyList<object?>>();
             var truncated = false;
@@ -115,10 +102,6 @@ public abstract partial class DatabaseInspectorBase
             }
 
             return new QueryResult(columns, rows, truncated, Math.Round(sw.Elapsed.TotalMilliseconds, 1));
-        }
-        finally
-        {
-            await tx.RollbackAsync(CancellationToken.None);
-        }
+        });
     }
 }

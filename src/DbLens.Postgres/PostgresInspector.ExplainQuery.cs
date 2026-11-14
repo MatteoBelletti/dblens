@@ -10,40 +10,21 @@ public sealed partial class PostgresInspector
         ExplainQueryRequest request, CancellationToken ct) =>
         new(ParsePlan(await FetchPlanJsonAsync(request, ct)), []);
 
+    // A READ ONLY transaction makes the restriction engine-enforced rather than merely checked,
+    // for estimated plans too: a write is still planned without ANALYZE, but nothing can run it.
     private async Task<string> FetchPlanJsonAsync(ExplainQueryRequest request, CancellationToken ct)
     {
-        await using var conn = new NpgsqlConnection(_connectionString);
-        await conn.OpenAsync(ct);
-
         var options = request.Analyze
             ? "ANALYZE, BUFFERS, COSTS, VERBOSE, FORMAT JSON"
             : "COSTS, VERBOSE, FORMAT JSON";
 
-        // Second guard, for estimated plans too: a READ ONLY transaction makes the restriction
-        // engine-enforced rather than merely checked, and the rollback discards anything the
-        // statement touched. A write is still planned without ANALYZE; only executing it is refused.
-        await using var tx = await conn.BeginTransactionAsync(ct);
-        try
+        await using var conn = await OpenAsync(ct);
+
+        return await InRolledBackTransactionAsync(conn, ReadOnlyQuerySetupSql, ct, async tx =>
         {
-            await using (var readOnly = conn.CreateCommand())
-            {
-                readOnly.Transaction = tx;
-                readOnly.CommandText = ReadOnlyQuerySetupSql;
-                readOnly.CommandTimeout = QueryTimeoutSeconds;
-                await readOnly.ExecuteNonQueryAsync(ct);
-            }
-
-            await using var cmd = conn.CreateCommand();
-            cmd.Transaction = tx;
-            cmd.CommandText = $"EXPLAIN ({options}) {request.Sql}";
-            cmd.CommandTimeout = QueryTimeoutSeconds;
-
+            await using var cmd = Command(conn, $"EXPLAIN ({options}) {request.Sql}", tx);
             return (await cmd.ExecuteScalarAsync(ct))?.ToString() ?? "[]";
-        }
-        finally
-        {
-            await tx.RollbackAsync(CancellationToken.None);
-        }
+        });
     }
 
     /// <summary>Maps PostgreSQL's JSON plan onto the dialect-neutral node tree.</summary>
