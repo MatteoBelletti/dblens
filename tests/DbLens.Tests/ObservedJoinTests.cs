@@ -14,7 +14,7 @@ public class ObservedJoinTests
         Table("addresses", [Col("id", "bigint"), Col("city")]);
 
     private static IReadOnlyList<ObservedJoin> Extract(string sql, SqlSourceKind kind = SqlSourceKind.View) =>
-        JoinPredicateExtractor.Extract([new SqlSource(kind, "public.v", sql)], [Shipments, Addresses], "public");
+        JoinPredicateExtractor.Extract([new SqlSource(kind, "public.v", sql)], [Shipments, Addresses], "public", DatabaseDialect.PostgreSql);
 
     [Fact]
     public void AnsiJoinWithAliases_IsResolvedAndOrientedTowardTheKey()
@@ -35,7 +35,7 @@ public class ObservedJoinTests
 
         var joins = JoinPredicateExtractor.Extract(
             [new SqlSource(SqlSourceKind.View, "public.v", "SELECT 1 FROM shipments s JOIN addresses a ON a.id = s.ship_to")],
-            [Shipments, Addresses, upper], "public");
+            [Shipments, Addresses, upper], "public", DatabaseDialect.PostgreSql);
 
         joins.Should().BeEmpty();
     }
@@ -111,7 +111,7 @@ public class ObservedJoinTests
 
         var joins = JoinPredicateExtractor.Extract(
             [new SqlSource(SqlSourceKind.Workload, "pg_stat_statements", "SELECT 1 FROM lines l JOIN docs d ON d.id = l.doc_id", 42)],
-            tables, "public");
+            tables, "public", DatabaseDialect.PostgreSql);
         var outcome = UndeclaredForeignKeyRule.Find(tables, joins);
 
         outcome.Candidates.Single().Parent.Name.Should().Be("docs");

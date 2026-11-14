@@ -59,6 +59,28 @@ public sealed partial class PostgresInspector
         AnalyzeFragmentationRequest request,
         CancellationToken ct)
     {
+        try
+        {
+            return await ReadFragmentationStatsAsync(tables, request, ct);
+        }
+        catch (PostgresException ex) when (ex.SqlState == PostgresErrorCodes.InsufficientPrivilege)
+        {
+            return new IndexFragmentationStats(
+                Indexes: [],
+                StatsAvailable: false,
+                UnavailableReason:
+                    $"The current login may not run pgstatindex ({ex.MessageText}). " +
+                    "Grant it with: GRANT pg_stat_scan_tables TO your_login; (pg_monitor includes it). " +
+                    "No fragmentation findings were produced.",
+                SourceDescription: "Permission denied on pgstatindex.");
+        }
+    }
+
+    private async Task<IndexFragmentationStats> ReadFragmentationStatsAsync(
+        IReadOnlyList<ScopedTable> tables,
+        AnalyzeFragmentationRequest request,
+        CancellationToken ct)
+    {
         await using var conn = new NpgsqlConnection(_connectionString);
         await conn.OpenAsync(ct);
 

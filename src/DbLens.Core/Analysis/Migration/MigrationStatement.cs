@@ -6,6 +6,8 @@ public enum MigrationOperationKind
     Unknown,
     CreateTable,
     DropTable,
+    TruncateTable,
+    DropSchema,
     AddColumn,
     DropColumn,
     AlterColumnType,

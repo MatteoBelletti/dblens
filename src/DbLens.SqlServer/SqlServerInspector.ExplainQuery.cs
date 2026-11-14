@@ -144,24 +144,25 @@ public sealed partial class SqlServerInspector
             .Select(ParseRelOp)
             .ToList();
 
-        var runtime = relOp.Descendants(ShowPlanNs + "RunTimeCountersPerThread")
-            .Where(e => e.Ancestors(ShowPlanNs + "RelOp").FirstOrDefault() == relOp)
-            .ToList();
-
-        double? actualRows = runtime.Count > 0
-            ? runtime.Sum(e => ParseDouble((string?)e.Attribute("ActualRows")) ?? 0)
-            : null;
-
-        double? actualTimeMs = runtime.Count > 0
-            ? runtime.Max(e => ParseDouble((string?)e.Attribute("ActualElapsedms")) ?? 0)
-            : null;
+        var runtime = Own(relOp, "RunTimeCountersPerThread").ToList();
 
         long? executions = runtime.Count > 0
             ? (long)runtime.Sum(e => ParseDouble((string?)e.Attribute("ActualExecutions")) ?? 0)
             : null;
 
-        var objectElement = relOp.Descendants(ShowPlanNs + "Object")
-            .FirstOrDefault(e => e.Ancestors(ShowPlanNs + "RelOp").FirstOrDefault() == relOp);
+        // The counters are totals over every execution and thread; the node model holds rows per
+        // execution, as PostgreSQL reports them and as EstimateRows is expressed.
+        double? actualRows = runtime.Count > 0
+            ? runtime.Sum(e => ParseDouble((string?)e.Attribute("ActualRows")) ?? 0) / Math.Max(executions ?? 1, 1)
+            : null;
+
+        var rowsRead = runtime.Where(e => e.Attribute("ActualRowsRead") is not null).ToList();
+
+        double? actualTimeMs = runtime.Count > 0
+            ? runtime.Max(e => ParseDouble((string?)e.Attribute("ActualElapsedms")) ?? 0)
+            : null;
+
+        var objectElement = Own(relOp, "Object").FirstOrDefault();
 
         return new QueryPlanNode(
             NodeType: physicalOp,
@@ -173,12 +174,19 @@ public sealed partial class SqlServerInspector
             ActualRows: actualRows,
             ActualTimeMs: actualTimeMs,
             Loops: executions,
-            SpilledToDisk: relOp.Descendants(ShowPlanNs + "SpillToTempDb").Any(),
-            Filter: Clean((string?)relOp.Descendants(ShowPlanNs + "Predicate")
-                .FirstOrDefault()?.Descendants(ShowPlanNs + "ScalarOperator")
-                .FirstOrDefault()?.Attribute("ScalarString")),
-            Children: children);
+            SpilledToDisk: Own(relOp, "SpillToTempDb").Any(),
+            Filter: (string?)Own(relOp, "Predicate").FirstOrDefault()
+                ?.Descendants(ShowPlanNs + "ScalarOperator").FirstOrDefault()?.Attribute("ScalarString"),
+            Children: children,
+            RowsRead: rowsRead.Count > 0
+                ? rowsRead.Sum(e => ParseDouble((string?)e.Attribute("ActualRowsRead")) ?? 0)
+                : null);
     }
+
+    /// <summary>Elements that belong to this operator rather than to one nested under it.</summary>
+    private static IEnumerable<XElement> Own(XElement relOp, string name) =>
+        relOp.Descendants(ShowPlanNs + name)
+            .Where(e => e.Ancestors(ShowPlanNs + "RelOp").FirstOrDefault() == relOp);
 
     private static QueryPlanNodeKind MapKind(string physicalOp) => physicalOp switch
     {

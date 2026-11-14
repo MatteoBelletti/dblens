@@ -139,8 +139,15 @@ public sealed class PostgresEdgeFixture : IAsyncLifetime, IEdgeFixture
             id int PRIMARY KEY, event_id int, event_date date,
             FOREIGN KEY (event_id, event_date) REFERENCES edge.events (id, created_at) ON DELETE CASCADE);
 
+        CREATE ROLE dblens_edge_limited LOGIN PASSWORD 'limited';
+        GRANT USAGE ON SCHEMA edge TO dblens_edge_limited;
+        GRANT SELECT ON ALL TABLES IN SCHEMA edge TO dblens_edge_limited;
+
         ANALYZE;
         """;
+
+    private const string DropSql =
+        $"DROP DATABASE IF EXISTS {Database} WITH (FORCE); DROP ROLE IF EXISTS dblens_edge_limited";
 
     private static string AdminConnectionString =>
         Environment.GetEnvironmentVariable("DBLENS_TEST_PG_ADMIN_CONNECTION")
@@ -152,6 +159,8 @@ public sealed class PostgresEdgeFixture : IAsyncLifetime, IEdgeFixture
     public bool IsReachable { get; private set; }
 
     public IDatabaseInspector? Inspector { get; private set; }
+
+    public IDatabaseInspector? LimitedInspector { get; private set; }
 
     public async Task InitializeAsync()
     {
@@ -165,18 +174,25 @@ public sealed class PostgresEdgeFixture : IAsyncLifetime, IEdgeFixture
         }
 
         // From here a failure is a broken fixture, not an unreachable database: it must fail, not skip.
-        await ExecuteAsync(AdminConnectionString, $"DROP DATABASE IF EXISTS {Database} WITH (FORCE)");
+        foreach (var statement in DropSql.Split(';'))
+            await ExecuteAsync(AdminConnectionString, statement);
         await ExecuteAsync(AdminConnectionString, $"CREATE DATABASE {Database}");
         await ExecuteAsync(EdgeConnectionString, SetupSql);
 
         Inspector = new PostgresInspector(EdgeConnectionString, NullLogger<PostgresInspector>.Instance);
+        LimitedInspector = new PostgresInspector(
+            new NpgsqlConnectionStringBuilder(EdgeConnectionString) { Username = "dblens_edge_limited", Password = "limited" }.ToString(),
+            NullLogger<PostgresInspector>.Instance);
         IsReachable = true;
     }
 
     public async Task DisposeAsync()
     {
-        if (IsReachable)
-            await ExecuteAsync(AdminConnectionString, $"DROP DATABASE IF EXISTS {Database} WITH (FORCE)");
+        if (!IsReachable) return;
+
+        // DROP DATABASE cannot share a statement batch with anything else.
+        foreach (var statement in DropSql.Split(';'))
+            await ExecuteAsync(AdminConnectionString, statement);
     }
 
     private static async Task ExecuteAsync(string connectionString, string sql)

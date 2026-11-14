@@ -26,6 +26,20 @@ public sealed class QueryPlanAnalysisTests
         new(nodeType, kind, relation, null, estimatedRows, cost, actualRows,
             actualRows is null ? null : 1.0, loops, spilled, filter, children);
 
+    [Fact]
+    public void ScanThatReadsManyRowsAndReturnsNone_IsStillALargeScan()
+    {
+        // The filter threw away everything the scan read; the cost was reading it.
+        var scan = Node("Seq Scan", QueryPlanNodeKind.TableScan, estimatedRows: 1, actualRows: 0, filter: "pad ~~ '%y%'")
+            with { RowsRead = 750_000 };
+
+        var finding = Analyze(scan, executed: true).Findings.Single(f => f.RuleId == QueryPlanRuleIds.SeqScanLargeTable);
+
+        finding.Title.Should().Contain("750,000");
+        finding.Description.Should().Contain("reading 750,000 rows");
+        finding.Evidence.Should().Be(Evidence.Measured);
+    }
+
     private static ExplainQueryResult Analyze(
         QueryPlanNode? root,
         bool executed = false,

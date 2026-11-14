@@ -75,7 +75,13 @@ public sealed class SqlServerEdgeFixture : IAsyncLifetime, IEdgeFixture
         "CREATE INDEX ix_a ON edge.covered (a)",
         "CREATE INDEX ix_a_incl ON edge.covered (a) INCLUDE (b)",
         "CREATE INDEX ix_a_b ON edge.covered (a, b)",
+
+        $"CREATE LOGIN {LimitedLogin} WITH PASSWORD = 'Limited123!', CHECK_POLICY = OFF",
+        $"CREATE USER {LimitedLogin} FOR LOGIN {LimitedLogin}",
+        $"GRANT SELECT ON SCHEMA::edge TO {LimitedLogin}",
     ];
+
+    private const string LimitedLogin = "dblens_edge_limited";
 
     private static string AdminConnectionString =>
         Environment.GetEnvironmentVariable("DBLENS_TEST_SS_ADMIN_CONNECTION")
@@ -86,11 +92,14 @@ public sealed class SqlServerEdgeFixture : IAsyncLifetime, IEdgeFixture
 
     private const string DropSql =
         $"IF DB_ID('{Database}') IS NOT NULL BEGIN " +
-        $"ALTER DATABASE {Database} SET SINGLE_USER WITH ROLLBACK IMMEDIATE; DROP DATABASE {Database}; END";
+        $"ALTER DATABASE {Database} SET SINGLE_USER WITH ROLLBACK IMMEDIATE; DROP DATABASE {Database}; END; " +
+        $"IF SUSER_ID('{LimitedLogin}') IS NOT NULL DROP LOGIN {LimitedLogin}";
 
     public bool IsReachable { get; private set; }
 
     public IDatabaseInspector? Inspector { get; private set; }
+
+    public IDatabaseInspector? LimitedInspector { get; private set; }
 
     public async Task InitializeAsync()
     {
@@ -110,6 +119,9 @@ public sealed class SqlServerEdgeFixture : IAsyncLifetime, IEdgeFixture
             await ExecuteAsync(EdgeConnectionString, statement);
 
         Inspector = new SqlServerInspector(EdgeConnectionString, NullLogger<SqlServerInspector>.Instance);
+        LimitedInspector = new SqlServerInspector(
+            new SqlConnectionStringBuilder(EdgeConnectionString) { UserID = LimitedLogin, Password = "Limited123!" }.ToString(),
+            NullLogger<SqlServerInspector>.Instance);
         IsReachable = true;
     }
 

@@ -70,6 +70,8 @@ public sealed partial class PostgresInspector
             foreach (var child in plans.EnumerateArray())
                 children.Add(ParseNode(child));
 
+        var loops = GetDouble(e, "Actual Loops");
+
         return new QueryPlanNode(
             NodeType: nodeType,
             Kind: MapKind(nodeType),
@@ -79,10 +81,14 @@ public sealed partial class PostgresInspector
             EstimatedCost: GetDouble(e, "Total Cost") ?? 0,
             ActualRows: GetDouble(e, "Actual Rows"),
             ActualTimeMs: GetDouble(e, "Actual Total Time"),
-            Loops: GetDouble(e, "Actual Loops") is { } loops ? (long)loops : null,
+            Loops: loops is null ? null : (long)loops,
             SpilledToDisk: DetectSpill(e),
             Filter: GetString(e, "Filter") ?? GetString(e, "Index Cond") ?? GetString(e, "Recheck Cond"),
-            Children: children);
+            Children: children,
+            // Both figures are per-loop averages.
+            RowsRead: GetDouble(e, "Actual Rows") is { } returned && GetDouble(e, "Rows Removed by Filter") is { } removed
+                ? (returned + removed) * (loops ?? 1)
+                : null);
     }
 
     private static QueryPlanNodeKind MapKind(string nodeType) => nodeType switch

@@ -1,6 +1,7 @@
 using System.Data.Common;
 using System.Globalization;
 using DbLens.Core.Abstractions;
+using DbLens.Core.Analysis;
 using DbLens.Core.Models;
 using Microsoft.Extensions.Logging;
 
@@ -112,7 +113,7 @@ public abstract partial class DatabaseInspectorBase : IDatabaseInspector
     /// A partition holds rows of its partitioned table and repeats its structure, so the structural
     /// analyses read the parent alone unless a partition is named. Physical ones need the partitions.
     /// </param>
-    protected async Task<IReadOnlyList<ScopedTable>> ResolveTableScopeAsync(
+    protected async Task<TableScope> ResolveTableScopeAsync(
         string? schema,
         string[]? tables,
         CancellationToken ct,
@@ -130,14 +131,26 @@ public abstract partial class DatabaseInspectorBase : IDatabaseInspector
                     s.Name, o.Name, o.ApproximateRowCount, o.TotalSizeBytes, o.IncomingForeignKeys,
                     IsPartition: o.PartitionOf is not null)));
 
+        string? caveat = null;
+        var where = schema is null ? "" : $" in schema '{schema}'";
+
         if (tables is { Length: > 0 })
         {
             var include = new HashSet<string>(tables, StringComparer.OrdinalIgnoreCase);
-            scope = scope.Where(t => include.Contains(t.Name));
+            scope = scope.Where(t => include.Contains(t.Name)).ToList();
+
+            var missing = include.Except(scope.Select(t => t.Name), StringComparer.OrdinalIgnoreCase).ToList();
+            if (missing.Count > 0)
+                caveat = $"No table named {string.Join(", ", missing.Select(m => $"'{m}'"))} was found{where}, " +
+                         "so nothing was analyzed for it. Pass bare table names, as get_schema lists them.";
         }
-        else if (!includePartitions)
+        else
         {
-            scope = scope.Where(t => !t.IsPartition);
+            if (!includePartitions) scope = scope.Where(t => !t.IsPartition);
+
+            scope = scope.ToList();
+            if (!scope.Any())
+                caveat = $"No tables were found{where}: nothing was analyzed, which is not the same as nothing to report.";
         }
 
         if (excludeTables is { Length: > 0 })
@@ -146,8 +159,14 @@ public abstract partial class DatabaseInspectorBase : IDatabaseInspector
             scope = scope.Where(t => !exclude.Contains(t.Name));
         }
 
-        return scope.ToList();
+        return new TableScope(scope.ToList(), caveat);
     }
+
+    /// <summary>
+    /// The tables in scope, and what to tell the caller when the request named something that is not
+    /// there: an empty analysis of a mistyped schema must not read as a clean one.
+    /// </summary>
+    protected sealed record TableScope(IReadOnlyList<ScopedTable> Tables, string? Caveat);
 
     // Names from the catalog are passed as they are: joining them into "schema.name" and splitting
     // again would misread any name that contains a dot.
@@ -165,8 +184,8 @@ public abstract partial class DatabaseInspectorBase : IDatabaseInspector
             : "The following tables could not be inspected and were excluded from the analysis: " +
               string.Join(", ", details.NotFound) + ".";
 
-    protected static IReadOnlyList<string> WithCaveat(IReadOnlyList<string> caveats, string? extra) =>
-        extra is null ? caveats : [..caveats, extra];
+    protected static IReadOnlyList<string> WithCaveats(IReadOnlyList<string> caveats, params string?[] extra) =>
+        [..caveats, ..extra.OfType<string>()];
 
     protected static string Describe(string[]? tables) =>
         tables is null ? "*" : string.Join(",", tables);
@@ -226,6 +245,14 @@ public abstract partial class DatabaseInspectorBase : IDatabaseInspector
 
         foreach (var table in tables)
         {
+            if (Unquote(table) is { } quoted)
+            {
+                parsed.Add(quoted.Length == 2
+                    ? new ParsedName(quoted[0], quoted[1], table)
+                    : new ParsedName(defaultSchema ?? DefaultSchema, quoted[0], table));
+                continue;
+            }
+
             for (var dot = table.IndexOf('.'); dot >= 0; dot = table.IndexOf('.', dot + 1))
                 if (dot > 0 && dot < table.Length - 1)
                     parsed.Add(new ParsedName(table[..dot], table[(dot + 1)..], table));
@@ -234,6 +261,31 @@ public abstract partial class DatabaseInspectorBase : IDatabaseInspector
         }
 
         return parsed;
+    }
+
+    /// <summary>The one or two parts of a name written with quotes ("a"."b", [a].[b]); null when it has none.</summary>
+    private string[]? Unquote(string table)
+    {
+        var segments = SqlText.Segments(table, Dialect);
+        if (segments.All(s => s.Kind != SqlSegmentKind.QuotedIdentifier)) return null;
+
+        var parts = new List<string> { "" };
+        foreach (var segment in segments)
+        {
+            if (segment.Kind == SqlSegmentKind.QuotedIdentifier)
+            {
+                parts[^1] += segment.Text;
+                continue;
+            }
+
+            foreach (var c in segment.Text)
+            {
+                if (c == '.') parts.Add("");
+                else parts[^1] += c;
+            }
+        }
+
+        return parts.Count <= 2 ? parts.Select(p => p.Trim()).ToArray() : null;
     }
 
     /// <summary>The catalog rows of a table-details read, keyed by the table's real (schema, name).</summary>

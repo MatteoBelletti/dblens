@@ -15,7 +15,7 @@ public static class DdlClassifier
 
     // Identifier: bare, "quoted" or [bracketed], optionally schema-qualified.
     private const string Ident = @"(?:\[[^\]]+\]|""[^""]+""|[A-Za-z_][A-Za-z0-9_$]*)";
-    private const string QualifiedName = $@"(?<qualified>(?:{Ident}\s*\.\s*)?{Ident})";
+    private const string QualifiedName = $@"(?:(?<schema>{Ident})\s*\.\s*)?(?<name>{Ident})";
 
     private static readonly Regex AlterTableRx =
         new($@"^\s*ALTER\s+TABLE\s+(?:IF\s+EXISTS\s+)?(?:ONLY\s+)?{QualifiedName}\s+(?<rest>.*)$", Opts);
@@ -33,6 +33,37 @@ public static class DdlClassifier
 
     private static readonly Regex DropTableRx =
         new($@"^\s*DROP\s+TABLE\s+(?:IF\s+EXISTS\s+)?{QualifiedName}", Opts);
+
+    private static readonly Regex DropTableListRx =
+        new(@"^(?<head>\s*DROP\s+TABLE\s+(?:IF\s+EXISTS\s+)?)(?<names>.*?)(?<tail>\s+(?:CASCADE|RESTRICT))?\s*$", Opts);
+
+    private static readonly Regex TruncateRx =
+        new($@"^\s*TRUNCATE\s+(?:TABLE\s+)?(?:ONLY\s+)?{QualifiedName}", Opts);
+
+    private static readonly Regex DropSchemaRx =
+        new($@"^\s*DROP\s+(?:SCHEMA|DATABASE)\s+(?:IF\s+EXISTS\s+)?(?<name>{Ident})", Opts);
+
+    // Statements that change nothing by themselves: not reported, not counted as unrecognized.
+    private static readonly Regex TransactionControlRx =
+        new(@"^\s*(?:BEGIN|START\s+TRANSACTION|COMMIT|END)(?:\s+(?:TRAN|TRANSACTION|WORK))?\s*$", Opts);
+
+    // ── T-SQL scripts: GO ends a batch, and statements need no separator ──────
+
+    private static readonly Regex BatchSeparatorRx =
+        new(@"^[ \t]*GO(?:[ \t]+\d+)?[ \t]*\r?$", RegexOptions.Compiled | RegexOptions.IgnoreCase | RegexOptions.Multiline);
+
+    // A module must be alone in its batch, and its body is statements of its own.
+    private static readonly Regex ModuleRx =
+        new(@"^\s*(?:CREATE|ALTER)\s+(?:OR\s+ALTER\s+)?(?:PROC|PROCEDURE|FUNCTION|TRIGGER|VIEW)\b", Opts);
+
+    private static readonly Regex StatementStartRx =
+        new(@"^(?=[ \t]*(?:ALTER|CREATE|DROP|TRUNCATE|UPDATE|DELETE|INSERT|MERGE|EXEC|EXECUTE)\b)",
+            RegexOptions.Compiled | RegexOptions.IgnoreCase | RegexOptions.Multiline);
+
+    // The verb an ALTER TABLE action starts with; SQL Server lets later actions omit it (ADD a INT, b INT).
+    private static readonly Regex ActionVerbRx =
+        new(@"^\s*(?<verb>ADD|DROP\s+COLUMN|DROP\s+CONSTRAINT|DROP|ALTER|RENAME|VALIDATE|SET|ENABLE|DISABLE|" +
+            @"ATTACH|DETACH|OWNER|WITH|CHECK|NOCHECK|SWITCH|REBUILD)\b", Opts);
 
     // ALTER TABLE sub-clauses.
     private static readonly Regex AddColumnRx =
@@ -93,11 +124,56 @@ public static class DdlClassifier
     private static readonly Regex VolatileDefaultRx =
         new(@"\bDEFAULT\s+(?!NULL\b)(?:[A-Za-z_][A-Za-z0-9_]*\s*\(|NEXT\s+VALUE\s+FOR\b)", Opts);
 
-    public static IReadOnlyList<MigrationStatement> Classify(string ddl, DatabaseDialect dialect)
-    {
-        return SqlText.SplitStatements(ddl, dialect)
+    public static IReadOnlyList<MigrationStatement> Classify(string ddl, DatabaseDialect dialect) =>
+        Statements(ddl, dialect)
+            .Where(s => !TransactionControlRx.IsMatch(s))
+            .SelectMany(s => Expand(s, dialect))
             .Select(ClassifyOne)
             .ToList();
+
+    private static IEnumerable<string> Statements(string ddl, DatabaseDialect dialect)
+    {
+        if (dialect != DatabaseDialect.SqlServer) return SqlText.SplitStatements(ddl, dialect);
+
+        return BatchSeparatorRx.Split(SqlText.StripComments(ddl, dialect))
+            .Where(batch => batch.Trim().Length > 0)
+            .SelectMany(batch => ModuleRx.IsMatch(batch)
+                ? [batch.Trim()]
+                : SqlText.SplitStatements(batch, dialect)
+                    .SelectMany(s => StatementStartRx.Split(s))
+                    .Select(s => s.Trim())
+                    .Where(s => s.Length > 0));
+    }
+
+    /// <summary>
+    /// One statement per object changed: an ALTER TABLE with several actions and a DROP TABLE with
+    /// several names would otherwise be classified by their first part alone.
+    /// </summary>
+    private static IEnumerable<string> Expand(string statement, DatabaseDialect dialect)
+    {
+        if (DropTableListRx.Match(statement) is { Success: true } drop)
+        {
+            foreach (var name in SqlText.SplitTopLevel(drop.Groups["names"].Value, ',', dialect))
+                yield return drop.Groups["head"].Value + name + drop.Groups["tail"].Value;
+            yield break;
+        }
+
+        if (AlterTableRx.Match(statement) is not { Success: true } alter)
+        {
+            yield return statement;
+            yield break;
+        }
+
+        var head = statement[..alter.Groups["rest"].Index];
+        string? verb = null;
+
+        foreach (var action in SqlText.SplitTopLevel(alter.Groups["rest"].Value, ',', dialect))
+        {
+            var own = ActionVerbRx.Match(action);
+            if (own.Success) verb = own.Groups["verb"].Value;
+
+            yield return head + (own.Success || verb is null ? action : $"{verb} {action}");
+        }
     }
 
     public static MigrationStatement ClassifyOne(string statement)
@@ -109,7 +185,7 @@ public static class DdlClassifier
             var concurrent = ci.Groups["concurrent"].Success
                              || ci.Groups["concurrent2"].Success
                              || OnlineRx.IsMatch(ci.Groups["rest"].Value);
-            var (schema, table) = SplitQualified(ci.Groups["qualified"].Value);
+            var (schema, table) = Qualified(ci);
 
             return Build(sql, MigrationOperationKind.CreateIndex, schema, table,
                 Clean(ci.Groups["index"].Value), concurrent);
@@ -118,26 +194,35 @@ public static class DdlClassifier
         if (DropIndexRx.Match(sql) is { Success: true } di)
         {
             var concurrent = di.Groups["concurrent"].Success || OnlineRx.IsMatch(di.Groups["rest"].Value);
-            var (schema, name) = SplitQualified(di.Groups["qualified"].Value);
+            var (schema, name) = Qualified(di);
 
             return Build(sql, MigrationOperationKind.DropIndex, schema, null, name, concurrent);
         }
 
         if (CreateTableRx.Match(sql) is { Success: true } ct)
         {
-            var (schema, table) = SplitQualified(ct.Groups["qualified"].Value);
+            var (schema, table) = Qualified(ct);
             return Build(sql, MigrationOperationKind.CreateTable, schema, table, table, false);
         }
 
         if (DropTableRx.Match(sql) is { Success: true } dt)
         {
-            var (schema, table) = SplitQualified(dt.Groups["qualified"].Value);
+            var (schema, table) = Qualified(dt);
             return Build(sql, MigrationOperationKind.DropTable, schema, table, table, false);
         }
 
+        if (TruncateRx.Match(sql) is { Success: true } tr)
+        {
+            var (schema, table) = Qualified(tr);
+            return Build(sql, MigrationOperationKind.TruncateTable, schema, table, table, false);
+        }
+
+        if (DropSchemaRx.Match(sql) is { Success: true } ds)
+            return Build(sql, MigrationOperationKind.DropSchema, null, null, Clean(ds.Groups["name"].Value), false);
+
         if (AlterTableRx.Match(sql) is { Success: true } at)
         {
-            var (schema, table) = SplitQualified(at.Groups["qualified"].Value);
+            var (schema, table) = Qualified(at);
             return ClassifyAlterTable(sql, schema, table, at.Groups["rest"].Value.Trim());
         }
 
@@ -239,15 +324,8 @@ public static class DdlClassifier
         new(sql, kind, schema, table, objectName, concurrent, notValid,
             HasDefault: false, IsNotNull: false, HasVolatileDefault: false);
 
-    private static (string? Schema, string? Name) SplitQualified(string qualified)
-    {
-        if (string.IsNullOrWhiteSpace(qualified)) return (null, null);
-
-        var parts = qualified.Split('.', 2, StringSplitOptions.TrimEntries);
-        return parts.Length == 2
-            ? (Clean(parts[0]), Clean(parts[1]))
-            : (null, Clean(parts[0]));
-    }
+    private static (string? Schema, string? Name) Qualified(Match match) =>
+        (Clean(match.Groups["schema"].Value), Clean(match.Groups["name"].Value));
 
     private static string? Clean(string? identifier)
     {

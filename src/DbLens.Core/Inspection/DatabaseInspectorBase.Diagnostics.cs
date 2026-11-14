@@ -1,3 +1,4 @@
+using System.Data.Common;
 using DbLens.Core.Analysis;
 using DbLens.Core.Analysis.Cascade;
 using DbLens.Core.Analysis.Denormalization;
@@ -57,14 +58,30 @@ public abstract partial class DatabaseInspectorBase
 
         return RunAsync("index analysis", async () =>
         {
-            var scope = await ResolveTableScopeAsync(request.Schema, request.Tables, ct);
-            if (scope.Count == 0) return IndexAnalysisEngine.Empty();
+            var (scope, scopeCaveat) = await ResolveTableScopeAsync(request.Schema, request.Tables, ct);
+            if (scope.Count == 0) return IndexAnalysisEngine.Empty() with { Caveats = [scopeCaveat!] };
 
             var details = await GetTableDetailsAsync(scope, ct);
-            var stats = request.IncludeUnusedIndexes ? await QueryIndexUsageStatsAsync(scope, ct) : null;
+
+            // The structural rules need only the catalog; a login that cannot read the counters
+            // loses the one rule that needs them, not the analysis.
+            IndexUsageStats? stats = null;
+            string? statsCaveat = null;
+            if (request.IncludeUnusedIndexes)
+            {
+                try
+                {
+                    stats = await QueryIndexUsageStatsAsync(scope, ct);
+                }
+                catch (DbException ex)
+                {
+                    statsCaveat = $"Scan statistics could not be read ({ex.Message.ReplaceLineEndings(" ").Trim()}), " +
+                                  "so the 'unused-index' rule did not run.";
+                }
+            }
 
             var result = IndexAnalysisEngine.Analyze(details.Tables, stats, request, Dialect);
-            result = result with { Caveats = WithCaveat(result.Caveats, NotFoundCaveat(details)) };
+            result = result with { Caveats = WithCaveats(result.Caveats, statsCaveat, scopeCaveat, NotFoundCaveat(details)) };
 
             Log.LogInformation(
                 "Index analysis completed: {FindingCount} findings, {Caveats} caveats",
@@ -84,13 +101,15 @@ public abstract partial class DatabaseInspectorBase
 
         return RunAsync("GDPR scan", async () =>
         {
-            var scope = await ResolveTableScopeAsync(request.Schema, request.Tables, ct, request.ExcludeTables);
-            if (scope.Count == 0) return GdprAnalysisEngine.Empty();
+            var (scope, scopeCaveat) = await ResolveTableScopeAsync(
+                request.Schema, request.Tables, ct, request.ExcludeTables);
+            if (scope.Count == 0)
+                return GdprAnalysisEngine.Empty() with { Caveats = WithCaveats([], scopeCaveat) };
 
             var details = await GetTableDetailsAsync(scope, ct);
 
             var result = GdprAnalysisEngine.Analyze(details.Tables, request, Dialect);
-            result = result with { Caveats = WithCaveat(result.Caveats, NotFoundCaveat(details)) };
+            result = result with { Caveats = WithCaveats(result.Caveats, scopeCaveat, NotFoundCaveat(details)) };
 
             Log.LogInformation("GDPR scan completed: {SignalCount} signals", result.Signals.Count);
             return result;
@@ -108,8 +127,8 @@ public abstract partial class DatabaseInspectorBase
 
         return RunAsync("denormalization analysis", async () =>
         {
-            var scope = await ResolveTableScopeAsync(request.Schema, request.Tables, ct);
-            if (scope.Count == 0) return DenormalizationAnalysisEngine.Empty();
+            var (scope, scopeCaveat) = await ResolveTableScopeAsync(request.Schema, request.Tables, ct);
+            if (scope.Count == 0) return DenormalizationAnalysisEngine.Empty() with { Caveats = [scopeCaveat!] };
 
             var details = await GetTableDetailsAsync(scope, ct);
             var result = DenormalizationAnalysisEngine.Analyze(details.Tables, request, Dialect);
@@ -117,7 +136,7 @@ public abstract partial class DatabaseInspectorBase
             if (request.VerifySignals)
                 result = await VerifyDenormalizationAsync(result, details.Tables, scope, request, ct);
 
-            result = result with { Caveats = WithCaveat(result.Caveats, NotFoundCaveat(details)) };
+            result = result with { Caveats = WithCaveats(result.Caveats, scopeCaveat, NotFoundCaveat(details)) };
 
             Log.LogInformation(
                 "Denormalization analysis completed: {Findings} findings, {Signals} signals across {Tables} table(s)",
@@ -139,11 +158,13 @@ public abstract partial class DatabaseInspectorBase
         return RunAsync("fragmentation analysis", async () =>
         {
             // The partitions hold the pages; the partitioned table itself stores nothing.
-            var scope = await ResolveTableScopeAsync(request.Schema, request.Tables, ct, includePartitions: true);
-            if (scope.Count == 0) return FragmentationAnalysisEngine.Empty();
+            var (scope, scopeCaveat) = await ResolveTableScopeAsync(
+                request.Schema, request.Tables, ct, includePartitions: true);
+            if (scope.Count == 0) return FragmentationAnalysisEngine.Empty() with { Caveats = [scopeCaveat!] };
 
             var stats = await QueryFragmentationStatsAsync(scope, request, ct);
             var result = FragmentationAnalysisEngine.Analyze(stats, request, Dialect);
+            result = result with { Caveats = WithCaveats(result.Caveats, scopeCaveat) };
 
             Log.LogInformation(
                 "Fragmentation analysis completed: {FindingCount} findings, statsAvailable={Available}",
@@ -169,7 +190,7 @@ public abstract partial class DatabaseInspectorBase
 
             // Every user table, not just a filtered scope: a script can touch any schema.
             var catalog = await ResolveTableScopeAsync(schema: null, tables: null, ct, includePartitions: true);
-            var tables = catalog.ToDictionary(
+            var tables = catalog.Tables.ToDictionary(
                 t => (t.Schema, t.Name),
                 t => new MigrationTableContext(
                     t.Schema, t.Name, t.ApproximateRowCount, t.TotalSizeBytes, t.IncomingForeignKeys));

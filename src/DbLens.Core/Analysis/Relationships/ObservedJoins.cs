@@ -50,12 +50,8 @@ public static class JoinPredicateExtractor
         @"\b(?<a>[A-Za-z_]\w*)\.(?<ac>[A-Za-z_]\w*)\s*=\s*(?<b>[A-Za-z_]\w*)\.(?<bc>[A-Za-z_]\w*)\b",
         RegexOptions.Compiled);
 
-    private static readonly Regex Literal = new(@"'(?:[^']|'')*'", RegexOptions.Compiled);
-    private static readonly Regex DoubleQuoted = new("\"([^\"]+)\"", RegexOptions.Compiled);
-    private static readonly Regex Bracketed = new(@"\[([^\]]+)\]", RegexOptions.Compiled);
-
     public static IReadOnlyList<ObservedJoin> Extract(
-        IEnumerable<SqlSource> sources, IReadOnlyList<TableDetail> tables, string defaultSchema)
+        IEnumerable<SqlSource> sources, IReadOnlyList<TableDetail> tables, string defaultSchema, DatabaseDialect dialect)
     {
         // SQL text names tables without regard to case, so the lookup does too. Names that differ
         // only in case (legal on PostgreSQL and on a case-sensitive SQL Server) cannot be told
@@ -79,7 +75,10 @@ public static class JoinPredicateExtractor
 
         foreach (var source in sources)
         {
-            var sql = Normalize(source.Sql);
+            // Literals are blanked and quoted names unquoted, so the patterns see bare identifiers only.
+            var sql = SqlText.Rewrite(
+                SqlText.Segments(source.Sql, dialect),
+                s => s.Kind == SqlSegmentKind.StringLiteral ? "''" : s.Text);
             var aliases = new Dictionary<string, TableDetail>(StringComparer.OrdinalIgnoreCase);
 
             foreach (Match m in TableRef.Matches(sql))
@@ -112,13 +111,6 @@ public static class JoinPredicateExtractor
         }
 
         return joins;
-    }
-
-    private static string Normalize(string sql)
-    {
-        var text = Literal.Replace(SqlText.StripComments(sql), "''");
-        text = DoubleQuoted.Replace(text, "$1");
-        return Bracketed.Replace(text, "$1");
     }
 
     private static string? ColumnOf(TableDetail table, string name) =>

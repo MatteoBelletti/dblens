@@ -13,37 +13,19 @@ public enum SqlSegmentKind { Code, Comment, StringLiteral, QuotedIdentifier }
 public readonly record struct SqlSegment(SqlSegmentKind Kind, string Text, string Source);
 
 /// <summary>
-/// Shared lexical helpers for the rules that read SQL text.
-/// These are deliberately not a SQL parser — they separate code from comments, string literals and
-/// quoted identifiers the way each engine does, far enough for shape matching and for the statement
-/// guard to see exactly the code the engine will see.
+/// Lexical helpers for the rules that read SQL text. Not a SQL parser: they separate code from
+/// comments, string literals and quoted identifiers the way each engine does, far enough for shape
+/// matching and for the statement guard to see exactly the code the engine will see.
 /// </summary>
 public static class SqlText
 {
-    private static readonly Regex LineCommentRx =
-        new(@"--[^\n\r]*", RegexOptions.Compiled);
-
-    private static readonly Regex BlockCommentRx =
-        new(@"/\*.*?\*/", RegexOptions.Compiled | RegexOptions.Singleline);
-
     private static readonly Regex DollarTagRx =
         new(@"\G\$(?:[A-Za-z_\u0080-￿][A-Za-z0-9_\u0080-￿]*)?\$", RegexOptions.Compiled);
 
     /// <summary>
-    /// Replaces comments with a space, leaving all identifiers and literals intact. Not literal-aware:
-    /// for text that is only read, never for deciding what may execute.
-    /// </summary>
-    public static string StripComments(string sql)
-    {
-        var result = BlockCommentRx.Replace(sql, " ");
-        return LineCommentRx.Replace(result, " ");
-    }
-
-    /// <summary>
-    /// Splits SQL into code, comments, string literals and quoted identifiers in one pass, following
-    /// the engine's own lexical rules: nested block comments on both; dollar-quoted and E'' strings
-    /// on PostgreSQL, where '[' is a subscript; [bracketed] identifiers on SQL Server. An
-    /// unterminated comment or literal runs to the end of the text, as it would fail on the engine.
+    /// Splits SQL in one pass by the engine's own lexical rules: nested block comments on both;
+    /// dollar-quoted and E'' strings on PostgreSQL, where '[' is a subscript; [bracketed] identifiers
+    /// on SQL Server. An unterminated comment or literal runs to the end, as it would fail on the engine.
     /// </summary>
     public static IReadOnlyList<SqlSegment> Segments(string sql, DatabaseDialect dialect)
     {
@@ -52,15 +34,17 @@ public static class SqlText
         var code = new StringBuilder();
         var i = 0;
 
-        void Emit(SqlSegmentKind kind, int start, int end, string? text = null)
+        void FlushCode()
         {
-            if (code.Length > 0)
-            {
-                segments.Add(new SqlSegment(SqlSegmentKind.Code, code.ToString(), code.ToString()));
-                code.Clear();
-            }
+            if (code.Length == 0) return;
+            segments.Add(new SqlSegment(SqlSegmentKind.Code, code.ToString(), code.ToString()));
+            code.Clear();
+        }
 
-            var source = sql[start..end];
+        void Emit(SqlSegmentKind kind, int end, string? text = null)
+        {
+            FlushCode();
+            var source = sql[i..end];
             segments.Add(new SqlSegment(kind, text ?? source, source));
             i = end;
         }
@@ -73,11 +57,11 @@ public static class SqlText
             if (c == '-' && next == '-')
             {
                 var end = sql.IndexOfAny(['\n', '\r'], i);
-                Emit(SqlSegmentKind.Comment, i, end < 0 ? sql.Length : end);
+                Emit(SqlSegmentKind.Comment, end < 0 ? sql.Length : end);
             }
             else if (c == '/' && next == '*')
             {
-                Emit(SqlSegmentKind.Comment, i, EndOfBlockComment(sql, i));
+                Emit(SqlSegmentKind.Comment, EndOfBlockComment(sql, i));
             }
             else if (c == '\'')
             {
@@ -85,23 +69,19 @@ public static class SqlText
                 // transactions that run caller SQL pin standard_conforming_strings to match.
                 var escapes = postgres && i > 0 && sql[i - 1] is 'e' or 'E'
                               && (i < 2 || !IsIdentifierChar(sql[i - 2]));
-                Emit(SqlSegmentKind.StringLiteral, i, EndOfQuoted(sql, i, '\'', escapes));
+                Emit(SqlSegmentKind.StringLiteral, EndOfQuoted(sql, i, '\'', escapes));
             }
-            else if (c == '"')
+            else if (c == '"' || (c == '[' && !postgres))
             {
-                var end = EndOfQuoted(sql, i, '"', backslashEscapes: false);
-                Emit(SqlSegmentKind.QuotedIdentifier, i, end, Unquote(sql, i, end, '"'));
-            }
-            else if (c == '[' && !postgres)
-            {
-                var end = EndOfQuoted(sql, i, ']', backslashEscapes: false);
-                Emit(SqlSegmentKind.QuotedIdentifier, i, end, Unquote(sql, i, end, ']'));
+                var close = c == '"' ? '"' : ']';
+                var end = EndOfQuoted(sql, i, close, backslashEscapes: false);
+                Emit(SqlSegmentKind.QuotedIdentifier, end, Unquote(sql, i, end, close));
             }
             else if (c == '$' && postgres && (i == 0 || !IsIdentifierChar(sql[i - 1]))
                      && DollarTagRx.Match(sql, i) is { Success: true } tag)
             {
                 var close = sql.IndexOf(tag.Value, i + tag.Length, StringComparison.Ordinal);
-                Emit(SqlSegmentKind.StringLiteral, i, close < 0 ? sql.Length : close + tag.Length);
+                Emit(SqlSegmentKind.StringLiteral, close < 0 ? sql.Length : close + tag.Length);
             }
             else
             {
@@ -110,55 +90,73 @@ public static class SqlText
             }
         }
 
-        if (code.Length > 0)
-            segments.Add(new SqlSegment(SqlSegmentKind.Code, code.ToString(), code.ToString()));
-
+        FlushCode();
         return segments;
     }
 
     /// <summary>
-    /// The code alone: comments, string literals and quoted identifiers are each replaced by a
-    /// space, so their contents can never be mistaken for keywords or statement separators.
+    /// The text with every comment replaced by a space and every string literal and quoted
+    /// identifier replaced by what <paramref name="replace"/> returns for it.
+    /// </summary>
+    public static string Rewrite(IEnumerable<SqlSegment> segments, Func<SqlSegment, string> replace) =>
+        string.Concat(segments.Select(s => s.Kind switch
+        {
+            SqlSegmentKind.Code => s.Text,
+            SqlSegmentKind.Comment => " ",
+            _ => replace(s),
+        }));
+
+    /// <summary>
+    /// The code alone: the contents of comments, literals and quoted identifiers can never be
+    /// mistaken for keywords or statement separators.
     /// </summary>
     public static string StripCommentsAndStrings(string sql, DatabaseDialect dialect) =>
-        string.Concat(Segments(sql, dialect).Select(s => s.Kind == SqlSegmentKind.Code ? s.Text : " "));
+        Rewrite(Segments(sql, dialect), _ => " ");
 
-    /// <summary>Splits a script into individual statements on top-level semicolons, without its comments.</summary>
-    public static IReadOnlyList<string> SplitStatements(string sql, DatabaseDialect dialect)
+    public static string StripComments(string sql, DatabaseDialect dialect) =>
+        Rewrite(Segments(sql, dialect), s => s.Source);
+
+    /// <summary>Splits a script into individual statements on semicolons, without its comments.</summary>
+    public static IReadOnlyList<string> SplitStatements(string sql, DatabaseDialect dialect) =>
+        SplitTopLevel(sql, ';', dialect);
+
+    /// <summary>
+    /// Splits on a separator that stands in code and outside any parentheses. Comments are dropped;
+    /// literals and quoted identifiers are kept whole.
+    /// </summary>
+    public static IReadOnlyList<string> SplitTopLevel(string sql, char separator, DatabaseDialect dialect)
     {
-        var statements = new List<string>();
+        var parts = new List<string>();
         var current = new StringBuilder();
+        var depth = 0;
 
         void Flush()
         {
-            var statement = current.ToString().Trim();
-            if (statement.Length > 0) statements.Add(statement);
+            var part = current.ToString().Trim();
+            if (part.Length > 0) parts.Add(part);
             current.Clear();
         }
 
         foreach (var segment in Segments(sql, dialect))
         {
-            if (segment.Kind == SqlSegmentKind.Comment)
-            {
-                current.Append(' ');
-                continue;
-            }
-
             if (segment.Kind != SqlSegmentKind.Code)
             {
-                current.Append(segment.Source);
+                current.Append(segment.Kind == SqlSegmentKind.Comment ? " " : segment.Source);
                 continue;
             }
 
             foreach (var c in segment.Text)
             {
-                if (c == ';') Flush();
+                if (c == '(') depth++;
+                else if (c == ')' && depth > 0) depth--;
+
+                if (c == separator && depth == 0) Flush();
                 else current.Append(c);
             }
         }
 
         Flush();
-        return statements;
+        return parts;
     }
 
     private static bool IsIdentifierChar(char c) => char.IsLetterOrDigit(c) || c is '_' or '$' || c >= 0x80;

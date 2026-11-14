@@ -1,3 +1,4 @@
+using System.Text.Json;
 using DbLens.Core.Models;
 using ModelContextProtocol.Protocol;
 using ModelContextProtocol.Server;
@@ -21,11 +22,15 @@ public static class ToolErrors
             }
             catch (Exception ex) when (ex is ArgumentException or ExecutionRefusedException or DatabaseInspectionException)
             {
-                return new CallToolResult
-                {
-                    IsError = true,
-                    Content = [new TextContentBlock { Text = ex.Message }],
-                };
+                return Error(ex.Message);
+            }
+            catch (JsonException ex)
+            {
+                // An argument of the wrong type or an unknown enum value: say which, so the caller can fix it.
+                return Error($"Invalid arguments: {ex.Message}");
             }
         };
+
+    private static CallToolResult Error(string message) =>
+        new() { IsError = true, Content = [new TextContentBlock { Text = message }] };
 }

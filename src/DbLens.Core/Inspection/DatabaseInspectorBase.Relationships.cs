@@ -28,12 +28,12 @@ public abstract partial class DatabaseInspectorBase
 
         return RunAsync("relationship inference", async () =>
         {
-            var scope = await ResolveTableScopeAsync(request.Schema, request.Tables, ct);
-            if (scope.Count == 0) return RelationshipAnalysisEngine.Empty();
+            var (scope, scopeCaveat) = await ResolveTableScopeAsync(request.Schema, request.Tables, ct);
+            if (scope.Count == 0) return RelationshipAnalysisEngine.Empty() with { Caveats = [scopeCaveat!] };
 
             var details = await GetTableDetailsAsync(scope, ct);
             var (result, _) = await MapRelationshipsAsync(scope, details.Tables, request.VerifyCandidates, request.Budget, ct);
-            result = result with { Caveats = WithCaveat(result.Caveats, NotFoundCaveat(details)) };
+            result = result with { Caveats = WithCaveats(result.Caveats, scopeCaveat, NotFoundCaveat(details)) };
 
             Log.LogInformation(
                 "Relationship inference completed: {Declared} declared, {Inferred} inferred, {Verified} verified",
@@ -50,7 +50,7 @@ public abstract partial class DatabaseInspectorBase
 
         return RunAsync("glossary", async () =>
         {
-            var scope = await ResolveTableScopeAsync(request.Schema, request.Tables, ct);
+            var (scope, scopeCaveat) = await ResolveTableScopeAsync(request.Schema, request.Tables, ct);
             if (scope.Count == 0)
                 throw new ArgumentException("No tables matched the requested schema and tables.");
 
@@ -63,7 +63,10 @@ public abstract partial class DatabaseInspectorBase
                 scope.ToDictionary(t => (t.Schema, t.Name), t => t.ApproximateRowCount),
                 relationships, sources.Sources, request.Certified ?? [], DateTimeOffset.UtcNow);
 
-            return result with { Caveats = WithCaveat([..result.Caveats, ..sources.Caveats], NotFoundCaveat(details)) };
+            return result with
+            {
+                Caveats = WithCaveats([..result.Caveats, ..sources.Caveats], scopeCaveat, NotFoundCaveat(details)),
+            };
         });
     }
 
@@ -75,7 +78,7 @@ public abstract partial class DatabaseInspectorBase
         CancellationToken ct)
     {
         var sources = await ReadSqlSourcesAsync(ct);
-        var joins = JoinPredicateExtractor.Extract(sources.Sources, tables, DefaultSchema);
+        var joins = JoinPredicateExtractor.Extract(sources.Sources, tables, DefaultSchema, Dialect);
 
         var analysis = RelationshipAnalysisEngine.Analyze(tables, joins, sources.Sources.Count);
         analysis = analysis with { Result = analysis.Result with { Caveats = [..analysis.Result.Caveats, ..sources.Caveats] } };

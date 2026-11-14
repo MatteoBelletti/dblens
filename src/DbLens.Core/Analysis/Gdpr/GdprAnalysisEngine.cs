@@ -102,7 +102,8 @@ public static class GdprAnalysisEngine
             Table:       table,
             Columns:     [col.Name],
             Title:       $"PII column detected: {col.Name} ({match.Category})",
-            Description: $"Column '{col.Name}' ({col.DataType}) matches PII pattern '{match.PatternName}' " +
+            Description: $"Column '{col.Name}' ({col.DataType}) " +
+                         (match.Qualified ? "contains" : "matches") + $" PII pattern '{match.PatternName}' " +
                          $"(category: {match.Category}){encryptionNote}.",
             SqlFix:      null,
             Metadata:    new Dictionary<string, object>

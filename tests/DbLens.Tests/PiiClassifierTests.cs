@@ -124,6 +124,68 @@ public sealed class PiiClassifierTests
         match!.Category.Should().Be(PiiCategory.Contact);
     }
 
+    // --- naming styles ---
+
+    [Theory]
+    [InlineData("First Name",    "text",    PiiCategory.DirectIdentifier)]
+    [InlineData("firstName",     "text",    PiiCategory.DirectIdentifier)]
+    [InlineData("DateOfBirth",   "date",    PiiCategory.DirectIdentifier)]
+    [InlineData("E-Mail",        "varchar", PiiCategory.Contact)]
+    [InlineData("IPAddress",     "varchar", PiiCategory.OnlineId)]
+    [InlineData("phone1",        "varchar", PiiCategory.Contact)]
+    [InlineData("PHONE_2",       "varchar", PiiCategory.Contact)]
+    [InlineData("email",         "citext",  PiiCategory.Contact)]
+    public void Classify_ReadsTheNameWhateverItsStyle(string column, string sqlType, PiiCategory expected)
+    {
+        var match = PiiClassifier.Classify(column, sqlType);
+
+        match.Should().NotBeNull();
+        match!.Category.Should().Be(expected);
+        match.Qualified.Should().BeFalse();
+    }
+
+    // --- qualified names ---
+
+    [Theory]
+    [InlineData("customer_email",         "text",    PiiCategory.Contact)]
+    [InlineData("DeliveryAddress2",       "text",    PiiCategory.Contact)]
+    [InlineData("address_line1",          "text",    PiiCategory.Contact)]
+    [InlineData("user_ssn",               "varchar", PiiCategory.NationalId)]
+    [InlineData("card_number_last4",      "varchar", PiiCategory.Financial)]
+    [InlineData("email_cliente",          "text",    PiiCategory.Contact)]
+    [InlineData("telefono_casa",          "varchar", PiiCategory.Contact)]
+    [InlineData("indirizzo_spedizione",   "text",    PiiCategory.Contact)]
+    [InlineData("codice_fiscale_cliente", "varchar", PiiCategory.NationalId)]
+    public void Classify_FindsAnUnambiguousPatternInsideALongerName_AtLowerConfidence(
+        string column, string sqlType, PiiCategory expected)
+    {
+        var match = PiiClassifier.Classify(column, sqlType);
+
+        match.Should().NotBeNull();
+        match!.Category.Should().Be(expected);
+        match.Qualified.Should().BeTrue();
+        match.Confidence.Should().BeLessThan(0.9);
+    }
+
+    [Theory]
+    [InlineData("email_verified",   "text")]     // about the value, not the value
+    [InlineData("email_sent_at",    "text")]
+    [InlineData("is_email",         "text")]
+    [InlineData("address_id",       "int")]
+    [InlineData("zip_file",         "text")]
+    [InlineData("email_opt_in",     "boolean")]  // the pattern needs a text type
+    [InlineData("via_api",          "text")]     // "via", "pin", "name" are too common to trust in a compound
+    [InlineData("pin_code",         "text")]
+    [InlineData("health_check_url", "text")]
+    [InlineData("product_name",     "text")]
+    [InlineData("nome_prodotto",    "text")]
+    [InlineData("last_login",       "timestamp")]
+    [InlineData("long_description", "text")]
+    public void Classify_DoesNotReadAmbiguousOrDerivedCompounds(string column, string sqlType)
+    {
+        PiiClassifier.Classify(column, sqlType).Should().BeNull();
+    }
+
     // --- confidence is propagated ---
 
     [Fact]

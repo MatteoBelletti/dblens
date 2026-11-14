@@ -128,7 +128,7 @@ public static class StatementGuard
         if (!single.Allowed) return single;
 
         var segments = SqlText.Segments(sql!, dialect);
-        var code = string.Concat(segments.Select(s => s.Kind == SqlSegmentKind.Code ? s.Text : " "));
+        var code = SqlText.Rewrite(segments, _ => " ");
 
         var words = WordRx.Matches(code)
             .Select(m => m.Value.ToLowerInvariant())
@@ -173,13 +173,7 @@ public static class StatementGuard
 
         // Function names and dotted chains survive in a copy where quoted identifiers become a
         // placeholder rather than a blank, so [srv].[db].[dbo].[t] is still read as four parts.
-        var shape = string.Concat(segments.Select(s => s.Kind switch
-        {
-            SqlSegmentKind.Code => s.Text,
-            SqlSegmentKind.StringLiteral => "''",
-            SqlSegmentKind.QuotedIdentifier => "q",
-            _ => " ",
-        }));
+        var shape = SqlText.Rewrite(segments, s => s.Kind == SqlSegmentKind.StringLiteral ? "''" : "q");
 
         foreach (Match call in FunctionCallRx.Matches(shape))
         {

@@ -36,6 +36,7 @@ public sealed class GdprCoverageTests
     }
 
     [Theory]
+    [InlineData("id")]
     [InlineData("email")]
     [InlineData("first_name")]
     [InlineData("codice_fiscale")]

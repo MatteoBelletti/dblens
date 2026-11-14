@@ -177,6 +177,7 @@ public sealed partial class SqlServerInspector : DatabaseInspectorBase
             i.is_unique,
             i.is_primary_key,
             i.type_desc,
+            i.has_filter,
             i.filter_definition,
             ic.index_column_id,
             ic.key_ordinal,
@@ -461,6 +462,7 @@ public sealed partial class SqlServerInspector : DatabaseInspectorBase
                         IsUnique: r.GetBoolean(r.GetOrdinal("is_unique")),
                         IsPrimary: r.GetBoolean(r.GetOrdinal("is_primary_key")),
                         TypeDesc: r.GetString(r.GetOrdinal("type_desc")),
+                        HasFilter: r.GetBoolean(r.GetOrdinal("has_filter")),
                         FilterDefinition: r.IsDBNull(r.GetOrdinal("filter_definition"))
                             ? null : r.GetString(r.GetOrdinal("filter_definition")),
                         IndexColumnId: r.GetInt32(r.GetOrdinal("index_column_id")),
@@ -488,7 +490,8 @@ public sealed partial class SqlServerInspector : DatabaseInspectorBase
                             first.IsUnique, first.IsPrimary, first.TypeDesc,
                             first.SchemaName, first.TableName, first.IndexName,
                             cols, included, first.FilterDefinition),
-                        IsPartial: first.FilterDefinition is not null,
+                        // The filter's text needs VIEW DEFINITION; that there is one does not.
+                        IsPartial: first.HasFilter,
                         Predicate: first.FilterDefinition,
                         IncludedColumns: included.Length == 0 ? null : included));
                 }
@@ -568,7 +571,7 @@ public sealed partial class SqlServerInspector : DatabaseInspectorBase
             }
 
             var result = BuildTableDetails(parsed, new TableCatalog(
-                databaseName, actualNames, tableInfo, columnsByTable, indexesByTable, foreignKeys,
+                databaseName ?? conn.Database, actualNames, tableInfo, columnsByTable, indexesByTable, foreignKeys,
                 checksByTable, uniquesByTable));
 
             _logger.LogInformation(
@@ -666,7 +669,7 @@ public sealed partial class SqlServerInspector : DatabaseInspectorBase
 
     private sealed record RawIndexRow(
         string SchemaName, string TableName, string IndexName,
-        bool IsUnique, bool IsPrimary, string TypeDesc,
+        bool IsUnique, bool IsPrimary, string TypeDesc, bool HasFilter,
         string? FilterDefinition, int IndexColumnId, int KeyOrdinal, bool IsIncluded, string ColumnName
     );
 

@@ -499,7 +499,7 @@ public sealed partial class PostgresInspector : DatabaseInspectorBase
 
             // PostgreSQL compares names exactly, so a requested name is its own catalog name.
             var result = BuildTableDetails(parsed, new TableCatalog(
-                databaseName,
+                databaseName ?? conn.Database,
                 tableInfo.Keys.ToDictionary(k => k, k => k),
                 tableInfo, columnsByTable, indexesByTable, foreignKeys, checksByTable, uniquesByTable));
 
