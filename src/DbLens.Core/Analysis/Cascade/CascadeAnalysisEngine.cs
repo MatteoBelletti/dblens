@@ -198,6 +198,11 @@ public static class CascadeAnalysisEngine
 
             foreach (var edge in incomingEdges)
             {
+                // NO ACTION is checked when the statement ends: by then a CASCADE key over the
+                // same rows has deleted them, so the key blocks nothing and is not a step.
+                if (edge.OnDelete == "NO ACTION" && incomingEdges.Any(cascade => DeletesEveryRowOf(cascade, edge)))
+                    continue;
+
                 var qualifiedFrom = $"{edge.FromSchema}.{edge.FromTable}";
                 var rowCount = rowCounts.GetValueOrDefault((edge.FromSchema, edge.FromTable));
 
@@ -249,6 +254,21 @@ public static class CascadeAnalysisEngine
         if (stack.Count > 0) truncated = true;
 
         return (result, truncated);
+    }
+
+    /// <summary>
+    /// Whether every child row that references a parent through <paramref name="key"/> also
+    /// references it through <paramref name="cascade"/>: same child table, and each column pair of
+    /// the CASCADE key is part of the other key. A key on another column (approved_by beside
+    /// created_by) keeps rows the cascade does not reach, and does block.
+    /// </summary>
+    private static bool DeletesEveryRowOf(FkEdge cascade, FkEdge key)
+    {
+        if (cascade.OnDelete != "CASCADE" || (cascade.FromSchema, cascade.FromTable) != (key.FromSchema, key.FromTable))
+            return false;
+
+        var pairs = key.FromColumns.Zip(key.ToColumns).ToHashSet();
+        return cascade.FromColumns.Zip(cascade.ToColumns).All(pairs.Contains);
     }
 
     private static CascadePath FinalizePath(
@@ -357,7 +377,7 @@ public static class CascadeAnalysisEngine
             Description:
                 $"The FK '{step.ViaConstraint}' on '{step.ToTable}' referencing '{step.FromTable}' " +
                 $"uses ON DELETE {step.OnDelete}. A DELETE on '{step.FromTable}' will fail at runtime " +
-                $"if any rows in '{step.ToTable}' reference it. " +
+                $"if any rows in '{step.ToTable}' still reference it through this key. " +
                 "This is a latent constraint violation bug.",
             SqlFix: null,
             Metadata: new Dictionary<string, object>

@@ -14,9 +14,9 @@ public sealed class IndexRulesTests
 {
     private static IndexDetail Index(
         string name, string[] columns, bool unique = false, string method = "btree",
-        string? predicate = null, string[]? included = null) =>
+        string? predicate = null, string[]? included = null, string[]? descending = null) =>
         new(name, columns, unique, IsPrimary: false, method, Definition: "", IsPartial: predicate is not null,
-            predicate, included);
+            predicate, included, descending);
 
     private static AnalyzeIndexesResult Analyze(
         IndexDetail[] indexes, ForeignKeyDetail[]? fks = null, UniqueConstraintDetail[]? uniques = null)
@@ -105,6 +105,38 @@ public sealed class IndexRulesTests
 
         Dropped(result, IndexRuleIds.DuplicateIndex).Should().ContainSingle().Which.Should().Contain("ix_b");
         result.Findings.Should().NotContain(f => f.RuleId == IndexRuleIds.RedundantIndex);
+    }
+
+    // ── key order ──────────────────────────────────────────────────────────────
+
+    [Fact]
+    public void MixedOrder_IsAnotherIndex_NotADuplicateOrAPrefix()
+    {
+        // (status, total DESC) answers ORDER BY status, total DESC; (status, total) cannot.
+        var result = Analyze(
+        [
+            Index("ix_plain", ["status", "total"]),
+            Index("ix_mixed", ["status", "total"], descending: ["total"]),
+            Index("ix_mixed_wide", ["status", "total", "user_id"], descending: ["total"]),
+        ]);
+
+        result.Findings.Should().NotContain(f => f.RuleId == IndexRuleIds.DuplicateIndex);
+        Dropped(result, IndexRuleIds.RedundantIndex).Should().ContainSingle()
+            .Which.Should().Contain("ix_mixed\"", "it is a prefix of the wider index that sorts the same way");
+    }
+
+    [Fact]
+    public void FullyReversedOrder_IsTheSameIndexReadBackwards()
+    {
+        var result = Analyze(
+        [
+            Index("ix_asc", ["status", "total"]),
+            Index("ix_desc", ["status", "total"], descending: ["status", "total"]),
+            Index("ix_one_desc", ["status"], descending: ["status"]),
+        ]);
+
+        Dropped(result, IndexRuleIds.DuplicateIndex).Should().ContainSingle().Which.Should().Contain("ix_desc");
+        Dropped(result, IndexRuleIds.RedundantIndex).Should().ContainSingle().Which.Should().Contain("ix_one_desc");
     }
 
     // ── redundant-index ────────────────────────────────────────────────────────

@@ -76,6 +76,25 @@ public sealed class SqlServerEdgeFixture : IAsyncLifetime, IEdgeFixture
         "CREATE INDEX ix_a_incl ON edge.covered (a) INCLUDE (b)",
         "CREATE INDEX ix_a_b ON edge.covered (a, b)",
 
+        "CREATE TABLE edge.ordered (id int PRIMARY KEY, a int, b int)",
+        "CREATE INDEX ix_ordered ON edge.ordered (a, b)",
+        "CREATE INDEX ix_ordered_mixed ON edge.ordered (a, b DESC)",
+        "CREATE INDEX ix_ordered_reversed ON edge.ordered (a DESC, b DESC)",
+
+        "CREATE TABLE edge.account (id int PRIMARY KEY, tenant_id int, CONSTRAINT uq_account UNIQUE (tenant_id, id))",
+        """
+        CREATE TABLE edge.membership (
+            id int PRIMARY KEY, tenant_id int,
+            account_id int REFERENCES edge.account (id) ON DELETE CASCADE,
+            FOREIGN KEY (tenant_id, account_id) REFERENCES edge.account (tenant_id, id))
+        """,
+        """
+        CREATE TABLE edge.approval (
+            id int PRIMARY KEY,
+            account_id int REFERENCES edge.account (id) ON DELETE CASCADE,
+            approved_by int REFERENCES edge.account (id))
+        """,
+
         $"CREATE LOGIN {LimitedLogin} WITH PASSWORD = 'Limited123!', CHECK_POLICY = OFF",
         $"CREATE USER {LimitedLogin} FOR LOGIN {LimitedLogin}",
         $"GRANT SELECT ON SCHEMA::edge TO {LimitedLogin}",

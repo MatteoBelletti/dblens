@@ -70,7 +70,9 @@ public sealed record IndexDetail(
     bool IsPartial,
     string? Predicate,
     /// <summary>Non-key columns the index carries (INCLUDE). Null when it has none.</summary>
-    IReadOnlyList<string>? IncludedColumns = null
+    IReadOnlyList<string>? IncludedColumns = null,
+    /// <summary>Key columns sorted descending. Null when all ascend.</summary>
+    IReadOnlyList<string>? DescendingColumns = null
 );
 
 /// <summary>Foreign key constraint. Used for both outgoing and incoming; all fields are always populated.</summary>

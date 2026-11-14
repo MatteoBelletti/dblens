@@ -62,12 +62,12 @@ public static class RedundantIndexRule
 
     /// <summary>
     /// Whether <paramref name="b"/> can do everything <paramref name="a"/> does: its key starts with
-    /// a's key and it holds every column a carries. With the same key it must offer more — uniqueness
+    /// a's key, in the same order, and it holds every column a carries. With the same key it must offer more — uniqueness
     /// or extra columns — or the two are plain duplicates, which is the other rule's finding.
     /// </summary>
     private static bool Supersedes(IndexDetail b, IndexDetail a)
     {
-        if (!b.StartsWith(a.Columns)) return false;
+        if (!b.StartsWith(a.Columns) || b.KeyOrder(a.Columns.Count) != a.KeyOrder(a.Columns.Count)) return false;
 
         var carried = new HashSet<string>(b.Columns.Concat(b.Included()), StringComparer.OrdinalIgnoreCase);
         if (!a.Included().All(carried.Contains)) return false;

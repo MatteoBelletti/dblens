@@ -130,6 +130,21 @@ public sealed class PostgresEdgeFixture : IAsyncLifetime, IEdgeFixture
         CREATE INDEX ix_a_b ON edge.covered (a, b);
         CREATE INDEX ix_a_hash ON edge.covered USING hash (a);
 
+        CREATE TABLE edge.ordered (id int PRIMARY KEY, a int, b int);
+        CREATE INDEX ix_ordered ON edge.ordered (a, b);
+        CREATE INDEX ix_ordered_mixed ON edge.ordered (a, b DESC);
+        CREATE INDEX ix_ordered_reversed ON edge.ordered (a DESC, b DESC);
+
+        CREATE TABLE edge.account (id int PRIMARY KEY, tenant_id int, UNIQUE (tenant_id, id));
+        CREATE TABLE edge.membership (
+            id int PRIMARY KEY, tenant_id int,
+            account_id int REFERENCES edge.account (id) ON DELETE CASCADE,
+            FOREIGN KEY (tenant_id, account_id) REFERENCES edge.account (tenant_id, id));
+        CREATE TABLE edge.approval (
+            id int PRIMARY KEY,
+            account_id int REFERENCES edge.account (id) ON DELETE CASCADE,
+            approved_by int REFERENCES edge.account (id));
+
         CREATE TABLE edge.events (id int, created_at date NOT NULL, PRIMARY KEY (id, created_at))
             PARTITION BY RANGE (created_at);
         CREATE TABLE edge.events_2024 PARTITION OF edge.events FOR VALUES FROM ('2024-01-01') TO ('2025-01-01');

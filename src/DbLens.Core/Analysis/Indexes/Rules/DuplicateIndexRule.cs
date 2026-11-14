@@ -12,14 +12,15 @@ public static class DuplicateIndexRule
         {
             var tableQualified = table.Qualified();
 
-            // Duplicates are the same index twice: same key, uniqueness, access method and INCLUDE
-            // columns. A hash index beside a b-tree, or an index that carries extra columns, serves
-            // queries the other cannot. Partial indexes have dialect-specific predicates and
+            // Duplicates are the same index twice: same key and key order, uniqueness, access method
+            // and INCLUDE columns. A hash index beside a b-tree, or an index that carries extra
+            // columns or sorts (a, b DESC) instead of (a, b), serves queries the other cannot. Partial indexes have dialect-specific predicates and
             // cannot be safely deduplicated.
             var groups = table.Indexes
                 .Where(i => !i.IsPartial)
                 .GroupBy(i => (
                     Cols: string.Join(",", i.Columns.Select(c => c.ToLowerInvariant())),
+                    Order: i.KeyOrder(i.Columns.Count),
                     Included: string.Join(",", i.Included().Select(c => c.ToLowerInvariant()).Order(StringComparer.Ordinal)),
                     Method: i.Method.ToLowerInvariant(),
                     i.IsUnique))

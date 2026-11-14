@@ -192,6 +192,40 @@ public abstract class EdgeCatalogTestsBase(IEdgeFixture fixture)
 
     [SkippableFact]
     [Trait("Category", "Integration")]
+    public async Task DescendingKeyColumns_AreRead_AndAMixedOrderIsNotADuplicate()
+    {
+        Skip.If(ShouldSkip, TestSkip.Reason);
+
+        var details = await Inspector.GetTableDetailsAsync(new TableDetailsRequest([$"{Schema}.ordered"]));
+        var indexes = details.Tables.Single().Indexes.ToDictionary(i => i.Name);
+
+        indexes["ix_ordered"].DescendingColumns.Should().BeNull();
+        indexes["ix_ordered_mixed"].DescendingColumns.Should().Equal("b");
+        indexes["ix_ordered_mixed"].Definition.Should().Contain("DESC");
+        indexes["ix_ordered_reversed"].DescendingColumns.Should().Equal("a", "b");
+
+        var analysis = await Inspector.AnalyzeIndexesAsync(new AnalyzeIndexesRequest(Schema, ["ordered"]));
+
+        analysis.Findings.Where(f => f.RuleId is IndexRuleIds.DuplicateIndex or IndexRuleIds.RedundantIndex)
+            .Should().ContainSingle("only the fully reversed index is the plain one read backwards")
+            .Which.SqlFix!.Sql.Should().Contain("ix_ordered_reversed");
+    }
+
+    [SkippableFact]
+    [Trait("Category", "Integration")]
+    public async Task NoActionKey_BlocksOnlyWhereACascadeLeavesRowsBehind()
+    {
+        Skip.If(ShouldSkip, TestSkip.Reason);
+
+        var result = await Inspector.CheckCascadePathsAsync(new CheckCascadePathsRequest($"{Schema}.account"));
+
+        result.Findings.Where(f => f.RuleId == CascadeRuleIds.BreaksWithRestrict).Select(f => f.Table)
+            .Should().Equal($"{Schema}.approval");
+        result.Paths.Should().Contain(p => p.LeafTables.Contains($"{Schema}.membership") && p.BrokenAt == null);
+    }
+
+    [SkippableFact]
+    [Trait("Category", "Integration")]
     public async Task Views_ReportTheirColumns()
     {
         Skip.If(ShouldSkip, TestSkip.Reason);
