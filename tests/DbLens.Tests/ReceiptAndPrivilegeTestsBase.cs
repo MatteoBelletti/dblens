@@ -117,6 +117,33 @@ public abstract class ReceiptAndPrivilegeTestsBase(IDatabaseFixture fixture)
 
     [SkippableFact]
     [Trait("Category", "Integration")]
+    public async Task CellTheDriverCannotRead_CostsThatCell_NotTheResult()
+    {
+        Skip.If(ShouldSkip, TestSkip.Reason);
+
+        var unreadable = Fixture.Inspector!.Dialect == DbLens.Core.Models.DatabaseDialect.PostgreSql
+            ? "'NaN'::numeric"
+            : "hierarchyid::GetRoot()";
+
+        var row = (await RunAsync($"SELECT {unreadable} AS odd, 1 AS fine")).Result.Rows.Single();
+
+        row[0].Should().BeOfType<string>().Which.Should().Contain("cast it to text");
+        Convert.ToInt64(row[1]).Should().Be(1);
+    }
+
+    [SkippableFact]
+    [Trait("Category", "Integration")]
+    public async Task Tolerance_OutsideZeroToOne_IsRejected()
+    {
+        Skip.If(ShouldSkip, TestSkip.Reason);
+
+        var act = () => Fixture.Inspector!.QueryWithReceiptAsync(new QueryWithReceiptRequest("SELECT 1", "SELECT 2", Tolerance: 5));
+
+        await act.Should().ThrowAsync<ArgumentException>().WithMessage("*between 0 and 1*");
+    }
+
+    [SkippableFact]
+    [Trait("Category", "Integration")]
     public async Task EstimatedPlan_RefusesASecondStatement()
     {
         Skip.If(ShouldSkip, TestSkip.Reason);

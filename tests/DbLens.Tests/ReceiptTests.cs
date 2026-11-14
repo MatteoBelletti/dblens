@@ -3,6 +3,27 @@ using FluentAssertions;
 
 namespace DbLens.Tests;
 
+public class ResultValueTests
+{
+    [Fact]
+    public void ValuesJsonCannotCarry_BecomeText()
+    {
+        ResultValue.From(double.NaN).Should().Be("NaN");
+        ResultValue.From(double.PositiveInfinity).Should().Be("Infinity");
+        ResultValue.From(new[] { 1, 2 }).Should().Be("[1, 2]");
+        ResultValue.From(1.5).Should().Be(1.5);
+    }
+
+    [Fact]
+    public void Tolerance_IsReportedAsThePercentageItIs()
+    {
+        var a = new QueryResult(["t"], [[100.0m]], false, 0);
+        var b = new QueryResult(["t"], [[100.05m]], false, 0);
+
+        ResultComparer.Compare(a, b, 0.001).Explanation.Should().Contain("0.1 %");
+    }
+}
+
 public class ResultComparerTests
 {
     private static QueryResult Result(string[] columns, params object?[][] rows) =>

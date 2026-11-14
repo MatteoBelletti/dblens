@@ -25,6 +25,8 @@ public abstract partial class DatabaseInspectorBase
     {
         Guard(request.Sql, "query");
         if (request.CrossCheckSql is not null) Guard(request.CrossCheckSql, "cross-check query");
+        if (request.Tolerance is not (>= 0 and <= 1))
+            throw new ArgumentException("tolerance is a relative difference between 0 and 1, e.g. 0.001 for 0.1 %.");
 
         Log.LogInformation("Running query with receipt (length={Length}, crossCheck={CrossCheck})",
             request.Sql.Length, request.CrossCheckSql is not null);
@@ -109,7 +111,7 @@ public abstract partial class DatabaseInspectorBase
             while (await reader.ReadAsync(ct))
             {
                 if (rows.Count == maxRows) { truncated = true; break; }
-                rows.Add(Enumerable.Range(0, reader.FieldCount).Select(i => ResultValue.From(reader.GetValue(i))).ToList());
+                rows.Add(Enumerable.Range(0, reader.FieldCount).Select(i => ResultValue.Read(reader, i)).ToList());
             }
 
             return new QueryResult(columns, rows, truncated, Math.Round(sw.Elapsed.TotalMilliseconds, 1));

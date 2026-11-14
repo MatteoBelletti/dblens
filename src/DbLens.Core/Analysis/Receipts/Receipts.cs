@@ -1,3 +1,4 @@
+using System.Data.Common;
 using System.Globalization;
 
 namespace DbLens.Core.Analysis.Receipts;
@@ -59,7 +60,8 @@ public static class ResultComparer
 
         return (CrossCheckStatus.Agree,
             tolerance > 0
-                ? $"Both queries return the same {a.Count} row(s), within a relative tolerance of {Num.P0(tolerance)}."
+                ? $"Both queries return the same {a.Count} row(s), within a relative tolerance of " +
+                  $"{(tolerance * 100).ToString("0.####", CultureInfo.InvariantCulture)} %."
                 : $"Both queries return exactly the same {a.Count} row(s).");
     }
 
@@ -103,9 +105,29 @@ public static class ResultValue
 {
     private const int MaxText = 500;
 
+    /// <summary>
+    /// The cell as a JSON-friendly value. A type the driver cannot hand over (an out-of-range
+    /// numeric, a CLR type whose assembly is absent) costs that cell, not the result.
+    /// </summary>
+    public static object? Read(DbDataReader reader, int ordinal)
+    {
+        try
+        {
+            return From(reader.GetValue(ordinal));
+        }
+        catch (Exception ex) when (ex is InvalidCastException or OverflowException or FormatException
+                                       or NotSupportedException or IOException)
+        {
+            return $"<{reader.GetDataTypeName(ordinal)}: not readable here, cast it to text in the query>";
+        }
+    }
+
     public static object? From(object? value) => value switch
     {
         null or DBNull => null,
+        // JSON has no NaN or Infinity.
+        float f when !float.IsFinite(f) => f.ToString(CultureInfo.InvariantCulture),
+        double d when !double.IsFinite(d) => d.ToString(CultureInfo.InvariantCulture),
         bool or byte or short or int or long or decimal or float or double => value,
         string s => s.Length <= MaxText ? s : s[..MaxText] + "…",
         DateTime d => d.ToString("o", CultureInfo.InvariantCulture),
@@ -115,6 +137,7 @@ public static class ResultValue
         byte[] b => $"<{b.Length} bytes>",
         Guid g => g.ToString(),
         IFormattable f => f.ToString(null, CultureInfo.InvariantCulture),
-        _ => value.ToString(),
+        System.Collections.IEnumerable items => From("[" + string.Join(", ", items.Cast<object?>().Select(From)) + "]"),
+        _ => From(value.ToString()),
     };
 }

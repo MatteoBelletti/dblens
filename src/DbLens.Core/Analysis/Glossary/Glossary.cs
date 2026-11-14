@@ -91,9 +91,9 @@ public static class GlossaryEngine
             md.AppendLine();
             foreach (var q in certified.OrderBy(q => q.Name, StringComparer.OrdinalIgnoreCase))
             {
-                md.AppendLine($"### {q.Name}");
+                md.AppendLine($"### {Cell(q.Name)}");
                 md.AppendLine();
-                md.AppendLine($"{q.Question} — certified {q.CertifiedAt[..Math.Min(10, q.CertifiedAt.Length)]}.");
+                md.AppendLine($"{Cell(q.Question)} — certified {q.CertifiedAt[..Math.Min(10, q.CertifiedAt.Length)]}.");
                 md.AppendLine();
                 md.AppendLine("```sql");
                 md.AppendLine(q.Sql.Trim());
