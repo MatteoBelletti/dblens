@@ -11,7 +11,10 @@ public sealed partial class PostgresInspector
 
     // pgstatindex fully scans the index it is given, so it is only invoked for indexes that
     // clear the page-count threshold. Smaller indexes are still returned (with null stats) so
-    // the engine can report how many were skipped.
+    // the engine can report how many were skipped. The NULL argument is what keeps the call from
+    // running — pgstatindex is STRICT — whereas a WHERE beside a function in FROM only filters
+    // its rows after it has been called. relkind 'i' leaves out the index of a partitioned table,
+    // which has no pages of its own.
     private const string IndexFragmentationSql = """
         WITH candidates AS (
             SELECT
@@ -29,6 +32,7 @@ public sealed partial class PostgresInspector
             JOIN pg_namespace n  ON n.oid = ct.relnamespace
             JOIN pg_am am        ON am.oid = ci.relam
             WHERE am.amname = 'btree'
+            AND ci.relkind = 'i'
             AND ci.relpersistence <> 't'
             AND (n.nspname, ct.relname) IN (
                 SELECT * FROM unnest(@schemas::text[], @names::text[])
@@ -44,10 +48,8 @@ public sealed partial class PostgresInspector
             st.leaf_fragmentation,
             st.avg_leaf_density
         FROM candidates c
-        LEFT JOIN LATERAL (
-            SELECT *
-            FROM pgstatindex(c.index_oid::regclass)
-            WHERE c.page_count >= @min_pages
+        LEFT JOIN LATERAL pgstatindex(
+            CASE WHEN c.page_count >= @min_pages THEN c.index_oid::regclass END
         ) st ON true
         ORDER BY c.schema_name, c.table_name, c.index_name
         """;

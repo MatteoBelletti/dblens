@@ -48,7 +48,9 @@ public sealed record ColumnDetail(
     int? NumericPrecision,
     int? NumericScale,
     bool IsIdentity,
-    string? Comment
+    string? Comment,
+    /// <summary>Computed by the database from other columns: a generated or computed column.</summary>
+    bool IsGenerated = false
 );
 
 public sealed record PrimaryKeyInfo(
@@ -66,7 +68,9 @@ public sealed record IndexDetail(
     /// <summary>Reconstructed CREATE INDEX statement.</summary>
     string Definition,
     bool IsPartial,
-    string? Predicate
+    string? Predicate,
+    /// <summary>Non-key columns the index carries (INCLUDE). Null when it has none.</summary>
+    IReadOnlyList<string>? IncludedColumns = null
 );
 
 /// <summary>Foreign key constraint. Used for both outgoing and incoming; all fields are always populated.</summary>

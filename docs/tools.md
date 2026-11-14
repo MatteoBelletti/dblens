@@ -35,8 +35,8 @@ the server is on another machine; see [safety.md](safety.md#read-only-login).
 
 Every diagnostic result has the same skeleton: `Findings`, `Signals`, a `Summary` whose `BySeverity`
 and `ByRule` dictionaries always contain every key, `Caveats`, and — where relevant — a `Disclaimer`.
-Results are capped at 200 findings in total; facts are kept in preference to signals and a caveat
-says when anything was cut.
+Results are capped at 200 findings in total; facts are kept in preference to signals, the most severe
+first within each, and a caveat says how many were cut. The `Summary` counts what is returned.
 
 ---
 
@@ -59,6 +59,12 @@ Lists tables and views with row estimates, sizes and FK/index counts, grouped by
 **Not included:** column names. Each object carries only a `ColumnCount`; call `get_table_details`
 for the columns.
 
+On PostgreSQL a partitioned table is one table whose rows and size are those of its partitions; each
+partition is listed too, with `PartitionOf` naming its parent, and is not counted again in the totals.
+Materialized views are listed as views. The structural diagnostics read the partitioned table and
+skip its partitions unless one is named in `tables`; `analyze_fragmentation` reads the partitions,
+which is where the pages are.
+
 ## `get_table_details`
 
 Columns (type, nullability, default), indexes with their definitions, foreign keys in both
@@ -68,6 +74,14 @@ directions, check and unique constraints, for 1–20 tables or views.
 |---|---|---|
 | `tables` | required | `schema.name` or `name` |
 | `defaultSchema` | `public` / `dbo` | Schema for unqualified names |
+
+A name is written without quotes or brackets. When it contains dots (`my.schema.orders`) every split
+into schema and table is tried and the catalog decides; on SQL Server names are matched by the
+database's collation, so `USERS` finds `users` where the database is case-insensitive.
+
+An index reports its key in `Columns` and the columns it only carries in `IncludedColumns`; a column
+computed by the database (generated, computed, system-period) has `IsGenerated`. `Kind` is `table`,
+`view` or `materialized view`.
 
 **Not included:** view bodies, row data, anything about names listed in `NotFound`.
 
@@ -80,9 +94,14 @@ directions, check and unique constraints, for 1–20 tables or views.
 | Rule | Severity | Evidence | Detects |
 |---|---|---|---|
 | `fk-without-index` | High | Derived | FK columns with no index that leads with them |
-| `duplicate-index` | Medium | Derived | Two indexes on the same columns with the same uniqueness |
-| `redundant-index` | Low | Derived | A non-unique index that is a strict prefix of another |
+| `duplicate-index` | Medium | Derived | Two indexes with the same key, uniqueness, access method and `INCLUDE` columns |
+| `redundant-index` | Low | Derived | A non-unique index whose work another does: its key is a prefix of the other's, or the same key under a unique or wider-covering index |
 | `unused-index` | Low | Measured | A non-unique index with zero scans |
+
+Only an index that can do the job counts. A partial (filtered) index never covers a foreign key or
+makes another index redundant; a hash index covers a foreign key only on exactly its columns; GIN,
+GiST and columnstore indexes are not compared at all. An index is only called redundant when the
+other one also holds every column it carries. Disabled and hypothetical SQL Server indexes are ignored.
 
 Every finding has a `SqlFix` with the `CREATE INDEX` / `DROP INDEX` statement (kind `Ddl`), written
 not to block writes: `CONCURRENTLY` on PostgreSQL, `ONLINE = ON` on SQL Server (Enterprise or Developer
@@ -115,7 +134,7 @@ range-scans it. This is one input to a maintenance decision. For a maintenance s
 
 | Parameter | Default | Meaning |
 |---|---|---|
-| `startingTable` | — | Qualified table, e.g. `public.users`. Omitted: every table targeted by an `ON DELETE CASCADE` key |
+| `startingTable` | — | Qualified table, e.g. `public.users`. Omitted: every table targeted by an `ON DELETE CASCADE` key. A table that does not exist is an error, not an empty result |
 | `maxDepth` | `10` | Hard cap 50 |
 
 | Rule | Severity | Detects |

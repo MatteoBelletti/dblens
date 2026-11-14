@@ -33,10 +33,11 @@ public sealed partial class PostgresInspector
         JOIN pg_attribute a_to
             ON a_to.attrelid = con.confrelid AND a_to.attnum = (con.confkey[kord.n::int])
         WHERE con.contype = 'f'
+        AND con.conparentid = 0
         AND n_from.nspname NOT LIKE 'pg\_%' ESCAPE '\'
         AND n_from.nspname <> 'information_schema'
         AND (@schema_filter IS NULL OR n_from.nspname = @schema_filter OR n_to.nspname = @schema_filter)
-        GROUP BY con.conname, n_from.nspname, ct_from.relname, n_to.nspname, ct_to.relname, con.confdeltype
+        GROUP BY con.oid, con.conname, n_from.nspname, ct_from.relname, n_to.nspname, ct_to.relname, con.confdeltype
         ORDER BY n_from.nspname, ct_from.relname, con.conname
         """;
 
@@ -44,10 +45,18 @@ public sealed partial class PostgresInspector
         SELECT
             n.nspname AS schema_name,
             c.relname AS table_name,
-            CASE WHEN c.reltuples < 0 THEN NULL ELSE c.reltuples::bigint END AS approx_rows
+            CASE
+                WHEN c.relkind = 'p' THEN (
+                    SELECT CASE WHEN bool_or(l.reltuples < 0) THEN NULL ELSE sum(l.reltuples)::bigint END
+                    FROM pg_partition_tree(c.oid) t
+                    JOIN pg_class l ON l.oid = t.relid
+                    WHERE t.isleaf)
+                WHEN c.reltuples < 0 THEN NULL
+                ELSE c.reltuples::bigint
+            END AS approx_rows
         FROM pg_class c
         JOIN pg_namespace n ON n.oid = c.relnamespace
-        WHERE c.relkind = 'r'
+        WHERE c.relkind IN ('r', 'p')
         AND n.nspname NOT LIKE 'pg\_%' ESCAPE '\'
         AND n.nspname <> 'information_schema'
         AND (@schema_filter IS NULL OR n.nspname = @schema_filter)

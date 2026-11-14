@@ -1,0 +1,132 @@
+using DbLens.Core.Abstractions;
+using DbLens.Core.Models;
+using DbLens.SqlServer;
+using FluentAssertions;
+using Microsoft.Data.SqlClient;
+using Microsoft.Extensions.Logging.Abstractions;
+
+namespace DbLens.Tests;
+
+public sealed class SqlServerEdgeCatalogTests(SqlServerEdgeFixture fixture)
+    : EdgeCatalogTestsBase(fixture), IClassFixture<SqlServerEdgeFixture>
+{
+    [SkippableFact]
+    [Trait("Category", "Integration")]
+    public async Task ForeignKeysSharingAName_InDifferentSchemas_StaySeparate()
+    {
+        Skip.If(ShouldSkip, TestSkip.Reason);
+
+        // SQL Server scopes a constraint name to its schema, so two schemas can each hold "fk_same".
+        var details = await Inspector.GetTableDetailsAsync(
+            new TableDetailsRequest([$"{Schema}.kid", $"{DottedSchema}.child"]));
+
+        details.Tables[0].ForeignKeysOutgoing.Should().ContainSingle()
+            .Which.Should().Match<ForeignKeyDetail>(fk => fk.ConstraintName == "fk_same" && fk.ToTable == "parent");
+        details.Tables[1].ForeignKeysOutgoing.Should().ContainSingle()
+            .Which.Should().Match<ForeignKeyDetail>(fk => fk.ConstraintName == "fk_same" && fk.ToTable == "tbl.with.dot");
+    }
+
+    [SkippableFact]
+    [Trait("Category", "Integration")]
+    public async Task IndexedView_ListsItsIndex()
+    {
+        Skip.If(ShouldSkip, TestSkip.Reason);
+
+        var details = await Inspector.GetTableDetailsAsync(new TableDetailsRequest([$"{Schema}.v_indexed"]));
+
+        details.Tables.Single().Indexes.Should().ContainSingle().Which.Columns.Should().Equal("parent_id");
+    }
+}
+
+/// <summary>
+/// Creates and drops the edge database on the demo SQL Server, with a case-sensitive collation so
+/// that names differing only in case can exist.
+/// </summary>
+public sealed class SqlServerEdgeFixture : IAsyncLifetime, IEdgeFixture
+{
+    private const string Database = "dblens_edge";
+
+    private static readonly string[] SetupSql =
+    [
+        "CREATE SCHEMA [edge.dot]",
+        "CREATE SCHEMA edge",
+
+        "CREATE TABLE [edge.dot].[tbl.with.dot] (id int PRIMARY KEY, note nvarchar(50))",
+        """
+        CREATE TABLE [edge.dot].child (
+            id int PRIMARY KEY,
+            parent_id int CONSTRAINT fk_same REFERENCES [edge.dot].[tbl.with.dot](id) ON DELETE CASCADE)
+        """,
+
+        "CREATE TABLE edge.[Twin] (id int PRIMARY KEY, label nvarchar(50))",
+        "CREATE TABLE edge.twin (id int PRIMARY KEY, label nvarchar(50))",
+
+        "CREATE TABLE edge.parent (id int PRIMARY KEY)",
+        "CREATE TABLE edge.kid (id int PRIMARY KEY, parent_id int CONSTRAINT fk_same REFERENCES edge.parent(id))",
+        "CREATE INDEX ix_kid_partial ON edge.kid (parent_id) WHERE parent_id > 0",
+        "CREATE VIEW edge.v_kid AS SELECT id, parent_id FROM edge.kid",
+        """
+        CREATE VIEW edge.v_indexed WITH SCHEMABINDING AS
+        SELECT parent_id, COUNT_BIG(*) AS n FROM edge.kid WHERE parent_id IS NOT NULL GROUP BY parent_id
+        """,
+        "CREATE UNIQUE CLUSTERED INDEX ix_v_indexed ON edge.v_indexed (parent_id)",
+
+        "CREATE TABLE edge.covered (id int PRIMARY KEY, a int, b int)",
+        "CREATE INDEX ix_a ON edge.covered (a)",
+        "CREATE INDEX ix_a_incl ON edge.covered (a) INCLUDE (b)",
+        "CREATE INDEX ix_a_b ON edge.covered (a, b)",
+    ];
+
+    private static string AdminConnectionString =>
+        Environment.GetEnvironmentVariable("DBLENS_TEST_SS_ADMIN_CONNECTION")
+        ?? "Server=localhost,1434;Database=dblens_demo;User Id=sa;Password=DevPassword123!;TrustServerCertificate=true";
+
+    private static string EdgeConnectionString =>
+        new SqlConnectionStringBuilder(AdminConnectionString) { InitialCatalog = Database, Pooling = false }.ToString();
+
+    private const string DropSql =
+        $"IF DB_ID('{Database}') IS NOT NULL BEGIN " +
+        $"ALTER DATABASE {Database} SET SINGLE_USER WITH ROLLBACK IMMEDIATE; DROP DATABASE {Database}; END";
+
+    public bool IsReachable { get; private set; }
+
+    public IDatabaseInspector? Inspector { get; private set; }
+
+    public async Task InitializeAsync()
+    {
+        try
+        {
+            await ExecuteAsync(AdminConnectionString, "SELECT 1");
+        }
+        catch
+        {
+            return;
+        }
+
+        // From here a failure is a broken fixture, not an unreachable database: it must fail, not skip.
+        await ExecuteAsync(AdminConnectionString, DropSql);
+        await ExecuteAsync(AdminConnectionString, $"CREATE DATABASE {Database} COLLATE Latin1_General_100_CS_AS");
+        foreach (var statement in SetupSql)
+            await ExecuteAsync(EdgeConnectionString, statement);
+
+        Inspector = new SqlServerInspector(EdgeConnectionString, NullLogger<SqlServerInspector>.Instance);
+        IsReachable = true;
+    }
+
+    public async Task DisposeAsync()
+    {
+        if (IsReachable)
+            await ExecuteAsync(AdminConnectionString, DropSql);
+    }
+
+    private static async Task ExecuteAsync(string connectionString, string sql)
+    {
+        await using var conn = new SqlConnection(
+            new SqlConnectionStringBuilder(connectionString) { ConnectTimeout = 5 }.ToString());
+        await conn.OpenAsync();
+        await using var cmd = conn.CreateCommand();
+        cmd.CommandText = sql;
+        cmd.CommandTimeout = 60;
+        await cmd.ExecuteNonQueryAsync();
+    }
+}

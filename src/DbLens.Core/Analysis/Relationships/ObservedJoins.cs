@@ -57,7 +57,12 @@ public static class JoinPredicateExtractor
     public static IReadOnlyList<ObservedJoin> Extract(
         IEnumerable<SqlSource> sources, IReadOnlyList<TableDetail> tables, string defaultSchema)
     {
-        var byQualified = tables.ToDictionary(t => $"{t.Schema}.{t.Name}", StringComparer.OrdinalIgnoreCase);
+        // SQL text names tables without regard to case, so the lookup does too. Names that differ
+        // only in case (legal on PostgreSQL and on a case-sensitive SQL Server) cannot be told
+        // apart from the text and are left unresolved rather than guessed.
+        var byQualified = tables.GroupBy(t => $"{t.Schema}.{t.Name}", StringComparer.OrdinalIgnoreCase)
+            .Where(g => g.Count() == 1)
+            .ToDictionary(g => g.Key, g => g.First(), StringComparer.OrdinalIgnoreCase);
         var byName = tables.GroupBy(t => t.Name, StringComparer.OrdinalIgnoreCase)
             .ToDictionary(g => g.Key, g => g.ToList(), StringComparer.OrdinalIgnoreCase);
 

@@ -31,16 +31,28 @@ public sealed record FindingSplit(
         foreach (var finding in all)
             (finding.Evidence.IsFactual() ? findings : signals).Add(finding);
 
-        if (findings.Count + signals.Count <= DiagnosticLimits.MaxFindingCount)
+        var total = findings.Count + signals.Count;
+        if (total <= DiagnosticLimits.MaxFindingCount)
             return new FindingSplit(findings, signals, Truncated: false);
 
-        if (findings.Count >= DiagnosticLimits.MaxFindingCount)
-            return new FindingSplit(
-                findings.Take(DiagnosticLimits.MaxFindingCount).ToList(), [], Truncated: true);
+        // Facts before signals, and within each the most severe first: whatever order the rules
+        // ran in, what is cut must be what matters least.
+        var keptFindings = MostSevere(findings, DiagnosticLimits.MaxFindingCount);
+        var keptSignals = MostSevere(signals, DiagnosticLimits.MaxFindingCount - keptFindings.Count);
 
-        var signalBudget = DiagnosticLimits.MaxFindingCount - findings.Count;
-        return new FindingSplit(findings, signals.Take(signalBudget).ToList(), Truncated: true);
+        return new FindingSplit(keptFindings, keptSignals, Truncated: true)
+        {
+            Omitted = total - keptFindings.Count - keptSignals.Count,
+        };
     }
+
+    private static List<Finding> MostSevere(List<Finding> items, int budget) =>
+        items.Count <= budget
+            ? items
+            : items.OrderBy(f => f.Severity).ThenByDescending(f => f.Confidence).Take(budget).ToList();
+
+    /// <summary>How many results the cap left out.</summary>
+    public int Omitted { get; init; }
 
     /// <summary>Appends a finding that must never be dropped, such as an always-present summary.</summary>
     public FindingSplit WithMandatory(Finding finding) =>
@@ -63,7 +75,8 @@ public sealed record FindingSplit(
     public string? TruncationCaveat(string? hint = FilterHint) =>
         !Truncated
             ? null
-            : $"Results truncated to {DiagnosticLimits.MaxFindingCount} entries." + (hint is null ? "" : " " + hint);
+            : $"Results truncated to {DiagnosticLimits.MaxFindingCount} entries: {Omitted} more were left out, " +
+              "the least severe first, and are not counted in the Summary." + (hint is null ? "" : " " + hint);
 
     /// <summary>
     /// The caveat explaining the split, so a caller that only reads Findings still learns that

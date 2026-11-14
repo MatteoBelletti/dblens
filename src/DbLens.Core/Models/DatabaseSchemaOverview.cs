@@ -49,5 +49,10 @@ public sealed record DatabaseObject(
     /// <summary>Human-readable total size (e.g. "16 KB").</summary>
     string TotalSizeHuman,
     /// <summary>Object comment from pg_description, or null if not set.</summary>
-    string? Comment
+    string? Comment,
+    /// <summary>
+    /// The partitioned table ("schema.name") this table is a partition of. Its rows and size are
+    /// already counted in that table, and the structural diagnostics read the parent, not this.
+    /// </summary>
+    string? PartitionOf = null
 );

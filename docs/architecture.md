@@ -40,7 +40,8 @@ no driver. It owns everything that does not depend on SQL dialect:
 | Base owns | Dialect supplies |
 |---|---|
 | scope resolution and the 20-table limit | `CreateConnection`, `DialectDisplayName`, `DefaultSchema` |
-| `DbException` wrapping, `NotFound` caveat | `GetSchemaOverviewAsync`, `GetTableDetailsAsync`, `TestConnectionAsync` |
+| `DbException` wrapping, `NotFound` caveat | `GetSchemaOverviewAsync`, `TestConnectionAsync` |
+| reading a requested name (`ParseTableNames`), assembling table details (`BuildTableDetails`) | `GetTableDetailsAsync(names)`: the catalog queries |
 | the `explain_query` statement guard | `FetchQueryPlanAsync` (after the guard has run) |
 | orchestration of every diagnostic tool | `QueryIndexUsageStatsAsync`, `QueryFragmentationStatsAsync`, `QueryCascadeGraphAsync` |
 | the signal verification loop | `VerificationSetupSql`, `ClassifyVerificationError`, `VerificationCaveats` |
@@ -110,6 +111,10 @@ See [safety.md](safety.md#signal-verification) for the guarantees.
 - **Parity tests** run the same analysis on both dialects and compare findings; genuine differences
   (SQL Server rejects a self-referencing `ON DELETE CASCADE`) are asserted as differences.
 - Integration tests **skip, never pass**, when a database is unreachable, and CI fails on any skip.
+- **Edge-catalog tests** (`EdgeCatalogTestsBase`) run against a `dblens_edge` database their fixture
+  creates and drops: names with dots or differing only in case, partial and covering indexes, views,
+  partitioned tables. Shapes the demo schema lacks go there, not into `db/*/01-schema.sql`, whose
+  object counts the other tests assert.
 - **Composition tests** (`CompositionTestsBase`) feed one tool's output to another: the constraint
   `infer_relationships` proposes and the index `analyze_indexes` proposes must be recognized — and not
   flagged — by `check_migration_safety`; a verification probe must pass `explain_query` and reproduce

@@ -1,3 +1,4 @@
+using DbLens.Core.Analysis;
 using DbLens.Core.Analysis.Cascade;
 using DbLens.Core.Analysis.Denormalization;
 using DbLens.Core.Analysis.Fragmentation;
@@ -137,7 +138,8 @@ public abstract partial class DatabaseInspectorBase
 
         return RunAsync("fragmentation analysis", async () =>
         {
-            var scope = await ResolveTableScopeAsync(request.Schema, request.Tables, ct);
+            // The partitions hold the pages; the partitioned table itself stores nothing.
+            var scope = await ResolveTableScopeAsync(request.Schema, request.Tables, ct, includePartitions: true);
             if (scope.Count == 0) return FragmentationAnalysisEngine.Empty();
 
             var stats = await QueryFragmentationStatsAsync(scope, request, ct);
@@ -166,7 +168,7 @@ public abstract partial class DatabaseInspectorBase
             if (statements.Count == 0) return MigrationSafetyEngine.Empty();
 
             // Every user table, not just a filtered scope: a script can touch any schema.
-            var catalog = await ResolveTableScopeAsync(schema: null, tables: null, ct);
+            var catalog = await ResolveTableScopeAsync(schema: null, tables: null, ct, includePartitions: true);
             var tables = catalog.ToDictionary(
                 t => (t.Schema, t.Name),
                 t => new MigrationTableContext(
@@ -197,7 +199,7 @@ public abstract partial class DatabaseInspectorBase
             var graph = await QueryCascadeGraphAsync(request.Schema, ct);
             var dialect = Dialect.ToString();
 
-            var roots = ResolveCascadeRoots(request, graph.Edges);
+            var roots = ResolveCascadeRoots(request, graph);
             if (roots.Count == 0) return CascadeAnalysisEngine.Empty(dialect, graph.DatabaseName);
 
             var result = CascadeAnalysisEngine.Analyze(
@@ -212,16 +214,32 @@ public abstract partial class DatabaseInspectorBase
     }
 
     private List<(string Schema, string Name)> ResolveCascadeRoots(
-        CheckCascadePathsRequest request, IReadOnlyList<CascadeAnalysisEngine.FkEdge> edges)
+        CheckCascadePathsRequest request, CascadeGraph graph)
     {
         if (request.StartingTable is not null)
         {
-            var parts = request.StartingTable.Split('.', 2);
-            return parts.Length == 2 ? [(parts[0], parts[1])] : [(DefaultSchema, parts[0])];
+            // "No cascade from this table" must never be the answer for a table that is not there.
+            var known = graph.RowCounts.Keys
+                .Concat(graph.Edges.SelectMany(e => new[] { (e.FromSchema, e.FromTable), (e.ToSchema, e.ToTable) }))
+                .ToHashSet();
+            var readings = ParseTableNames([request.StartingTable], defaultSchema: null)
+                .Select(n => (n.Schema, n.Name))
+                .ToList();
+
+            var exact = readings.Where(known.Contains).Take(1).ToList();
+            if (exact.Count == 1) return exact;
+
+            var anyCase = known.Where(k => readings.Contains(k, CaseInsensitivePairComparer.Instance)).Take(2).ToList();
+            if (anyCase.Count == 1) return anyCase;
+
+            throw new ArgumentException(
+                $"Table '{request.StartingTable}' was not found" +
+                (request.Schema is null ? "" : $" in schema '{request.Schema}'") +
+                ". Pass it as 'schema.table', exactly as get_schema lists it.");
         }
 
         // Every table that is the parent of at least one CASCADE foreign key.
-        return edges
+        return graph.Edges
             .Where(e => e.OnDelete == "CASCADE")
             .Select(e => (e.ToSchema, e.ToTable))
             .Distinct()

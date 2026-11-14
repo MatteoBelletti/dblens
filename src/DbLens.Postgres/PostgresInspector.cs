@@ -13,6 +13,11 @@ public sealed partial class PostgresInspector : DatabaseInspectorBase
     private readonly string _connectionString;
     private readonly ILogger<PostgresInspector> _logger;
 
+    // relkind: r table, p partitioned table, v view, m materialized view.
+    //
+    // A partitioned table stores nothing itself, so its rows and size are those of its leaf
+    // partitions. A foreign key that involves one is cloned onto every partition: conparentid = 0
+    // keeps the declared constraint and drops the clones.
     private const string SchemaOverviewSql = """
         WITH params AS (
             SELECT
@@ -25,8 +30,14 @@ public sealed partial class PostgresInspector : DatabaseInspectorBase
             n.nspname                                   AS schema_name,
             c.relname                                   AS object_name,
             c.relkind                                   AS object_kind,
-            CASE WHEN c.reltuples < 0 THEN NULL
-                 ELSE c.reltuples::bigint
+            CASE
+                WHEN c.relkind = 'p' THEN (
+                    SELECT CASE WHEN bool_or(l.reltuples < 0) THEN NULL ELSE sum(l.reltuples)::bigint END
+                    FROM pg_partition_tree(c.oid) t
+                    JOIN pg_class l ON l.oid = t.relid
+                    WHERE t.isleaf)
+                WHEN c.reltuples < 0 THEN NULL
+                ELSE c.reltuples::bigint
             END                                         AS approximate_row_count,
             (SELECT count(*) FROM pg_attribute a
                 WHERE a.attrelid = c.oid AND a.attnum > 0 AND NOT a.attisdropped
@@ -35,23 +46,35 @@ public sealed partial class PostgresInspector : DatabaseInspectorBase
                 WHERE pk.conrelid = c.oid AND pk.contype = 'p'
             )                                           AS has_primary_key,
             (SELECT count(*) FROM pg_constraint fk
-                WHERE fk.conrelid = c.oid AND fk.contype = 'f'
+                WHERE fk.conrelid = c.oid AND fk.contype = 'f' AND fk.conparentid = 0
             )                                           AS outgoing_fk_count,
             (SELECT count(*) FROM pg_constraint fk
-                WHERE fk.confrelid = c.oid AND fk.contype = 'f'
+                WHERE fk.confrelid = c.oid AND fk.contype = 'f' AND fk.conparentid = 0
             )                                           AS incoming_fk_count,
             (SELECT count(*) FROM pg_index i
                 WHERE i.indrelid = c.oid
             )                                           AS index_count,
-            pg_total_relation_size(c.oid)               AS total_size_bytes,
+            CASE WHEN c.relkind = 'p' THEN (
+                    SELECT COALESCE(sum(pg_total_relation_size(t.relid)), 0)::bigint
+                    FROM pg_partition_tree(c.oid) t
+                    WHERE t.isleaf)
+                 ELSE pg_total_relation_size(c.oid)
+            END                                         AS total_size_bytes,
             obj_description(c.oid, 'pg_class')          AS object_comment,
+            (SELECT pn.nspname || '.' || pc.relname
+                FROM pg_inherits i
+                JOIN pg_class pc ON pc.oid = i.inhparent
+                JOIN pg_namespace pn ON pn.oid = pc.relnamespace
+                WHERE c.relispartition AND i.inhrelid = c.oid
+                LIMIT 1
+            )                                           AS partition_of,
             current_database()                          AS database_name
         FROM pg_class c
         JOIN pg_namespace n ON n.oid = c.relnamespace
         CROSS JOIN params p
         WHERE
-            c.relkind IN ('r', 'v')
-            AND (p.include_views OR c.relkind = 'r')
+            c.relkind IN ('r', 'p', 'v', 'm')
+            AND (p.include_views OR c.relkind IN ('r', 'p'))
             AND (p.include_system
                  OR (n.nspname NOT LIKE 'pg\_%' ESCAPE '\'
                      AND n.nspname <> 'information_schema'))
@@ -69,7 +92,7 @@ public sealed partial class PostgresInspector : DatabaseInspectorBase
             current_database()                 AS database_name
         FROM pg_class c
         JOIN pg_namespace n ON n.oid = c.relnamespace
-        WHERE c.relkind IN ('r', 'v')
+        WHERE c.relkind IN ('r', 'p', 'v', 'm')
         AND (n.nspname, c.relname) IN (
             SELECT * FROM unnest(@schemas::text[], @names::text[])
         )
@@ -92,6 +115,7 @@ public sealed partial class PostgresInspector : DatabaseInspectorBase
             (a.attidentity <> ''
              OR COALESCE(pg_get_expr(d.adbin, d.adrelid), '') LIKE 'nextval(%')
                                                              AS is_identity,
+            a.attgenerated <> ''                             AS is_generated,
             col_description(a.attrelid, a.attnum)            AS column_comment
         FROM pg_attribute a
         JOIN pg_class c ON c.oid = a.attrelid
@@ -103,22 +127,28 @@ public sealed partial class PostgresInspector : DatabaseInspectorBase
             AND ic.column_name = a.attname
         WHERE a.attnum > 0
         AND NOT a.attisdropped
+        AND c.relkind IN ('r', 'p', 'v', 'm')
         AND (n.nspname, c.relname) IN (
             SELECT * FROM unnest(@schemas::text[], @names::text[])
         )
         ORDER BY n.nspname, c.relname, a.attnum
         """;
 
+    // Key columns are plain column names (expressions keep their text), so they compare equal to
+    // the names foreign keys and constraints report; pg_get_indexdef would quote "Mixed Case".
+    // INCLUDE columns are carried, not ordered by, and are reported apart from the key.
     private const string TableDetailIndexesSql = """
         WITH index_cols AS (
             SELECT
                 ix.indexrelid,
-                array_agg(
-                    pg_get_indexdef(ix.indexrelid, k.n, true)
-                    ORDER BY k.n
-                ) AS columns
+                array_agg(COALESCE(a.attname::text, pg_get_indexdef(ix.indexrelid, k.n, true)) ORDER BY k.n)
+                    FILTER (WHERE k.n <= ix.indnkeyatts) AS columns,
+                COALESCE(array_agg(a.attname::text ORDER BY k.n)
+                    FILTER (WHERE k.n > ix.indnkeyatts), '{}'::text[]) AS included_columns
             FROM pg_index ix
-            CROSS JOIN LATERAL generate_series(1, array_length(ix.indkey, 1)) AS k(n)
+            CROSS JOIN LATERAL generate_series(1, ix.indnatts) AS k(n)
+            LEFT JOIN pg_attribute a
+                ON a.attrelid = ix.indrelid AND a.attnum = ix.indkey[k.n - 1] AND ix.indkey[k.n - 1] <> 0
             GROUP BY ix.indexrelid
         )
         SELECT
@@ -131,7 +161,8 @@ public sealed partial class PostgresInspector : DatabaseInspectorBase
             pg_get_indexdef(ix.indexrelid)         AS definition,
             ix.indpred IS NOT NULL                 AS is_partial,
             pg_get_expr(ix.indpred, ix.indrelid)   AS predicate,
-            ic.columns
+            ic.columns,
+            ic.included_columns
         FROM pg_index ix
         JOIN pg_class ct ON ct.oid = ix.indrelid
         JOIN pg_class ci ON ci.oid = ix.indexrelid
@@ -151,8 +182,8 @@ public sealed partial class PostgresInspector : DatabaseInspectorBase
             n_to.nspname                              AS to_schema,
             ct_to.relname                             AS to_table,
             con.conname                               AS constraint_name,
-            array_agg(a_from.attname ORDER BY kord.n) AS from_columns,
-            array_agg(a_to.attname   ORDER BY kord.n) AS to_columns,
+            array_agg(a_from.attname::text ORDER BY kord.n) AS from_columns,
+            array_agg(a_to.attname::text   ORDER BY kord.n) AS to_columns,
             CASE con.confdeltype
                 WHEN 'a' THEN 'NO ACTION'
                 WHEN 'r' THEN 'RESTRICT'
@@ -178,12 +209,13 @@ public sealed partial class PostgresInspector : DatabaseInspectorBase
         JOIN pg_attribute a_to
             ON a_to.attrelid = con.confrelid AND a_to.attnum = (con.confkey[kord.n::int])
         WHERE con.contype = 'f'
+        AND con.conparentid = 0
         AND (
             (n_from.nspname, ct_from.relname) IN (SELECT * FROM unnest(@schemas::text[], @names::text[]))
             OR
             (n_to.nspname,   ct_to.relname)   IN (SELECT * FROM unnest(@schemas::text[], @names::text[]))
         )
-        GROUP BY n_from.nspname, ct_from.relname, n_to.nspname, ct_to.relname,
+        GROUP BY con.oid, n_from.nspname, ct_from.relname, n_to.nspname, ct_to.relname,
                  con.conname, con.confdeltype, con.confupdtype
         ORDER BY con.conname
         """;
@@ -209,7 +241,7 @@ public sealed partial class PostgresInspector : DatabaseInspectorBase
             n.nspname                                        AS schema_name,
             c.relname                                        AS table_name,
             con.conname                                      AS constraint_name,
-            array_agg(a.attname ORDER BY kord.n)             AS columns
+            array_agg(a.attname::text ORDER BY kord.n)       AS columns
         FROM pg_constraint con
         JOIN pg_class c ON c.oid = con.conrelid
         JOIN pg_namespace n ON n.oid = c.relnamespace
@@ -303,13 +335,17 @@ public sealed partial class PostgresInspector : DatabaseInspectorBase
                 .Select(BuildSchemaInfo)
                 .ToList();
 
+            // A partition's rows and bytes are already in its partitioned table's figures.
+            var counted = schemas.SelectMany(s => s.Objects).Where(o => o.PartitionOf is null).ToList();
+
             var totalTables = schemas.Sum(s => s.TableCount);
             var totalViews = schemas.Sum(s => s.ViewCount);
-            var totalBytes = schemas.SelectMany(s => s.Objects).Sum(o => o.TotalSizeBytes);
-            var approxRows = schemas.SelectMany(s => s.Objects)
+            var totalBytes = counted.Sum(o => o.TotalSizeBytes);
+            var approxRows = counted
                 .Where(o => o.ApproximateRowCount.HasValue)
                 .Sum(o => o.ApproximateRowCount!.Value);
-            var anyUnanalyzed = schemas.SelectMany(s => s.Objects).Any(o => o.ApproximateRowCount == null);
+            var anyUnanalyzed = counted.Any(o => o.Kind == DatabaseObjectKind.Table && o.ApproximateRowCount == null);
+            var partitions = rows.Count(r => r.PartitionOf is not null);
 
             sw.Stop();
             _logger.LogInformation(
@@ -317,7 +353,7 @@ public sealed partial class PostgresInspector : DatabaseInspectorBase
                 sw.ElapsedMilliseconds, totalTables, totalViews, schemas.Count);
 
             return new DatabaseSchemaOverview(
-                Summary: BuildSummary(totalTables, totalViews, schemas.Count, approxRows, totalBytes, anyUnanalyzed),
+                Summary: BuildSummary(totalTables, totalViews, schemas.Count, approxRows, totalBytes, anyUnanalyzed, partitions),
                 Dialect: "PostgreSql",
                 Database: databaseName ?? "unknown",
                 GeneratedAt: DateTime.UtcNow.ToString("O"),
@@ -335,14 +371,12 @@ public sealed partial class PostgresInspector : DatabaseInspectorBase
         }
     }
 
-    public override async Task<TableDetailsResult> GetTableDetailsAsync(
-        TableDetailsRequest request,
-        CancellationToken ct = default)
+    protected override async Task<TableDetailsResult> GetTableDetailsAsync(
+        IReadOnlyList<ParsedName> parsed,
+        CancellationToken ct)
     {
-        var parsed = ParseTableNames(request.Tables, request.DefaultSchema);
-
         _logger.LogInformation(
-            "Opening PostgreSQL connection for table details ({Count} tables)", parsed.Length);
+            "Opening PostgreSQL connection for table details ({Count} names)", parsed.Count);
 
         var sw = Stopwatch.StartNew();
 
@@ -355,37 +389,31 @@ public sealed partial class PostgresInspector : DatabaseInspectorBase
             var names = parsed.Select(p => p.Name).ToArray();
             string? databaseName = null;
 
-            // 1. Tables
             var tableInfo = new Dictionary<(string, string), (string Kind, string? Comment)>();
+            await using (var cmd = BuildDetailCmd(conn, TableDetailTablesSql, schemas, names))
+            await using (var r = await cmd.ExecuteReaderAsync(ct))
             {
-                var sw1 = Stopwatch.StartNew();
-                await using var cmd = BuildDetailCmd(conn, TableDetailTablesSql, schemas, names);
-                await using var r = await cmd.ExecuteReaderAsync(ct);
                 while (await r.ReadAsync(ct))
                 {
                     databaseName ??= r.GetString(r.GetOrdinal("database_name"));
-                    var sn = r.GetString(r.GetOrdinal("schema_name"));
-                    var tn = r.GetString(r.GetOrdinal("table_name"));
-                    var kind = r.GetChar(r.GetOrdinal("object_kind")) == 'v' ? "view" : "table";
+                    var kind = r.GetChar(r.GetOrdinal("object_kind")) switch
+                    {
+                        'v' => "view",
+                        'm' => "materialized view",
+                        _ => "table",
+                    };
                     var comment = r.IsDBNull(r.GetOrdinal("comment")) ? null : r.GetString(r.GetOrdinal("comment"));
-                    tableInfo[(sn, tn)] = (kind, comment);
+                    tableInfo[TableKey(r)] = (kind, comment);
                 }
-                _logger.LogDebug("Table details — tables query: {ElapsedMs}ms", sw1.ElapsedMilliseconds);
             }
 
-            // 2. Columns
             var columnsByTable = new Dictionary<(string, string), List<ColumnDetail>>();
+            await using (var cmd = BuildDetailCmd(conn, TableDetailColumnsSql, schemas, names))
+            await using (var r = await cmd.ExecuteReaderAsync(ct))
             {
-                var sw2 = Stopwatch.StartNew();
-                await using var cmd = BuildDetailCmd(conn, TableDetailColumnsSql, schemas, names);
-                await using var r = await cmd.ExecuteReaderAsync(ct);
                 while (await r.ReadAsync(ct))
                 {
-                    var key = (r.GetString(r.GetOrdinal("schema_name")), r.GetString(r.GetOrdinal("table_name")));
-                    if (!columnsByTable.TryGetValue(key, out var list))
-                        columnsByTable[key] = list = [];
-
-                    list.Add(new ColumnDetail(
+                    ListFor(columnsByTable, TableKey(r)).Add(new ColumnDetail(
                         Name: r.GetString(r.GetOrdinal("column_name")),
                         OrdinalPosition: r.GetInt32(r.GetOrdinal("ordinal_position")),
                         DataType: r.GetString(r.GetOrdinal("data_type")),
@@ -401,25 +429,20 @@ public sealed partial class PostgresInspector : DatabaseInspectorBase
                             ? null : r.GetInt32(r.GetOrdinal("numeric_scale")),
                         IsIdentity: r.GetBoolean(r.GetOrdinal("is_identity")),
                         Comment: r.IsDBNull(r.GetOrdinal("column_comment"))
-                            ? null : r.GetString(r.GetOrdinal("column_comment"))
-                    ));
+                            ? null : r.GetString(r.GetOrdinal("column_comment")),
+                        IsGenerated: r.GetBoolean(r.GetOrdinal("is_generated"))));
                 }
-                _logger.LogDebug("Table details — columns query: {ElapsedMs}ms", sw2.ElapsedMilliseconds);
             }
 
-            // 3. Indexes
             var indexesByTable = new Dictionary<(string, string), List<IndexDetail>>();
+            await using (var cmd = BuildDetailCmd(conn, TableDetailIndexesSql, schemas, names))
+            await using (var r = await cmd.ExecuteReaderAsync(ct))
             {
-                var sw3 = Stopwatch.StartNew();
-                await using var cmd = BuildDetailCmd(conn, TableDetailIndexesSql, schemas, names);
-                await using var r = await cmd.ExecuteReaderAsync(ct);
                 while (await r.ReadAsync(ct))
                 {
-                    var key = (r.GetString(r.GetOrdinal("schema_name")), r.GetString(r.GetOrdinal("table_name")));
-                    if (!indexesByTable.TryGetValue(key, out var list))
-                        indexesByTable[key] = list = [];
+                    var included = r.GetFieldValue<string[]>(r.GetOrdinal("included_columns"));
 
-                    list.Add(new IndexDetail(
+                    ListFor(indexesByTable, TableKey(r)).Add(new IndexDetail(
                         Name: r.GetString(r.GetOrdinal("index_name")),
                         Columns: r.GetFieldValue<string[]>(r.GetOrdinal("columns")),
                         IsUnique: r.GetBoolean(r.GetOrdinal("is_unique")),
@@ -428,150 +451,63 @@ public sealed partial class PostgresInspector : DatabaseInspectorBase
                         Definition: r.GetString(r.GetOrdinal("definition")),
                         IsPartial: r.GetBoolean(r.GetOrdinal("is_partial")),
                         Predicate: r.IsDBNull(r.GetOrdinal("predicate"))
-                            ? null : r.GetString(r.GetOrdinal("predicate"))
-                    ));
+                            ? null : r.GetString(r.GetOrdinal("predicate")),
+                        IncludedColumns: included.Length == 0 ? null : included));
                 }
-                _logger.LogDebug("Table details — indexes query: {ElapsedMs}ms", sw3.ElapsedMilliseconds);
             }
 
-            // 4. Foreign keys (outgoing + incoming)
-            var allFks = new List<FkRow>();
+            // Outgoing and incoming.
+            var foreignKeys = new List<ForeignKeyDetail>();
+            await using (var cmd = BuildDetailCmd(conn, TableDetailForeignKeysSql, schemas, names))
+            await using (var r = await cmd.ExecuteReaderAsync(ct))
             {
-                var sw4 = Stopwatch.StartNew();
-                await using var cmd = BuildDetailCmd(conn, TableDetailForeignKeysSql, schemas, names);
-                await using var r = await cmd.ExecuteReaderAsync(ct);
                 while (await r.ReadAsync(ct))
                 {
-                    allFks.Add(new FkRow(
+                    foreignKeys.Add(new ForeignKeyDetail(
+                        ConstraintName: r.GetString(r.GetOrdinal("constraint_name")),
                         FromSchema: r.GetString(r.GetOrdinal("from_schema")),
                         FromTable: r.GetString(r.GetOrdinal("from_table")),
+                        FromColumns: r.GetFieldValue<string[]>(r.GetOrdinal("from_columns")),
                         ToSchema: r.GetString(r.GetOrdinal("to_schema")),
                         ToTable: r.GetString(r.GetOrdinal("to_table")),
-                        ConstraintName: r.GetString(r.GetOrdinal("constraint_name")),
-                        FromColumns: r.GetFieldValue<string[]>(r.GetOrdinal("from_columns")),
                         ToColumns: r.GetFieldValue<string[]>(r.GetOrdinal("to_columns")),
                         OnDelete: r.GetString(r.GetOrdinal("on_delete")),
-                        OnUpdate: r.GetString(r.GetOrdinal("on_update"))
-                    ));
+                        OnUpdate: r.GetString(r.GetOrdinal("on_update"))));
                 }
-                _logger.LogDebug("Table details — foreign keys query: {ElapsedMs}ms", sw4.ElapsedMilliseconds);
             }
 
-            // 5. Check constraints
             var checksByTable = new Dictionary<(string, string), List<CheckConstraintDetail>>();
+            await using (var cmd = BuildDetailCmd(conn, TableDetailCheckConstraintsSql, schemas, names))
+            await using (var r = await cmd.ExecuteReaderAsync(ct))
             {
-                var sw5 = Stopwatch.StartNew();
-                await using var cmd = BuildDetailCmd(conn, TableDetailCheckConstraintsSql, schemas, names);
-                await using var r = await cmd.ExecuteReaderAsync(ct);
                 while (await r.ReadAsync(ct))
-                {
-                    var key = (r.GetString(r.GetOrdinal("schema_name")), r.GetString(r.GetOrdinal("table_name")));
-                    if (!checksByTable.TryGetValue(key, out var list))
-                        checksByTable[key] = list = [];
-
-                    list.Add(new CheckConstraintDetail(
+                    ListFor(checksByTable, TableKey(r)).Add(new CheckConstraintDetail(
                         Name: r.GetString(r.GetOrdinal("constraint_name")),
-                        Expression: r.GetString(r.GetOrdinal("expression"))
-                    ));
-                }
-                _logger.LogDebug("Table details — check constraints query: {ElapsedMs}ms", sw5.ElapsedMilliseconds);
+                        Expression: r.GetString(r.GetOrdinal("expression"))));
             }
 
-            // 6. Unique constraints (pg_constraint contype='u', distinct from standalone UNIQUE indexes)
+            // pg_constraint contype = 'u', distinct from standalone UNIQUE indexes.
             var uniquesByTable = new Dictionary<(string, string), List<UniqueConstraintDetail>>();
+            await using (var cmd = BuildDetailCmd(conn, TableDetailUniqueConstraintsSql, schemas, names))
+            await using (var r = await cmd.ExecuteReaderAsync(ct))
             {
-                var sw6 = Stopwatch.StartNew();
-                await using var cmd = BuildDetailCmd(conn, TableDetailUniqueConstraintsSql, schemas, names);
-                await using var r = await cmd.ExecuteReaderAsync(ct);
                 while (await r.ReadAsync(ct))
-                {
-                    var key = (r.GetString(r.GetOrdinal("schema_name")), r.GetString(r.GetOrdinal("table_name")));
-                    if (!uniquesByTable.TryGetValue(key, out var list))
-                        uniquesByTable[key] = list = [];
-
-                    list.Add(new UniqueConstraintDetail(
+                    ListFor(uniquesByTable, TableKey(r)).Add(new UniqueConstraintDetail(
                         Name: r.GetString(r.GetOrdinal("constraint_name")),
-                        Columns: r.GetFieldValue<string[]>(r.GetOrdinal("columns"))
-                    ));
-                }
-                _logger.LogDebug("Table details — unique constraints query: {ElapsedMs}ms", sw6.ElapsedMilliseconds);
+                        Columns: r.GetFieldValue<string[]>(r.GetOrdinal("columns"))));
             }
 
-            // Assemble result preserving input order
-            var notFound = new List<string>();
-            var tables = new List<TableDetail>();
+            // PostgreSQL compares names exactly, so a requested name is its own catalog name.
+            var result = BuildTableDetails(parsed, new TableCatalog(
+                databaseName,
+                tableInfo.Keys.ToDictionary(k => k, k => k),
+                tableInfo, columnsByTable, indexesByTable, foreignKeys, checksByTable, uniquesByTable));
 
-            foreach (var p in parsed)
-            {
-                var key = (p.Schema, p.Name);
-                if (!tableInfo.TryGetValue(key, out var info))
-                {
-                    notFound.Add(p.Original);
-                    continue;
-                }
-
-                var idxs = indexesByTable.GetValueOrDefault(key, [])
-                    .OrderBy(i => i.Name, StringComparer.Ordinal)
-                    .ToList();
-
-                var pkIdx = idxs.FirstOrDefault(i => i.IsPrimary);
-
-                var fkOut = allFks
-                    .Where(fk => fk.FromSchema == p.Schema && fk.FromTable == p.Name)
-                    .OrderBy(fk => fk.ConstraintName, StringComparer.Ordinal)
-                    .Select(ToFkDetail)
-                    .ToList();
-
-                var fkIn = allFks
-                    .Where(fk => fk.ToSchema == p.Schema && fk.ToTable == p.Name)
-                    .OrderBy(fk => fk.ConstraintName, StringComparer.Ordinal)
-                    .Select(ToFkDetail)
-                    .ToList();
-
-                tables.Add(new TableDetail(
-                    Schema: p.Schema,
-                    Name: p.Name,
-                    Kind: info.Kind,
-                    Comment: info.Comment,
-                    Columns: columnsByTable.GetValueOrDefault(key, []),
-                    PrimaryKey: pkIdx is null ? null : new PrimaryKeyInfo(pkIdx.Name, pkIdx.Columns),
-                    Indexes: idxs,
-                    ForeignKeysOutgoing: fkOut,
-                    ForeignKeysIncoming: fkIn,
-                    CheckConstraints: checksByTable.GetValueOrDefault(key, [])
-                        .OrderBy(c => c.Name, StringComparer.Ordinal).ToList(),
-                    UniqueConstraints: uniquesByTable.GetValueOrDefault(key, [])
-                        .OrderBy(u => u.Name, StringComparer.Ordinal).ToList()
-                ));
-            }
-
-            var totalColumns = tables.Sum(t => t.Columns.Count);
-            var totalIndexes = tables.Sum(t => t.Indexes.Count);
-            var totalFks = allFks.Select(fk => fk.ConstraintName).Distinct(StringComparer.Ordinal).Count();
-
-            sw.Stop();
             _logger.LogInformation(
                 "Table details completed in {ElapsedMs}ms: {Found} found, {NotFound} not found",
-                sw.ElapsedMilliseconds, tables.Count, notFound.Count);
+                sw.ElapsedMilliseconds, result.Tables.Count, result.NotFound.Count);
 
-            var found = tables.Count;
-            var requested = request.Tables.Length;
-            return new TableDetailsResult(
-                Summary:
-                    $"Retrieved details for {found} of {requested} requested table{(requested != 1 ? "s" : "")}. " +
-                    $"Found {totalColumns} column{(totalColumns != 1 ? "s" : "")}, " +
-                    $"{totalIndexes} index{(totalIndexes != 1 ? "es" : "")}, " +
-                    $"{totalFks} foreign key{(totalFks != 1 ? "s" : "")}. " +
-                    "NOTE: view SQL bodies (SELECT definitions) are NOT included — do not infer or generate view logic. " +
-                    "Row data is NOT included — do not infer or generate sample values. " +
-                    "Tables in the NotFound list do not exist in this database — do not infer or generate their structure.",
-                Dialect: "PostgreSql",
-                Database: databaseName ?? "unknown",
-                GeneratedAt: DateTime.UtcNow.ToString("O"),
-                Truncated: false,
-                NotFound: notFound,
-                Tables: tables
-            );
+            return result;
         }
         catch (OperationCanceledException)
         {
@@ -586,6 +522,16 @@ public sealed partial class PostgresInspector : DatabaseInspectorBase
 
     // --- helpers ---
 
+    private static (string, string) TableKey(NpgsqlDataReader r) =>
+        (r.GetString(r.GetOrdinal("schema_name")), r.GetString(r.GetOrdinal("table_name")));
+
+    private static List<T> ListFor<T>(Dictionary<(string, string), List<T>> byTable, (string, string) key)
+    {
+        if (!byTable.TryGetValue(key, out var list))
+            byTable[key] = list = [];
+        return list;
+    }
+
     private static NpgsqlCommand BuildDetailCmd(NpgsqlConnection conn, string sql, string[] schemas, string[] names)
     {
         var cmd = conn.CreateCommand();
@@ -596,22 +542,10 @@ public sealed partial class PostgresInspector : DatabaseInspectorBase
         return cmd;
     }
 
-    private static ForeignKeyDetail ToFkDetail(FkRow fk) => new(
-        ConstraintName: fk.ConstraintName,
-        FromSchema: fk.FromSchema,
-        FromTable: fk.FromTable,
-        FromColumns: fk.FromColumns,
-        ToSchema: fk.ToSchema,
-        ToTable: fk.ToTable,
-        ToColumns: fk.ToColumns,
-        OnDelete: fk.OnDelete,
-        OnUpdate: fk.OnUpdate
-    );
-
     private static OverviewRow ReadRow(NpgsqlDataReader r) => new(
         SchemaName: r.GetString(r.GetOrdinal("schema_name")),
         ObjectName: r.GetString(r.GetOrdinal("object_name")),
-        ObjectKind: r.GetChar(r.GetOrdinal("object_kind")) == 'v'
+        ObjectKind: r.GetChar(r.GetOrdinal("object_kind")) is 'v' or 'm'
             ? DatabaseObjectKind.View
             : DatabaseObjectKind.Table,
         ApproximateRowCount: r.IsDBNull(r.GetOrdinal("approximate_row_count"))
@@ -625,11 +559,14 @@ public sealed partial class PostgresInspector : DatabaseInspectorBase
         TotalSizeBytes: r.GetInt64(r.GetOrdinal("total_size_bytes")),
         Comment: r.IsDBNull(r.GetOrdinal("object_comment"))
             ? null
-            : r.GetString(r.GetOrdinal("object_comment"))
+            : r.GetString(r.GetOrdinal("object_comment")),
+        PartitionOf: r.IsDBNull(r.GetOrdinal("partition_of"))
+            ? null
+            : r.GetString(r.GetOrdinal("partition_of"))
     );
 
     private static string BuildSummary(
-        int tables, int views, int schemaCount, long approxRows, long totalBytes, bool anyUnanalyzed)
+        int tables, int views, int schemaCount, long approxRows, long totalBytes, bool anyUnanalyzed, int partitions)
     {
         var objectDesc = views > 0
             ? $"{tables} table{(tables != 1 ? "s" : "")} and {views} view{(views != 1 ? "s" : "")}"
@@ -638,17 +575,11 @@ public sealed partial class PostgresInspector : DatabaseInspectorBase
         var rowNote = anyUnanalyzed
             ? $"Total approximate rows: {approxRows} (some tables not yet analyzed; run ANALYZE for accurate counts)."
             : $"Total approximate rows: {approxRows}.";
-        return $"Found {objectDesc} across {schemaDesc}. {rowNote} Total size on disk: {FormatBytes(totalBytes)}. " +
+        var partitionNote = partitions > 0
+            ? $" {partitions} of the tables are partitions (PartitionOf set): their rows and size are counted once, in their partitioned table."
+            : "";
+        return $"Found {objectDesc} across {schemaDesc}. {rowNote} Total size on disk: {FormatBytes(totalBytes)}.{partitionNote} " +
                "NOTE: column names are NOT included in this response; only ColumnCount per object is available. " +
                "Do NOT infer or generate column names. Call get_table_details for exact column information.";
     }
-
-    private sealed record FkRow(
-        string FromSchema, string FromTable,
-        string ToSchema, string ToTable,
-        string ConstraintName,
-        string[] FromColumns, string[] ToColumns,
-        string OnDelete, string OnUpdate
-    );
-
 }

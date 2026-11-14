@@ -12,12 +12,16 @@ public static class DuplicateIndexRule
         {
             var tableQualified = table.Qualified();
 
-            // Group non-partial indexes by (column sequence lowercased, isUnique).
-            // Partial indexes have dialect-specific predicates and cannot be safely deduplicated.
+            // Duplicates are the same index twice: same key, uniqueness, access method and INCLUDE
+            // columns. A hash index beside a b-tree, or an index that carries extra columns, serves
+            // queries the other cannot. Partial indexes have dialect-specific predicates and
+            // cannot be safely deduplicated.
             var groups = table.Indexes
                 .Where(i => !i.IsPartial)
                 .GroupBy(i => (
                     Cols: string.Join(",", i.Columns.Select(c => c.ToLowerInvariant())),
+                    Included: string.Join(",", i.Included().Select(c => c.ToLowerInvariant()).Order(StringComparer.Ordinal)),
+                    Method: i.Method.ToLowerInvariant(),
                     i.IsUnique))
                 .Where(g => g.Count() > 1);
 
@@ -43,8 +47,8 @@ public static class DuplicateIndexRule
                         Columns:     dup.Columns,
                         Title:       $"Index '{dup.Name}' is a duplicate of '{canonical.Name}'",
                         Description: $"Index '{dup.Name}' on {tableQualified} " +
-                                     $"({string.Join(", ", dup.Columns)}) has the same columns and uniqueness " +
-                                     $"as '{canonical.Name}'. One of them is redundant.",
+                                     $"({string.Join(", ", dup.Columns)}) has the same columns, access method " +
+                                     $"and uniqueness as '{canonical.Name}'. One of them is redundant.",
                         SqlFix:      SqlProposal.Ddl(
                             IndexSql.DropIndex(table.Schema, table.Name, dup.Name, dialect),
                             "Drops the duplicate index."),

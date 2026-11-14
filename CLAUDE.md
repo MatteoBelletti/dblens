@@ -162,6 +162,10 @@ Probes are dblens's own SQL and skip layer 3, never layers 1 and 2.
 - Rule IDs and limits by constant: `*RuleIds`, `DiagnosticLimits.MaxTablesPerRequest` /
   `MaxFindingCount`. Never inline.
 - After `GetTableDetailsAsync`, append `NotFoundCaveat(details)` via `WithCaveat`.
+- A table is a `(schema, name)` pair from the catalog. Never join one into `"schema.name"` and split
+  it again: names may contain dots. Only a name the caller typed goes through `ParseTableNames`.
+- A catalog shape the demo schema lacks (partitions, odd names, index kinds) gets a table in the
+  `dblens_edge` fixtures and a test in `EdgeCatalogTestsBase`, not a new demo table.
 - Summary findings (`*-summary`) are exactly one, `Info`, never deduplicated.
 
 ## Defaults

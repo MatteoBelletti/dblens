@@ -242,6 +242,7 @@ public static class DerivedColumnRule
 
     private static bool IsDatabaseGenerated(ColumnDetail column) =>
         column.IsIdentity
+        || column.IsGenerated
         || (column.DefaultExpression is not null
             && column.DefaultExpression.Contains("generated", StringComparison.OrdinalIgnoreCase));
 

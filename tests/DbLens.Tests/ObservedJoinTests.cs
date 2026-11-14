@@ -28,6 +28,19 @@ public class ObservedJoinTests
     }
 
     [Fact]
+    public void TablesWhoseNamesDifferOnlyInCase_AreLeftUnresolved_NotAnError()
+    {
+        // Legal on PostgreSQL and on a case-sensitive SQL Server; SQL text cannot say which is meant.
+        var upper = Table("ADDRESSES", [Col("id", "bigint")]);
+
+        var joins = JoinPredicateExtractor.Extract(
+            [new SqlSource(SqlSourceKind.View, "public.v", "SELECT 1 FROM shipments s JOIN addresses a ON a.id = s.ship_to")],
+            [Shipments, Addresses, upper], "public");
+
+        joins.Should().BeEmpty();
+    }
+
+    [Fact]
     public void PostgresViewDefinitionStyle_IsUnderstood()
     {
         Extract("SELECT a.city FROM (shipments s\n JOIN addresses a ON ((a.id = s.ship_to)));").Should().ContainSingle();
