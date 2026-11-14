@@ -19,23 +19,16 @@ public sealed partial class PostgresInspector
             ? "ANALYZE, BUFFERS, COSTS, VERBOSE, FORMAT JSON"
             : "COSTS, VERBOSE, FORMAT JSON";
 
-        if (!request.Analyze)
-        {
-            await using var plain = conn.CreateCommand();
-            plain.CommandText = $"EXPLAIN ({options}) {request.Sql}";
-            plain.CommandTimeout = QueryTimeoutSeconds;
-            return (await plain.ExecuteScalarAsync(ct))?.ToString() ?? "[]";
-        }
-
-        // Second guard: a READ ONLY transaction makes the restriction engine-enforced rather
-        // than merely checked, and the rollback discards anything the statement touched.
+        // Second guard, for estimated plans too: a READ ONLY transaction makes the restriction
+        // engine-enforced rather than merely checked, and the rollback discards anything the
+        // statement touched. A write is still planned without ANALYZE; only executing it is refused.
         await using var tx = await conn.BeginTransactionAsync(ct);
         try
         {
             await using (var readOnly = conn.CreateCommand())
             {
                 readOnly.Transaction = tx;
-                readOnly.CommandText = "SET TRANSACTION READ ONLY";
+                readOnly.CommandText = ReadOnlyQuerySetupSql;
                 readOnly.CommandTimeout = QueryTimeoutSeconds;
                 await readOnly.ExecuteNonQueryAsync(ct);
             }
@@ -45,12 +38,11 @@ public sealed partial class PostgresInspector
             cmd.CommandText = $"EXPLAIN ({options}) {request.Sql}";
             cmd.CommandTimeout = QueryTimeoutSeconds;
 
-            var result = (await cmd.ExecuteScalarAsync(ct))?.ToString() ?? "[]";
-            return result;
+            return (await cmd.ExecuteScalarAsync(ct))?.ToString() ?? "[]";
         }
         finally
         {
-            await tx.RollbackAsync(ct);
+            await tx.RollbackAsync(CancellationToken.None);
         }
     }
 

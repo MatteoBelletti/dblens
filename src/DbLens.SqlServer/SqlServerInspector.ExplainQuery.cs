@@ -55,6 +55,7 @@ public sealed partial class SqlServerInspector
         await using var tx = (SqlTransaction)await conn.BeginTransactionAsync(ct);
         try
         {
+            await ExecuteAsync(conn, tx, ReadOnlyQuerySetupSql, ct);
             await ExecuteAsync(conn, tx, "SET STATISTICS XML ON", ct);
 
             await using var cmd = conn.CreateCommand();
@@ -66,7 +67,7 @@ public sealed partial class SqlServerInspector
         }
         finally
         {
-            await tx.RollbackAsync(ct);
+            await tx.RollbackAsync(CancellationToken.None);
         }
     }
 

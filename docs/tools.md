@@ -169,8 +169,9 @@ which is not the same as safe.
 | `plan-sort-spilled-to-disk` | Medium | A sort or hash that did not fit in memory |
 | `plan-scan-with-filter` | Low | A predicate applied after reading every row |
 
-With `analyze: false` nothing runs and every row count is an optimizer estimate. With
-`analyze: true` see the [safety model](safety.md#explain_query).
+With `analyze: false` nothing runs and every row count is an optimizer estimate; any single statement
+is accepted, a write included, but a second statement after `;` is rejected. With `analyze: true`
+see the [safety model](safety.md#1-statement-guard).
 
 ## `scan_gdpr`
 

@@ -124,7 +124,10 @@ all in `DatabaseInspectorBase`, none skippable by a dialect:
 
 1. `StatementGuard` before any connection opens — a filter (keywords, side-effecting functions,
    locking clauses, linked servers), not a proof. **Never relax it to make a query work**; extend it
-   when a new side effect is found, with a test in `StatementGuardSideEffectTests`.
+   when a new side effect is found, with a test in `StatementGuardSideEffectTests`. It reads the
+   text through `SqlText.Segments`, which must end every string and comment where the engine does
+   (`StatementGuardLexingTests`); never scan caller SQL with a regex instead. An estimated plan
+   skips the keyword filter but not `IsSingleStatement`.
 2. A transaction that is always rolled back (`READ ONLY` on PostgreSQL).
 3. `EnsureReadOnlyLoginAsync`: refuse when the login can write (`DescribeWriteCapabilityAsync`) —
    unless every server in the connection string is this machine (`LocalServer.IsLocal`, address only,

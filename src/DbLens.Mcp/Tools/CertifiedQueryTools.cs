@@ -36,7 +36,7 @@ public sealed class CertifiedQueryTools(
         if (string.IsNullOrWhiteSpace(name) || string.IsNullOrWhiteSpace(question))
             throw new ArgumentException("name and question must not be empty.");
 
-        var guard = StatementGuard.IsReadOnlySelect(sql);
+        var guard = StatementGuard.IsReadOnlySelect(sql, dialect);
         if (!guard.Allowed)
             throw new ArgumentException($"Only a read-only SELECT can be certified. {guard.RejectionReason}");
 

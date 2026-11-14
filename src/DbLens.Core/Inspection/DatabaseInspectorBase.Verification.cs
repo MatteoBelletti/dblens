@@ -86,7 +86,7 @@ public abstract partial class DatabaseInspectorBase
             // Defence in depth: this SQL is ours, so a rejection means dblens generated something
             // it should not have. On an engine without a read-only transaction mode this guard is
             // load-bearing rather than a second line.
-            var guard = StatementGuard.IsReadOnlySelect(probe.Sql);
+            var guard = StatementGuard.IsReadOnlySelect(probe.Sql, Dialect);
             if (!guard.Allowed)
             {
                 Log.LogError(

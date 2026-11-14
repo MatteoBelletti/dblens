@@ -162,7 +162,7 @@ public abstract partial class DatabaseInspectorBase
 
         return RunAsync("migration safety check", async () =>
         {
-            var statements = DdlClassifier.Classify(request.Ddl ?? "");
+            var statements = DdlClassifier.Classify(request.Ddl ?? "", Dialect);
             if (statements.Count == 0) return MigrationSafetyEngine.Empty();
 
             // Every user table, not just a filtered scope: a script can touch any schema.
@@ -240,10 +240,18 @@ public abstract partial class DatabaseInspectorBase
     {
         if (request.Analyze)
         {
-            var guard = StatementGuard.IsReadOnlySelect(request.Sql);
+            var guard = StatementGuard.IsReadOnlySelect(request.Sql, Dialect);
             if (!guard.Allowed)
                 throw new ArgumentException(
                     $"Refusing to execute this statement with ANALYZE. {guard.RejectionReason}");
+        }
+        else
+        {
+            // An estimated plan runs nothing, whatever the statement — but only that statement:
+            // anything after a semicolon would be sent as a statement of its own and executed.
+            var single = StatementGuard.IsSingleStatement(request.Sql, Dialect);
+            if (!single.Allowed)
+                throw new ArgumentException($"Refusing to plan this input. {single.RejectionReason}");
         }
 
         Log.LogInformation(

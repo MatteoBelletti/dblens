@@ -117,6 +117,33 @@ public abstract class ReceiptAndPrivilegeTestsBase(IDatabaseFixture fixture)
 
     [SkippableFact]
     [Trait("Category", "Integration")]
+    public async Task EstimatedPlan_RefusesASecondStatement()
+    {
+        Skip.If(ShouldSkip, TestSkip.Reason);
+
+        // Without the check the second statement is not planned: it is sent, and it runs.
+        var act = () => Fixture.Inspector!.ExplainQueryAsync(
+            new ExplainQueryRequest("SELECT 1; DELETE FROM dblens_no_such_table"));
+
+        await act.Should().ThrowAsync<ArgumentException>().WithMessage("*more than one statement*");
+    }
+
+    [SkippableFact]
+    [Trait("Category", "Integration")]
+    public async Task EstimatedPlan_OfAWrite_IsPlannedAndNotExecuted()
+    {
+        Skip.If(ShouldSkip, TestSkip.Reason);
+
+        var admin = Fixture.CreateAdminInspector();
+
+        var plan = await admin.ExplainQueryAsync(new ExplainQueryRequest($"DELETE FROM {Q("payments")} WHERE 1 = 0"));
+
+        plan.Executed.Should().BeFalse();
+        plan.Root.Should().NotBeNull("a write is explained without analyze, inside a transaction that cannot write");
+    }
+
+    [SkippableFact]
+    [Trait("Category", "Integration")]
     public async Task ReadOnlyLogin_MayExecute()
     {
         Skip.If(ShouldSkip, TestSkip.Reason);

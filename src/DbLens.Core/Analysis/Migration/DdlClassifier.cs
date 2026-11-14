@@ -1,4 +1,5 @@
 using System.Text.RegularExpressions;
+using DbLens.Core.Models;
 
 namespace DbLens.Core.Analysis.Migration;
 
@@ -92,9 +93,9 @@ public static class DdlClassifier
     private static readonly Regex VolatileDefaultRx =
         new(@"\bDEFAULT\s+(?!NULL\b)(?:[A-Za-z_][A-Za-z0-9_]*\s*\(|NEXT\s+VALUE\s+FOR\b)", Opts);
 
-    public static IReadOnlyList<MigrationStatement> Classify(string ddl)
+    public static IReadOnlyList<MigrationStatement> Classify(string ddl, DatabaseDialect dialect)
     {
-        return SqlText.SplitStatements(ddl)
+        return SqlText.SplitStatements(ddl, dialect)
             .Select(ClassifyOne)
             .ToList();
     }

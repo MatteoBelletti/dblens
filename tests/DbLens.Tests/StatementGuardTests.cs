@@ -1,4 +1,6 @@
+using DbLens.Core.Analysis;
 using DbLens.Core.Analysis.QueryPlan;
+using DbLens.Core.Models;
 using FluentAssertions;
 
 namespace DbLens.Tests;
@@ -10,7 +12,9 @@ namespace DbLens.Tests;
 /// </summary>
 public sealed class StatementGuardTests
 {
-    private static bool Allows(string sql) => StatementGuard.IsReadOnlySelect(sql).Allowed;
+    private static bool Allows(string sql) =>
+        StatementGuard.IsReadOnlySelect(sql, DatabaseDialect.PostgreSql).Allowed
+        && StatementGuard.IsReadOnlySelect(sql, DatabaseDialect.SqlServer).Allowed;
 
     // ── Accepted: genuinely read-only ──────────────────────────────────────────
 
@@ -128,7 +132,7 @@ public sealed class StatementGuardTests
     {
         Allows("").Should().BeFalse();
         Allows("   ").Should().BeFalse();
-        StatementGuard.IsReadOnlySelect(null).Allowed.Should().BeFalse();
+        StatementGuard.IsReadOnlySelect(null, DatabaseDialect.PostgreSql).Allowed.Should().BeFalse();
     }
 
     // ── Rejection reasons are explanatory ──────────────────────────────────────
@@ -136,7 +140,7 @@ public sealed class StatementGuardTests
     [Fact]
     public void RejectionReason_NamesTheOffendingKeyword()
     {
-        var result = StatementGuard.IsReadOnlySelect("WITH gone AS (DELETE FROM users RETURNING *) SELECT * FROM gone");
+        var result = StatementGuard.IsReadOnlySelect("WITH gone AS (DELETE FROM users RETURNING *) SELECT * FROM gone", DatabaseDialect.PostgreSql);
 
         result.RejectionReason.Should().Contain("DELETE");
     }
@@ -144,7 +148,7 @@ public sealed class StatementGuardTests
     [Fact]
     public void RejectionReason_ExplainsHowToProceedWithoutExecuting()
     {
-        var result = StatementGuard.IsReadOnlySelect("DELETE FROM users");
+        var result = StatementGuard.IsReadOnlySelect("DELETE FROM users", DatabaseDialect.PostgreSql);
 
         result.RejectionReason.Should().Contain("without analyze");
     }
@@ -152,7 +156,7 @@ public sealed class StatementGuardTests
     [Fact]
     public void RejectionReason_IsPresentForEveryRejection()
     {
-        var result = StatementGuard.IsReadOnlySelect("SELECT 1; SELECT 2");
+        var result = StatementGuard.IsReadOnlySelect("SELECT 1; SELECT 2", DatabaseDialect.PostgreSql);
 
         result.Allowed.Should().BeFalse();
         result.RejectionReason.Should().NotBeNullOrWhiteSpace();
@@ -163,8 +167,8 @@ public sealed class StatementGuardTests
     [Fact]
     public void StripsQuotedIdentifiersAndLiterals()
     {
-        var stripped = StatementGuard.StripCommentsAndStrings(
-            "SELECT \"drop\", '[delete]' FROM [update]");
+        var stripped = SqlText.StripCommentsAndStrings(
+            "SELECT \"drop\", '[delete]' FROM [update]", DatabaseDialect.SqlServer);
 
         stripped.Should().NotContain("drop");
         stripped.Should().NotContain("delete");
@@ -185,7 +189,9 @@ public sealed class StatementGuardTests
 /// </summary>
 public sealed class StatementGuardSideEffectTests
 {
-    private static bool Allows(string sql) => StatementGuard.IsReadOnlySelect(sql).Allowed;
+    private static bool Allows(string sql) =>
+        StatementGuard.IsReadOnlySelect(sql, DatabaseDialect.PostgreSql).Allowed
+        && StatementGuard.IsReadOnlySelect(sql, DatabaseDialect.SqlServer).Allowed;
 
     [Theory]
     [InlineData("SELECT pg_terminate_backend(123)")]
@@ -216,6 +222,18 @@ public sealed class StatementGuardSideEffectTests
     }
 
     [Theory]
+    [InlineData("SELECT pg_stat_reset()")]
+    [InlineData("SELECT pg_stat_statements_reset()")]
+    [InlineData("SELECT pg_ls_waldir()")]
+    [InlineData("SELECT * FROM pg_logical_slot_get_changes('s', NULL, NULL)")]
+    [InlineData("SELECT brin_summarize_new_values('idx')")]
+    [InlineData("SELECT NEXT VALUE FOR dbo.order_numbers")]
+    public void Rejects_StateChangingFunctionsAndSequences(string sql)
+    {
+        Allows(sql).Should().BeFalse();
+    }
+
+    [Theory]
     [InlineData("SELECT COUNT(*), COALESCE(SUM(total), 0) FROM orders")]
     [InlineData("SELECT * FROM dbo.users")]
     [InlineData("SELECT * FROM dblens_demo.dbo.users")]
@@ -225,5 +243,122 @@ public sealed class StatementGuardSideEffectTests
     public void Allows_LookalikesThatHaveNoSideEffect(string sql)
     {
         Allows(sql).Should().BeTrue();
+    }
+}
+
+/// <summary>
+/// The guard must end every string, comment and identifier exactly where the engine does. Each
+/// rejected case here hid a second, writing statement from a lexer that did not.
+/// </summary>
+public sealed class StatementGuardLexingTests
+{
+    private static bool Allows(string sql, DatabaseDialect dialect) =>
+        StatementGuard.IsReadOnlySelect(sql, dialect).Allowed;
+
+    [Theory]
+    // E'' strings: the backslash escapes the quote, so the string ends at the second one.
+    [InlineData(@"SELECT E'\'' ; COMMIT; DELETE FROM t; --'")]
+    // '[' is a subscript on PostgreSQL, not the start of a quoted identifier.
+    [InlineData("SELECT ARRAY[']', 'b']; COMMIT; DELETE FROM t; SELECT 'x'")]
+    // A comment opener inside a string is text.
+    [InlineData("SELECT '/*' ; COMMIT; DELETE FROM t; --*/'")]
+    [InlineData("SELECT '--' ; DELETE FROM t")]
+    // Dollar quoting: the apostrophes inside are not string delimiters.
+    [InlineData("SELECT $$ it's $$ ; COMMIT; DELETE FROM t; SELECT $$ ' $$")]
+    [InlineData("SELECT $tag$ ' $tag$ ; DELETE FROM t; SELECT $tag$ ' $tag$")]
+    // Block comments nest, so the first */ does not end the comment.
+    [InlineData("SELECT 1 /* /* */ ' */ ; DELETE FROM t --'")]
+    public void Rejects_StatementsHiddenFromANaiveLexer_OnPostgres(string sql)
+    {
+        Allows(sql, DatabaseDialect.PostgreSql).Should().BeFalse();
+    }
+
+    [Theory]
+    [InlineData("SELECT '/*' ; COMMIT; DELETE FROM t; --*/'")]
+    // SQL Server has no backslash escapes and no dollar quoting: these strings end early.
+    [InlineData(@"SELECT 'a\' ; DELETE FROM t; --'")]
+    [InlineData("SELECT $$ ; DELETE FROM t; SELECT $$")]
+    [InlineData("SELECT [a]]b] ; DELETE FROM t")]
+    [InlineData("SELECT 1 /* /* */ ' */ ; DELETE FROM t --'")]
+    public void Rejects_StatementsHiddenFromANaiveLexer_OnSqlServer(string sql)
+    {
+        Allows(sql, DatabaseDialect.SqlServer).Should().BeFalse();
+    }
+
+    [Theory]
+    [InlineData("SELECT 1 DENY SELECT ON t TO public")]
+    [InlineData("SELECT 1 DISABLE TRIGGER ALL ON t")]
+    [InlineData("SELECT 1 RECONFIGURE")]
+    [InlineData("SELECT 1 WRITETEXT t.c @p 'x'")]
+    public void Rejects_ASecondStatementWithoutSeparator_OnSqlServer(string sql)
+    {
+        Allows(sql, DatabaseDialect.SqlServer).Should().BeFalse();
+    }
+
+    [Theory]
+    [InlineData(@"SELECT U&""pg\005Fsleep""(600)")]
+    [InlineData(@"SELECT x.u&""pg\005Fterminate\005Fbackend""(1) FROM t x")]
+    public void Rejects_UnicodeEscapedIdentifiers_OnPostgres(string sql)
+    {
+        Allows(sql, DatabaseDialect.PostgreSql).Should().BeFalse();
+    }
+
+    [Theory]
+    [InlineData(@"SELECT $q$it's; fine$q$, E'tab\t\'q', 'a''b', (ARRAY[1,2,3])[2] /* a /* nested */ ; */ -- ; tail")]
+    [InlineData(@"SELECT '$$' AS a, ""weird;name"" FROM t WHERE note LIKE '%\_%'")]
+    [InlineData("SELECT price::numeric(10,2), $1 AS param FROM t")]
+    [InlineData("SELECT menu & \"flags\" FROM t")]
+    public void Allows_LegitimatePostgresLexicalForms(string sql)
+    {
+        Allows(sql, DatabaseDialect.PostgreSql).Should().BeTrue();
+    }
+
+    [Theory]
+    [InlineData("SELECT [delete], [a]]; drop] FROM [dbo].[update] WHERE n = N'x; y' -- ; tail")]
+    [InlineData("SELECT TOP 5 [trigger] FROM dbo.jobs WITH (NOLOCK) OPTION (USE HINT ('DISABLE_OPTIMIZER_ROWGOAL'))")]
+    public void Allows_LegitimateSqlServerLexicalForms(string sql)
+    {
+        Allows(sql, DatabaseDialect.SqlServer).Should().BeTrue();
+    }
+
+    [Theory]
+    [InlineData(DatabaseDialect.PostgreSql)]
+    [InlineData(DatabaseDialect.SqlServer)]
+    public void SingleStatement_AcceptsAnyOneStatementAndRejectsASecond(DatabaseDialect dialect)
+    {
+        StatementGuard.IsSingleStatement("DELETE FROM users WHERE note = 'a;b'; -- done;", dialect).Allowed.Should().BeTrue();
+        StatementGuard.IsSingleStatement("SELECT 1; DELETE FROM users", dialect).Allowed.Should().BeFalse();
+        StatementGuard.IsSingleStatement("SELECT '/*' ; DELETE FROM users; --*/'", dialect).Allowed.Should().BeFalse();
+        StatementGuard.IsSingleStatement("  -- nothing", dialect).Allowed.Should().BeFalse();
+    }
+
+    [Fact]
+    public void RejectedKeyword_SaysHowToUseItAsAName()
+    {
+        var result = StatementGuard.IsReadOnlySelect("SELECT comment FROM reviews", DatabaseDialect.PostgreSql);
+
+        result.Allowed.Should().BeFalse();
+        result.RejectionReason.Should().Contain("quote it");
+        StatementGuard.IsReadOnlySelect("SELECT \"comment\" FROM reviews", DatabaseDialect.PostgreSql).Allowed.Should().BeTrue();
+    }
+
+    [Fact]
+    public void Segments_ReportQuotedIdentifiersUnescaped()
+    {
+        SqlText.Segments("SELECT \"a\"\"b\", [c]]d]", DatabaseDialect.SqlServer)
+            .Where(s => s.Kind == SqlSegmentKind.QuotedIdentifier)
+            .Select(s => s.Text)
+            .Should().Equal("a\"b", "c]d");
+    }
+
+    [Fact]
+    public void SplitStatements_KeepsSemicolonsInsideDollarQuotedBodies()
+    {
+        var statements = SqlText.SplitStatements(
+            "CREATE FUNCTION f() RETURNS int AS $$ BEGIN RETURN 1; END; $$ LANGUAGE plpgsql; DROP TABLE t;",
+            DatabaseDialect.PostgreSql);
+
+        statements.Should().HaveCount(2);
+        statements[1].Should().Be("DROP TABLE t");
     }
 }

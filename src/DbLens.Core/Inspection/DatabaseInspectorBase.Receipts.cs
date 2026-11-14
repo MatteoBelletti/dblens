@@ -72,11 +72,11 @@ public abstract partial class DatabaseInspectorBase
     /// <summary>Dialect statements about how far the read-only promise is engine-enforced.</summary>
     protected virtual IReadOnlyList<string> ReceiptCaveats => [];
 
-    private static void Guard(string sql, string what)
+    private void Guard(string sql, string what)
     {
         if (string.IsNullOrWhiteSpace(sql)) throw new ArgumentException($"The {what} must not be empty.");
 
-        var guard = StatementGuard.IsReadOnlySelect(sql);
+        var guard = StatementGuard.IsReadOnlySelect(sql, Dialect);
         if (!guard.Allowed)
             throw new ArgumentException($"Refusing to run the {what}. {guard.RejectionReason}");
     }

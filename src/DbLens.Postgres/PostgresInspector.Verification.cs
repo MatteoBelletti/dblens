@@ -12,8 +12,11 @@ public sealed partial class PostgresInspector
     protected override string VerificationSetupSql(VerificationBudget budget) =>
         $"SET TRANSACTION READ ONLY; SET LOCAL statement_timeout = {budget.QueryTimeoutSeconds * 1000}";
 
+    // standard_conforming_strings is pinned because the statement guard lexes by it: with it off,
+    // a backslash would escape a quote and the server would end a string where the guard did not.
     protected override string ReadOnlyQuerySetupSql =>
-        $"SET TRANSACTION READ ONLY; SET LOCAL statement_timeout = {QueryTimeoutSeconds * 1000}";
+        $"SET TRANSACTION READ ONLY; SET LOCAL statement_timeout = {QueryTimeoutSeconds * 1000}; " +
+        "SET LOCAL standard_conforming_strings = on";
 
     // has_table_privilege folds in ownership, role membership and superuser, so one query answers
     // "could this login change any user table" without reimplementing PostgreSQL's privilege rules.
