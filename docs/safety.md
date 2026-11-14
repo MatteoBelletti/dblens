@@ -140,7 +140,8 @@ setting on purpose: a model cannot turn it on.
 When enabled:
 
 - the statement passes all three layers above;
-- at most 100 rows are returned, strings cut at 500 characters;
+- at most 100 rows are returned, strings cut at 500 characters; a value that cannot be read or
+  serialized is reported as text, never as a failure of the whole query;
 - the description tells the model to select aggregates rather than personal data. That is an
   instruction, not an enforcement — masking personal values is not implemented, so enable this only
   where the model may see the data the login can read.
@@ -185,6 +186,8 @@ contributes table and column names only.
 | `scan_gdpr` | no column *name* matched | `Coverage`: columns it could not interpret, plus an explicit caveat |
 | `analyze_fragmentation` | maybe nothing was measured | `StatsAvailable: false` and the reason |
 | `check_migration_safety` | maybe nothing was recognized | statements of kind `Unknown` |
+| any scoped tool | maybe the schema or table name matched nothing | a caveat naming what was not found |
+| `check_cascade_paths` | — | an unknown `startingTable` is an error |
 | `analyze_indexes` (`unused-index`) | maybe counters were just reset | uptime caveat; rule skipped under 7 days |
 | `check_cascade_paths` | no *declared* cascade | disclaimer: ORM cascades and triggers are invisible |
 | `infer_relationships` | maybe no query history | caveat when pg_stat_statements / Query Store is unavailable |

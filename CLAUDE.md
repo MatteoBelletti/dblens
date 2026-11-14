@@ -41,7 +41,8 @@ be forgotten by one dialect, and the dialects cannot drift apart.
 1. Add the method to `IDatabaseInspector`.
 2. Add models and a pure engine under `Analysis/<Feature>/`; rule IDs as constants in `RuleIds.cs`.
 3. Implement it once in `DatabaseInspectorBase`, wrapped in `RunAsync`. If it needs dialect SQL,
-   declare an `abstract` hook and implement it in **both** inspectors.
+   declare an `abstract` hook and implement it in **both** inspectors — ideally one that returns a
+   command or rows, with the same column aliases on both, so the reading stays in the base.
 4. Tests: engine tests with `TestSchema`; integration tests once in an abstract
    `<Feature>TestsBase(IDatabaseFixture)` derived per dialect; a `<Feature>ParityTests.cs`.
 5. Add `throw new NotSupportedException()` to the stub inspectors in `GetSchemaToolTests` and
@@ -57,9 +58,9 @@ public sealed class MyTool(IServiceProvider services, IDatabaseInspectorFactory 
 {
     [McpServerTool, Description("What it does. IMPORTANT: what the response does NOT contain. Do NOT infer …")]
     public Task<MyResult> MyMethod(
-        [Description("Database dialect: PostgreSql or SqlServer.")]
+        [Description(DialectHelp)]
         DatabaseDialect dialect = DatabaseDialect.PostgreSql,
-        [Description("Connection string. Omit to use the server's default for the dialect.")]
+        [Description(ConnectionStringHelp)]
         string? connectionString = null,
         CancellationToken cancellationToken = default) =>
         ResolveInspector(dialect, connectionString).MyMethodAsync(new MyRequest(), cancellationToken);
@@ -71,7 +72,8 @@ Tools are discovered automatically. Throw `ArgumentException` for bad input and
 while the SDK hides every other exception's text. Keep descriptions short: what the tool finds, then `IMPORTANT:`
 lines for what is **not** returned and what executes. Expose only parameters a model has a reason to
 set — thresholds stay as request defaults, out of the MCP schema. `[Description]` values must be
-compile-time constants.
+compile-time constants; the ones every tool shares (`DialectHelp`, `SchemaHelp`, `TablesHelp`…) are
+in `InspectorTool`.
 
 ## Product contract
 
@@ -152,16 +154,20 @@ Probes are dblens's own SQL and skip layer 3, never layers 1 and 2.
 - Integration tests that count rows must not touch `orders` on SQL Server: `COUNT(*)` is answered by
   scanning `idx_orders_status`, which the unused-index test needs unscanned.
 - When one tool emits SQL another tool reads (DDL, probes), add a case to `CompositionTestsBase`.
-- Every command sets `CommandTimeout = QueryTimeoutSeconds` (30, in `DatabaseInspectorBase`).
+- Every command comes from `Command(conn, sql)`, which sets `QueryTimeoutSeconds` (30).
   Don't catch `TimeoutException`: drivers raise `NpgsqlException` / `SqlException`.
 - Generated SQL: `SqlIdentifier.Quote` / `Qualify` for every catalog name, `IndexSql` for index DDL.
   Never interpolate an identifier unquoted — quoting also keeps names inert to `StatementGuard`.
-- Counts from a reader: `Convert.ToInt64(reader.GetValue(i))`, never `GetInt64` (SQL Server `COUNT`
-  is `int`). Generated SQL Server probes use `COUNT_BIG`.
+- Counts from a reader: `reader.Number("column")`, never `GetInt64` (SQL Server `COUNT` is `int`).
+  Generated SQL Server probes use `COUNT_BIG`.
 - Finding text is a locale-independent contract: `Num.N0` / `F1` / `F0` / `P0`, never `:N0`.
 - Rule IDs and limits by constant: `*RuleIds`, `DiagnosticLimits.MaxTablesPerRequest` /
   `MaxFindingCount`. Never inline.
-- After `GetTableDetailsAsync`, append `NotFoundCaveat(details)` via `WithCaveat`.
+- After `ResolveTableScopeAsync` and `GetTableDetailsAsync`, append the scope's caveat and
+  `NotFoundCaveat(details)` via `WithCaveats`; an empty scope returns `Empty()` with that caveat.
+- A hook opens with `OpenAsync`, builds with `Command`, reads with `ReadAllAsync` and the `DbReading`
+  extensions (`Text`, `Number`, `Flag`…), and runs caller or probe SQL through
+  `InRolledBackTransactionAsync`. No `try`/`catch` for driver errors: `RunAsync` wraps them.
 - A table is a `(schema, name)` pair from the catalog. Never join one into `"schema.name"` and split
   it again: names may contain dots. Only a name the caller typed goes through `ParseTableNames`.
 - A catalog shape the demo schema lacks (partitions, odd names, index kinds) gets a table in the

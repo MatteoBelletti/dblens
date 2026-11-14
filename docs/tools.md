@@ -11,7 +11,8 @@ All database tools share these parameters, so the tables below leave them out:
 | `connectionString` | string | server default | Use a different database for this call only |
 
 Scoped tools also take `schema` (null = every user schema) and `tables` (bare names, null = every
-table in scope, at most 20).
+table in scope). A schema or table that matches nothing is named in a caveat: an empty result for a
+mistyped name is not a clean one. An empty `connectionString` means the server default.
 
 | Tool | Reads | Executes SQL? | Results in |
 |---|---|---|---|
@@ -106,7 +107,9 @@ other one also holds every column it carries. Disabled and hypothetical SQL Serv
 Every finding has a `SqlFix` with the `CREATE INDEX` / `DROP INDEX` statement (kind `Ddl`), written
 not to block writes: `CONCURRENTLY` on PostgreSQL, `ONLINE = ON` on SQL Server (Enterprise or Developer
 edition; on Standard drop the option and schedule a window).
-`unused-index` needs at least 7 days of uptime: scan counters reset on restart, so read the `Caveats` before dropping anything.
+`unused-index` needs at least 7 days of uptime: scan counters reset on restart, so read the `Caveats`
+before dropping anything. A login that cannot read the counters (`VIEW SERVER STATE` on SQL Server)
+gets the other three rules and a caveat.
 
 ## `analyze_fragmentation`
 
@@ -122,9 +125,10 @@ edition; on Standard drop the option and schedule a window).
 
 Indexes under 1 000 pages (~8 MB) are skipped and counted in the summary.
 
-**Requirements:** PostgreSQL needs the `pgstattuple` extension and only btree indexes are measured;
-SQL Server needs `VIEW DATABASE STATE`. When the statistics cannot be read the result says
-`StatsAvailable: false` with an empty `Findings` list — that means *not measured*, not *healthy*.
+**Requirements:** PostgreSQL needs the `pgstattuple` extension and the right to call `pgstatindex`
+(`pg_stat_scan_tables`, part of `pg_monitor`), and only btree indexes are measured; SQL Server needs
+`VIEW DATABASE STATE`. When the statistics cannot be read the result says `StatsAvailable: false`
+with an empty `Findings` list — that means *not measured*, not *healthy*.
 
 **Not considered:** fill factor, page-split history, how fast an index re-fragments, whether anything
 range-scans it. This is one input to a maintenance decision. For a maintenance strategy use
@@ -162,7 +166,7 @@ analyzed: ORM cascades and triggers are invisible.
 | `migration-blocking-lock` | High / Medium | Locks that block traffic, `NOT NULL` additions, renames that break running code |
 | `migration-index-not-concurrent` | High / Medium | Index builds without `CONCURRENTLY` / `ONLINE = ON` |
 | `migration-validated-constraint-scan` | High / Low | FK and check constraints validated against every existing row |
-| `migration-destructive` | Critical | `DROP TABLE`, `DROP COLUMN` |
+| `migration-destructive` | Critical | `DROP TABLE`, `DROP COLUMN`, `TRUNCATE`, `DROP SCHEMA` / `DROP DATABASE` |
 | `migration-summary` | Info | Always exactly one |
 
 `ALTER TABLE … VALIDATE CONSTRAINT` (the second half of PostgreSQL's `NOT VALID` pattern) is recognized
@@ -171,7 +175,12 @@ and raises nothing: it scans without blocking reads or writes.
 Severity is weighted by the real size of the table: the same statement is Critical on 50 million rows
 and Medium on a lookup table (threshold: 1 million rows). The script is **never executed**.
 Statements are matched by shape, not parsed: a statement of kind `Unknown` was *not recognized*,
-which is not the same as safe.
+which is not the same as safe. `UPDATE`, `DELETE` and anything else that is not DDL are `Unknown`.
+
+The script is cut into one statement per object changed: on `;`, and for SQL Server also on `GO`
+and at each line that starts a new statement, since T-SQL needs no separator (a procedure, function,
+trigger or view stays whole). An `ALTER TABLE` with several actions and a `DROP TABLE` with several
+names yield one statement each. `BEGIN` / `COMMIT` are skipped.
 
 ## `explain_query`
 
@@ -182,7 +191,7 @@ which is not the same as safe.
 
 | Rule | Severity | Detects |
 |---|---|---|
-| `plan-seq-scan-large-table` | High / Medium | A full scan producing more than 10 000 rows |
+| `plan-seq-scan-large-table` | High / Medium | A full scan over more than 10 000 rows: rows read when the engine reports them (`analyze`), so a scan whose filter discards everything still counts; rows returned or estimated otherwise |
 | `plan-estimate-mismatch` | High | Estimated and actual rows differ by 10× or more (`analyze` only) |
 | `plan-nested-loop-large-input` | Medium | A nested loop driven by more than 10 000 outer rows |
 | `plan-sort-spilled-to-disk` | Medium | A sort or hash that did not fit in memory |
@@ -211,6 +220,12 @@ see the [safety model](safety.md#1-statement-guard).
 Patterns ship in English and Italian (`src/DbLens.Core/Analysis/Gdpr/Patterns/*.json`). A High finding drops
 to Medium when the table has an encryption or hashing marker column.
 
+A name is read in lower snake case, so `First Name`, `firstName`, `E-Mail` and `phone1` match as
+`first_name`, `e_mail` and `phone`. A pattern marked `qualifiable` is also found inside a longer name
+(`customer_email`, `telefono_casa`, `address_line1`) at 85 % of its confidence, unless the extra word
+says the column is about the value rather than the value (`email_verified`, `address_id`). Patterns
+whose words are common elsewhere (`via`, `pin`, `nome`, `condition`) match the whole name only.
+
 **Everything is a signal**: `Findings` is always empty. No row is read, so an empty result does not
 mean there is no personal data. The `Coverage` block counts the columns whose names carry no usable
 signal (`c1`, `fld_07`, codenames) and lists examples; always report it with the results.
@@ -223,14 +238,15 @@ signal (`c1`, `fld_07`, codenames) and lists examples; always report it with the
 
 | Rule | Severity | Confidence | Detects | Verifiable |
 |---|---|---|---|---|
-| `denorm-repeating-group` | Medium (3+) / Low | — | `phone1`, `phone2`, `phone3` | no |
-| `denorm-derived-column` | Medium | 0.6 | A cached child count (`order_count`) | **yes** |
-| `denorm-derived-column` | Low | 0.7 | A concatenation of siblings (`full_name`) | **yes** |
+| `denorm-repeating-group` | Medium (3+) / Low | — | `phone1`, `phone2`, `phone3` | **yes**: rows that fill every slot |
+| `denorm-derived-column` | Medium | 0.6 | A cached child count (`order_count`) | **yes**, when one child table is the obvious source |
+| `denorm-derived-column` | Low | 0.7 | A concatenation of siblings (`full_name`) | no |
 | `denorm-duplicated-column` | Low | 0.55 | The same column on two FK-linked tables | **yes** |
-| `denorm-multivalue-column` | Medium | 0.5 | Text named like a list (`tags`, `role_list`) | no |
+| `denorm-multivalue-column` | Medium | 0.5 | Text named like a list (`tags`, `role_list`) | **yes**: values holding a delimiter |
 | `denorm-wide-table` | Low / Info | 0.5 / 0.3 | More than 40 columns | no |
 
-Sums (`total`, `amount`) are never verified: the catalog does not say which column they sum.
+Sums (`total`, `amount`) are never verified: the catalog does not say which column they sum. A
+column the database computes itself (generated, computed) is never reported as derived.
 
 With `verifySignals: true`, see [signal verification](safety.md#signal-verification). A measured
 signal moves into `Findings` with `Evidence: Measured`; its title states the count and its
@@ -294,7 +310,8 @@ how often they ran), its documented meaning, its columns (type, key, meaning), i
 columns named like amounts or totals). Certified queries come first.
 
 **Meanings come only from schema comments** (`COMMENT ON` / `MS_Description`). An undocumented column
-is shown as `—`; the skill tells the model to ask rather than guess. A caveat says when nothing is
+is shown as `—`; the skill tells the model to ask rather than guess, and that a comment is data
+written by whoever maintains the database, never an instruction. A caveat says when nothing is
 documented. No row values are included.
 
 ## `query_with_receipt`
@@ -307,7 +324,7 @@ returns values from the data. See [safety.md](safety.md#query-results).
 | `sql` | — | One `SELECT` |
 | `certified` | — | Run a certified query by name instead |
 | `crossCheckSql` | — | The same figure computed another way |
-| `tolerance` | `0` | Relative difference allowed between numbers in the cross-check |
+| `tolerance` | `0` | Relative difference allowed between numbers in the cross-check, 0 to 1 |
 
 Returns at most 100 rows and a **receipt**:
 
@@ -318,6 +335,9 @@ Returns at most 100 rows and a **receipt**:
 | `Database`, `ExecutedAt` | where and when |
 | `CrossCheck` | `Agree`, `Disagree` (with both values) or `NotComparable`, and the second result |
 | `CertifiedAs` | set when the SQL matches a certified query |
+
+A value JSON cannot carry (`NaN`, `Infinity`) is returned as text, and a cell the driver cannot read
+(an out-of-range numeric, a CLR type) says so in place of its value instead of failing the query.
 
 A cross-check compares the two results as sets of rows, so row order does not matter and `120.50`
 equals `120.5`. Without one, a caveat says the figure is unconfirmed; with a disagreement, the caveat

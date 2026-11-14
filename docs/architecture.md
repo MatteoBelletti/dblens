@@ -40,17 +40,19 @@ no driver. It owns everything that does not depend on SQL dialect:
 | Base owns | Dialect supplies |
 |---|---|
 | scope resolution and the 20-table limit | `CreateConnection`, `DialectDisplayName`, `DefaultSchema` |
-| `DbException` wrapping, `NotFound` caveat | `GetSchemaOverviewAsync`, `TestConnectionAsync` |
-| reading a requested name (`ParseTableNames`), assembling table details (`BuildTableDetails`) | `GetTableDetailsAsync(names)`: the catalog queries |
+| `DbException` wrapping, scope and `NotFound` caveats | — |
+| the schema overview: grouping, totals, summary | `QueryOverviewAsync`: the overview rows |
+| reading a requested name (`ParseTableNames`), assembling table details | `ReadTableCatalogAsync`: the catalog rows |
 | the `explain_query` statement guard | `FetchQueryPlanAsync` (after the guard has run) |
-| orchestration of every diagnostic tool | `QueryIndexUsageStatsAsync`, `QueryFragmentationStatsAsync`, `QueryCascadeGraphAsync` |
+| orchestration of every diagnostic tool; the cascade graph, built from the table details | `IndexUsageCommand`, `QueryFragmentationStatsAsync` |
+| connections, commands, row mapping, rolled-back transactions (`OpenAsync`, `Command`, `ReadAllAsync`, `InRolledBackTransactionAsync`) and reading a column by name (`DbReading`) | SQL text and typed parameters |
 | the signal verification loop | `VerificationSetupSql`, `ClassifyVerificationError`, `VerificationCaveats` |
 | join evidence: parsing, filtering own probes | `QuerySqlSourcesAsync` — views, routines, pg_stat_statements / Query Store |
 | `query_with_receipt` and its cross-check | `ReadOnlyQuerySetupSql`, `ReceiptCaveats` |
 | the read-only-login refusal | `DescribeWriteCapabilityAsync` |
 
-`scan_gdpr`, `analyze_denormalization`, `check_migration_safety`, `infer_relationships` and
-`build_glossary` need no catalog SQL of their own: they run on `TableDetail` metadata the base already
+`scan_gdpr`, `analyze_denormalization`, `check_migration_safety`, `check_cascade_paths`,
+`infer_relationships` and `build_glossary` need no catalog SQL of their own: they run on `TableDetail` metadata the base already
 reads, plus the SQL sources.
 
 ## Analysis layout
@@ -61,7 +63,7 @@ DbLens.Core/Analysis/
   FindingSplit.cs        partitions facts and signals, owns the 200-finding cap and summary dictionaries
   SqlProposal.cs         SQL attached to a finding: Ddl or ReadOnlyProbe
   SqlIdentifier.cs       quoting for every generated identifier
-  SqlText.cs             comment stripping, literal blanking, statement splitting
+  SqlText.cs             per-dialect lexer: code, comments, literals, quoted names; statement splitting
   Num.cs                 locale-invariant number formatting for finding text
   RuleIds.cs             every rule ID constant
   Verification/          probe, budget, measurement and outcome types shared by verifying tools
