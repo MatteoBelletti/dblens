@@ -3,12 +3,10 @@ using System.Data.Common;
 namespace DbLens.Core.Inspection;
 
 /// <summary>
-/// The last line behind the statement guard and the rolled-back transaction: caller SQL is only
-/// executed on a login that cannot write. A guard is a filter and can miss something; a login
-/// without write permissions cannot be talked into writing.
-///
-/// A database on this machine is exempt: it is a developer's own instance, where the admin login
-/// is the normal one and a read-only account would be ceremony.
+/// The layer behind the statement guard and the rolled-back transaction: caller SQL runs only on a
+/// login that cannot write. A filter can miss something; a login without write permissions cannot
+/// be talked into writing. A database on this machine is exempt: there the admin login is the
+/// normal one.
 /// </summary>
 public abstract partial class DatabaseInspectorBase
 {
@@ -43,8 +41,7 @@ public abstract partial class DatabaseInspectorBase
     {
         if (!RequiresReadOnlyLogin) return;
 
-        await using var conn = CreateConnection();
-        await conn.OpenAsync(ct);
+        await using var conn = await OpenAsync(ct);
 
         if (await DescribeWriteCapabilityAsync(conn, ct) is { } why)
             throw new Models.ExecutionRefusedException(

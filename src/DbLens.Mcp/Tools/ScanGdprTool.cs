@@ -19,17 +19,17 @@ public sealed class ScanGdprTool(IServiceProvider services, IDatabaseInspectorFa
         "Disclaimer, and never present a clean scan as evidence of compliance. " +
         "Do NOT infer results beyond what this tool returns.")]
     public Task<ScanGdprResult> ScanGdpr(
-        [Description("Database dialect: PostgreSql or SqlServer.")]
+        [Description(DialectHelp)]
         DatabaseDialect dialect = DatabaseDialect.PostgreSql,
-        [Description("Schema to scan. Null = all user schemas.")]
+        [Description(SchemaHelp)]
         string? schema = null,
-        [Description("Table names without schema prefix. Null = all tables in scope.")]
+        [Description(TablesHelp)]
         string[]? tables = null,
         [Description("Table names to exclude, without schema prefix.")]
         string[]? excludeTables = null,
         [Description("Minimum match confidence, 0.0-1.0. Default 0.5; lower it for recall, raise it for precision.")]
         double minConfidence = 0.5,
-        [Description("Connection string. Omit to use the server's default for the dialect.")]
+        [Description(ConnectionStringHelp)]
         string? connectionString = null,
         CancellationToken cancellationToken = default)
     {

@@ -6,18 +6,13 @@ namespace DbLens.Core.Analysis.QueryPlan;
 /// <summary>
 /// Decides whether a caller's statement may be executed (EXPLAIN ANALYZE, query_with_receipt).
 ///
-/// This is a filter, not a proof of read-only-ness: it rejects anything that is not a single
-/// SELECT, every keyword that writes or changes state, functions with side effects (terminating
-/// backends, file access, sequences, advisory locks, remote execution through OPENQUERY / dblink),
-/// locking clauses and linked-server names. What it cannot see — a user-defined function that
-/// writes, a privilege it does not know about — is stopped by the layers behind it: a transaction
-/// that is always rolled back (READ ONLY on PostgreSQL) and the refusal to execute caller SQL on a
-/// login that can write. The read-only login is the real defence; this guard keeps hostile input
-/// from reaching the database at all.
+/// A filter, not a proof: it rejects anything but a single SELECT, every keyword that writes or
+/// changes state, functions with side effects, locking clauses and linked-server names. What it
+/// cannot see — a user-defined function that writes — is stopped behind it by the rolled-back
+/// transaction (READ ONLY on PostgreSQL) and the read-only login.
 ///
 /// The text is lexed by the target engine's rules (<see cref="SqlText.Segments"/>): a guard that
-/// disagrees with the engine about where a string ends can be shown one statement while the engine
-/// runs two.
+/// ends a string where the engine does not can be shown one statement while the engine runs two.
 /// </summary>
 public static class StatementGuard
 {
@@ -34,9 +29,8 @@ public static class StatementGuard
     ];
 
     /// <summary>
-    /// T-SQL needs no separator between statements, so a second statement can follow a SELECT
-    /// without a semicolon. These start the ones the common list does not already catch; all are
-    /// reserved words there, so none can be an unquoted column name.
+    /// T-SQL needs no separator between statements. These start the ones the common list does not
+    /// catch; all are reserved words there, so none can be an unquoted column name.
     /// </summary>
     private static readonly string[] SqlServerForbiddenKeywords =
     [
@@ -97,9 +91,8 @@ public static class StatementGuard
     }
 
     /// <summary>
-    /// Whether the text is exactly one statement. This is all an estimated plan needs — the engine
-    /// plans the statement without running it — but a second statement after a semicolon would be
-    /// sent, and run, alongside it.
+    /// Whether the text is exactly one statement: all an estimated plan needs, since the engine
+    /// plans without running — but a second statement after a semicolon would be sent and run.
     /// </summary>
     public static GuardResult IsSingleStatement(string? sql, DatabaseDialect dialect)
     {

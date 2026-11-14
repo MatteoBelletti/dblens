@@ -40,8 +40,8 @@ public static class TableDetailExtensions
 public static class IndexDetailExtensions
 {
     /// <summary>
-    /// An index that keeps its key in order (a b-tree; SQL Server's rowstore indexes), so a leading
-    /// part of the key can be searched on its own. A hash, GIN or columnstore index cannot.
+    /// Keeps its key in order (a b-tree; SQL Server's rowstore indexes), so a leading part of the
+    /// key can be searched on its own. A hash, GIN or columnstore index cannot.
     /// </summary>
     public static bool IsOrdered(this IndexDetail index) =>
         index.Method.Equals("btree", StringComparison.OrdinalIgnoreCase)

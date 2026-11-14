@@ -17,15 +17,15 @@ public sealed class AnalyzeIndexesTool(IServiceProvider services, IDatabaseInspe
         "read the Caveats before recommending that an index be dropped. " +
         "Do NOT infer findings beyond what this tool returns.")]
     public Task<AnalyzeIndexesResult> AnalyzeIndexes(
-        [Description("Database dialect: PostgreSql or SqlServer.")]
+        [Description(DialectHelp)]
         DatabaseDialect dialect = DatabaseDialect.PostgreSql,
-        [Description("Schema to analyze. Null = all user schemas.")]
+        [Description(SchemaHelp)]
         string? schema = null,
-        [Description("Table names without schema prefix. Null = all tables in scope.")]
+        [Description(TablesHelp)]
         string[]? tables = null,
         [Description("Run the unused-index rule, which reads scan statistics. Default true.")]
         bool includeUnusedIndexes = true,
-        [Description("Connection string. Omit to use the server's default for the dialect.")]
+        [Description(ConnectionStringHelp)]
         string? connectionString = null,
         CancellationToken cancellationToken = default)
     {

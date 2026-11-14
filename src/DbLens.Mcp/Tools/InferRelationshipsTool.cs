@@ -22,16 +22,16 @@ public sealed class InferRelationshipsTool(IServiceProvider services, IDatabaseI
         "a constraint without the schema owner's confirmation. " +
         "Do NOT infer relationships, columns or values beyond what this tool returns.")]
     public Task<InferRelationshipsResult> InferRelationships(
-        [Description("Database dialect: PostgreSql or SqlServer.")]
+        [Description(DialectHelp)]
         DatabaseDialect dialect = DatabaseDialect.PostgreSql,
-        [Description("Schema to analyze. Null = all user schemas.")]
+        [Description(SchemaHelp)]
         string? schema = null,
         [Description("Table names without schema prefix. Null = all. Both sides of a reference must be in scope.")]
         string[]? tables = null,
         [Description(
             "When true, EXECUTES read-only aggregate queries to test the candidates. Counts only. Default false.")]
         bool verifyCandidates = false,
-        [Description("Connection string. Omit to use the server's default for the dialect.")]
+        [Description(ConnectionStringHelp)]
         string? connectionString = null,
         CancellationToken cancellationToken = default)
     {

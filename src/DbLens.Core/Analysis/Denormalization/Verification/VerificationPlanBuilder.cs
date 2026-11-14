@@ -1,20 +1,13 @@
 using DbLens.Core.Analysis.Denormalization.Rules;
-using DbLens.Core.Models;
-
 using DbLens.Core.Analysis.Verification;
+using DbLens.Core.Models;
 
 namespace DbLens.Core.Analysis.Denormalization.Verification;
 
 /// <summary>
-/// Turns signals into the read-only queries that would test them. Pure: it decides what to run
-/// and what to refuse to run, but never opens a connection.
-///
-/// Two rules already carry their probe as the signal's <see cref="SqlProposal"/> — that proposal
-/// IS the query, so it is used directly. The other two propose DDL instead, so their probes are
-/// built here by calling back into the rule that owns the heuristic.
-///
-/// Skip decisions live here rather than in the inspector because "this table is too big to
-/// verify" is policy, and policy in the pure engine is policy with tests.
+/// Turns signals into the read-only queries that would test them. Pure: it decides what may run
+/// and never opens a connection. A signal whose <see cref="SqlProposal"/> is a probe is tested by
+/// that query; the rules that propose DDL build their probe here.
 /// </summary>
 public static class VerificationPlanBuilder
 {

@@ -39,17 +39,13 @@ public abstract partial class DatabaseInspectorBase
     }
 
     /// <summary>
-    /// Physical fragmentation per index. Must return <c>StatsAvailable = false</c> with a reason,
-    /// rather than throw, when the engine simply cannot provide the numbers (a missing extension,
-    /// a missing permission): that outcome is an answer, not an error.
+    /// Physical fragmentation per index. A missing extension or permission is an answer, not an
+    /// error: return <c>StatsAvailable = false</c> with the reason.
     /// </summary>
     protected abstract Task<IndexFragmentationStats> QueryFragmentationStatsAsync(
         IReadOnlyList<ScopedTable> tables, AnalyzeFragmentationRequest request, CancellationToken ct);
 
-    /// <summary>
-    /// The plan for a statement that has already passed the guard when Analyze is set.
-    /// Returns the parsed tree (null when unparseable) and any dialect-specific caveats.
-    /// </summary>
+    /// <summary>The plan of a statement the guard has already passed; a null root when unparseable.</summary>
     protected abstract Task<QueryPlanFetch> FetchQueryPlanAsync(ExplainQueryRequest request, CancellationToken ct);
 
     protected sealed record QueryPlanFetch(QueryPlanNode? Root, IReadOnlyList<string> Caveats);
@@ -70,8 +66,7 @@ public abstract partial class DatabaseInspectorBase
 
             var details = await GetTableDetailsAsync(scope, ct);
 
-            // The structural rules need only the catalog; a login that cannot read the counters
-            // loses the one rule that needs them, not the analysis.
+            // A login that cannot read the counters loses the one rule that needs them, not the analysis.
             IndexUsageStats? stats = null;
             string? statsCaveat = null;
             if (request.IncludeUnusedIndexes)
@@ -294,10 +289,7 @@ public abstract partial class DatabaseInspectorBase
 
     // ── explain_query ──────────────────────────────────────────────────────────
 
-    /// <summary>
-    /// The statement guard lives here, not in the dialects, so that no dialect can skip it.
-    /// It runs before any connection is opened: hostile input never reaches the database.
-    /// </summary>
+    /// <summary>The guard runs here, where no dialect can skip it, and before any connection opens.</summary>
     public Task<ExplainQueryResult> ExplainQueryAsync(ExplainQueryRequest request, CancellationToken ct = default)
     {
         if (request.Analyze)
@@ -309,8 +301,7 @@ public abstract partial class DatabaseInspectorBase
         }
         else
         {
-            // An estimated plan runs nothing, whatever the statement — but only that statement:
-            // anything after a semicolon would be sent as a statement of its own and executed.
+            // An estimated plan runs nothing, but a second statement after a semicolon would be executed.
             var single = StatementGuard.IsSingleStatement(request.Sql, Dialect);
             if (!single.Allowed)
                 throw new ArgumentException($"Refusing to plan this input. {single.RejectionReason}");

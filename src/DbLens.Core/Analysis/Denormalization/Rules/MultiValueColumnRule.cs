@@ -48,13 +48,8 @@ public static class MultiValueColumnRule
     }
 
     /// <summary>
-    /// Counts non-null values that contain a list delimiter. This is the cheapest probe in the
-    /// set — one scan of one column — and the refutation direction is decisive: zero delimiters
-    /// across tens of thousands of values settles it.
-    ///
-    /// The delimiter set is a hard-coded constant and must stay one: none of , ; | are LIKE
-    /// metacharacters, so no escaping is needed, but a delimiter derived from schema text would
-    /// reintroduce the injection problem quoting exists to remove.
+    /// Counts non-null values that contain a list delimiter. The delimiters are constants and must
+    /// stay so: one taken from schema text would bring back the injection that quoting removes.
     /// </summary>
     internal static string? BuildDelimiterProbe(
         TableDetail table, ColumnDetail column, DatabaseDialect dialect)

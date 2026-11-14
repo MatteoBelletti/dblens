@@ -17,15 +17,15 @@ public sealed class CheckCascadePathsTool(IServiceProvider services, IDatabaseIn
         "IMPORTANT: only declared foreign keys are analyzed; ORM cascades and triggers are invisible here. " +
         "Surface the Disclaimer. Do NOT infer cascade effects beyond what this tool returns.")]
     public Task<CheckCascadePathsResult> CheckCascadePaths(
-        [Description("Database dialect: PostgreSql or SqlServer.")]
+        [Description(DialectHelp)]
         DatabaseDialect dialect = DatabaseDialect.PostgreSql,
         [Description("Qualified starting table, e.g. 'public.users'. Omit to analyze every cascade root.")]
         string? startingTable = null,
-        [Description("Schema to restrict the analysis to. Null = all user schemas.")]
+        [Description(SchemaHelp)]
         string? schema = null,
         [Description("Maximum cascade depth to explore. Default 10, hard cap 50.")]
         int maxDepth = 10,
-        [Description("Connection string. Omit to use the server's default for the dialect.")]
+        [Description(ConnectionStringHelp)]
         string? connectionString = null,
         CancellationToken cancellationToken = default)
     {

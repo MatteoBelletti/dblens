@@ -5,11 +5,8 @@ namespace DbLens.Core.Analysis.Relationships;
 
 /// <summary>
 /// Suggests foreign keys the schema does not declare, from joins the database's own SQL performs
-/// (views, routines, workload history) and, failing that, from naming and type compatibility.
-///
-/// Legacy and ERP schemas routinely omit them, so declared keys alone give an incomplete map of
-/// how tables join. Every suggestion is a Signal: neither a name nor a join is a constraint, and
-/// the verification pass is what turns one into a measurement.
+/// (views, routines, workload history) and, failing that, from names and types. Every suggestion
+/// is a signal: only the verification pass turns one into a measurement.
 /// </summary>
 public static class UndeclaredForeignKeyRule
 {

@@ -3,13 +3,9 @@ using DbLens.Core.Analysis.Verification;
 namespace DbLens.Core.Analysis.Denormalization.Verification;
 
 /// <summary>
-/// Applies measurements to signals and reclassifies them. Pure: no database, no dialect, no I/O,
-/// so every promotion decision in the product is unit-testable.
-///
-/// The governing rule is that a measurement can only promote the statement it actually measured.
-/// A probe counts rows where two numbers differ; it does not establish that the column is a bug.
-/// So a promoted finding's Title states the count and nothing else, and the diagnosis moves into
-/// a separately labelled part of the Description where it does not inherit the confidence.
+/// Applies measurements to signals and reclassifies them. Pure. A measurement promotes only what
+/// it measured: the title states the count, and the diagnosis goes into a separately labelled
+/// part of the description, where it does not inherit the count's confidence.
 /// </summary>
 public static class DenormalizationVerifier
 {

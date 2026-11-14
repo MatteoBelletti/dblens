@@ -68,11 +68,8 @@ public static class RepeatingGroupRule
             : null;
 
     /// <summary>
-    /// Counts rows that fill every slot of the group.
-    ///
-    /// This measures occupancy, not the 1NF violation — that is structural and no query can
-    /// refute it. But occupancy is decisive in the direction that matters: rows filling every
-    /// slot prove the schema's fixed arity is binding, so the next value needs a migration.
+    /// Counts rows that fill every slot of the group. The 1NF violation is structural and no query
+    /// refutes it; full rows show that the fixed number of slots is already a limit.
     /// </summary>
     internal static string? BuildOccupancyProbe(
         TableDetail table, IReadOnlyList<string> memberColumns, DatabaseDialect dialect)

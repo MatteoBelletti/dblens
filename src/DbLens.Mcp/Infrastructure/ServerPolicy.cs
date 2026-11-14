@@ -3,19 +3,11 @@ using Microsoft.Extensions.Configuration;
 namespace DbLens.Mcp.Infrastructure;
 
 /// <summary>
-/// Operator decisions that change the product's contract, so they are server configuration and
-/// never tool parameters a model could set.
+/// Operator decisions that change the product's contract: server configuration, never a tool
+/// parameter a model could set. Each is described in docs/safety.md.
 /// </summary>
 public sealed record ServerPolicy(bool AllowQueryResults, bool AllowWriteCapableLogin, bool ReadOnlyLoginOnLocalhost)
 {
-    /// <summary>
-    /// <c>DbLens:AllowQueryResults</c> — enables query_with_receipt, the one tool that returns values
-    /// from the data. Off by default: dblens otherwise never returns row data.
-    /// <c>DbLens:AllowWriteCapableLogin</c> — lets caller SQL run on a login that can write. For a
-    /// disposable database only; a server on this machine is exempt anyway.
-    /// <c>DbLens:ReadOnlyLoginOnLocalhost</c> — checks the login on a local server too, for dblens running
-    /// on a real database server.
-    /// </summary>
     public static ServerPolicy From(IConfiguration configuration) => new(
         configuration.GetValue("DbLens:AllowQueryResults", false),
         configuration.GetValue("DbLens:AllowWriteCapableLogin", false),

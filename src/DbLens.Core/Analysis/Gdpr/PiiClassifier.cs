@@ -3,11 +3,10 @@ using System.Text.RegularExpressions;
 namespace DbLens.Core.Analysis.Gdpr;
 
 /// <summary>
-/// Matches a column name against the PII pattern dictionaries. The name is first reduced to
-/// lower snake case, so "First Name", "firstName" and "FIRST-NAME" all read as "first_name".
-/// A pattern marked qualifiable also matches inside a longer name ("customer_email",
-/// "telefono_casa"), at a lower confidence; the others match the whole name only, because their
-/// words are too common to trust in a compound ("via", "pin", "condition").
+/// Matches a column name, reduced to lower snake case, against the PII pattern dictionaries.
+/// A pattern marked qualifiable also matches inside a longer name ("customer_email"), at a lower
+/// confidence; the others match the whole name only, their words being too common to trust in a
+/// compound ("via", "pin", "condition").
 /// </summary>
 public static class PiiClassifier
 {
