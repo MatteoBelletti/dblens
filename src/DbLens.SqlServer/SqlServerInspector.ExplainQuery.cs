@@ -2,7 +2,6 @@ using System.Data.Common;
 using System.Globalization;
 using System.Xml.Linq;
 using DbLens.Core.Analysis.QueryPlan;
-using Microsoft.Data.SqlClient;
 
 namespace DbLens.SqlServer;
 

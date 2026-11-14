@@ -1,6 +1,5 @@
 using System.Text.Json;
 using DbLens.Core.Analysis.QueryPlan;
-using Npgsql;
 
 namespace DbLens.Postgres;
 
