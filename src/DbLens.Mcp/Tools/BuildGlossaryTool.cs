@@ -20,11 +20,11 @@ public sealed class BuildGlossaryTool(
         "invent a meaning from its name; ask the user. verifyJoins runs counts-only, rolled-back probes on inferred " +
         "joins. No row values are included.")]
     public async Task<GlossaryResult> BuildGlossary(
-        [Description("Database dialect: PostgreSql or SqlServer.")]
+        [Description(DialectHelp)]
         DatabaseDialect dialect = DatabaseDialect.PostgreSql,
-        [Description("Schema to map. Null = all user schemas.")]
+        [Description(SchemaHelp)]
         string? schema = null,
-        [Description("Table names without schema prefix. Null = all tables in scope.")]
+        [Description(TablesHelp)]
         string[]? tables = null,
         [Description("Test inferred joins against the data (counts only). Default false.")]
         bool verifyJoins = false,
@@ -32,7 +32,7 @@ public sealed class BuildGlossaryTool(
         string? writeSkillTo = null,
         [Description("Replace an existing SKILL.md in writeSkillTo. Default false.")]
         bool overwrite = false,
-        [Description("Connection string. Omit to use the server's default for the dialect.")]
+        [Description(ConnectionStringHelp)]
         string? connectionString = null,
         CancellationToken cancellationToken = default)
     {

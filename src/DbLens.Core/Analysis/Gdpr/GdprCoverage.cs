@@ -85,6 +85,7 @@ public static class GdprCoverageAnalyzer
     {
         var name = columnName.Trim();
 
+        if (name.Equals("id", StringComparison.OrdinalIgnoreCase)) return false;
         if (name.Length <= 2) return true;
         if (PositionalNameRx.IsMatch(name)) return true;
 

@@ -1,3 +1,5 @@
+using System.Data.Common;
+using DbLens.Core.Analysis;
 using DbLens.Core.Analysis.Cascade;
 using DbLens.Core.Analysis.Denormalization;
 using DbLens.Core.Analysis.Fragmentation;
@@ -17,30 +19,33 @@ public abstract partial class DatabaseInspectorBase
 {
     // ── Dialect hooks ──────────────────────────────────────────────────────────
 
-    /// <summary>Scan counters per index, and the server uptime they accumulated over.</summary>
-    protected abstract Task<IndexUsageStats> QueryIndexUsageStatsAsync(
-        IReadOnlyList<ScopedTable> tables, CancellationToken ct);
+    /// <summary>
+    /// A command returning schema_name, table_name, index_name, scans and uptime_days: the scan
+    /// counter of every index of the tables, and how long the server has been counting.
+    /// </summary>
+    protected abstract DbCommand IndexUsageCommand(DbConnection conn, IReadOnlyList<ScopedTable> tables);
+
+    private async Task<IndexUsageStats> QueryIndexUsageStatsAsync(IReadOnlyList<ScopedTable> tables, CancellationToken ct)
+    {
+        await using var conn = await OpenAsync(ct);
+
+        var rows = await ReadAllAsync(IndexUsageCommand(conn, tables), r => (
+            Index: (r.Text("schema_name"), r.Text("table_name"), r.Text("index_name")),
+            Scans: r.Number("scans"),
+            UptimeDays: r.RealOrNull("uptime_days") ?? 0), ct);
+
+        return new IndexUsageStats(
+            rows.ToDictionary(r => r.Index, r => r.Scans), rows.Select(r => r.UptimeDays).FirstOrDefault());
+    }
 
     /// <summary>
-    /// Physical fragmentation per index. Must return <c>StatsAvailable = false</c> with a reason,
-    /// rather than throw, when the engine simply cannot provide the numbers (a missing extension,
-    /// a missing permission): that outcome is an answer, not an error.
+    /// Physical fragmentation per index. A missing extension or permission is an answer, not an
+    /// error: return <c>StatsAvailable = false</c> with the reason.
     /// </summary>
     protected abstract Task<IndexFragmentationStats> QueryFragmentationStatsAsync(
         IReadOnlyList<ScopedTable> tables, AnalyzeFragmentationRequest request, CancellationToken ct);
 
-    /// <summary>The foreign-key graph, row counts and database name for cascade analysis.</summary>
-    protected abstract Task<CascadeGraph> QueryCascadeGraphAsync(string? schema, CancellationToken ct);
-
-    protected sealed record CascadeGraph(
-        string DatabaseName,
-        IReadOnlyList<CascadeAnalysisEngine.FkEdge> Edges,
-        IReadOnlyDictionary<(string Schema, string Name), long?> RowCounts);
-
-    /// <summary>
-    /// The plan for a statement that has already passed the guard when Analyze is set.
-    /// Returns the parsed tree (null when unparseable) and any dialect-specific caveats.
-    /// </summary>
+    /// <summary>The plan of a statement the guard has already passed; a null root when unparseable.</summary>
     protected abstract Task<QueryPlanFetch> FetchQueryPlanAsync(ExplainQueryRequest request, CancellationToken ct);
 
     protected sealed record QueryPlanFetch(QueryPlanNode? Root, IReadOnlyList<string> Caveats);
@@ -56,14 +61,29 @@ public abstract partial class DatabaseInspectorBase
 
         return RunAsync("index analysis", async () =>
         {
-            var scope = await ResolveTableScopeAsync(request.Schema, request.Tables, ct);
-            if (scope.Count == 0) return IndexAnalysisEngine.Empty();
+            var (scope, scopeCaveat) = await ResolveTableScopeAsync(request.Schema, request.Tables, ct);
+            if (scope.Count == 0) return IndexAnalysisEngine.Empty() with { Caveats = [scopeCaveat!] };
 
             var details = await GetTableDetailsAsync(scope, ct);
-            var stats = request.IncludeUnusedIndexes ? await QueryIndexUsageStatsAsync(scope, ct) : null;
+
+            // A login that cannot read the counters loses the one rule that needs them, not the analysis.
+            IndexUsageStats? stats = null;
+            string? statsCaveat = null;
+            if (request.IncludeUnusedIndexes)
+            {
+                try
+                {
+                    stats = await QueryIndexUsageStatsAsync(scope, ct);
+                }
+                catch (DbException ex)
+                {
+                    statsCaveat = $"Scan statistics could not be read ({ex.Message.ReplaceLineEndings(" ").Trim()}), " +
+                                  "so the 'unused-index' rule did not run.";
+                }
+            }
 
             var result = IndexAnalysisEngine.Analyze(details.Tables, stats, request, Dialect);
-            result = result with { Caveats = WithCaveat(result.Caveats, NotFoundCaveat(details)) };
+            result = result with { Caveats = WithCaveats(result.Caveats, statsCaveat, scopeCaveat, NotFoundCaveat(details)) };
 
             Log.LogInformation(
                 "Index analysis completed: {FindingCount} findings, {Caveats} caveats",
@@ -83,13 +103,15 @@ public abstract partial class DatabaseInspectorBase
 
         return RunAsync("GDPR scan", async () =>
         {
-            var scope = await ResolveTableScopeAsync(request.Schema, request.Tables, ct, request.ExcludeTables);
-            if (scope.Count == 0) return GdprAnalysisEngine.Empty();
+            var (scope, scopeCaveat) = await ResolveTableScopeAsync(
+                request.Schema, request.Tables, ct, request.ExcludeTables);
+            if (scope.Count == 0)
+                return GdprAnalysisEngine.Empty() with { Caveats = WithCaveats([], scopeCaveat) };
 
             var details = await GetTableDetailsAsync(scope, ct);
 
             var result = GdprAnalysisEngine.Analyze(details.Tables, request, Dialect);
-            result = result with { Caveats = WithCaveat(result.Caveats, NotFoundCaveat(details)) };
+            result = result with { Caveats = WithCaveats(result.Caveats, scopeCaveat, NotFoundCaveat(details)) };
 
             Log.LogInformation("GDPR scan completed: {SignalCount} signals", result.Signals.Count);
             return result;
@@ -107,8 +129,8 @@ public abstract partial class DatabaseInspectorBase
 
         return RunAsync("denormalization analysis", async () =>
         {
-            var scope = await ResolveTableScopeAsync(request.Schema, request.Tables, ct);
-            if (scope.Count == 0) return DenormalizationAnalysisEngine.Empty();
+            var (scope, scopeCaveat) = await ResolveTableScopeAsync(request.Schema, request.Tables, ct);
+            if (scope.Count == 0) return DenormalizationAnalysisEngine.Empty() with { Caveats = [scopeCaveat!] };
 
             var details = await GetTableDetailsAsync(scope, ct);
             var result = DenormalizationAnalysisEngine.Analyze(details.Tables, request, Dialect);
@@ -116,7 +138,7 @@ public abstract partial class DatabaseInspectorBase
             if (request.VerifySignals)
                 result = await VerifyDenormalizationAsync(result, details.Tables, scope, request, ct);
 
-            result = result with { Caveats = WithCaveat(result.Caveats, NotFoundCaveat(details)) };
+            result = result with { Caveats = WithCaveats(result.Caveats, scopeCaveat, NotFoundCaveat(details)) };
 
             Log.LogInformation(
                 "Denormalization analysis completed: {Findings} findings, {Signals} signals across {Tables} table(s)",
@@ -137,11 +159,14 @@ public abstract partial class DatabaseInspectorBase
 
         return RunAsync("fragmentation analysis", async () =>
         {
-            var scope = await ResolveTableScopeAsync(request.Schema, request.Tables, ct);
-            if (scope.Count == 0) return FragmentationAnalysisEngine.Empty();
+            // The partitions hold the pages; the partitioned table itself stores nothing.
+            var (scope, scopeCaveat) = await ResolveTableScopeAsync(
+                request.Schema, request.Tables, ct, includePartitions: true);
+            if (scope.Count == 0) return FragmentationAnalysisEngine.Empty() with { Caveats = [scopeCaveat!] };
 
             var stats = await QueryFragmentationStatsAsync(scope, request, ct);
             var result = FragmentationAnalysisEngine.Analyze(stats, request, Dialect);
+            result = result with { Caveats = WithCaveats(result.Caveats, scopeCaveat) };
 
             Log.LogInformation(
                 "Fragmentation analysis completed: {FindingCount} findings, statsAvailable={Available}",
@@ -162,12 +187,12 @@ public abstract partial class DatabaseInspectorBase
 
         return RunAsync("migration safety check", async () =>
         {
-            var statements = DdlClassifier.Classify(request.Ddl ?? "");
+            var statements = DdlClassifier.Classify(request.Ddl ?? "", Dialect);
             if (statements.Count == 0) return MigrationSafetyEngine.Empty();
 
             // Every user table, not just a filtered scope: a script can touch any schema.
-            var catalog = await ResolveTableScopeAsync(schema: null, tables: null, ct);
-            var tables = catalog.ToDictionary(
+            var catalog = await ResolveTableScopeAsync(schema: null, tables: null, ct, includePartitions: true);
+            var tables = catalog.Tables.ToDictionary(
                 t => (t.Schema, t.Name),
                 t => new MigrationTableContext(
                     t.Schema, t.Name, t.ApproximateRowCount, t.TotalSizeBytes, t.IncomingForeignKeys));
@@ -194,14 +219,28 @@ public abstract partial class DatabaseInspectorBase
 
         return RunAsync("cascade path check", async () =>
         {
-            var graph = await QueryCascadeGraphAsync(request.Schema, ct);
+            var (scope, _) = await ResolveTableScopeAsync(request.Schema, tables: null, ct);
+            var details = await GetTableDetailsAsync(scope, ct);
             var dialect = Dialect.ToString();
 
-            var roots = ResolveCascadeRoots(request, graph.Edges);
-            if (roots.Count == 0) return CascadeAnalysisEngine.Empty(dialect, graph.DatabaseName);
+            // Each table lists its keys in both directions, so the tables in scope are the whole graph.
+            var edges = details.Tables
+                .SelectMany(t => t.ForeignKeysOutgoing.Concat(t.ForeignKeysIncoming))
+                .DistinctBy(fk => (fk.FromSchema, fk.FromTable, fk.ConstraintName))
+                .OrderBy(fk => fk.FromSchema, StringComparer.Ordinal)
+                .ThenBy(fk => fk.FromTable, StringComparer.Ordinal)
+                .ThenBy(fk => fk.ConstraintName, StringComparer.Ordinal)
+                .Select(fk => new CascadeAnalysisEngine.FkEdge(
+                    fk.FromSchema, fk.FromTable, fk.ConstraintName, fk.FromColumns,
+                    fk.ToSchema, fk.ToTable, fk.ToColumns, fk.OnDelete))
+                .ToList();
+
+            var roots = ResolveCascadeRoots(request, scope, edges);
+            if (roots.Count == 0) return CascadeAnalysisEngine.Empty(dialect, details.Database);
 
             var result = CascadeAnalysisEngine.Analyze(
-                graph.Edges, graph.RowCounts, roots, request, dialect, graph.DatabaseName);
+                edges, scope.ToDictionary(t => (t.Schema, t.Name), t => t.ApproximateRowCount),
+                roots, request, dialect, details.Database);
 
             Log.LogInformation(
                 "Cascade path check completed: {PathCount} paths, {FindingCount} findings",
@@ -212,12 +251,30 @@ public abstract partial class DatabaseInspectorBase
     }
 
     private List<(string Schema, string Name)> ResolveCascadeRoots(
-        CheckCascadePathsRequest request, IReadOnlyList<CascadeAnalysisEngine.FkEdge> edges)
+        CheckCascadePathsRequest request,
+        IReadOnlyList<ScopedTable> scope,
+        IReadOnlyList<CascadeAnalysisEngine.FkEdge> edges)
     {
         if (request.StartingTable is not null)
         {
-            var parts = request.StartingTable.Split('.', 2);
-            return parts.Length == 2 ? [(parts[0], parts[1])] : [(DefaultSchema, parts[0])];
+            // "No cascade from this table" must never be the answer for a table that is not there.
+            var known = scope.Select(t => (t.Schema, t.Name))
+                .Concat(edges.SelectMany(e => new[] { (e.FromSchema, e.FromTable), (e.ToSchema, e.ToTable) }))
+                .ToHashSet();
+            var readings = ParseTableNames([request.StartingTable], defaultSchema: null)
+                .Select(n => (n.Schema, n.Name))
+                .ToList();
+
+            var exact = readings.Where(known.Contains).Take(1).ToList();
+            if (exact.Count == 1) return exact;
+
+            var anyCase = known.Where(k => readings.Contains(k, CaseInsensitivePairComparer.Instance)).Take(2).ToList();
+            if (anyCase.Count == 1) return anyCase;
+
+            throw new ArgumentException(
+                $"Table '{request.StartingTable}' was not found" +
+                (request.Schema is null ? "" : $" in schema '{request.Schema}'") +
+                ". Pass it as 'schema.table', exactly as get_schema lists it.");
         }
 
         // Every table that is the parent of at least one CASCADE foreign key.
@@ -232,18 +289,22 @@ public abstract partial class DatabaseInspectorBase
 
     // ── explain_query ──────────────────────────────────────────────────────────
 
-    /// <summary>
-    /// The statement guard lives here, not in the dialects, so that no dialect can skip it.
-    /// It runs before any connection is opened: hostile input never reaches the database.
-    /// </summary>
+    /// <summary>The guard runs here, where no dialect can skip it, and before any connection opens.</summary>
     public Task<ExplainQueryResult> ExplainQueryAsync(ExplainQueryRequest request, CancellationToken ct = default)
     {
         if (request.Analyze)
         {
-            var guard = StatementGuard.IsReadOnlySelect(request.Sql);
+            var guard = StatementGuard.IsReadOnlySelect(request.Sql, Dialect);
             if (!guard.Allowed)
                 throw new ArgumentException(
                     $"Refusing to execute this statement with ANALYZE. {guard.RejectionReason}");
+        }
+        else
+        {
+            // An estimated plan runs nothing, but a second statement after a semicolon would be executed.
+            var single = StatementGuard.IsSingleStatement(request.Sql, Dialect);
+            if (!single.Allowed)
+                throw new ArgumentException($"Refusing to plan this input. {single.RejectionReason}");
         }
 
         Log.LogInformation(

@@ -23,7 +23,7 @@ public sealed class QueryWithReceiptTool(
         "confirmed this query earlier; prefer certified queries when one fits. " +
         "Do NOT state figures that are not in the result.")]
     public async Task<QueryWithReceiptResult> QueryWithReceipt(
-        [Description("Database dialect: PostgreSql or SqlServer.")]
+        [Description(DialectHelp)]
         DatabaseDialect dialect = DatabaseDialect.PostgreSql,
         [Description("One SELECT statement. Omit when running a certified query by name.")]
         string? sql = null,
@@ -33,7 +33,7 @@ public sealed class QueryWithReceiptTool(
         string? crossCheckSql = null,
         [Description("Relative difference allowed between numbers in the cross-check, e.g. 0.001. Default 0: exact.")]
         double tolerance = 0.0,
-        [Description("Connection string. Omit to use the server's default for the dialect.")]
+        [Description(ConnectionStringHelp)]
         string? connectionString = null,
         CancellationToken cancellationToken = default)
     {

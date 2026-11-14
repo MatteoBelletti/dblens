@@ -2,7 +2,7 @@
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-10-17/server.schema.json",
   "name": "io.github.MatteoBelletti/dblens",
   "description": "Inspect and diagnose PostgreSQL and SQL Server databases. Read-only; no row data by default.",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "repository": {
     "url": "https://github.com/MatteoBelletti/dblens",
     "source": "github"
@@ -11,7 +11,7 @@
     {
       "registryType": "nuget",
       "identifier": "DbLens.Mcp",
-      "version": "0.1.1",
+      "version": "0.1.2",
       "transport": { "type": "stdio" },
       "environmentVariables": [
         {

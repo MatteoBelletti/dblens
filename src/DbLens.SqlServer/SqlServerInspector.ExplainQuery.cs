@@ -1,7 +1,7 @@
+using System.Data.Common;
 using System.Globalization;
 using System.Xml.Linq;
 using DbLens.Core.Analysis.QueryPlan;
-using Microsoft.Data.SqlClient;
 
 namespace DbLens.SqlServer;
 
@@ -26,91 +26,52 @@ public sealed partial class SqlServerInspector
     /// <summary>SHOWPLAN_XML returns the plan without running the statement.</summary>
     private async Task<string> FetchEstimatedPlanAsync(ExplainQueryRequest request, CancellationToken ct)
     {
-        await using var conn = new SqlConnection(_connectionString);
-        await conn.OpenAsync(ct);
+        await using var conn = await OpenAsync(ct);
 
-        await ExecuteAsync(conn, null, "SET SHOWPLAN_XML ON", ct);
+        await ExecuteAsync(conn, "SET SHOWPLAN_XML ON", null, ct);
         try
         {
-            await using var cmd = conn.CreateCommand();
-            cmd.CommandText = request.Sql;
-            cmd.CommandTimeout = QueryTimeoutSeconds;
-            return await ReadFirstStringAsync(cmd, ct);
+            await using var cmd = Command(conn, request.Sql);
+            return await cmd.ExecuteScalarAsync(ct) as string ?? "";
         }
         finally
         {
-            await ExecuteAsync(conn, null, "SET SHOWPLAN_XML OFF", ct);
+            await ExecuteAsync(conn, "SET SHOWPLAN_XML OFF", null, ct);
         }
     }
 
     /// <summary>
-    /// STATISTICS XML runs the statement and returns the plan with actual row counts appended
-    /// as a trailing result set. The transaction is always rolled back.
+    /// STATISTICS XML runs the statement and appends the plan, with actual row counts, as a
+    /// trailing result set: the last one that looks like a showplan document.
     /// </summary>
     private async Task<string> FetchActualPlanAsync(ExplainQueryRequest request, CancellationToken ct)
     {
-        await using var conn = new SqlConnection(_connectionString);
-        await conn.OpenAsync(ct);
+        await using var conn = await OpenAsync(ct);
 
-        await using var tx = (SqlTransaction)await conn.BeginTransactionAsync(ct);
-        try
+        return await InRolledBackTransactionAsync(conn, ReadOnlyQuerySetupSql, ct, async tx =>
         {
-            await ExecuteAsync(conn, tx, "SET STATISTICS XML ON", ct);
+            await ExecuteAsync(conn, "SET STATISTICS XML ON", tx, ct);
 
-            await using var cmd = conn.CreateCommand();
-            cmd.Transaction = tx;
-            cmd.CommandText = request.Sql;
-            cmd.CommandTimeout = QueryTimeoutSeconds;
+            await using var cmd = Command(conn, request.Sql, tx);
+            await using var reader = await cmd.ExecuteReaderAsync(ct);
+            var plan = "";
 
-            return await ReadPlanFromResultSetsAsync(cmd, ct);
-        }
-        finally
-        {
-            await tx.RollbackAsync(ct);
-        }
-    }
-
-    private static async Task ExecuteAsync(
-        SqlConnection conn, SqlTransaction? tx, string sql, CancellationToken ct)
-    {
-        await using var cmd = conn.CreateCommand();
-        if (tx is not null) cmd.Transaction = tx;
-        cmd.CommandText = sql;
-        cmd.CommandTimeout = QueryTimeoutSeconds;
-        await cmd.ExecuteNonQueryAsync(ct);
-    }
-
-    private static async Task<string> ReadFirstStringAsync(SqlCommand cmd, CancellationToken ct)
-    {
-        await using var reader = await cmd.ExecuteReaderAsync(ct);
-        if (await reader.ReadAsync(ct) && !reader.IsDBNull(0))
-            return reader.GetString(0);
-        return "";
-    }
-
-    /// <summary>
-    /// Walks every result set and returns the last one that looks like a showplan document,
-    /// which is where STATISTICS XML puts the plan carrying actual row counts.
-    /// </summary>
-    private static async Task<string> ReadPlanFromResultSetsAsync(SqlCommand cmd, CancellationToken ct)
-    {
-        await using var reader = await cmd.ExecuteReaderAsync(ct);
-        var plan = "";
-
-        do
-        {
-            while (await reader.ReadAsync(ct))
+            do
             {
-                if (reader.FieldCount != 1 || reader.IsDBNull(0)) continue;
-                if (reader.GetFieldType(0) != typeof(string)) continue;
+                while (await reader.ReadAsync(ct))
+                    if (reader.FieldCount == 1 && reader.GetFieldType(0) == typeof(string) && !reader.IsDBNull(0)
+                        && reader.GetString(0) is var value && value.Contains("ShowPlanXML", StringComparison.Ordinal))
+                        plan = value;
+            } while (await reader.NextResultAsync(ct));
 
-                var value = reader.GetString(0);
-                if (value.Contains("ShowPlanXML", StringComparison.Ordinal))
-                    plan = value;
-            }
-        } while (await reader.NextResultAsync(ct));
+            return plan;
+        });
+    }
 
-        return plan;
+    private static async Task ExecuteAsync(DbConnection conn, string sql, DbTransaction? tx, CancellationToken ct)
+    {
+        await using var cmd = Command(conn, sql, tx);
+        await cmd.ExecuteNonQueryAsync(ct);
     }
 
     private static QueryPlanNode? ParsePlan(string xml)
@@ -143,24 +104,25 @@ public sealed partial class SqlServerInspector
             .Select(ParseRelOp)
             .ToList();
 
-        var runtime = relOp.Descendants(ShowPlanNs + "RunTimeCountersPerThread")
-            .Where(e => e.Ancestors(ShowPlanNs + "RelOp").FirstOrDefault() == relOp)
-            .ToList();
-
-        double? actualRows = runtime.Count > 0
-            ? runtime.Sum(e => ParseDouble((string?)e.Attribute("ActualRows")) ?? 0)
-            : null;
-
-        double? actualTimeMs = runtime.Count > 0
-            ? runtime.Max(e => ParseDouble((string?)e.Attribute("ActualElapsedms")) ?? 0)
-            : null;
+        var runtime = Own(relOp, "RunTimeCountersPerThread").ToList();
 
         long? executions = runtime.Count > 0
             ? (long)runtime.Sum(e => ParseDouble((string?)e.Attribute("ActualExecutions")) ?? 0)
             : null;
 
-        var objectElement = relOp.Descendants(ShowPlanNs + "Object")
-            .FirstOrDefault(e => e.Ancestors(ShowPlanNs + "RelOp").FirstOrDefault() == relOp);
+        // The counters are totals over every execution and thread; the node model holds rows per
+        // execution, as PostgreSQL reports them and as EstimateRows is expressed.
+        double? actualRows = runtime.Count > 0
+            ? runtime.Sum(e => ParseDouble((string?)e.Attribute("ActualRows")) ?? 0) / Math.Max(executions ?? 1, 1)
+            : null;
+
+        var rowsRead = runtime.Where(e => e.Attribute("ActualRowsRead") is not null).ToList();
+
+        double? actualTimeMs = runtime.Count > 0
+            ? runtime.Max(e => ParseDouble((string?)e.Attribute("ActualElapsedms")) ?? 0)
+            : null;
+
+        var objectElement = Own(relOp, "Object").FirstOrDefault();
 
         return new QueryPlanNode(
             NodeType: physicalOp,
@@ -172,12 +134,19 @@ public sealed partial class SqlServerInspector
             ActualRows: actualRows,
             ActualTimeMs: actualTimeMs,
             Loops: executions,
-            SpilledToDisk: relOp.Descendants(ShowPlanNs + "SpillToTempDb").Any(),
-            Filter: Clean((string?)relOp.Descendants(ShowPlanNs + "Predicate")
-                .FirstOrDefault()?.Descendants(ShowPlanNs + "ScalarOperator")
-                .FirstOrDefault()?.Attribute("ScalarString")),
-            Children: children);
+            SpilledToDisk: Own(relOp, "SpillToTempDb").Any(),
+            Filter: (string?)Own(relOp, "Predicate").FirstOrDefault()
+                ?.Descendants(ShowPlanNs + "ScalarOperator").FirstOrDefault()?.Attribute("ScalarString"),
+            Children: children,
+            RowsRead: rowsRead.Count > 0
+                ? rowsRead.Sum(e => ParseDouble((string?)e.Attribute("ActualRowsRead")) ?? 0)
+                : null);
     }
+
+    /// <summary>Elements that belong to this operator rather than to one nested under it.</summary>
+    private static IEnumerable<XElement> Own(XElement relOp, string name) =>
+        relOp.Descendants(ShowPlanNs + name)
+            .Where(e => e.Ancestors(ShowPlanNs + "RelOp").FirstOrDefault() == relOp);
 
     private static QueryPlanNodeKind MapKind(string physicalOp) => physicalOp switch
     {

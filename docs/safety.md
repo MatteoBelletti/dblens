@@ -35,23 +35,40 @@ for every statement that will execute — caller SQL and dblens's own probes ali
 
 - anything but one `SELECT` (a leading `WITH` is fine); a second statement after `;`;
 - every writing or state-changing keyword anywhere in the text: DML, DDL, `MERGE`, transaction
-  control, `SET`, `EXEC`, `COPY`, `INTO`, data-modifying CTEs…;
+  control, `SET`, `EXEC`, `COPY`, `INTO`, data-modifying CTEs…; on SQL Server, where a second
+  statement needs no `;`, also `DENY`, `RECONFIGURE`, `WRITETEXT`, `RAISERROR`, `… TRIGGER`;
 - functions with side effects, wherever they are called: `pg_terminate_backend`, `pg_cancel_backend`,
-  `pg_reload_conf`, file access (`pg_read_file`, `lo_import`…), sequences (`nextval`, `setval`),
-  `set_config`, advisory locks, `pg_sleep`, `query_to_xml`, `dblink`, `OPENQUERY`, `OPENROWSET`,
-  `OPENDATASOURCE`, `xp_*` / `sp_*`;
+  `pg_reload_conf`, file access (`pg_read_file`, `pg_ls_*`, `lo_import`…), sequences (`nextval`,
+  `setval`, `NEXT VALUE FOR`), `set_config`, advisory locks, `pg_sleep`, statistics resets
+  (`pg_stat_reset*`), `query_to_xml`, `dblink`, `OPENQUERY`, `OPENROWSET`, `OPENDATASOURCE`,
+  `xp_*` / `sp_*`;
 - locking clauses (`FOR UPDATE`, `FOR SHARE`, `WITH (UPDLOCK)`, `TABLOCKX`, `HOLDLOCK`…);
-- four-part names, which address a linked server.
+- four-part names, which address a linked server;
+- PostgreSQL Unicode-escaped identifiers (`U&"…"`), whose names cannot be read without decoding.
 
 Comments and string literals are removed before the scan, so `-- delete` or `'pg_sleep(1)'` change
-nothing; quoted identifiers are checked too, so `"pg_terminate_backend"(1)` is caught.
+nothing; quoted identifiers are checked too, so `"pg_terminate_backend"(1)` is caught. A column that
+happens to be named like a keyword (`comment`, `lock`) is rejected unquoted and accepted quoted.
+
+The text is split into code, comments, strings and identifiers **by the target engine's own rules**
+(`SqlText.Segments`): dollar-quoted and `E''` strings and `[` as a subscript on PostgreSQL,
+`[bracketed]` names on SQL Server, nested block comments on both. A guard that ends a string
+somewhere the engine does not can be shown one statement while the engine runs two, so every
+difference found goes into `StatementGuardLexingTests`. On PostgreSQL the transaction pins
+`standard_conforming_strings = on`, the setting those rules assume.
+
+An estimated plan (`explain_query` with `analyze: false`) runs nothing, so it accepts any statement —
+that is how a write is explained — but still exactly **one**: a second statement after `;` would be
+sent and executed, and is rejected. On PostgreSQL the `EXPLAIN` itself runs in the read-only,
+rolled-back transaction below.
 
 **The guard is a filter, not a proof.** It cannot see what a user-defined function does or which
 privileges a login holds. That is why the next two layers exist.
 
 ### 2. Always-rolled-back transaction
 
-Every executed statement runs in its own transaction that is never committed.
+Every executed statement — and, on PostgreSQL, every `EXPLAIN` — runs in its own transaction that is
+never committed.
 
 | | PostgreSQL | SQL Server |
 |---|---|---|
@@ -123,7 +140,8 @@ setting on purpose: a model cannot turn it on.
 When enabled:
 
 - the statement passes all three layers above;
-- at most 100 rows are returned, strings cut at 500 characters;
+- at most 100 rows are returned, strings cut at 500 characters; a value that cannot be read or
+  serialized is reported as text, never as a failure of the whole query;
 - the description tells the model to select aggregates rather than personal data. That is an
   instruction, not an enforcement — masking personal values is not implemented, so enable this only
   where the model may see the data the login can read.
@@ -168,6 +186,8 @@ contributes table and column names only.
 | `scan_gdpr` | no column *name* matched | `Coverage`: columns it could not interpret, plus an explicit caveat |
 | `analyze_fragmentation` | maybe nothing was measured | `StatsAvailable: false` and the reason |
 | `check_migration_safety` | maybe nothing was recognized | statements of kind `Unknown` |
+| any scoped tool | maybe the schema or table name matched nothing | a caveat naming what was not found |
+| `check_cascade_paths` | — | an unknown `startingTable` is an error |
 | `analyze_indexes` (`unused-index`) | maybe counters were just reset | uptime caveat; rule skipped under 7 days |
 | `check_cascade_paths` | no *declared* cascade | disclaimer: ORM cascades and triggers are invisible |
 | `infer_relationships` | maybe no query history | caveat when pg_stat_statements / Query Store is unavailable |

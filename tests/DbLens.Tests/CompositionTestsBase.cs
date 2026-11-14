@@ -78,7 +78,7 @@ public abstract class CompositionTestsBase(IDatabaseFixture fixture)
         var probe = measured.SqlFix!.Sql;
         var outcome = (VerificationOutcome)measured.Metadata!["verification"];
 
-        StatementGuard.IsReadOnlySelect(probe).Allowed.Should().BeTrue();
+        StatementGuard.IsReadOnlySelect(probe, Inspector.Dialect).Allowed.Should().BeTrue();
         (await Inspector.ExplainQueryAsync(new ExplainQueryRequest(probe, Analyze: true))).Should().NotBeNull();
 
         var receipt = await Inspector.QueryWithReceiptAsync(new QueryWithReceiptRequest(probe));

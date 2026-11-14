@@ -114,6 +114,31 @@ public sealed class GetSchemaToolTests
         usedFactory.Should().BeFalse();
     }
 
+    [Theory]
+    [InlineData("")]
+    [InlineData("   ")]
+    public async Task GetSchema_EmptyConnectionString_MeansTheConfiguredOne(string connectionString)
+    {
+        var usedKeyed = false;
+        var tool = MakeTool(onKeyedResolve: _ => usedKeyed = true);
+
+        await tool.GetSchema(connectionString: connectionString);
+
+        usedKeyed.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task ToolErrors_ExplainABadArgument_InsteadOfHidingIt()
+    {
+        var handler = ToolErrors.Filter((_, _) => throw new System.Text.Json.JsonException("could not be converted to DatabaseDialect"));
+
+        var result = await handler(null!, CancellationToken.None);
+
+        result.IsError.Should().BeTrue();
+        result.Content.OfType<ModelContextProtocol.Protocol.TextContentBlock>().Single().Text
+            .Should().StartWith("Invalid arguments:").And.Contain("DatabaseDialect");
+    }
+
     [Fact]
     public async Task GetSchema_WithConnectionString_UsesFactory()
     {

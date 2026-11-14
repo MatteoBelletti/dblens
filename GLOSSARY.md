@@ -130,7 +130,7 @@ The words dblens uses in its results and its code, and what each one commits to.
 ## Schema concepts
 
 **Scope**
-: The tables a call analyzes: `schema` + `tables`, at most 20 named tables.
+: The tables a call analyzes: `schema` + `tables`. A name that matches nothing is reported in a caveat.
 
 **Declared / Inferred / Verified / VerifiedWithOrphans**
 : The evidence on a relationship edge in `infer_relationships`: a real FK / a name match / a name

@@ -78,7 +78,7 @@ public sealed class SqlIdentifierTests
 
             // The guard blanks quoted regions before scanning for keywords, so nothing inside
             // the identifier can register as DROP, DELETE, or a statement separator.
-            StatementGuard.IsReadOnlySelect(sql).Allowed.Should().BeTrue(
+            StatementGuard.IsReadOnlySelect(sql, dialect).Allowed.Should().BeTrue(
                 "a hostile identifier must be inert once quoted ({0})", dialect);
         }
     }
@@ -87,7 +87,7 @@ public sealed class SqlIdentifierTests
     public void Quote_HostilePayloadIsBlankedByTheGuardsStripper()
     {
         var quoted = SqlIdentifier.Quote("x\"; DROP TABLE y --", DatabaseDialect.PostgreSql);
-        var stripped = StatementGuard.StripCommentsAndStrings($"SELECT COUNT(*) FROM {quoted}");
+        var stripped = SqlText.StripCommentsAndStrings($"SELECT COUNT(*) FROM {quoted}", DatabaseDialect.PostgreSql);
 
         stripped.Should().NotContain("DROP");
         stripped.Should().NotContain(";");

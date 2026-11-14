@@ -37,6 +37,31 @@ public static class TableDetailExtensions
 /// Case-insensitive equality for a pair of identifiers, such as a column name and its type.
 /// Element names on the tuple are irrelevant to the type, so one comparer serves every pair.
 /// </summary>
+public static class IndexDetailExtensions
+{
+    /// <summary>
+    /// Keeps its key in order (a b-tree; SQL Server's rowstore indexes), so a leading part of the
+    /// key can be searched on its own. A hash, GIN or columnstore index cannot.
+    /// </summary>
+    public static bool IsOrdered(this IndexDetail index) =>
+        index.Method.Equals("btree", StringComparison.OrdinalIgnoreCase)
+        || index.Method.Equals("CLUSTERED", StringComparison.OrdinalIgnoreCase)
+        || index.Method.Equals("NONCLUSTERED", StringComparison.OrdinalIgnoreCase);
+
+    public static IReadOnlyList<string> Included(this IndexDetail index) => index.IncludedColumns ?? [];
+
+    public static bool StartsWith(this IndexDetail index, IReadOnlyList<string> columns)
+    {
+        if (index.Columns.Count < columns.Count) return false;
+
+        for (var i = 0; i < columns.Count; i++)
+            if (!string.Equals(index.Columns[i], columns[i], StringComparison.OrdinalIgnoreCase))
+                return false;
+
+        return true;
+    }
+}
+
 public sealed class CaseInsensitivePairComparer : IEqualityComparer<(string, string)>
 {
     public static readonly CaseInsensitivePairComparer Instance = new();

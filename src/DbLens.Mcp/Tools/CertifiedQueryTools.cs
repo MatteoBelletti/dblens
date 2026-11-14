@@ -27,16 +27,16 @@ public sealed class CertifiedQueryTools(
         string question,
         [Description("The SELECT statement the user confirmed.")]
         string sql,
-        [Description("Database dialect: PostgreSql or SqlServer.")]
+        [Description(DialectHelp)]
         DatabaseDialect dialect = DatabaseDialect.PostgreSql,
-        [Description("Connection string. Omit to use the server's default for the dialect.")]
+        [Description(ConnectionStringHelp)]
         string? connectionString = null,
         CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(name) || string.IsNullOrWhiteSpace(question))
             throw new ArgumentException("name and question must not be empty.");
 
-        var guard = StatementGuard.IsReadOnlySelect(sql);
+        var guard = StatementGuard.IsReadOnlySelect(sql, dialect);
         if (!guard.Allowed)
             throw new ArgumentException($"Only a read-only SELECT can be certified. {guard.RejectionReason}");
 
@@ -50,9 +50,9 @@ public sealed class CertifiedQueryTools(
         "Lists the queries the user certified for this database: name, question and SQL. Prefer one of these " +
         "over writing new SQL when it answers the question.")]
     public IReadOnlyList<CertifiedQueryStore.Entry> ListCertifiedQueries(
-        [Description("Database dialect: PostgreSql or SqlServer.")]
+        [Description(DialectHelp)]
         DatabaseDialect dialect = DatabaseDialect.PostgreSql,
-        [Description("Connection string. Omit to use the server's default for the dialect.")]
+        [Description(ConnectionStringHelp)]
         string? connectionString = null) =>
         store.List(dialect, ResolveInspector(dialect, connectionString).DatabaseName);
 }

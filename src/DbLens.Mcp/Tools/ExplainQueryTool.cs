@@ -21,11 +21,11 @@ public sealed class ExplainQueryTool(IServiceProvider services, IDatabaseInspect
     public Task<ExplainQueryResult> ExplainQuery(
         [Description("Exactly one SQL statement.")]
         string sql,
-        [Description("Database dialect: PostgreSql or SqlServer.")]
+        [Description(DialectHelp)]
         DatabaseDialect dialect = DatabaseDialect.PostgreSql,
         [Description("When true, EXECUTES the SELECT for real row counts and timings. Default false.")]
         bool analyze = false,
-        [Description("Connection string. Omit to use the server's default for the dialect.")]
+        [Description(ConnectionStringHelp)]
         string? connectionString = null,
         CancellationToken cancellationToken = default)
     {

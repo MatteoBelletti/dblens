@@ -12,7 +12,7 @@ public static class GapAnalyzer
 
     public static TableGap Analyze(TableDetail table)
     {
-        var names = table.Columns.Select(c => c.Name).ToList();
+        var names = table.Columns.Select(c => PiiClassifier.Normalize(c.Name)).ToList();
 
         return new TableGap(
             HasSoftDelete:       names.Any(n => SoftDeleteRx.IsMatch(n)),

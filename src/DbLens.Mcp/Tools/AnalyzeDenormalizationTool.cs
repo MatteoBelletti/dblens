@@ -23,17 +23,17 @@ public sealed class AnalyzeDenormalizationTool(IServiceProvider services, IDatab
         "SqlFix.kind 'ReadOnlyProbe' is a safe aggregate SELECT; 'Ddl' changes the database and needs review. " +
         "Do NOT infer results, columns or values beyond what this tool returns.")]
     public Task<AnalyzeDenormalizationResult> AnalyzeDenormalization(
-        [Description("Database dialect: PostgreSql or SqlServer.")]
+        [Description(DialectHelp)]
         DatabaseDialect dialect = DatabaseDialect.PostgreSql,
-        [Description("Schema to analyze. Null = all user schemas.")]
+        [Description(SchemaHelp)]
         string? schema = null,
-        [Description("Table names without schema prefix. Null = all tables in scope.")]
+        [Description(TablesHelp)]
         string[]? tables = null,
         [Description(
             "When true, EXECUTES read-only aggregate queries to measure the signals. Counts only, never row values. " +
             "Default false: nothing is executed.")]
         bool verifySignals = false,
-        [Description("Connection string. Omit to use the server's default for the dialect.")]
+        [Description(ConnectionStringHelp)]
         string? connectionString = null,
         CancellationToken cancellationToken = default)
     {

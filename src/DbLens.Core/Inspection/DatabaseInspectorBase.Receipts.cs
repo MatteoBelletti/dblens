@@ -25,6 +25,8 @@ public abstract partial class DatabaseInspectorBase
     {
         Guard(request.Sql, "query");
         if (request.CrossCheckSql is not null) Guard(request.CrossCheckSql, "cross-check query");
+        if (request.Tolerance is not (>= 0 and <= 1))
+            throw new ArgumentException("tolerance is a relative difference between 0 and 1, e.g. 0.001 for 0.1 %.");
 
         Log.LogInformation("Running query with receipt (length={Length}, crossCheck={CrossCheck})",
             request.Sql.Length, request.CrossCheckSql is not null);
@@ -39,8 +41,7 @@ public abstract partial class DatabaseInspectorBase
                 .Distinct(StringComparer.OrdinalIgnoreCase).Order(StringComparer.OrdinalIgnoreCase)
                 .ToList() ?? [];
 
-            await using var conn = CreateConnection();
-            await conn.OpenAsync(ct);
+            await using var conn = await OpenAsync(ct);
 
             var primary = await RunReadOnlyAsync(conn, request.Sql, request.MaxRows, ct);
 
@@ -72,36 +73,24 @@ public abstract partial class DatabaseInspectorBase
     /// <summary>Dialect statements about how far the read-only promise is engine-enforced.</summary>
     protected virtual IReadOnlyList<string> ReceiptCaveats => [];
 
-    private static void Guard(string sql, string what)
+    private void Guard(string sql, string what)
     {
         if (string.IsNullOrWhiteSpace(sql)) throw new ArgumentException($"The {what} must not be empty.");
 
-        var guard = StatementGuard.IsReadOnlySelect(sql);
+        var guard = StatementGuard.IsReadOnlySelect(sql, Dialect);
         if (!guard.Allowed)
             throw new ArgumentException($"Refusing to run the {what}. {guard.RejectionReason}");
     }
 
-    private async Task<QueryResult> RunReadOnlyAsync(DbConnection conn, string sql, int maxRows, CancellationToken ct)
+    private Task<QueryResult> RunReadOnlyAsync(DbConnection conn, string sql, int maxRows, CancellationToken ct)
     {
         var sw = Stopwatch.StartNew();
 
-        await using var tx = await conn.BeginTransactionAsync(ct);
-        try
+        return InRolledBackTransactionAsync(conn, ReadOnlyQuerySetupSql, ct, async tx =>
         {
-            await using (var setup = conn.CreateCommand())
-            {
-                setup.Transaction = tx;
-                setup.CommandText = ReadOnlyQuerySetupSql;
-                setup.CommandTimeout = QueryTimeoutSeconds;
-                await setup.ExecuteNonQueryAsync(ct);
-            }
-
-            await using var cmd = conn.CreateCommand();
-            cmd.Transaction = tx;
-            cmd.CommandText = sql;
-            cmd.CommandTimeout = QueryTimeoutSeconds;
-
+            await using var cmd = Command(conn, sql, tx);
             await using var reader = await cmd.ExecuteReaderAsync(ct);
+
             var columns = Enumerable.Range(0, reader.FieldCount).Select(reader.GetName).ToList();
             var rows = new List<IReadOnlyList<object?>>();
             var truncated = false;
@@ -109,14 +98,10 @@ public abstract partial class DatabaseInspectorBase
             while (await reader.ReadAsync(ct))
             {
                 if (rows.Count == maxRows) { truncated = true; break; }
-                rows.Add(Enumerable.Range(0, reader.FieldCount).Select(i => ResultValue.From(reader.GetValue(i))).ToList());
+                rows.Add(Enumerable.Range(0, reader.FieldCount).Select(i => ResultValue.Read(reader, i)).ToList());
             }
 
             return new QueryResult(columns, rows, truncated, Math.Round(sw.Elapsed.TotalMilliseconds, 1));
-        }
-        finally
-        {
-            await tx.RollbackAsync(CancellationToken.None);
-        }
+        });
     }
 }

@@ -139,10 +139,13 @@ public static class QueryPlanAnalysisEngine
     {
         if (node.Kind != QueryPlanNodeKind.TableScan) return false;
 
-        // Prefer the measurement when one exists; fall back to the estimate otherwise.
-        var rows = node.TotalActualRows ?? node.EstimatedRows;
-        return rows >= request.LargeScanRowThreshold;
+        return ScanRows(node) >= request.LargeScanRowThreshold;
     }
+
+    // What the scan cost is the rows it read; what it returned after filtering is the fallback,
+    // and the estimate the last resort.
+    private static double ScanRows(QueryPlanNode node) =>
+        node.RowsRead ?? node.TotalActualRows ?? node.EstimatedRows;
 
     private static bool HasEstimateMismatch(QueryPlanNode node, ExplainQueryRequest request)
     {
@@ -183,8 +186,9 @@ public static class QueryPlanAnalysisEngine
     private static Finding BuildSeqScanFinding(
         QueryPlanNode node, ExplainQueryRequest request, DatabaseDialect dialect)
     {
-        var rows = node.TotalActualRows ?? node.EstimatedRows;
+        var rows = ScanRows(node);
         var measured = node.TotalActualRows is not null;
+        var verb = node.RowsRead is null ? "producing" : "reading";
         var relation = node.Relation ?? "(unknown)";
 
         return new Finding(
@@ -197,7 +201,7 @@ public static class QueryPlanAnalysisEngine
             Columns:    null,
             Title:      $"{node.NodeType} over {Num.N0(rows)} rows on '{relation}'",
             Description:
-                $"The plan reads '{relation}' with a {node.NodeType}, producing {Num.N0(rows)} rows " +
+                $"The plan reads '{relation}' with a {node.NodeType}, {verb} {Num.N0(rows)} rows " +
                 $"({(measured ? "measured" : "estimated")}), at or above the threshold of " +
                 $"{Num.N0(request.LargeScanRowThreshold)}. " +
                 "A full scan on a large table is often a missing or unusable index — for example a " +

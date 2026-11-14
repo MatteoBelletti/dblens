@@ -28,7 +28,7 @@ public sealed class MigrationSafetyTests
         DatabaseDialect dialect = DatabaseDialect.PostgreSql,
         long largeThreshold = 1_000_000)
     {
-        var statements = DdlClassifier.Classify(ddl);
+        var statements = DdlClassifier.Classify(ddl, dialect);
         return MigrationSafetyEngine.Analyze(
             statements,
             tables ?? Tables(Ctx("users")),
@@ -115,7 +115,7 @@ public sealed class MigrationSafetyTests
     public void Classifier_SplitsMultiStatementScript()
     {
         var statements = DdlClassifier.Classify(
-            "ALTER TABLE users ADD COLUMN a INT; CREATE INDEX idx ON users(a); DROP TABLE old_t;");
+            "ALTER TABLE users ADD COLUMN a INT; CREATE INDEX idx ON users(a); DROP TABLE old_t;", DatabaseDialect.PostgreSql);
 
         statements.Should().HaveCount(3);
         statements[0].Kind.Should().Be(MigrationOperationKind.AddColumn);
@@ -127,7 +127,8 @@ public sealed class MigrationSafetyTests
     public void Classifier_IgnoresComments()
     {
         var statements = DdlClassifier.Classify(
-            "-- add a column\nALTER TABLE users ADD COLUMN a INT; /* then index */ CREATE INDEX i ON users(a);");
+            "-- add a column\nALTER TABLE users ADD COLUMN a INT; /* then index */ CREATE INDEX i ON users(a);",
+            DatabaseDialect.PostgreSql);
 
         statements.Should().HaveCount(2);
     }

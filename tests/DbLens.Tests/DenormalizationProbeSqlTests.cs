@@ -247,7 +247,7 @@ public sealed class DenormalizationProbeSqlTests
 
             foreach (var probe in probes)
             {
-                var guard = StatementGuard.IsReadOnlySelect(probe!.Sql);
+                var guard = StatementGuard.IsReadOnlySelect(probe!.Sql, dialect);
                 guard.Allowed.Should().BeTrue(
                     "a generated probe must be executable; rejected with: {0}", guard.RejectionReason);
 
@@ -275,10 +275,10 @@ public sealed class DenormalizationProbeSqlTests
 
         foreach (var probe in probes)
         {
-            StatementGuard.IsReadOnlySelect(probe!.Sql).Allowed.Should().BeTrue(
+            StatementGuard.IsReadOnlySelect(probe!.Sql, dialect).Allowed.Should().BeTrue(
                 "quoting must render the payload inert ({0})", dialect);
 
-            var stripped = StatementGuard.StripCommentsAndStrings(probe.Sql);
+            var stripped = SqlText.StripCommentsAndStrings(probe.Sql, dialect);
             stripped.Should().NotContain("DROP");
         }
     }

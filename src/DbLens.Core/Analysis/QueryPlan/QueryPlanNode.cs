@@ -43,7 +43,9 @@ public sealed record QueryPlanNode(
     bool SpilledToDisk,
     /// <summary>Filter or predicate applied by this node, when the engine reports one.</summary>
     string? Filter,
-    IReadOnlyList<QueryPlanNode> Children
+    IReadOnlyList<QueryPlanNode> Children,
+    /// <summary>Rows the node read in total, when the engine reports it: a filter may discard most of them.</summary>
+    double? RowsRead = null
 )
 {
     /// <summary>Depth-first walk over this node and all of its descendants.</summary>

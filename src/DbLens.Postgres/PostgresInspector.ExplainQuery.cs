@@ -1,6 +1,5 @@
 using System.Text.Json;
 using DbLens.Core.Analysis.QueryPlan;
-using Npgsql;
 
 namespace DbLens.Postgres;
 
@@ -10,48 +9,21 @@ public sealed partial class PostgresInspector
         ExplainQueryRequest request, CancellationToken ct) =>
         new(ParsePlan(await FetchPlanJsonAsync(request, ct)), []);
 
+    // A READ ONLY transaction makes the restriction engine-enforced rather than merely checked,
+    // for estimated plans too: a write is still planned without ANALYZE, but nothing can run it.
     private async Task<string> FetchPlanJsonAsync(ExplainQueryRequest request, CancellationToken ct)
     {
-        await using var conn = new NpgsqlConnection(_connectionString);
-        await conn.OpenAsync(ct);
-
         var options = request.Analyze
             ? "ANALYZE, BUFFERS, COSTS, VERBOSE, FORMAT JSON"
             : "COSTS, VERBOSE, FORMAT JSON";
 
-        if (!request.Analyze)
-        {
-            await using var plain = conn.CreateCommand();
-            plain.CommandText = $"EXPLAIN ({options}) {request.Sql}";
-            plain.CommandTimeout = QueryTimeoutSeconds;
-            return (await plain.ExecuteScalarAsync(ct))?.ToString() ?? "[]";
-        }
+        await using var conn = await OpenAsync(ct);
 
-        // Second guard: a READ ONLY transaction makes the restriction engine-enforced rather
-        // than merely checked, and the rollback discards anything the statement touched.
-        await using var tx = await conn.BeginTransactionAsync(ct);
-        try
+        return await InRolledBackTransactionAsync(conn, ReadOnlyQuerySetupSql, ct, async tx =>
         {
-            await using (var readOnly = conn.CreateCommand())
-            {
-                readOnly.Transaction = tx;
-                readOnly.CommandText = "SET TRANSACTION READ ONLY";
-                readOnly.CommandTimeout = QueryTimeoutSeconds;
-                await readOnly.ExecuteNonQueryAsync(ct);
-            }
-
-            await using var cmd = conn.CreateCommand();
-            cmd.Transaction = tx;
-            cmd.CommandText = $"EXPLAIN ({options}) {request.Sql}";
-            cmd.CommandTimeout = QueryTimeoutSeconds;
-
-            var result = (await cmd.ExecuteScalarAsync(ct))?.ToString() ?? "[]";
-            return result;
-        }
-        finally
-        {
-            await tx.RollbackAsync(ct);
-        }
+            await using var cmd = Command(conn, $"EXPLAIN ({options}) {request.Sql}", tx);
+            return (await cmd.ExecuteScalarAsync(ct))?.ToString() ?? "[]";
+        });
     }
 
     /// <summary>Maps PostgreSQL's JSON plan onto the dialect-neutral node tree.</summary>
@@ -78,6 +50,8 @@ public sealed partial class PostgresInspector
             foreach (var child in plans.EnumerateArray())
                 children.Add(ParseNode(child));
 
+        var loops = GetDouble(e, "Actual Loops");
+
         return new QueryPlanNode(
             NodeType: nodeType,
             Kind: MapKind(nodeType),
@@ -87,10 +61,14 @@ public sealed partial class PostgresInspector
             EstimatedCost: GetDouble(e, "Total Cost") ?? 0,
             ActualRows: GetDouble(e, "Actual Rows"),
             ActualTimeMs: GetDouble(e, "Actual Total Time"),
-            Loops: GetDouble(e, "Actual Loops") is { } loops ? (long)loops : null,
+            Loops: loops is null ? null : (long)loops,
             SpilledToDisk: DetectSpill(e),
             Filter: GetString(e, "Filter") ?? GetString(e, "Index Cond") ?? GetString(e, "Recheck Cond"),
-            Children: children);
+            Children: children,
+            // Both figures are per-loop averages.
+            RowsRead: GetDouble(e, "Actual Rows") is { } returned && GetDouble(e, "Rows Removed by Filter") is { } removed
+                ? (returned + removed) * (loops ?? 1)
+                : null);
     }
 
     private static QueryPlanNodeKind MapKind(string nodeType) => nodeType switch

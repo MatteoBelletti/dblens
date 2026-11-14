@@ -1,6 +1,6 @@
-using System.Diagnostics;
-using System.Text.Json;
 using System.Data.Common;
+using System.Text.Json;
+using DbLens.Core.Analysis;
 using DbLens.Core.Inspection;
 using DbLens.Core.Models;
 using Microsoft.Data.SqlClient;
@@ -8,11 +8,9 @@ using Microsoft.Extensions.Logging;
 
 namespace DbLens.SqlServer;
 
-public sealed partial class SqlServerInspector : DatabaseInspectorBase
+public sealed partial class SqlServerInspector(string connectionString, ILogger<SqlServerInspector> logger)
+    : DatabaseInspectorBase(logger)
 {
-    private readonly string _connectionString;
-    private readonly ILogger<SqlServerInspector> _logger;
-
     private const string SchemaOverviewSql = """
         SELECT
             s.name                              AS schema_name,
@@ -55,8 +53,7 @@ public sealed partial class SqlServerInspector : DatabaseInspectorBase
                   OR (a.type = 2      AND a.container_id = p.partition_id)
                 WHERE p.object_id = o.object_id
             ), 0)                               AS total_size_bytes,
-            CAST(ep.value AS NVARCHAR(MAX))     AS object_comment,
-            DB_NAME()                           AS database_name
+            CAST(ep.value AS NVARCHAR(MAX))     AS object_comment
         FROM sys.objects o
         JOIN sys.schemas s ON s.schema_id = o.schema_id
         LEFT JOIN sys.extended_properties ep
@@ -76,26 +73,27 @@ public sealed partial class SqlServerInspector : DatabaseInspectorBase
         """;
 
     // For table details, SQL Server uses OPENJSON to accept a JSON array of {s, n} objects.
+    // Names are compared by the database's collation, so on a case-insensitive database "USERS"
+    // finds "users": the requested pair is returned beside the real one to map between them.
     private const string TableDetailTablesSql = """
         SELECT
             s.name                              AS schema_name,
             o.name                              AS table_name,
             RTRIM(o.type)                       AS object_type,
             CAST(ep.value AS NVARCHAR(MAX))     AS comment,
-            DB_NAME()                           AS database_name
+            p.s                                 AS requested_schema,
+            p.n                                 AS requested_name
         FROM sys.objects o
         JOIN sys.schemas s ON s.schema_id = o.schema_id
+        JOIN OPENJSON(@pairs)
+            WITH (s NVARCHAR(128) '$.s', n NVARCHAR(128) '$.n') AS p
+            ON p.s = s.name AND p.n = o.name
         LEFT JOIN sys.extended_properties ep
             ON ep.major_id = o.object_id
            AND ep.minor_id = 0
            AND ep.class    = 1
            AND ep.name     = 'MS_Description'
         WHERE RTRIM(o.type) IN ('U', 'V')
-        AND EXISTS (
-            SELECT 1 FROM OPENJSON(@pairs)
-            WITH (s NVARCHAR(128) '$.s', n NVARCHAR(128) '$.n') AS p
-            WHERE p.s = s.name AND p.n = o.name
-        )
         ORDER BY s.name, o.name
         """;
 
@@ -145,9 +143,11 @@ public sealed partial class SqlServerInspector : DatabaseInspectorBase
                 ELSE NULL
             END                                                 AS numeric_scale,
             c.is_identity,
+            CAST(CASE WHEN c.is_computed = 1 OR c.generated_always_type <> 0 THEN 1 ELSE 0 END AS BIT)
+                                                                AS is_generated,
             CAST(ep.value AS NVARCHAR(MAX))                     AS column_comment
         FROM sys.columns c
-        JOIN sys.tables t ON t.object_id = c.object_id
+        JOIN sys.objects t ON t.object_id = c.object_id AND RTRIM(t.type) IN ('U', 'V')
         JOIN sys.schemas s ON s.schema_id = t.schema_id
         JOIN sys.types ty ON ty.user_type_id = c.user_type_id
         LEFT JOIN sys.default_constraints dc
@@ -173,19 +173,23 @@ public sealed partial class SqlServerInspector : DatabaseInspectorBase
             i.is_unique,
             i.is_primary_key,
             i.type_desc,
+            i.has_filter,
             i.filter_definition,
             ic.index_column_id,
+            ic.key_ordinal,
+            ic.is_included_column,
             c.name                  AS column_name
         FROM sys.indexes i
-        JOIN sys.tables t ON t.object_id = i.object_id
+        JOIN sys.objects t ON t.object_id = i.object_id AND RTRIM(t.type) IN ('U', 'V')
         JOIN sys.schemas s ON s.schema_id = t.schema_id
         JOIN sys.index_columns ic
             ON ic.object_id = i.object_id AND ic.index_id = i.index_id
-           AND ic.is_included_column = 0
         JOIN sys.columns c
             ON c.object_id = ic.object_id AND c.column_id = ic.column_id
         WHERE i.type > 0
         AND i.is_unique_constraint = 0
+        AND i.is_hypothetical = 0
+        AND i.is_disabled = 0
         AND EXISTS (
             SELECT 1 FROM OPENJSON(@pairs)
             WITH (s NVARCHAR(128) '$.s', n NVARCHAR(128) '$.n') AS p
@@ -201,6 +205,7 @@ public sealed partial class SqlServerInspector : DatabaseInspectorBase
             rs.name                                 AS to_schema,
             rt.name                                 AS to_table,
             fk.name                                 AS constraint_name,
+            fk.object_id                            AS constraint_id,
             fkc.constraint_column_id,
             pc.name                                 AS from_column,
             rc.name                                 AS to_column,
@@ -247,14 +252,14 @@ public sealed partial class SqlServerInspector : DatabaseInspectorBase
             s.name              AS schema_name,
             t.name              AS table_name,
             i.name              AS constraint_name,
-            ic.index_column_id,
+            ic.key_ordinal      AS index_column_id,
             c.name              AS column_name
         FROM sys.indexes i
         JOIN sys.tables t ON t.object_id = i.object_id
         JOIN sys.schemas s ON s.schema_id = t.schema_id
         JOIN sys.index_columns ic
             ON ic.object_id = i.object_id AND ic.index_id = i.index_id
-           AND ic.is_included_column = 0
+           AND ic.key_ordinal > 0
         JOIN sys.columns c
             ON c.object_id = ic.object_id AND c.column_id = ic.column_id
         WHERE i.is_unique_constraint = 1
@@ -266,521 +271,166 @@ public sealed partial class SqlServerInspector : DatabaseInspectorBase
         ORDER BY s.name, t.name, i.name, ic.index_column_id
         """;
 
-
-    public SqlServerInspector(string connectionString, ILogger<SqlServerInspector> logger)
-        : base(logger)
-    {
-        _connectionString = connectionString;
-        _logger = logger;
-    }
-
     public override DatabaseDialect Dialect => DatabaseDialect.SqlServer;
 
     protected override string DialectDisplayName => "SQL Server";
 
     protected override string DefaultSchema => "dbo";
 
-    protected override DbConnection CreateConnection() => new SqlConnection(_connectionString);
+    protected override DbConnection CreateConnection() => new SqlConnection(connectionString);
 
     protected override IReadOnlyList<string> ServerHosts =>
-        [new SqlConnectionStringBuilder(_connectionString).DataSource];
+        [new SqlConnectionStringBuilder(connectionString).DataSource];
 
-    public override async Task<bool> TestConnectionAsync(CancellationToken ct = default)
+    protected override Task<List<OverviewRow>> QueryOverviewAsync(
+        DbConnection conn, SchemaOverviewRequest request, CancellationToken ct)
     {
-        await using var conn = new SqlConnection(_connectionString);
-        await conn.OpenAsync(ct);
-        await using var cmd = conn.CreateCommand();
-        cmd.CommandText = "SELECT 1";
-        await cmd.ExecuteScalarAsync(ct);
-        return true;
+        var cmd = Command(conn, SchemaOverviewSql);
+        cmd.Parameters.Add(new SqlParameter("schema_filter", System.Data.SqlDbType.NVarChar, 128)
+            { Value = (object?)request.SchemaFilter ?? DBNull.Value });
+        cmd.Parameters.Add(new SqlParameter("name_pattern", System.Data.SqlDbType.NVarChar, 256)
+            { Value = (object?)request.NamePattern ?? DBNull.Value });
+        cmd.Parameters.Add(new SqlParameter("include_views", System.Data.SqlDbType.Bit) { Value = request.IncludeViews });
+        cmd.Parameters.Add(new SqlParameter("include_system", System.Data.SqlDbType.Bit) { Value = request.IncludeSystemSchemas });
+
+        return ReadAllAsync(cmd, r => new OverviewRow(
+            SchemaName: r.Text("schema_name"),
+            ObjectName: r.Text("object_name"),
+            ObjectKind: r.Text("object_type") == "U" ? DatabaseObjectKind.Table : DatabaseObjectKind.View,
+            ApproximateRowCount: r.NumberOrNull("approximate_row_count"),
+            ColumnCount: r.Number("column_count"),
+            HasPrimaryKey: r.Flag("has_primary_key"),
+            OutgoingFkCount: r.Number("outgoing_fk_count"),
+            IncomingFkCount: r.Number("incoming_fk_count"),
+            IndexCount: r.Number("index_count"),
+            TotalSizeBytes: r.Number("total_size_bytes"),
+            Comment: r.TextOrNull("object_comment")), ct);
     }
 
-    public override async Task<DatabaseSchemaOverview> GetSchemaOverviewAsync(
-        SchemaOverviewRequest request,
-        CancellationToken ct = default)
+    protected override async Task<TableCatalog> ReadTableCatalogAsync(
+        DbConnection conn, IReadOnlyList<ParsedName> names, CancellationToken ct)
     {
-        _logger.LogInformation(
-            "Opening SQL Server connection for schema overview (schema={Schema}, pattern={Pattern})",
-            request.SchemaFilter ?? "*", request.NamePattern ?? "*");
+        DbCommand For(string sql) => ScopedCommand(conn, sql, names.Select(n => (n.Schema, n.Name)));
 
-        var sw = Stopwatch.StartNew();
+        var found = await ReadAllAsync(For(TableDetailTablesSql), r => (
+            Key: Key(r),
+            Requested: (r.Text("requested_schema"), r.Text("requested_name")),
+            Kind: r.Text("object_type") == "V" ? "view" : "table",
+            Comment: r.TextOrNull("comment")), ct);
 
-        try
-        {
-            await using var conn = new SqlConnection(_connectionString);
-            await conn.OpenAsync(ct);
+        var columns = await ReadAllAsync(For(TableDetailColumnsSql), r => (Key: Key(r), Value: new ColumnDetail(
+            Name: r.Text("column_name"),
+            OrdinalPosition: (int)r.Number("ordinal_position"),
+            DataType: r.Text("data_type"),
+            FullDataType: r.Text("full_data_type"),
+            IsNullable: r.Flag("is_nullable"),
+            DefaultExpression: r.TextOrNull("default_expression"),
+            CharacterMaxLength: (int?)r.NumberOrNull("character_max_length"),
+            NumericPrecision: (int?)r.NumberOrNull("numeric_precision"),
+            NumericScale: (int?)r.NumberOrNull("numeric_scale"),
+            IsIdentity: r.Flag("is_identity"),
+            Comment: r.TextOrNull("column_comment"),
+            IsGenerated: r.Flag("is_generated"))), ct);
 
-            await using var cmd = conn.CreateCommand();
-            cmd.CommandText = SchemaOverviewSql;
-            cmd.CommandTimeout = QueryTimeoutSeconds;
+        // One row per index column.
+        var indexColumns = await ReadAllAsync(For(TableDetailIndexesSql), r => (
+            Key: Key(r),
+            Index: r.Text("index_name"),
+            IsUnique: r.Flag("is_unique"),
+            IsPrimary: r.Flag("is_primary_key"),
+            Method: r.Text("type_desc"),
+            HasFilter: r.Flag("has_filter"),
+            Filter: r.TextOrNull("filter_definition"),
+            Position: r.Number("index_column_id"),
+            KeyOrdinal: r.Number("key_ordinal"),
+            IsIncluded: r.Flag("is_included_column"),
+            Column: r.Text("column_name")), ct);
 
-            cmd.Parameters.Add(new SqlParameter("schema_filter", System.Data.SqlDbType.NVarChar, 128)
-                { Value = (object?)request.SchemaFilter ?? DBNull.Value });
-            cmd.Parameters.Add(new SqlParameter("name_pattern", System.Data.SqlDbType.NVarChar, 256)
-                { Value = (object?)request.NamePattern ?? DBNull.Value });
-            cmd.Parameters.Add(new SqlParameter("include_views", System.Data.SqlDbType.Bit)
-                { Value = request.IncludeViews });
-            cmd.Parameters.Add(new SqlParameter("include_system", System.Data.SqlDbType.Bit)
-                { Value = request.IncludeSystemSchemas });
-
-            _logger.LogDebug(
-                "Executing schema overview query: schema_filter={SchemaFilter}, name_pattern={NamePattern}, " +
-                "include_views={IncludeViews}, include_system={IncludeSystem}",
-                request.SchemaFilter, request.NamePattern, request.IncludeViews, request.IncludeSystemSchemas);
-
-            var rows = new List<OverviewRow>();
-            string? databaseName = null;
-
-            await using var reader = await cmd.ExecuteReaderAsync(ct);
-            while (await reader.ReadAsync(ct))
+        var indexes = indexColumns
+            .GroupBy(x => (x.Key, x.Index))
+            .Select(g =>
             {
-                databaseName ??= reader.GetString(reader.GetOrdinal("database_name"));
-                rows.Add(ReadRow(reader));
-            }
+                var first = g.First();
+                var key = g.Where(x => x.KeyOrdinal > 0).OrderBy(x => x.KeyOrdinal).Select(x => x.Column).ToArray();
+                var included = g.Where(x => x.IsIncluded).OrderBy(x => x.Position).Select(x => x.Column).ToArray();
 
-            var schemas = rows
-                .GroupBy(r => r.SchemaName)
-                .OrderBy(g => g.Key)
-                .Select(BuildSchemaInfo)
-                .ToList();
+                return (first.Key, Value: new IndexDetail(
+                    Name: first.Index,
+                    Columns: key,
+                    IsUnique: first.IsUnique || first.IsPrimary,
+                    IsPrimary: first.IsPrimary,
+                    Method: first.Method,
+                    Definition: IndexDefinition(first.Key, first.Index, first.IsUnique || first.IsPrimary, first.Method,
+                        key, included, first.Filter),
+                    // The filter's text needs VIEW DEFINITION; that there is one does not.
+                    IsPartial: first.HasFilter,
+                    Predicate: first.Filter,
+                    IncludedColumns: included.Length == 0 ? null : included));
+            })
+            // A columnstore index has no key: it orders nothing, so the index rules have no use for it.
+            .Where(x => x.Value.Columns.Count > 0);
 
-            var totalTables = schemas.Sum(s => s.TableCount);
-            var totalViews = schemas.Sum(s => s.ViewCount);
-            var totalBytes = schemas.SelectMany(s => s.Objects).Sum(o => o.TotalSizeBytes);
-            var approxRows = schemas.SelectMany(s => s.Objects)
-                .Where(o => o.ApproximateRowCount.HasValue)
-                .Sum(o => o.ApproximateRowCount!.Value);
+        // One row per constraint column. Names are unique per schema only, hence the id.
+        var foreignKeys = (await ReadAllAsync(For(TableDetailForeignKeysSql), r => (
+                Id: r.Number("constraint_id"),
+                Position: r.Number("constraint_column_id"),
+                FromColumn: r.Text("from_column"),
+                ToColumn: r.Text("to_column"),
+                Key: new ForeignKeyDetail(
+                    r.Text("constraint_name"), r.Text("from_schema"), r.Text("from_table"), [],
+                    r.Text("to_schema"), r.Text("to_table"), [], r.Text("on_delete"), r.Text("on_update"))), ct))
+            .GroupBy(x => x.Id)
+            .Select(g => g.First().Key with
+            {
+                FromColumns = g.OrderBy(x => x.Position).Select(x => x.FromColumn).ToArray(),
+                ToColumns = g.OrderBy(x => x.Position).Select(x => x.ToColumn).ToArray(),
+            })
+            .ToList();
 
-            sw.Stop();
-            _logger.LogInformation(
-                "Schema overview completed in {ElapsedMs}ms: {Tables} tables, {Views} views across {SchemaCount} schema(s)",
-                sw.ElapsedMilliseconds, totalTables, totalViews, schemas.Count);
+        var checks = await ReadAllAsync(For(TableDetailCheckConstraintsSql), r => (Key: Key(r),
+            Value: new CheckConstraintDetail(r.Text("constraint_name"), r.Text("expression"))), ct);
 
-            return new DatabaseSchemaOverview(
-                Summary: BuildSummary(totalTables, totalViews, schemas.Count, approxRows, totalBytes),
-                Dialect: "SqlServer",
-                Database: databaseName ?? "unknown",
-                GeneratedAt: DateTime.UtcNow.ToString("O"),
-                Schemas: schemas
-            );
-        }
-        catch (OperationCanceledException)
-        {
-            throw;
-        }
-        catch (SqlException ex)
-        {
-            throw new DatabaseInspectionException(
-                $"SQL Server error during schema overview: {ex.Message}", ex);
-        }
+        var uniques = (await ReadAllAsync(For(TableDetailUniqueConstraintsSql), r => (
+                Key: Key(r),
+                Constraint: r.Text("constraint_name"),
+                Position: r.Number("index_column_id"),
+                Column: r.Text("column_name")), ct))
+            .GroupBy(x => (x.Key, x.Constraint))
+            .Select(g => (g.Key.Key, Value: new UniqueConstraintDetail(
+                g.Key.Constraint, g.OrderBy(x => x.Position).Select(x => x.Column).ToArray())));
+
+        return new TableCatalog(
+            found.ToDictionary(t => t.Requested, t => t.Key),
+            found.DistinctBy(t => t.Key).ToDictionary(t => t.Key, t => (t.Kind, t.Comment)),
+            columns.ToLookup(x => x.Key, x => x.Value),
+            indexes.ToLookup(x => x.Key, x => x.Value),
+            foreignKeys,
+            checks.ToLookup(x => x.Key, x => x.Value),
+            uniques.ToLookup(x => x.Key, x => x.Value));
     }
 
-    public override async Task<TableDetailsResult> GetTableDetailsAsync(
-        TableDetailsRequest request,
-        CancellationToken ct = default)
+    private static (string Schema, string Name) Key(DbDataReader r) => (r.Text("schema_name"), r.Text("table_name"));
+
+    /// <summary>A command over the tables given as @pairs, a JSON array of {s, n} read with OPENJSON.</summary>
+    private static DbCommand ScopedCommand(DbConnection conn, string sql, IEnumerable<(string Schema, string Name)> tables)
     {
-        var parsed = ParseTableNames(request.Tables, request.DefaultSchema);
-
-        _logger.LogInformation(
-            "Opening SQL Server connection for table details ({Count} tables)", parsed.Length);
-
-        var sw = Stopwatch.StartNew();
-
-        try
-        {
-            await using var conn = new SqlConnection(_connectionString);
-            await conn.OpenAsync(ct);
-
-            // Serialize the (schema, name) pairs as JSON for OPENJSON usage in all queries
-            var pairs = JsonSerializer.Serialize(
-                parsed.Select(p => new { s = p.Schema, n = p.Name }));
-
-            string? databaseName = null;
-
-            // 1. Tables
-            var tableInfo = new Dictionary<(string, string), (string Kind, string? Comment)>();
-            {
-                var sw1 = Stopwatch.StartNew();
-                await using var cmd = BuildDetailCmd(conn, TableDetailTablesSql, pairs);
-                await using var r = await cmd.ExecuteReaderAsync(ct);
-                while (await r.ReadAsync(ct))
-                {
-                    databaseName ??= r.GetString(r.GetOrdinal("database_name"));
-                    var sn = r.GetString(r.GetOrdinal("schema_name"));
-                    var tn = r.GetString(r.GetOrdinal("table_name"));
-                    var kind = r.GetString(r.GetOrdinal("object_type")) == "V" ? "view" : "table";
-                    var comment = r.IsDBNull(r.GetOrdinal("comment")) ? null : r.GetString(r.GetOrdinal("comment"));
-                    tableInfo[(sn, tn)] = (kind, comment);
-                }
-                _logger.LogDebug("Table details — tables query: {ElapsedMs}ms", sw1.ElapsedMilliseconds);
-            }
-
-            // 2. Columns
-            var columnsByTable = new Dictionary<(string, string), List<ColumnDetail>>();
-            {
-                var sw2 = Stopwatch.StartNew();
-                await using var cmd = BuildDetailCmd(conn, TableDetailColumnsSql, pairs);
-                await using var r = await cmd.ExecuteReaderAsync(ct);
-                while (await r.ReadAsync(ct))
-                {
-                    var key = (r.GetString(r.GetOrdinal("schema_name")), r.GetString(r.GetOrdinal("table_name")));
-                    if (!columnsByTable.TryGetValue(key, out var list))
-                        columnsByTable[key] = list = [];
-
-                    list.Add(new ColumnDetail(
-                        Name: r.GetString(r.GetOrdinal("column_name")),
-                        OrdinalPosition: r.GetInt32(r.GetOrdinal("ordinal_position")),
-                        DataType: r.GetString(r.GetOrdinal("data_type")),
-                        FullDataType: r.GetString(r.GetOrdinal("full_data_type")),
-                        IsNullable: r.GetBoolean(r.GetOrdinal("is_nullable")),
-                        DefaultExpression: r.IsDBNull(r.GetOrdinal("default_expression"))
-                            ? null : r.GetString(r.GetOrdinal("default_expression")),
-                        CharacterMaxLength: r.IsDBNull(r.GetOrdinal("character_max_length"))
-                            ? null : r.GetInt32(r.GetOrdinal("character_max_length")),
-                        NumericPrecision: r.IsDBNull(r.GetOrdinal("numeric_precision"))
-                            ? null : r.GetInt32(r.GetOrdinal("numeric_precision")),
-                        NumericScale: r.IsDBNull(r.GetOrdinal("numeric_scale"))
-                            ? null : r.GetInt32(r.GetOrdinal("numeric_scale")),
-                        IsIdentity: r.GetBoolean(r.GetOrdinal("is_identity")),
-                        Comment: r.IsDBNull(r.GetOrdinal("column_comment"))
-                            ? null : r.GetString(r.GetOrdinal("column_comment"))
-                    ));
-                }
-                _logger.LogDebug("Table details — columns query: {ElapsedMs}ms", sw2.ElapsedMilliseconds);
-            }
-
-            // 3. Indexes (raw rows, grouped in memory)
-            var indexesByTable = new Dictionary<(string, string), List<IndexDetail>>();
-            {
-                var sw3 = Stopwatch.StartNew();
-                await using var cmd = BuildDetailCmd(conn, TableDetailIndexesSql, pairs);
-                await using var r = await cmd.ExecuteReaderAsync(ct);
-
-                // Read all raw index rows, then group
-                var rawIndexRows = new List<RawIndexRow>();
-                while (await r.ReadAsync(ct))
-                {
-                    rawIndexRows.Add(new RawIndexRow(
-                        SchemaName: r.GetString(r.GetOrdinal("schema_name")),
-                        TableName: r.GetString(r.GetOrdinal("table_name")),
-                        IndexName: r.GetString(r.GetOrdinal("index_name")),
-                        IsUnique: r.GetBoolean(r.GetOrdinal("is_unique")),
-                        IsPrimary: r.GetBoolean(r.GetOrdinal("is_primary_key")),
-                        TypeDesc: r.GetString(r.GetOrdinal("type_desc")),
-                        FilterDefinition: r.IsDBNull(r.GetOrdinal("filter_definition"))
-                            ? null : r.GetString(r.GetOrdinal("filter_definition")),
-                        IndexColumnId: r.GetInt32(r.GetOrdinal("index_column_id")),
-                        ColumnName: r.GetString(r.GetOrdinal("column_name"))
-                    ));
-                }
-
-                foreach (var grp in rawIndexRows.GroupBy(x => (x.SchemaName, x.TableName, x.IndexName)))
-                {
-                    var first = grp.First();
-                    var key = (first.SchemaName, first.TableName);
-                    if (!indexesByTable.TryGetValue(key, out var list))
-                        indexesByTable[key] = list = [];
-
-                    var cols = grp.OrderBy(x => x.IndexColumnId).Select(x => x.ColumnName).ToArray();
-                    list.Add(new IndexDetail(
-                        Name: first.IndexName,
-                        Columns: cols,
-                        IsUnique: first.IsUnique || first.IsPrimary,
-                        IsPrimary: first.IsPrimary,
-                        Method: first.TypeDesc,
-                        Definition: BuildSqlServerIndexDef(
-                            first.IsUnique, first.IsPrimary, first.TypeDesc,
-                            first.SchemaName, first.TableName, first.IndexName,
-                            cols, first.FilterDefinition),
-                        IsPartial: first.FilterDefinition is not null,
-                        Predicate: first.FilterDefinition
-                    ));
-                }
-                _logger.LogDebug("Table details — indexes query: {ElapsedMs}ms", sw3.ElapsedMilliseconds);
-            }
-
-            // 4. Foreign keys (raw rows, grouped by constraint)
-            var allFks = new List<FkRow>();
-            {
-                var sw4 = Stopwatch.StartNew();
-                await using var cmd = BuildDetailCmd(conn, TableDetailForeignKeysSql, pairs);
-                await using var r = await cmd.ExecuteReaderAsync(ct);
-
-                var rawFkRows = new List<RawFkRow>();
-                while (await r.ReadAsync(ct))
-                {
-                    rawFkRows.Add(new RawFkRow(
-                        FromSchema: r.GetString(r.GetOrdinal("from_schema")),
-                        FromTable: r.GetString(r.GetOrdinal("from_table")),
-                        ToSchema: r.GetString(r.GetOrdinal("to_schema")),
-                        ToTable: r.GetString(r.GetOrdinal("to_table")),
-                        ConstraintName: r.GetString(r.GetOrdinal("constraint_name")),
-                        ConstraintColumnId: r.GetInt32(r.GetOrdinal("constraint_column_id")),
-                        FromColumn: r.GetString(r.GetOrdinal("from_column")),
-                        ToColumn: r.GetString(r.GetOrdinal("to_column")),
-                        OnDelete: r.GetString(r.GetOrdinal("on_delete")),
-                        OnUpdate: r.GetString(r.GetOrdinal("on_update"))
-                    ));
-                }
-
-                foreach (var grp in rawFkRows.GroupBy(x => x.ConstraintName))
-                {
-                    var first = grp.First();
-                    var ordered = grp.OrderBy(x => x.ConstraintColumnId).ToList();
-                    allFks.Add(new FkRow(
-                        FromSchema: first.FromSchema,
-                        FromTable: first.FromTable,
-                        ToSchema: first.ToSchema,
-                        ToTable: first.ToTable,
-                        ConstraintName: first.ConstraintName,
-                        FromColumns: ordered.Select(x => x.FromColumn).ToArray(),
-                        ToColumns: ordered.Select(x => x.ToColumn).ToArray(),
-                        OnDelete: first.OnDelete,
-                        OnUpdate: first.OnUpdate
-                    ));
-                }
-                _logger.LogDebug("Table details — foreign keys query: {ElapsedMs}ms", sw4.ElapsedMilliseconds);
-            }
-
-            // 5. Check constraints
-            var checksByTable = new Dictionary<(string, string), List<CheckConstraintDetail>>();
-            {
-                var sw5 = Stopwatch.StartNew();
-                await using var cmd = BuildDetailCmd(conn, TableDetailCheckConstraintsSql, pairs);
-                await using var r = await cmd.ExecuteReaderAsync(ct);
-                while (await r.ReadAsync(ct))
-                {
-                    var key = (r.GetString(r.GetOrdinal("schema_name")), r.GetString(r.GetOrdinal("table_name")));
-                    if (!checksByTable.TryGetValue(key, out var list))
-                        checksByTable[key] = list = [];
-
-                    list.Add(new CheckConstraintDetail(
-                        Name: r.GetString(r.GetOrdinal("constraint_name")),
-                        Expression: r.GetString(r.GetOrdinal("expression"))
-                    ));
-                }
-                _logger.LogDebug("Table details — check constraints query: {ElapsedMs}ms", sw5.ElapsedMilliseconds);
-            }
-
-            // 6. Unique constraints (is_unique_constraint = 1, reported separately from indexes)
-            var uniquesByTable = new Dictionary<(string, string), List<UniqueConstraintDetail>>();
-            {
-                var sw6 = Stopwatch.StartNew();
-                await using var cmd = BuildDetailCmd(conn, TableDetailUniqueConstraintsSql, pairs);
-                await using var r = await cmd.ExecuteReaderAsync(ct);
-
-                var rawUqRows = new List<RawUqRow>();
-                while (await r.ReadAsync(ct))
-                {
-                    rawUqRows.Add(new RawUqRow(
-                        SchemaName: r.GetString(r.GetOrdinal("schema_name")),
-                        TableName: r.GetString(r.GetOrdinal("table_name")),
-                        ConstraintName: r.GetString(r.GetOrdinal("constraint_name")),
-                        IndexColumnId: r.GetInt32(r.GetOrdinal("index_column_id")),
-                        ColumnName: r.GetString(r.GetOrdinal("column_name"))
-                    ));
-                }
-
-                foreach (var grp in rawUqRows.GroupBy(x => (x.SchemaName, x.TableName, x.ConstraintName)))
-                {
-                    var first = grp.First();
-                    var key = (first.SchemaName, first.TableName);
-                    if (!uniquesByTable.TryGetValue(key, out var list))
-                        uniquesByTable[key] = list = [];
-
-                    list.Add(new UniqueConstraintDetail(
-                        Name: first.ConstraintName,
-                        Columns: grp.OrderBy(x => x.IndexColumnId).Select(x => x.ColumnName).ToArray()
-                    ));
-                }
-                _logger.LogDebug("Table details — unique constraints query: {ElapsedMs}ms", sw6.ElapsedMilliseconds);
-            }
-
-            // Assemble result preserving input order
-            var notFound = new List<string>();
-            var tables = new List<TableDetail>();
-
-            foreach (var p in parsed)
-            {
-                var key = (p.Schema, p.Name);
-                if (!tableInfo.TryGetValue(key, out var info))
-                {
-                    notFound.Add(p.Original);
-                    continue;
-                }
-
-                var idxs = indexesByTable.GetValueOrDefault(key, [])
-                    .OrderBy(i => i.Name, StringComparer.Ordinal)
-                    .ToList();
-
-                var pkIdx = idxs.FirstOrDefault(i => i.IsPrimary);
-
-                var fkOut = allFks
-                    .Where(fk => fk.FromSchema == p.Schema && fk.FromTable == p.Name)
-                    .OrderBy(fk => fk.ConstraintName, StringComparer.Ordinal)
-                    .Select(ToFkDetail)
-                    .ToList();
-
-                var fkIn = allFks
-                    .Where(fk => fk.ToSchema == p.Schema && fk.ToTable == p.Name)
-                    .OrderBy(fk => fk.ConstraintName, StringComparer.Ordinal)
-                    .Select(ToFkDetail)
-                    .ToList();
-
-                tables.Add(new TableDetail(
-                    Schema: p.Schema,
-                    Name: p.Name,
-                    Kind: info.Kind,
-                    Comment: info.Comment,
-                    Columns: columnsByTable.GetValueOrDefault(key, []),
-                    PrimaryKey: pkIdx is null ? null : new PrimaryKeyInfo(pkIdx.Name, pkIdx.Columns),
-                    Indexes: idxs,
-                    ForeignKeysOutgoing: fkOut,
-                    ForeignKeysIncoming: fkIn,
-                    CheckConstraints: checksByTable.GetValueOrDefault(key, [])
-                        .OrderBy(c => c.Name, StringComparer.Ordinal).ToList(),
-                    UniqueConstraints: uniquesByTable.GetValueOrDefault(key, [])
-                        .OrderBy(u => u.Name, StringComparer.Ordinal).ToList()
-                ));
-            }
-
-            var totalColumns = tables.Sum(t => t.Columns.Count);
-            var totalIndexes = tables.Sum(t => t.Indexes.Count);
-            var totalFks = allFks.Select(fk => fk.ConstraintName).Distinct(StringComparer.Ordinal).Count();
-
-            sw.Stop();
-            _logger.LogInformation(
-                "Table details completed in {ElapsedMs}ms: {Found} found, {NotFound} not found",
-                sw.ElapsedMilliseconds, tables.Count, notFound.Count);
-
-            var found = tables.Count;
-            var requested = request.Tables.Length;
-            return new TableDetailsResult(
-                Summary:
-                    $"Retrieved details for {found} of {requested} requested table{(requested != 1 ? "s" : "")}. " +
-                    $"Found {totalColumns} column{(totalColumns != 1 ? "s" : "")}, " +
-                    $"{totalIndexes} index{(totalIndexes != 1 ? "es" : "")}, " +
-                    $"{totalFks} foreign key{(totalFks != 1 ? "s" : "")}. " +
-                    "NOTE: view SQL bodies (SELECT definitions) are NOT included — do not infer or generate view logic. " +
-                    "Row data is NOT included — do not infer or generate sample values. " +
-                    "Tables in the NotFound list do not exist in this database — do not infer or generate their structure.",
-                Dialect: "SqlServer",
-                Database: databaseName ?? "unknown",
-                GeneratedAt: DateTime.UtcNow.ToString("O"),
-                Truncated: false,
-                NotFound: notFound,
-                Tables: tables
-            );
-        }
-        catch (OperationCanceledException)
-        {
-            throw;
-        }
-        catch (SqlException ex)
-        {
-            throw new DatabaseInspectionException(
-                $"SQL Server error during table details: {ex.Message}", ex);
-        }
-    }
-
-    // --- helpers ---
-
-    private static SqlCommand BuildDetailCmd(SqlConnection conn, string sql, string pairs)
-    {
-        var cmd = conn.CreateCommand();
-        cmd.CommandText = sql;
-        cmd.CommandTimeout = QueryTimeoutSeconds;
+        var pairs = JsonSerializer.Serialize(tables.Distinct().Select(t => new { s = t.Schema, n = t.Name }));
+        var cmd = Command(conn, sql);
         cmd.Parameters.Add(new SqlParameter("pairs", System.Data.SqlDbType.NVarChar, -1) { Value = pairs });
         return cmd;
     }
 
-    private static ForeignKeyDetail ToFkDetail(FkRow fk) => new(
-        ConstraintName: fk.ConstraintName,
-        FromSchema: fk.FromSchema,
-        FromTable: fk.FromTable,
-        FromColumns: fk.FromColumns,
-        ToSchema: fk.ToSchema,
-        ToTable: fk.ToTable,
-        ToColumns: fk.ToColumns,
-        OnDelete: fk.OnDelete,
-        OnUpdate: fk.OnUpdate
-    );
-
-    private static string BuildSqlServerIndexDef(
-        bool isUnique, bool isPrimary, string typeDesc,
-        string schema, string table, string indexName,
-        string[] columns, string? filterDefinition)
+    private static string IndexDefinition(
+        (string Schema, string Name) table, string index, bool unique, string method,
+        string[] columns, string[] included, string? filter)
     {
-        var parts = new System.Text.StringBuilder("CREATE ");
-        if (isUnique || isPrimary) parts.Append("UNIQUE ");
-        if (!string.Equals(typeDesc, "NONCLUSTERED", StringComparison.OrdinalIgnoreCase))
-            parts.Append(typeDesc).Append(' ');
-        parts.Append("INDEX [").Append(indexName).Append("] ON [")
-            .Append(schema).Append("].[").Append(table).Append("] (")
-            .Append(string.Join(", ", columns.Select(c => $"[{c}]")))
-            .Append(')');
-        if (filterDefinition is not null)
-            parts.Append(" WHERE ").Append(filterDefinition);
-        return parts.ToString();
+        static string Quote(string name) => SqlIdentifier.Quote(name, DatabaseDialect.SqlServer);
+
+        return "CREATE " + (unique ? "UNIQUE " : "") +
+               (method.Equals("NONCLUSTERED", StringComparison.OrdinalIgnoreCase) ? "" : method + " ") +
+               $"INDEX {Quote(index)} ON {Quote(table.Schema)}.{Quote(table.Name)} " +
+               $"({string.Join(", ", columns.Select(Quote))})" +
+               (included.Length > 0 ? $" INCLUDE ({string.Join(", ", included.Select(Quote))})" : "") +
+               (filter is null ? "" : $" WHERE {filter}");
     }
-
-    private static OverviewRow ReadRow(SqlDataReader r) => new(
-        SchemaName: r.GetString(r.GetOrdinal("schema_name")),
-        ObjectName: r.GetString(r.GetOrdinal("object_name")),
-        ObjectKind: r.GetString(r.GetOrdinal("object_type")) is "V" or "SV"
-            ? DatabaseObjectKind.View
-            : DatabaseObjectKind.Table,
-        ApproximateRowCount: r.IsDBNull(r.GetOrdinal("approximate_row_count"))
-            ? null
-            : r.GetInt64(r.GetOrdinal("approximate_row_count")),
-        ColumnCount: r.GetInt32(r.GetOrdinal("column_count")),
-        HasPrimaryKey: r.GetBoolean(r.GetOrdinal("has_primary_key")),
-        OutgoingFkCount: r.GetInt32(r.GetOrdinal("outgoing_fk_count")),
-        IncomingFkCount: r.GetInt32(r.GetOrdinal("incoming_fk_count")),
-        IndexCount: r.GetInt32(r.GetOrdinal("index_count")),
-        TotalSizeBytes: r.GetInt64(r.GetOrdinal("total_size_bytes")),
-        Comment: r.IsDBNull(r.GetOrdinal("object_comment"))
-            ? null
-            : r.GetString(r.GetOrdinal("object_comment"))
-    );
-
-    private static string BuildSummary(
-        int tables, int views, int schemaCount, long approxRows, long totalBytes)
-    {
-        var objectDesc = views > 0
-            ? $"{tables} table{(tables != 1 ? "s" : "")} and {views} view{(views != 1 ? "s" : "")}"
-            : $"{tables} table{(tables != 1 ? "s" : "")} and 0 views";
-        var schemaDesc = $"{schemaCount} schema{(schemaCount != 1 ? "s" : "")}";
-        return $"Found {objectDesc} across {schemaDesc}. Total approximate rows: {approxRows}. Total size on disk: {FormatBytes(totalBytes)}. " +
-               "NOTE: column names are NOT included in this response; only ColumnCount per object is available. " +
-               "Do NOT infer or generate column names. Call get_table_details for exact column information.";
-    }
-
-    private sealed record FkRow(
-        string FromSchema, string FromTable,
-        string ToSchema, string ToTable,
-        string ConstraintName,
-        string[] FromColumns, string[] ToColumns,
-        string OnDelete, string OnUpdate
-    );
-
-    private sealed record RawIndexRow(
-        string SchemaName, string TableName, string IndexName,
-        bool IsUnique, bool IsPrimary, string TypeDesc,
-        string? FilterDefinition, int IndexColumnId, string ColumnName
-    );
-
-    private sealed record RawFkRow(
-        string FromSchema, string FromTable,
-        string ToSchema, string ToTable,
-        string ConstraintName, int ConstraintColumnId,
-        string FromColumn, string ToColumn,
-        string OnDelete, string OnUpdate
-    );
-
-    private sealed record RawUqRow(
-        string SchemaName, string TableName,
-        string ConstraintName, int IndexColumnId, string ColumnName
-    );
-
 }

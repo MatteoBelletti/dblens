@@ -117,6 +117,60 @@ public abstract class ReceiptAndPrivilegeTestsBase(IDatabaseFixture fixture)
 
     [SkippableFact]
     [Trait("Category", "Integration")]
+    public async Task CellTheDriverCannotRead_CostsThatCell_NotTheResult()
+    {
+        Skip.If(ShouldSkip, TestSkip.Reason);
+
+        var unreadable = Fixture.Inspector!.Dialect == DbLens.Core.Models.DatabaseDialect.PostgreSql
+            ? "'NaN'::numeric"
+            : "hierarchyid::GetRoot()";
+
+        var row = (await RunAsync($"SELECT {unreadable} AS odd, 1 AS fine")).Result.Rows.Single();
+
+        row[0].Should().BeOfType<string>().Which.Should().Contain("cast it to text");
+        Convert.ToInt64(row[1]).Should().Be(1);
+    }
+
+    [SkippableFact]
+    [Trait("Category", "Integration")]
+    public async Task Tolerance_OutsideZeroToOne_IsRejected()
+    {
+        Skip.If(ShouldSkip, TestSkip.Reason);
+
+        var act = () => Fixture.Inspector!.QueryWithReceiptAsync(new QueryWithReceiptRequest("SELECT 1", "SELECT 2", Tolerance: 5));
+
+        await act.Should().ThrowAsync<ArgumentException>().WithMessage("*between 0 and 1*");
+    }
+
+    [SkippableFact]
+    [Trait("Category", "Integration")]
+    public async Task EstimatedPlan_RefusesASecondStatement()
+    {
+        Skip.If(ShouldSkip, TestSkip.Reason);
+
+        // Without the check the second statement is not planned: it is sent, and it runs.
+        var act = () => Fixture.Inspector!.ExplainQueryAsync(
+            new ExplainQueryRequest("SELECT 1; DELETE FROM dblens_no_such_table"));
+
+        await act.Should().ThrowAsync<ArgumentException>().WithMessage("*more than one statement*");
+    }
+
+    [SkippableFact]
+    [Trait("Category", "Integration")]
+    public async Task EstimatedPlan_OfAWrite_IsPlannedAndNotExecuted()
+    {
+        Skip.If(ShouldSkip, TestSkip.Reason);
+
+        var admin = Fixture.CreateAdminInspector();
+
+        var plan = await admin.ExplainQueryAsync(new ExplainQueryRequest($"DELETE FROM {Q("payments")} WHERE 1 = 0"));
+
+        plan.Executed.Should().BeFalse();
+        plan.Root.Should().NotBeNull("a write is explained without analyze, inside a transaction that cannot write");
+    }
+
+    [SkippableFact]
+    [Trait("Category", "Integration")]
     public async Task ReadOnlyLogin_MayExecute()
     {
         Skip.If(ShouldSkip, TestSkip.Reason);

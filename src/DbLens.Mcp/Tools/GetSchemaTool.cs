@@ -14,9 +14,9 @@ public sealed class GetSchemaTool(IServiceProvider services, IDatabaseInspectorF
         "IMPORTANT: column names are NOT included, only a ColumnCount — do NOT infer them; call " +
         "get_table_details for the tables you need.")]
     public Task<DatabaseSchemaOverview> GetSchema(
-        [Description("Database dialect: PostgreSql or SqlServer.")]
+        [Description(DialectHelp)]
         DatabaseDialect dialect = DatabaseDialect.PostgreSql,
-        [Description("Connection string. Omit to use the server's default for the dialect.")]
+        [Description(ConnectionStringHelp)]
         string? connectionString = null,
         [Description("Exact schema name to filter by. Omit to return all user schemas.")]
         string? schemaFilter = null,

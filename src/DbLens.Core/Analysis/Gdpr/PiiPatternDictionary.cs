@@ -9,7 +9,8 @@ internal sealed record PiiPatternEntry(
     PiiCategory Category,
     string Regex,
     string[] SqlTypes,
-    double Confidence);
+    double Confidence,
+    bool Qualifiable);
 
 internal static class PiiPatternDictionary
 {
@@ -45,7 +46,9 @@ internal static class PiiPatternDictionary
                     throw new InvalidOperationException(
                         $"Unknown PII category '{categoryStr}' in pattern '{name}'.");
 
-                list.Add(new PiiPatternEntry(name, category, regex, sqlTypes, confidence));
+                var qualifiable = element.TryGetProperty("qualifiable", out var q) && q.GetBoolean();
+
+                list.Add(new PiiPatternEntry(name, category, regex, sqlTypes, confidence, qualifiable));
             }
         }
 

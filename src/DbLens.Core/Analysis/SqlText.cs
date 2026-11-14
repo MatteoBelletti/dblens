@@ -1,109 +1,203 @@
 using System.Text;
 using System.Text.RegularExpressions;
+using DbLens.Core.Models;
 
 namespace DbLens.Core.Analysis;
 
+public enum SqlSegmentKind { Code, Comment, StringLiteral, QuotedIdentifier }
+
 /// <summary>
-/// Shared lexical helpers for the rules that read SQL text.
-/// These are deliberately not a SQL parser — they normalize text far enough for shape matching.
+/// A stretch of SQL text of one lexical kind. For a quoted identifier <see cref="Text"/> is the
+/// name itself, unquoted and unescaped; for everything else it is the source text.
+/// </summary>
+public readonly record struct SqlSegment(SqlSegmentKind Kind, string Text, string Source);
+
+/// <summary>
+/// Lexical helpers for the rules that read SQL text. Not a SQL parser: they separate code from
+/// comments, string literals and quoted identifiers the way each engine does, far enough for shape
+/// matching and for the statement guard to see exactly the code the engine will see.
 /// </summary>
 public static class SqlText
 {
-    private static readonly Regex LineCommentRx =
-        new(@"--[^\n\r]*", RegexOptions.Compiled);
-
-    private static readonly Regex BlockCommentRx =
-        new(@"/\*.*?\*/", RegexOptions.Compiled | RegexOptions.Singleline);
-
-    /// <summary>Replaces comments with a space, leaving all identifiers and literals intact.</summary>
-    public static string StripComments(string sql)
-    {
-        var result = BlockCommentRx.Replace(sql, " ");
-        return LineCommentRx.Replace(result, " ");
-    }
+    private static readonly Regex DollarTagRx =
+        new(@"\G\$(?:[A-Za-z_\u0080-￿][A-Za-z0-9_\u0080-￿]*)?\$", RegexOptions.Compiled);
 
     /// <summary>
-    /// Removes comments and blanks the contents of string literals and quoted identifiers, so
-    /// their contents can never be mistaken for keywords or statement separators.
+    /// Splits SQL in one pass by the engine's own lexical rules: nested block comments on both;
+    /// dollar-quoted and E'' strings on PostgreSQL, where '[' is a subscript; [bracketed] identifiers
+    /// on SQL Server. An unterminated comment or literal runs to the end, as it would fail on the engine.
     /// </summary>
-    public static string StripCommentsAndStrings(string sql)
+    public static IReadOnlyList<SqlSegment> Segments(string sql, DatabaseDialect dialect)
     {
-        var withoutComments = StripComments(sql);
+        var postgres = dialect == DatabaseDialect.PostgreSql;
+        var segments = new List<SqlSegment>();
+        var code = new StringBuilder();
+        var i = 0;
 
-        var sb = new StringBuilder(withoutComments.Length);
-        char? quote = null;
-
-        for (var i = 0; i < withoutComments.Length; i++)
+        void FlushCode()
         {
-            var c = withoutComments[i];
+            if (code.Length == 0) return;
+            segments.Add(new SqlSegment(SqlSegmentKind.Code, code.ToString(), code.ToString()));
+            code.Clear();
+        }
 
-            if (quote is null)
+        void Emit(SqlSegmentKind kind, int end, string? text = null)
+        {
+            FlushCode();
+            var source = sql[i..end];
+            segments.Add(new SqlSegment(kind, text ?? source, source));
+            i = end;
+        }
+
+        while (i < sql.Length)
+        {
+            var c = sql[i];
+            var next = i + 1 < sql.Length ? sql[i + 1] : '\0';
+
+            if (c == '-' && next == '-')
             {
-                if (c is '\'' or '"' or '[')
-                {
-                    quote = c == '[' ? ']' : c;
-                    sb.Append(' ');
-                    continue;
-                }
-                sb.Append(c);
+                var end = sql.IndexOfAny(['\n', '\r'], i);
+                Emit(SqlSegmentKind.Comment, end < 0 ? sql.Length : end);
+            }
+            else if (c == '/' && next == '*')
+            {
+                Emit(SqlSegmentKind.Comment, EndOfBlockComment(sql, i));
+            }
+            else if (c == '\'')
+            {
+                // E'..' is the only PostgreSQL string where a backslash escapes the quote; the
+                // transactions that run caller SQL pin standard_conforming_strings to match.
+                var escapes = postgres && i > 0 && sql[i - 1] is 'e' or 'E'
+                              && (i < 2 || !IsIdentifierChar(sql[i - 2]));
+                Emit(SqlSegmentKind.StringLiteral, EndOfQuoted(sql, i, '\'', escapes));
+            }
+            else if (c == '"' || (c == '[' && !postgres))
+            {
+                var close = c == '"' ? '"' : ']';
+                var end = EndOfQuoted(sql, i, close, backslashEscapes: false);
+                Emit(SqlSegmentKind.QuotedIdentifier, end, Unquote(sql, i, end, close));
+            }
+            else if (c == '$' && postgres && (i == 0 || !IsIdentifierChar(sql[i - 1]))
+                     && DollarTagRx.Match(sql, i) is { Success: true } tag)
+            {
+                var close = sql.IndexOf(tag.Value, i + tag.Length, StringComparison.Ordinal);
+                Emit(SqlSegmentKind.StringLiteral, close < 0 ? sql.Length : close + tag.Length);
             }
             else
             {
-                // Doubled quotes are an escaped quote inside the literal, not a terminator.
-                if (c == quote)
-                {
-                    if (i + 1 < withoutComments.Length && withoutComments[i + 1] == c)
-                    {
-                        i++;
-                        continue;
-                    }
-                    quote = null;
-                }
-                // Everything inside a literal is discarded.
+                code.Append(c);
+                i++;
             }
         }
 
-        return sb.ToString();
+        FlushCode();
+        return segments;
     }
 
-    /// <summary>Splits a script into individual statements on top-level semicolons.</summary>
-    public static IReadOnlyList<string> SplitStatements(string sql)
-    {
-        var withoutComments = StripComments(sql);
-        var statements = new List<string>();
-        var current = new StringBuilder();
-        char? quote = null;
-
-        foreach (var c in withoutComments)
+    /// <summary>
+    /// The text with every comment replaced by a space and every string literal and quoted
+    /// identifier replaced by what <paramref name="replace"/> returns for it.
+    /// </summary>
+    public static string Rewrite(IEnumerable<SqlSegment> segments, Func<SqlSegment, string> replace) =>
+        string.Concat(segments.Select(s => s.Kind switch
         {
-            if (quote is null)
-            {
-                if (c is '\'' or '"' or '[')
-                {
-                    quote = c == '[' ? ']' : c;
-                    current.Append(c);
-                    continue;
-                }
+            SqlSegmentKind.Code => s.Text,
+            SqlSegmentKind.Comment => " ",
+            _ => replace(s),
+        }));
 
-                if (c == ';')
-                {
-                    if (current.ToString().Trim().Length > 0)
-                        statements.Add(current.ToString().Trim());
-                    current.Clear();
-                    continue;
-                }
-            }
-            else if (c == quote)
-            {
-                quote = null;
-            }
+    /// <summary>
+    /// The code alone: the contents of comments, literals and quoted identifiers can never be
+    /// mistaken for keywords or statement separators.
+    /// </summary>
+    public static string StripCommentsAndStrings(string sql, DatabaseDialect dialect) =>
+        Rewrite(Segments(sql, dialect), _ => " ");
 
-            current.Append(c);
+    public static string StripComments(string sql, DatabaseDialect dialect) =>
+        Rewrite(Segments(sql, dialect), s => s.Source);
+
+    /// <summary>Splits a script into individual statements on semicolons, without its comments.</summary>
+    public static IReadOnlyList<string> SplitStatements(string sql, DatabaseDialect dialect) =>
+        SplitTopLevel(sql, ';', dialect);
+
+    /// <summary>
+    /// Splits on a separator that stands in code and outside any parentheses. Comments are dropped;
+    /// literals and quoted identifiers are kept whole.
+    /// </summary>
+    public static IReadOnlyList<string> SplitTopLevel(string sql, char separator, DatabaseDialect dialect)
+    {
+        var parts = new List<string>();
+        var current = new StringBuilder();
+        var depth = 0;
+
+        void Flush()
+        {
+            var part = current.ToString().Trim();
+            if (part.Length > 0) parts.Add(part);
+            current.Clear();
         }
 
-        if (current.ToString().Trim().Length > 0)
-            statements.Add(current.ToString().Trim());
+        foreach (var segment in Segments(sql, dialect))
+        {
+            if (segment.Kind != SqlSegmentKind.Code)
+            {
+                current.Append(segment.Kind == SqlSegmentKind.Comment ? " " : segment.Source);
+                continue;
+            }
 
-        return statements;
+            foreach (var c in segment.Text)
+            {
+                if (c == '(') depth++;
+                else if (c == ')' && depth > 0) depth--;
+
+                if (c == separator && depth == 0) Flush();
+                else current.Append(c);
+            }
+        }
+
+        Flush();
+        return parts;
+    }
+
+    private static bool IsIdentifierChar(char c) => char.IsLetterOrDigit(c) || c is '_' or '$' || c >= 0x80;
+
+    private static int EndOfBlockComment(string sql, int start)
+    {
+        var depth = 0;
+        var i = start;
+
+        while (i < sql.Length - 1)
+        {
+            if (sql[i] == '/' && sql[i + 1] == '*') { depth++; i += 2; }
+            else if (sql[i] == '*' && sql[i + 1] == '/')
+            {
+                i += 2;
+                if (--depth == 0) return i;
+            }
+            else i++;
+        }
+
+        return sql.Length;
+    }
+
+    /// <summary>The index just past the closing delimiter; a doubled delimiter is an escaped one.</summary>
+    private static int EndOfQuoted(string sql, int start, char close, bool backslashEscapes)
+    {
+        for (var i = start + 1; i < sql.Length; i++)
+        {
+            if (backslashEscapes && sql[i] == '\\') { i++; continue; }
+            if (sql[i] != close) continue;
+            if (i + 1 < sql.Length && sql[i + 1] == close) { i++; continue; }
+            return i + 1;
+        }
+
+        return sql.Length;
+    }
+
+    private static string Unquote(string sql, int start, int end, char close)
+    {
+        var terminated = end - start >= 2 && sql[end - 1] == close;
+        var inner = sql[(start + 1)..(terminated ? end - 1 : end)];
+        return inner.Replace(new string(close, 2), close.ToString(), StringComparison.Ordinal);
     }
 }

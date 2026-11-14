@@ -65,8 +65,7 @@ public abstract partial class DatabaseInspectorBase
         using var budget = CancellationTokenSource.CreateLinkedTokenSource(ct);
         budget.CancelAfter(TimeSpan.FromSeconds(limits.TotalBudgetSeconds));
 
-        await using var conn = CreateConnection();
-        await conn.OpenAsync(ct);
+        await using var conn = await OpenAsync(ct);
 
         foreach (var probe in probes)
         {
@@ -86,7 +85,7 @@ public abstract partial class DatabaseInspectorBase
             // Defence in depth: this SQL is ours, so a rejection means dblens generated something
             // it should not have. On an engine without a read-only transaction mode this guard is
             // load-bearing rather than a second line.
-            var guard = StatementGuard.IsReadOnlySelect(probe.Sql);
+            var guard = StatementGuard.IsReadOnlySelect(probe.Sql, Dialect);
             if (!guard.Allowed)
             {
                 Log.LogError(
@@ -114,32 +113,22 @@ public abstract partial class DatabaseInspectorBase
     {
         var sw = Stopwatch.StartNew();
 
-        // One transaction per probe, deliberately. Any error poisons a PostgreSQL transaction
-        // ("current transaction is aborted, commands ignored until end of transaction block"), so
-        // sharing one across probes would let a single permission failure silently kill every probe
-        // after it. Do not "optimize" this into a shared transaction.
-        await using var tx = await conn.BeginTransactionAsync(budgetToken);
         try
         {
-            await using (var setup = conn.CreateCommand())
+            // A transaction per probe: sharing one would let a single failed probe abort every
+            // probe after it on PostgreSQL.
+            return await InRolledBackTransactionAsync(conn, VerificationSetupSql(limits), budgetToken, async tx =>
             {
-                setup.Transaction = tx;
-                setup.CommandText = VerificationSetupSql(limits);
-                setup.CommandTimeout = QueryTimeoutSeconds;
-                await setup.ExecuteNonQueryAsync(budgetToken);
-            }
+                await using var cmd = Command(conn, probe.Sql, tx);
+                cmd.CommandTimeout = limits.QueryTimeoutSeconds;
 
-            await using var cmd = conn.CreateCommand();
-            cmd.Transaction = tx;
-            cmd.CommandText = probe.Sql;
-            cmd.CommandTimeout = limits.QueryTimeoutSeconds;
+                await using var reader = await cmd.ExecuteReaderAsync(budgetToken);
+                var counted = await reader.ReadAsync(budgetToken);
 
-            await using var reader = await cmd.ExecuteReaderAsync(budgetToken);
-            if (!await reader.ReadAsync(budgetToken))
-                return VerificationMeasurement.Measured(probe, 0, 0, sw.Elapsed.TotalMilliseconds);
-
-            return VerificationMeasurement.Measured(
-                probe, ReadCount(reader, 0), ReadCount(reader, 1), sw.Elapsed.TotalMilliseconds);
+                return VerificationMeasurement.Measured(
+                    probe, counted ? ReadCount(reader, 0) : 0, counted ? ReadCount(reader, 1) : 0,
+                    sw.Elapsed.TotalMilliseconds);
+            });
         }
         catch (OperationCanceledException) when (callerToken.IsCancellationRequested)
         {
@@ -161,16 +150,9 @@ public abstract partial class DatabaseInspectorBase
             return VerificationMeasurement.Failed(
                 probe, VerificationFailureKind.Unknown, ex.Message, sw.Elapsed.TotalMilliseconds);
         }
-        finally
-        {
-            await tx.RollbackAsync(CancellationToken.None);
-        }
     }
 
-    /// <summary>
-    /// Reads a count whatever integer width the engine chose. SQL Server's COUNT returns int while
-    /// PostgreSQL's returns bigint; reading either with GetInt64 alone throws on the other.
-    /// </summary>
+    // SQL Server's COUNT is int, PostgreSQL's bigint: GetInt64 alone throws on one of them.
     private static long ReadCount(DbDataReader reader, int ordinal) =>
         reader.IsDBNull(ordinal) ? 0 : Convert.ToInt64(reader.GetValue(ordinal), System.Globalization.CultureInfo.InvariantCulture);
 }

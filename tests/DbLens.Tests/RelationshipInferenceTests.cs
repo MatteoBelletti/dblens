@@ -178,7 +178,7 @@ public sealed class RelationshipInferenceTests
         probe.Kind.Should().Be(VerificationProbeKind.InclusionDependency);
         probe.Sql.Should().Contain("compared_rows").And.Contain("divergent_rows").And.Contain("LEFT JOIN");
         probe.Sql.Should().NotContain(";");
-        StatementGuard.IsReadOnlySelect(probe.Sql).Allowed.Should().BeTrue();
+        StatementGuard.IsReadOnlySelect(probe.Sql, dialect).Allowed.Should().BeTrue();
     }
 
     [Fact]

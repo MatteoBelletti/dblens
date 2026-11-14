@@ -4,4 +4,5 @@ public sealed record PiiMatch(
     string ColumnName,
     PiiCategory Category,
     string PatternName,
-    double Confidence);
+    double Confidence,
+    bool Qualified = false);

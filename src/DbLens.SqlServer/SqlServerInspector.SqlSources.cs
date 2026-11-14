@@ -12,6 +12,7 @@ public sealed partial class SqlServerInspector
         JOIN sys.schemas s ON s.schema_id = o.schema_id
         WHERE o.is_ms_shipped = 0
           AND o.type IN ('V', 'P', 'FN', 'IF', 'TF', 'TR')
+          AND m.definition IS NOT NULL
         """;
 
     // query_sql_text is nvarchar(max), which cannot be grouped on, hence the derived table.
@@ -30,19 +31,11 @@ public sealed partial class SqlServerInspector
 
     protected override async Task<SqlSourceSet> QuerySqlSourcesAsync(CancellationToken ct)
     {
-        await using var conn = CreateConnection();
-        await conn.OpenAsync(ct);
+        await using var conn = await OpenAsync(ct);
 
-        var sources = new List<SqlSource>();
+        var sources = await ReadAllAsync(Command(conn, ModulesSql), r => new SqlSource(
+            r.GetString(0).Trim() == "V" ? SqlSourceKind.View : SqlSourceKind.Routine, r.GetString(1), r.GetString(2)), ct);
         var caveats = new List<string>();
-
-        await using (var cmd = Command(conn, ModulesSql))
-        await using (var reader = await cmd.ExecuteReaderAsync(ct))
-            while (await reader.ReadAsync(ct))
-                if (!reader.IsDBNull(2))
-                    sources.Add(new SqlSource(
-                        reader.GetString(0).Trim() == "V" ? SqlSourceKind.View : SqlSourceKind.Routine,
-                        reader.GetString(1), reader.GetString(2)));
 
         try
         {
@@ -57,11 +50,8 @@ public sealed partial class SqlServerInspector
                 }
             }
 
-            await using var cmd = Command(conn, WorkloadSql);
-            await using var reader = await cmd.ExecuteReaderAsync(ct);
-            while (await reader.ReadAsync(ct))
-                sources.Add(new SqlSource(
-                    SqlSourceKind.Workload, "Query Store", reader.GetString(0), Convert.ToInt64(reader.GetValue(1))));
+            sources.AddRange(await ReadAllAsync(Command(conn, WorkloadSql), r => new SqlSource(
+                SqlSourceKind.Workload, "Query Store", r.GetString(0), Convert.ToInt64(r.GetValue(1))), ct));
         }
         catch (DbException ex)
         {
@@ -69,13 +59,5 @@ public sealed partial class SqlServerInspector
         }
 
         return new SqlSourceSet(sources, caveats);
-    }
-
-    private static DbCommand Command(DbConnection conn, string sql)
-    {
-        var cmd = conn.CreateCommand();
-        cmd.CommandText = sql;
-        cmd.CommandTimeout = QueryTimeoutSeconds;
-        return cmd;
     }
 }

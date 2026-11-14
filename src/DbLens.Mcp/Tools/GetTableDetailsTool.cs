@@ -18,11 +18,11 @@ public sealed class GetTableDetailsTool(IServiceProvider services, IDatabaseInsp
     public Task<TableDetailsResult> GetTableDetails(
         [Description("Tables as \"schema.name\" or \"name\" (default schema). Up to 20 per call.")]
         string[] tables,
-        [Description("Database dialect: PostgreSql or SqlServer.")]
+        [Description(DialectHelp)]
         DatabaseDialect dialect = DatabaseDialect.PostgreSql,
-        [Description("Schema for unqualified names. Defaults to public / dbo.")]
+        [Description(DefaultSchemaHelp)]
         string? defaultSchema = null,
-        [Description("Connection string. Omit to use the server's default for the dialect.")]
+        [Description(ConnectionStringHelp)]
         string? connectionString = null,
         CancellationToken cancellationToken = default)
     {

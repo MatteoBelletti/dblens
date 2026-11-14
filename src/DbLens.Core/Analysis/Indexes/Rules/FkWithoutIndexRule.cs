@@ -12,7 +12,7 @@ public static class FkWithoutIndexRule
         {
             foreach (var fk in table.ForeignKeysOutgoing)
             {
-                if (IsCoveredByIndex(fk.FromColumns, table.Indexes))
+                if (IsCoveredByIndex(fk.FromColumns, table.Indexes) || IsCoveredByConstraint(fk.FromColumns, table))
                     continue;
 
                 var colList = string.Join(", ", fk.FromColumns);
@@ -48,24 +48,20 @@ public static class FkWithoutIndexRule
     /// Returns true if fkCols are covered by any index — i.e., at least one index whose
     /// leading columns exactly match fkCols in order (a superset index also counts).
     /// </summary>
+    // SQL Server lists the index behind a UNIQUE constraint under the constraint, not under Indexes.
+    private static bool IsCoveredByConstraint(IReadOnlyList<string> fkCols, TableDetail table) =>
+        table.UniqueConstraints.Any(u =>
+            u.Columns.Count >= fkCols.Count
+            && fkCols.Select((c, i) => string.Equals(u.Columns[i], c, StringComparison.OrdinalIgnoreCase)).All(same => same));
+
+    // A partial index holds only some rows, so it cannot find every child of a parent. An index
+    // that is not ordered (hash) serves the lookup only when its key is exactly the FK columns.
     private static bool IsCoveredByIndex(
         IReadOnlyList<string> fkCols,
-        IReadOnlyList<IndexDetail> indexes)
-    {
-        foreach (var idx in indexes)
-        {
-            if (idx.Columns.Count < fkCols.Count) continue;
-            var match = true;
-            for (var i = 0; i < fkCols.Count; i++)
-            {
-                if (!string.Equals(idx.Columns[i], fkCols[i], StringComparison.OrdinalIgnoreCase))
-                {
-                    match = false;
-                    break;
-                }
-            }
-            if (match) return true;
-        }
-        return false;
-    }
+        IReadOnlyList<IndexDetail> indexes) =>
+        indexes.Any(idx =>
+            !idx.IsPartial
+            && idx.StartsWith(fkCols)
+            && (idx.IsOrdered()
+                || (idx.Columns.Count == fkCols.Count && idx.Method.Contains("hash", StringComparison.OrdinalIgnoreCase))));
 }

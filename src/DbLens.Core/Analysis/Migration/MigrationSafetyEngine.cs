@@ -155,6 +155,8 @@ public static class MigrationSafetyEngine
 
             case MigrationOperationKind.DropTable:
             case MigrationOperationKind.DropColumn:
+            case MigrationOperationKind.TruncateTable:
+            case MigrationOperationKind.DropSchema:
                 yield return BuildDestructiveFinding(statement, context, target);
                 break;
 
@@ -287,7 +289,13 @@ public static class MigrationSafetyEngine
     private static Finding BuildDestructiveFinding(
         MigrationStatement statement, MigrationTableContext? context, string target)
     {
-        var isTable = statement.Kind == MigrationOperationKind.DropTable;
+        var isTable = statement.Kind != MigrationOperationKind.DropColumn;
+        var (verb, what) = statement.Kind switch
+        {
+            MigrationOperationKind.TruncateTable => ("empties", $"deletes every row of '{target}'"),
+            MigrationOperationKind.DropSchema => ("drops", $"destroys '{target}' and everything in it"),
+            _ => ("drops", $"destroys '{target}' and all rows in it"),
+        };
 
         return new Finding(
             RuleId:     MigrationRuleIds.Destructive,
@@ -298,15 +306,15 @@ public static class MigrationSafetyEngine
             Table:      target,
             Columns:    statement.ObjectName is null || isTable ? null : [statement.ObjectName],
             Title:      isTable
-                ? $"Irreversible: drops table '{target}'{SizeSuffix(context)}"
+                ? $"Irreversible: {verb} {(statement.Kind == MigrationOperationKind.DropSchema ? "" : "table ")}'{target}'{SizeSuffix(context)}"
                 : $"Irreversible: drops column '{statement.ObjectName}' from '{target}'",
             Description:
                 (isTable
-                    ? $"This statement destroys '{target}' and all rows in it."
+                    ? $"This statement {what}."
                     : $"This statement destroys the data in column '{statement.ObjectName}' of '{target}'.") +
                 " The data cannot be recovered by rolling the migration back — a rollback script can " +
                 "recreate the structure but not its contents. " +
-                SizeSentence(context) +
+                (statement.Kind == MigrationOperationKind.DropSchema ? "" : SizeSentence(context)) +
                 (context?.IncomingForeignKeys > 0
                     ? $" {context.IncomingForeignKeys} foreign key(s) reference this table; the drop will " +
                       "fail or cascade depending on how they are declared."

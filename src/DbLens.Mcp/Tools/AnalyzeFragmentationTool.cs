@@ -20,16 +20,16 @@ public sealed class AnalyzeFragmentationTool(IServiceProvider services, IDatabas
         "patterns are not considered. " +
         "Do NOT infer figures for indexes not in the response.")]
     public Task<AnalyzeFragmentationResult> AnalyzeFragmentation(
-        [Description("Database dialect: PostgreSql or SqlServer.")]
+        [Description(DialectHelp)]
         DatabaseDialect dialect = DatabaseDialect.PostgreSql,
-        [Description("Schema to analyze. Null = all user schemas.")]
+        [Description(SchemaHelp)]
         string? schema = null,
-        [Description("Table names without schema prefix. Null = all tables in scope.")]
+        [Description(TablesHelp)]
         string[]? tables = null,
         [Description(
             "Also collect page density. On SQL Server this reads leaf pages (SAMPLED) and costs more. Default false.")]
         bool includePageDensity = false,
-        [Description("Connection string. Omit to use the server's default for the dialect.")]
+        [Description(ConnectionStringHelp)]
         string? connectionString = null,
         CancellationToken cancellationToken = default)
     {

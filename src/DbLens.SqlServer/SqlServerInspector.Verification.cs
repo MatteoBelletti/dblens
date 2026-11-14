@@ -26,9 +26,7 @@ public sealed partial class SqlServerInspector
     // object-level grants and sysadmin all count. EXECUTE counts too: a procedure can write.
     protected override async Task<string?> DescribeWriteCapabilityAsync(DbConnection conn, CancellationToken ct)
     {
-        await using var cmd = conn.CreateCommand();
-        cmd.CommandTimeout = QueryTimeoutSeconds;
-        cmd.CommandText = """
+        await using var cmd = Command(conn, """
             SELECT CASE
                 WHEN IS_SRVROLEMEMBER('sysadmin') = 1 THEN SUSER_SNAME() + ' is sysadmin'
                 WHEN EXISTS (
@@ -45,7 +43,7 @@ public sealed partial class SqlServerInspector
                         OR HAS_PERMS_BY_NAME(QUOTENAME(SCHEMA_NAME(o.schema_id)) + '.' + QUOTENAME(o.name), 'OBJECT', 'EXECUTE') = 1))
                     THEN USER_NAME() + ' can modify or execute objects in this database'
             END
-            """;
+            """);
         return await cmd.ExecuteScalarAsync(ct) as string;
     }
 
