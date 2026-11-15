@@ -99,7 +99,7 @@ public sealed class PostgresIndexAnalysisTests : IClassFixture<PostgresFixture>
 
         var unusedFindings = result.Findings.Where(f => f.RuleId == "unused-index").ToList();
         unusedFindings.Should().Contain(f =>
-            f.Columns is not null && f.Columns.Contains("status"),
+            f.Columns != null && f.Columns.Contains("status"),
             "idx_orders_status has never been scanned");
 
         result.Caveats.Should().NotBeEmpty(
