@@ -11,18 +11,12 @@ namespace DbLens.Tests;
 /// logical structure for the same tables. Allowed differences: column type names
 /// (text vs nvarchar) and constraint/index names. Everything else must match.
 /// </summary>
-public sealed class TableDetailsParityTests :
+public sealed class TableDetailsParityTests(PostgresFixture pg, SqlServerFixture ss) :
     IClassFixture<PostgresFixture>,
     IClassFixture<SqlServerFixture>
 {
-    private readonly PostgresFixture _pg;
-    private readonly SqlServerFixture _ss;
-
-    public TableDetailsParityTests(PostgresFixture pg, SqlServerFixture ss)
-    {
-        _pg = pg;
-        _ss = ss;
-    }
+    private readonly PostgresFixture _pg = pg;
+    private readonly SqlServerFixture _ss = ss;
 
     private bool ShouldSkip => !_pg.IsReachable || !_ss.IsReachable;
 

@@ -228,7 +228,7 @@ public sealed class DenormalizationProbeSqlTests
     // ── Guard conformance: every probe must be executable ──────────────────────
 
     public static TheoryData<DatabaseDialect> Dialects() =>
-        new() { DatabaseDialect.PostgreSql, DatabaseDialect.SqlServer };
+        [DatabaseDialect.PostgreSql, DatabaseDialect.SqlServer];
 
     [Theory]
     [MemberData(nameof(Dialects))]

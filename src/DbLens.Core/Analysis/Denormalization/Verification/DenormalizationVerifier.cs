@@ -159,7 +159,7 @@ public static class DenormalizationVerifier
         IReadOnlyDictionary<string, object>? metadata, VerificationOutcome outcome)
     {
         var copy = metadata is null
-            ? new Dictionary<string, object>()
+            ? []
             : new Dictionary<string, object>(metadata);
 
         copy["verification"] = outcome;

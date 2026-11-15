@@ -49,7 +49,7 @@ public sealed record FindingSplit(
     private static List<Finding> MostSevere(List<Finding> items, int budget) =>
         items.Count <= budget
             ? items
-            : items.OrderBy(f => f.Severity).Take(budget).ToList();
+            : [.. items.OrderBy(f => f.Severity).Take(budget)];
 
     /// <summary>How many results the cap left out.</summary>
     public int Omitted { get; init; }

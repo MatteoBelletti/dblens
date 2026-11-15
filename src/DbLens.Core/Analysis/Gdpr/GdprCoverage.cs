@@ -72,7 +72,7 @@ public static class GdprCoverageAnalyzer
             ColumnsMatched: matchedCount,
             ColumnsUnmatched: scanned - matchedCount,
             ColumnsWithOpaqueNames: opaque.Count,
-            OpaqueColumnExamples: opaque.Take(MaxExamples).ToList(),
+            OpaqueColumnExamples: [.. opaque.Take(MaxExamples)],
             InterpretableRatio: Math.Round(interpretable, 4));
     }
 

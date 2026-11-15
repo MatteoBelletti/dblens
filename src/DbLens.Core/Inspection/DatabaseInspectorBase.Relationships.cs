@@ -103,9 +103,7 @@ public abstract partial class DatabaseInspectorBase
         // confirm itself.
         return read with
         {
-            Sources = read.Sources
-                .Where(s => s.Kind != SqlSourceKind.Workload || !s.Sql.Contains("divergent_rows", StringComparison.OrdinalIgnoreCase))
-                .ToList(),
+            Sources = [.. read.Sources.Where(s => s.Kind != SqlSourceKind.Workload || !s.Sql.Contains("divergent_rows", StringComparison.OrdinalIgnoreCase))],
         };
     }
 }

@@ -51,7 +51,7 @@ public static class TestSchema
             Name: name,
             Kind: kind,
             Comment: null,
-            Columns: columns.ToList(),
+            Columns: [.. columns],
             PrimaryKey: pk.Count == 0 ? null : new PrimaryKeyInfo($"pk_{name}", pk),
             Indexes: [],
             ForeignKeysOutgoing: outgoing?.ToList() ?? [],

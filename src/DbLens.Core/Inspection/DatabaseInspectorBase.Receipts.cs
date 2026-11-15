@@ -98,7 +98,7 @@ public abstract partial class DatabaseInspectorBase
             while (await reader.ReadAsync(ct))
             {
                 if (rows.Count == maxRows) { truncated = true; break; }
-                rows.Add(Enumerable.Range(0, reader.FieldCount).Select(i => ResultValue.Read(reader, i)).ToList());
+                rows.Add([.. Enumerable.Range(0, reader.FieldCount).Select(i => ResultValue.Read(reader, i))]);
             }
 
             return new QueryResult(columns, rows, truncated, Math.Round(sw.Elapsed.TotalMilliseconds, 1));

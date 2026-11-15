@@ -10,18 +10,12 @@ namespace DbLens.Tests;
 /// so parity is asserted on the response contract and rule vocabulary rather than on values.
 /// Skipped automatically when either database is not reachable.
 /// </summary>
-public sealed class FragmentationParityTests :
+public sealed class FragmentationParityTests(PostgresFixture pg, SqlServerFixture ss) :
     IClassFixture<PostgresFixture>,
     IClassFixture<SqlServerFixture>
 {
-    private readonly PostgresFixture _pg;
-    private readonly SqlServerFixture _ss;
-
-    public FragmentationParityTests(PostgresFixture pg, SqlServerFixture ss)
-    {
-        _pg = pg;
-        _ss = ss;
-    }
+    private readonly PostgresFixture _pg = pg;
+    private readonly SqlServerFixture _ss = ss;
 
     private bool ShouldSkip => !_pg.IsReachable || !_ss.IsReachable;
 

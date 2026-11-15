@@ -58,12 +58,12 @@ csharp_style_throw_expression = true:suggestion
 csharp_style_conditional_delegate_call = true:suggestion
 
 # Collection expressions (IDE0028, IDE0300–IDE0305)
-dotnet_style_prefer_collection_expression = when_types_loosely_match:suggestion
-dotnet_style_collection_initializer = true:suggestion
+dotnet_style_prefer_collection_expression = when_types_loosely_match:warning
+dotnet_style_collection_initializer = true:warning
 dotnet_style_object_initializer = true:suggestion
 
 # Constructors, `new`, members
-csharp_style_prefer_primary_constructors = true:suggestion
+csharp_style_prefer_primary_constructors = true:warning
 csharp_style_implicit_object_creation_when_type_is_apparent = true:suggestion
 csharp_style_expression_bodied_methods = when_on_single_line:silent
 csharp_style_expression_bodied_properties = true:suggestion
@@ -80,7 +80,7 @@ csharp_style_prefer_range_operator = true:suggestion
 csharp_style_prefer_index_operator = true:suggestion
 csharp_prefer_simple_using_statement = true:suggestion
 csharp_prefer_simple_default_expression = true:suggestion
-csharp_style_deconstructed_variable_declaration = true:suggestion
+csharp_style_deconstructed_variable_declaration = true:warning
 csharp_style_inlined_variable_declaration = true:suggestion
 dotnet_style_prefer_simplified_boolean_expressions = true:suggestion
 dotnet_style_prefer_conditional_expression_over_return = true:silent
@@ -125,3 +125,13 @@ dotnet_naming_symbols.constants.required_modifiers = const
 dotnet_naming_rule.constants_pascal.symbols = constants
 dotnet_naming_rule.constants_pascal.style = pascal
 dotnet_naming_rule.constants_pascal.severity = suggestion
+
+dotnet_diagnostic.IDE0028.severity = warning
+dotnet_diagnostic.IDE0042.severity = warning
+dotnet_diagnostic.IDE0290.severity = warning
+dotnet_diagnostic.IDE0300.severity = warning
+dotnet_diagnostic.IDE0301.severity = warning
+dotnet_diagnostic.IDE0302.severity = warning
+dotnet_diagnostic.IDE0303.severity = warning
+dotnet_diagnostic.IDE0304.severity = warning
+dotnet_diagnostic.IDE0305.severity = warning

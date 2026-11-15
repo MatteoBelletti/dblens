@@ -58,11 +58,11 @@ public static class CascadeAnalysisEngine
                 break;
             }
 
-            var rootPaths = BuildPathsFromRoot(
+            var (rootPaths, rootTruncated) = BuildPathsFromRoot(
                 root, edgesByTarget, rowCounts, effectiveMaxDepth, maxPaths - paths.Count);
 
-            paths.AddRange(rootPaths.Paths);
-            if (rootPaths.Truncated) pathsTruncated = true;
+            paths.AddRange(rootPaths);
+            pathsTruncated |= rootTruncated;
         }
 
         // Produce findings from paths

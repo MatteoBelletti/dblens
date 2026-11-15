@@ -26,8 +26,7 @@ public sealed class CertifiedQueryStore(string path)
     public IReadOnlyList<Entry> List(DatabaseDialect dialect, string database)
     {
         lock (_gate)
-            return Load().Where(e => e.Dialect == dialect && Same(e.Database, database))
-                .OrderBy(e => e.Name, StringComparer.OrdinalIgnoreCase).ToList();
+            return [.. Load().Where(e => e.Dialect == dialect && Same(e.Database, database)).OrderBy(e => e.Name, StringComparer.OrdinalIgnoreCase)];
     }
 
     public Entry? Find(DatabaseDialect dialect, string database, string name) =>
@@ -59,7 +58,7 @@ public sealed class CertifiedQueryStore(string path)
     }
 
     public static IReadOnlyList<CertifiedQuery> ForGlossary(IEnumerable<Entry> entries) =>
-        entries.Select(e => new CertifiedQuery(e.Name, e.Question, e.Sql, e.CertifiedAt)).ToList();
+        [.. entries.Select(e => new CertifiedQuery(e.Name, e.Question, e.Sql, e.CertifiedAt))];
 
     private List<Entry> Load() =>
         File.Exists(Path) ? JsonSerializer.Deserialize<List<Entry>>(File.ReadAllText(Path)) ?? [] : [];

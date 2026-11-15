@@ -66,7 +66,7 @@ public static class ResultComparer
     }
 
     private static List<IReadOnlyList<object?>> Sorted(IReadOnlyList<IReadOnlyList<object?>> rows) =>
-        rows.OrderBy(r => string.Join("\u001f", r.Select(Key)), StringComparer.Ordinal).ToList();
+        [.. rows.OrderBy(r => string.Join("\u001f", r.Select(Key)), StringComparer.Ordinal)];
 
     private static string Key(object? v) => AsDecimal(v) is { } d ? d.ToString(CultureInfo.InvariantCulture) : Show(v);
 

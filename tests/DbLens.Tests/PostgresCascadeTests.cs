@@ -12,14 +12,9 @@ namespace DbLens.Tests;
 /// Skipped automatically when PostgreSQL is not reachable.
 /// Run with: dotnet test --filter "Category=Integration"
 /// </summary>
-public sealed class PostgresCascadeTests : IClassFixture<PostgresFixture>
+public sealed class PostgresCascadeTests(PostgresFixture fixture) : IClassFixture<PostgresFixture>
 {
-    private readonly PostgresFixture _fixture;
-
-    public PostgresCascadeTests(PostgresFixture fixture)
-    {
-        _fixture = fixture;
-    }
+    private readonly PostgresFixture _fixture = fixture;
 
     private bool ShouldSkip => !_fixture.IsReachable;
 

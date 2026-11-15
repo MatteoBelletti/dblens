@@ -311,7 +311,7 @@ public abstract partial class DatabaseInspectorBase(ILogger logger) : IDatabaseI
             }
         }
 
-        return parts.Count <= 2 ? parts.Select(p => p.Trim()).ToArray() : null;
+        return parts.Count <= 2 ? [.. parts.Select(p => p.Trim())] : null;
     }
 
     private TableDetailsResult BuildTableDetails(IReadOnlyList<ParsedName> names, string database, TableCatalog catalog)
@@ -345,17 +345,17 @@ public abstract partial class DatabaseInspectorBase(ILogger logger) : IDatabaseI
                 Name: key.Name,
                 Kind: catalog.Tables[key].Kind,
                 Comment: catalog.Tables[key].Comment,
-                Columns: catalog.Columns[key].ToList(),
+                Columns: [.. catalog.Columns[key]],
                 PrimaryKey: primaryKey is null ? null : new PrimaryKeyInfo(primaryKey.Name, primaryKey.Columns),
                 Indexes: indexes,
-                ForeignKeysOutgoing: catalog.ForeignKeys
+                ForeignKeysOutgoing: [.. catalog.ForeignKeys
                     .Where(fk => (fk.FromSchema, fk.FromTable) == key)
-                    .OrderBy(fk => fk.ConstraintName, StringComparer.Ordinal).ToList(),
-                ForeignKeysIncoming: catalog.ForeignKeys
+                    .OrderBy(fk => fk.ConstraintName, StringComparer.Ordinal)],
+                ForeignKeysIncoming: [.. catalog.ForeignKeys
                     .Where(fk => (fk.ToSchema, fk.ToTable) == key)
-                    .OrderBy(fk => fk.ConstraintName, StringComparer.Ordinal).ToList(),
-                CheckConstraints: catalog.Checks[key].OrderBy(c => c.Name, StringComparer.Ordinal).ToList(),
-                UniqueConstraints: catalog.Uniques[key].OrderBy(u => u.Name, StringComparer.Ordinal).ToList()));
+                    .OrderBy(fk => fk.ConstraintName, StringComparer.Ordinal)],
+                CheckConstraints: [.. catalog.Checks[key].OrderBy(c => c.Name, StringComparer.Ordinal)],
+                UniqueConstraints: [.. catalog.Uniques[key].OrderBy(u => u.Name, StringComparer.Ordinal)]));
         }
 
         return new TableDetailsResult(
@@ -428,7 +428,7 @@ public abstract partial class DatabaseInspectorBase(ILogger logger) : IDatabaseI
         if (tables is { Length: > 0 })
         {
             var include = new HashSet<string>(tables, StringComparer.OrdinalIgnoreCase);
-            scope = scope.Where(t => include.Contains(t.Name)).ToList();
+            scope = [.. scope.Where(t => include.Contains(t.Name))];
 
             var missing = include.Except(scope.Select(t => t.Name), StringComparer.OrdinalIgnoreCase).ToList();
             if (missing.Count > 0)
@@ -437,7 +437,7 @@ public abstract partial class DatabaseInspectorBase(ILogger logger) : IDatabaseI
         }
         else
         {
-            if (!includePartitions) scope = scope.Where(t => !t.IsPartition).ToList();
+            if (!includePartitions) scope = [.. scope.Where(t => !t.IsPartition)];
 
             if (scope.Count == 0)
                 caveat = $"No tables were found{where}: nothing was analyzed, which is not the same as nothing to report.";
@@ -446,7 +446,7 @@ public abstract partial class DatabaseInspectorBase(ILogger logger) : IDatabaseI
         if (excludeTables is { Length: > 0 })
         {
             var exclude = new HashSet<string>(excludeTables, StringComparer.OrdinalIgnoreCase);
-            scope = scope.Where(t => !exclude.Contains(t.Name)).ToList();
+            scope = [.. scope.Where(t => !exclude.Contains(t.Name))];
         }
 
         return new TableScope(scope, caveat);

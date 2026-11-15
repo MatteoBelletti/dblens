@@ -14,18 +14,12 @@ namespace DbLens.Tests;
 /// must match exactly. A divergence means one dialect's probe SQL is wrong.
 /// Skipped automatically when either database is not reachable.
 /// </summary>
-public sealed class DenormalizationVerificationParityTests :
+public sealed class DenormalizationVerificationParityTests(PostgresFixture pg, SqlServerFixture ss) :
     IClassFixture<PostgresFixture>,
     IClassFixture<SqlServerFixture>
 {
-    private readonly PostgresFixture _pg;
-    private readonly SqlServerFixture _ss;
-
-    public DenormalizationVerificationParityTests(PostgresFixture pg, SqlServerFixture ss)
-    {
-        _pg = pg;
-        _ss = ss;
-    }
+    private readonly PostgresFixture _pg = pg;
+    private readonly SqlServerFixture _ss = ss;
 
     private bool ShouldSkip => !_pg.IsReachable || !_ss.IsReachable;
 
@@ -35,15 +29,14 @@ public sealed class DenormalizationVerificationParityTests :
     /// <summary>(rule, bare column, status, compared, diverging) for every measured result.</summary>
     private static List<(string Rule, string Column, string Status, long? Compared, long? Diverging)>
         Measurements(AnalyzeDenormalizationResult r) =>
-        r.Findings.Concat(r.Signals)
+        [.. r.Findings.Concat(r.Signals)
             .Where(f => f.Metadata is not null && f.Metadata.ContainsKey("verification"))
             .Select(f =>
             {
                 var o = (VerificationOutcome)f.Metadata!["verification"];
                 return (f.RuleId, string.Join(",", f.Columns ?? []), o.Status, o.RowsCompared, o.RowsDiverging);
             })
-            .OrderBy(x => x.RuleId).ThenBy(x => x.Item2, StringComparer.Ordinal)
-            .ToList();
+            .OrderBy(x => x.RuleId).ThenBy(x => x.Item2, StringComparer.Ordinal)];
 
     [SkippableFact]
     [Trait("Category", "Integration")]

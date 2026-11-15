@@ -62,7 +62,7 @@ public static class RelationshipAnalysisEngine
     {
         var signalled = analysis.Result.Signals.Select(TargetOf).Select(t => t.Key).ToHashSet(StringComparer.Ordinal);
 
-        return analysis.Candidates
+        return [.. analysis.Candidates
             .Select(c => (Candidate: c, Sql: UndeclaredForeignKeyRule.BuildInclusionProbe(c, dialect)))
             .Where(x => x.Sql is not null && signalled.Contains(TargetOf(x.Candidate).Key))
             .Select(x => new VerificationProbe(
@@ -73,8 +73,7 @@ public static class RelationshipAnalysisEngine
                 $"'{x.Candidate.Parent.Qualified()}.{x.Candidate.ParentKey}'",
                 rowCounts.GetValueOrDefault((x.Candidate.Child.Schema, x.Candidate.Child.Name))))
             .OrderBy(p => p.ApproximateRowCount ?? long.MaxValue)
-            .ThenBy(p => p.Target.Key, StringComparer.Ordinal)
-            .ToList();
+            .ThenBy(p => p.Target.Key, StringComparer.Ordinal)];
     }
 
     /// <summary>
@@ -190,7 +189,7 @@ public static class RelationshipAnalysisEngine
 
     private static IReadOnlyDictionary<string, object> WithOutcome(Finding signal, VerificationMeasurement m, double? ratio)
     {
-        var copy = signal.Metadata is null ? new Dictionary<string, object>() : new Dictionary<string, object>(signal.Metadata);
+        var copy = signal.Metadata is null ? [] : new Dictionary<string, object>(signal.Metadata);
         copy["verification"] = new VerificationOutcome(
             m.Status.ToString(), m.MeasurementDescription, m.Denominator, m.Numerator,
             ratio is null ? null : Math.Round(ratio.Value, 4), m.Status is VerificationStatus.Confirmed or VerificationStatus.Refuted ? null : m.Status.ToString(), m.Sql);
