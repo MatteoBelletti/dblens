@@ -44,7 +44,7 @@ public static class GdprCoverageAnalyzer
 
         var scanned = 0;
         var matchedCount = 0;
-        var opaque = new List<string>();
+        List<string> opaque = [];
 
         foreach (var table in tables)
         {
@@ -72,7 +72,7 @@ public static class GdprCoverageAnalyzer
             ColumnsMatched: matchedCount,
             ColumnsUnmatched: scanned - matchedCount,
             ColumnsWithOpaqueNames: opaque.Count,
-            OpaqueColumnExamples: opaque.Take(MaxExamples).ToList(),
+            OpaqueColumnExamples: [.. opaque.Take(MaxExamples)],
             InterpretableRatio: Math.Round(interpretable, 4));
     }
 

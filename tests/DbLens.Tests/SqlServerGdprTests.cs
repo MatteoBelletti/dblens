@@ -9,10 +9,10 @@ namespace DbLens.Tests;
 /// Requires the dblens-sqlserver container running with the demo schema.
 /// Skipped automatically when SQL Server is not reachable.
 /// </summary>
-public sealed class SqlServerGdprTests : IClassFixture<SqlServerFixture>
+public sealed class SqlServerGdprTests(SqlServerFixture fixture) : IClassFixture<SqlServerFixture>
 {
-    private readonly SqlServerFixture _fixture;
-    public SqlServerGdprTests(SqlServerFixture fixture) => _fixture = fixture;
+    private readonly SqlServerFixture _fixture = fixture;
+
     private bool ShouldSkip => !_fixture.IsReachable;
 
     [SkippableFact, Trait("Category", "Integration")]

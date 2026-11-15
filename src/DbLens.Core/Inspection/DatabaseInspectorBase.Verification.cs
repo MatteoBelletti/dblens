@@ -2,8 +2,8 @@ using System.Data.Common;
 using System.Diagnostics;
 using DbLens.Core.Analysis.Denormalization;
 using DbLens.Core.Analysis.Denormalization.Verification;
-using DbLens.Core.Analysis.Verification;
 using DbLens.Core.Analysis.QueryPlan;
+using DbLens.Core.Analysis.Verification;
 using DbLens.Core.Models;
 using Microsoft.Extensions.Logging;
 

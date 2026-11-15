@@ -9,10 +9,10 @@ namespace DbLens.Tests;
 /// Requires the dblens-postgres container running with the demo schema.
 /// Skipped automatically when PostgreSQL is not reachable.
 /// </summary>
-public sealed class PostgresGdprTests : IClassFixture<PostgresFixture>
+public sealed class PostgresGdprTests(PostgresFixture fixture) : IClassFixture<PostgresFixture>
 {
-    private readonly PostgresFixture _fixture;
-    public PostgresGdprTests(PostgresFixture fixture) => _fixture = fixture;
+    private readonly PostgresFixture _fixture = fixture;
+
     private bool ShouldSkip => !_fixture.IsReachable;
 
     // --- result always contains Disclaimer ---

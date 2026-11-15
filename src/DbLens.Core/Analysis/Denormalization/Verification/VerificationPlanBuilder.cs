@@ -19,7 +19,7 @@ public static class VerificationPlanBuilder
         DatabaseDialect dialect)
     {
         var byQualifiedName = tables.ToDictionary(t => t.Qualified(), StringComparer.Ordinal);
-        var probes = new List<VerificationProbe>();
+        List<VerificationProbe> probes = [];
 
         foreach (var signal in signals)
         {
@@ -36,10 +36,9 @@ public static class VerificationPlanBuilder
 
         // Cheapest first, so a tight budget buys the most measurements. Unknown sizes sort last;
         // they are skipped anyway, but ordering keeps the plan stable and easy to reason about.
-        return probes
+        return [.. probes
             .OrderBy(p => p.ApproximateRowCount ?? long.MaxValue)
-            .ThenBy(p => p.Target.Key, StringComparer.Ordinal)
-            .ToList();
+            .ThenBy(p => p.Target.Key, StringComparer.Ordinal)];
     }
 
 

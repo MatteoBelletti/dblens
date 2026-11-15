@@ -30,7 +30,7 @@ public static class SqlText
     public static IReadOnlyList<SqlSegment> Segments(string sql, DatabaseDialect dialect)
     {
         var postgres = dialect == DatabaseDialect.PostgreSql;
-        var segments = new List<SqlSegment>();
+        List<SqlSegment> segments = [];
         var code = new StringBuilder();
         var i = 0;
 
@@ -126,7 +126,7 @@ public static class SqlText
     /// </summary>
     public static IReadOnlyList<string> SplitTopLevel(string sql, char separator, DatabaseDialect dialect)
     {
-        var parts = new List<string>();
+        List<string> parts = [];
         var current = new StringBuilder();
         var depth = 0;
 

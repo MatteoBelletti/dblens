@@ -53,7 +53,7 @@ public abstract partial class DatabaseInspectorBase
                 crossCheck = new CrossCheck(request.CrossCheckSql, status, explanation, check);
             }
 
-            var caveats = new List<string>();
+            List<string> caveats = [];
             if (primary.Truncated)
                 caveats.Add($"Only the first {request.MaxRows} rows are returned. Aggregate in SQL rather than reading rows.");
             if (crossCheck is null)
@@ -92,13 +92,13 @@ public abstract partial class DatabaseInspectorBase
             await using var reader = await cmd.ExecuteReaderAsync(ct);
 
             var columns = Enumerable.Range(0, reader.FieldCount).Select(reader.GetName).ToList();
-            var rows = new List<IReadOnlyList<object?>>();
+            List<IReadOnlyList<object?>> rows = [];
             var truncated = false;
 
             while (await reader.ReadAsync(ct))
             {
                 if (rows.Count == maxRows) { truncated = true; break; }
-                rows.Add(Enumerable.Range(0, reader.FieldCount).Select(i => ResultValue.Read(reader, i)).ToList());
+                rows.Add([.. Enumerable.Range(0, reader.FieldCount).Select(i => ResultValue.Read(reader, i))]);
             }
 
             return new QueryResult(columns, rows, truncated, Math.Round(sw.Elapsed.TotalMilliseconds, 1));

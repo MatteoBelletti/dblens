@@ -15,12 +15,12 @@ public static class IndexAnalysisEngine
         AnalyzeIndexesRequest request,
         DatabaseDialect dialect)
     {
-        var findings = new List<Finding>();
+        List<Finding> findings = [];
         findings.AddRange(FkWithoutIndexRule.Apply(tables, dialect));
         findings.AddRange(DuplicateIndexRule.Apply(tables, dialect));
         findings.AddRange(RedundantIndexRule.Apply(tables, dialect));
 
-        var caveats = new List<string>();
+        List<string> caveats = [];
 
         if (request.IncludeUnusedIndexes && stats is not null)
         {

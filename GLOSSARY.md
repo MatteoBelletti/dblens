@@ -81,20 +81,22 @@ The words dblens uses in its results and its code, and what each one commits to.
 
 **Verification**
 : Turning a checkable signal into a measurement by running a probe. Opt-in (`verifySignals`,
-  `verifyCandidates`).
+  `verifyCandidates`, `verifyJoins`).
 
 **Probe**
 : A dblens-generated aggregate query returning exactly two numbers: rows compared and rows
   diverging. Never a row value.
 
 **Budget**
-: The limits on one call's probes: 20 queries, 10 s each, 30 s total, tables up to 5 million rows.
+: The limits on one call's probes: 20 queries, 10 s each, 30 s total, tables up to 5 million rows
+  with a known row count. Server defaults, not tool parameters.
 
 **Confirmed / Refuted / Inconclusive**
 : Some rows diverge / none do / nothing was compared. Inconclusive is never reported as refuted.
 
 **Skipped / Failed**
-: Not run because of the budget or table size / run but errored. Either way the signal stays a signal.
+: Not run because of the budget or table size / run but errored. Either way the signal stays a signal,
+  and `NotVerifiedReason` and a caveat say why.
 
 **Divergence**
 : Rows whose stored value differs from its source. A fact about the data, not a verdict: a deliberate

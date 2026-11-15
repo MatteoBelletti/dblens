@@ -45,7 +45,7 @@ public sealed partial class PostgresInspector
     {
         var nodeType = GetString(e, "Node Type") ?? "Unknown";
 
-        var children = new List<QueryPlanNode>();
+        List<QueryPlanNode> children = [];
         if (e.TryGetProperty("Plans", out var plans) && plans.ValueKind == JsonValueKind.Array)
             foreach (var child in plans.EnumerateArray())
                 children.Add(ParseNode(child));

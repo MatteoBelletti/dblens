@@ -125,11 +125,10 @@ public static class DdlClassifier
         new(@"\bDEFAULT\s+(?!NULL\b)(?:[A-Za-z_][A-Za-z0-9_]*\s*\(|NEXT\s+VALUE\s+FOR\b)", Opts);
 
     public static IReadOnlyList<MigrationStatement> Classify(string ddl, DatabaseDialect dialect) =>
-        Statements(ddl, dialect)
+        [.. Statements(ddl, dialect)
             .Where(s => !TransactionControlRx.IsMatch(s))
             .SelectMany(s => Expand(s, dialect))
-            .Select(ClassifyOne)
-            .ToList();
+            .Select(ClassifyOne)];
 
     private static IEnumerable<string> Statements(string ddl, DatabaseDialect dialect)
     {

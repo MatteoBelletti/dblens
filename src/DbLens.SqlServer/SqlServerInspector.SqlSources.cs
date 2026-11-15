@@ -1,12 +1,13 @@
 using System.Data.Common;
 using DbLens.Core.Analysis.Relationships;
+using DbLens.Core.Inspection;
 
 namespace DbLens.SqlServer;
 
 public sealed partial class SqlServerInspector
 {
     private const string ModulesSql = """
-        SELECT o.type, s.name + '.' + o.name, m.definition
+        SELECT o.type AS kind, s.name + '.' + o.name AS name, m.definition
         FROM sys.sql_modules m
         JOIN sys.objects o ON o.object_id = m.object_id
         JOIN sys.schemas s ON s.schema_id = o.schema_id
@@ -17,7 +18,7 @@ public sealed partial class SqlServerInspector
 
     // query_sql_text is nvarchar(max), which cannot be grouped on, hence the derived table.
     private const string WorkloadSql = """
-        SELECT TOP (1000) qt.query_sql_text, x.executions
+        SELECT TOP (1000) qt.query_sql_text AS query, x.executions AS calls
         FROM (
             SELECT q.query_text_id, SUM(rs.count_executions) AS executions
             FROM sys.query_store_query q
@@ -34,8 +35,8 @@ public sealed partial class SqlServerInspector
         await using var conn = await OpenAsync(ct);
 
         var sources = await ReadAllAsync(Command(conn, ModulesSql), r => new SqlSource(
-            r.GetString(0).Trim() == "V" ? SqlSourceKind.View : SqlSourceKind.Routine, r.GetString(1), r.GetString(2)), ct);
-        var caveats = new List<string>();
+            r.Text("kind").Trim() == "V" ? SqlSourceKind.View : SqlSourceKind.Routine, r.Text("name"), r.Text("definition")), ct);
+        List<string> caveats = [];
 
         try
         {
@@ -51,7 +52,7 @@ public sealed partial class SqlServerInspector
             }
 
             sources.AddRange(await ReadAllAsync(Command(conn, WorkloadSql), r => new SqlSource(
-                SqlSourceKind.Workload, "Query Store", r.GetString(0), Convert.ToInt64(r.GetValue(1))), ct));
+                SqlSourceKind.Workload, "Query Store", r.Text("query"), r.Number("calls")), ct));
         }
         catch (DbException ex)
         {

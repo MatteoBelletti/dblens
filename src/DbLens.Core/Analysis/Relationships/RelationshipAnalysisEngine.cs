@@ -37,7 +37,7 @@ public static class RelationshipAnalysisEngine
             c.Child.Qualified(), [c.Column.Name], c.Parent.Qualified(), [c.ParentKey],
             RelationshipEvidence.Inferred, c.Basis));
 
-        var caveats = new List<string>();
+        List<string> caveats = [];
         if (found.AmbiguousSkipped > 0)
             caveats.Add(
                 $"{found.AmbiguousSkipped} column(s) matched more than one possible parent table and were left " +
@@ -62,7 +62,7 @@ public static class RelationshipAnalysisEngine
     {
         var signalled = analysis.Result.Signals.Select(TargetOf).Select(t => t.Key).ToHashSet(StringComparer.Ordinal);
 
-        return analysis.Candidates
+        return [.. analysis.Candidates
             .Select(c => (Candidate: c, Sql: UndeclaredForeignKeyRule.BuildInclusionProbe(c, dialect)))
             .Where(x => x.Sql is not null && signalled.Contains(TargetOf(x.Candidate).Key))
             .Select(x => new VerificationProbe(
@@ -73,8 +73,7 @@ public static class RelationshipAnalysisEngine
                 $"'{x.Candidate.Parent.Qualified()}.{x.Candidate.ParentKey}'",
                 rowCounts.GetValueOrDefault((x.Candidate.Child.Schema, x.Candidate.Child.Name))))
             .OrderBy(p => p.ApproximateRowCount ?? long.MaxValue)
-            .ThenBy(p => p.Target.Key, StringComparer.Ordinal)
-            .ToList();
+            .ThenBy(p => p.Target.Key, StringComparer.Ordinal)];
     }
 
     /// <summary>
@@ -84,7 +83,8 @@ public static class RelationshipAnalysisEngine
     public static InferRelationshipsResult ApplyVerification(
         Analysis analysis,
         IReadOnlyList<VerificationMeasurement> measurements,
-        DatabaseDialect dialect)
+        DatabaseDialect dialect,
+        VerificationBudget? budget = null)
     {
         var byKey = measurements.ToDictionary(m => m.Target.Key, StringComparer.Ordinal);
         var candidates = analysis.Candidates.ToDictionary(c => TargetOf(c).Key, StringComparer.Ordinal);
@@ -101,7 +101,7 @@ public static class RelationshipAnalysisEngine
             if (!byKey.TryGetValue(key, out var m)
                 || m.Status is not (VerificationStatus.Confirmed or VerificationStatus.Refuted))
             {
-                reclassified.Add(m is null ? signal : signal with { Metadata = WithOutcome(signal, m, null) });
+                reclassified.Add(m is null ? signal : signal with { Metadata = VerificationOutcome.Attach(signal.Metadata, m, null) });
                 edges.Add(InferredEdge(candidate, RelationshipEvidence.Inferred, null, null));
                 continue;
             }
@@ -126,7 +126,7 @@ public static class RelationshipAnalysisEngine
                         "database is not enforcing it. Values matching is strong evidence of a reference, not " +
                         "proof of intent — confirm with whoever owns the schema before declaring the constraint.",
                     SqlFix = UndeclaredForeignKeyRule.BuildConstraint(candidate, dialect),
-                    Metadata = WithOutcome(signal, m, 0),
+                    Metadata = VerificationOutcome.Attach(signal.Metadata, m, 0),
                 });
                 edges.Add(InferredEdge(candidate, RelationshipEvidence.Verified, compared, 0));
             }
@@ -145,7 +145,7 @@ public static class RelationshipAnalysisEngine
                         "WHAT THIS MAY MEAN: most values resolve, which suggests a real reference with orphaned " +
                         "rows — references to parents that were deleted or never existed. A foreign key cannot " +
                         "be added until they are resolved, and a join on this path silently drops them.",
-                    Metadata = WithOutcome(signal, m, orphanRatio),
+                    Metadata = VerificationOutcome.Attach(signal.Metadata, m, orphanRatio),
                 });
                 edges.Add(InferredEdge(candidate, RelationshipEvidence.VerifiedWithOrphans, compared, orphans));
             }
@@ -162,21 +162,20 @@ public static class RelationshipAnalysisEngine
                         $"MEASURED: {Num.P0(orphanRatio)} of the non-null values of {source} match no row of " +
                         $"{target}. Despite the name, the data does not support a reference, and this path has " +
                         "been left out of the relationship map.",
-                    Metadata = WithOutcome(signal, m, orphanRatio),
+                    Metadata = VerificationOutcome.Attach(signal.Metadata, m, orphanRatio),
                 });
             }
         }
 
         var split = FindingSplit.Partition(reclassified);
-        var caveats = unverified.Caveats
-            .Where(c => !c.Contains("reported under Signals rather than Findings", StringComparison.Ordinal))
-            .ToList();
+        var caveats = FindingSplit.WithoutSignalCaveat(unverified.Caveats);
 
         var inconclusive = measurements.Count(x => x.Status == VerificationStatus.Inconclusive);
         if (inconclusive > 0)
             caveats.Add(
                 $"{inconclusive} candidate(s) had no non-null values to compare and remain unverified — an " +
                 "empty column neither confirms nor refutes a reference.");
+        caveats.AddRange((budget ?? new InferRelationshipsRequest().Budget).NotRunCaveats(measurements));
         if (split.SignalCaveat() is { } signalCaveat) caveats.Add(signalCaveat);
 
         return Build(edges, split, caveats, unverified.Summary.TablesAnalyzed,
@@ -187,15 +186,6 @@ public static class RelationshipAnalysisEngine
     private static RelationshipEdge InferredEdge(
         UndeclaredForeignKeyRule.Candidate c, RelationshipEvidence evidence, long? compared, long? orphans) =>
         new(c.Child.Qualified(), [c.Column.Name], c.Parent.Qualified(), [c.ParentKey], evidence, c.Basis, compared, orphans);
-
-    private static IReadOnlyDictionary<string, object> WithOutcome(Finding signal, VerificationMeasurement m, double? ratio)
-    {
-        var copy = signal.Metadata is null ? new Dictionary<string, object>() : new Dictionary<string, object>(signal.Metadata);
-        copy["verification"] = new VerificationOutcome(
-            m.Status.ToString(), m.MeasurementDescription, m.Denominator, m.Numerator,
-            ratio is null ? null : Math.Round(ratio.Value, 4), m.Status is VerificationStatus.Confirmed or VerificationStatus.Refuted ? null : m.Status.ToString(), m.Sql);
-        return copy;
-    }
 
     private static VerificationTarget TargetOf(UndeclaredForeignKeyRule.Candidate c) =>
         new(RelationshipRuleIds.UndeclaredForeignKey, c.Child.Qualified(), [c.Column.Name]);

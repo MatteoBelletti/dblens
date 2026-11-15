@@ -8,18 +8,12 @@ namespace DbLens.Tests;
 /// Both PostgreSQL (public schema) and SQL Server (dbo schema) must produce the same
 /// semantic findings: same rule_ids, same table names (modulo schema prefix), same columns.
 /// </summary>
-public sealed class GdprScanParityTests :
+public sealed class GdprScanParityTests(PostgresFixture pg, SqlServerFixture ss) :
     IClassFixture<PostgresFixture>,
     IClassFixture<SqlServerFixture>
 {
-    private readonly PostgresFixture _pg;
-    private readonly SqlServerFixture _ss;
-
-    public GdprScanParityTests(PostgresFixture pg, SqlServerFixture ss)
-    {
-        _pg = pg;
-        _ss = ss;
-    }
+    private readonly PostgresFixture _pg = pg;
+    private readonly SqlServerFixture _ss = ss;
 
     private bool ShouldSkip => !_pg.IsReachable || !_ss.IsReachable;
 

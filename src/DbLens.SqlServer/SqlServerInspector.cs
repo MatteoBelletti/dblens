@@ -386,8 +386,8 @@ public sealed partial class SqlServerInspector(string connectionString, ILogger<
             .GroupBy(x => x.Id)
             .Select(g => g.First().Key with
             {
-                FromColumns = g.OrderBy(x => x.Position).Select(x => x.FromColumn).ToArray(),
-                ToColumns = g.OrderBy(x => x.Position).Select(x => x.ToColumn).ToArray(),
+                FromColumns = [.. g.OrderBy(x => x.Position).Select(x => x.FromColumn)],
+                ToColumns = [.. g.OrderBy(x => x.Position).Select(x => x.ToColumn)],
             })
             .ToList();
 
@@ -401,7 +401,7 @@ public sealed partial class SqlServerInspector(string connectionString, ILogger<
                 Column: r.Text("column_name")), ct))
             .GroupBy(x => (x.Key, x.Constraint))
             .Select(g => (g.Key.Key, Value: new UniqueConstraintDetail(
-                g.Key.Constraint, g.OrderBy(x => x.Position).Select(x => x.Column).ToArray())));
+                g.Key.Constraint, [.. g.OrderBy(x => x.Position).Select(x => x.Column)])));
 
         return new TableCatalog(
             found.ToDictionary(t => t.Requested, t => t.Key),

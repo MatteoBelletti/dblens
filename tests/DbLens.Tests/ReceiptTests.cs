@@ -27,7 +27,7 @@ public class ResultValueTests
 public class ResultComparerTests
 {
     private static QueryResult Result(string[] columns, params object?[][] rows) =>
-        new(columns, rows.Select(r => (IReadOnlyList<object?>)r).ToList(), false, 0);
+        new(columns, [.. rows.Select(r => (IReadOnlyList<object?>)r)], false, 0);
 
     [Fact]
     public void SameRowsInAnotherOrder_Agree()

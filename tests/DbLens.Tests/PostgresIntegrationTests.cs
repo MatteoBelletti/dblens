@@ -12,14 +12,9 @@ namespace DbLens.Tests;
 /// Skipped automatically when PostgreSQL is not reachable.
 /// Run with: dotnet test --filter "Category=Integration"
 /// </summary>
-public sealed class PostgresIntegrationTests : IClassFixture<PostgresFixture>
+public sealed class PostgresIntegrationTests(PostgresFixture fixture) : IClassFixture<PostgresFixture>
 {
-    private readonly PostgresFixture _fixture;
-
-    public PostgresIntegrationTests(PostgresFixture fixture)
-    {
-        _fixture = fixture;
-    }
+    private readonly PostgresFixture _fixture = fixture;
 
     // Returns true when the test should be skipped (DB not available).
     // xUnit v2 has no dynamic skip API; tests simply return early and pass without assertions.

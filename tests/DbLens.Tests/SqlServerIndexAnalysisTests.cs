@@ -10,10 +10,10 @@ namespace DbLens.Tests;
 /// Requires the dblens-sqlserver container running with the demo schema.
 /// Skipped automatically when SQL Server is not reachable.
 /// </summary>
-public sealed class SqlServerIndexAnalysisTests : IClassFixture<SqlServerFixture>
+public sealed class SqlServerIndexAnalysisTests(SqlServerFixture fixture) : IClassFixture<SqlServerFixture>
 {
-    private readonly SqlServerFixture _fixture;
-    public SqlServerIndexAnalysisTests(SqlServerFixture fixture) => _fixture = fixture;
+    private readonly SqlServerFixture _fixture = fixture;
+
     private bool ShouldSkip => !_fixture.IsReachable;
 
     // --- Acceptance criterion 1 (SQL Server) ---

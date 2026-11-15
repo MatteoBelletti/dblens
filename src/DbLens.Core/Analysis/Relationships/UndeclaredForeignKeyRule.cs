@@ -27,7 +27,7 @@ public static class UndeclaredForeignKeyRule
         var joins = (observed ?? [])
             .ToLookup(j => (j.Child, j.ChildColumn.ToLowerInvariant()));
 
-        var candidates = new List<Candidate>();
+        List<Candidate> candidates = [];
         var ambiguous = 0;
 
         foreach (var child in tables.Where(t => t.Kind == "table"))
@@ -55,7 +55,7 @@ public static class UndeclaredForeignKeyRule
                     var alsoNamed = matches.Any(c => ReferenceEquals(c.Parent, target.Parent));
                     candidates.Add(new Candidate(
                         child, column, target.Parent, target.ParentKey, "observed-join", alsoNamed ? 0.85 : 0.8,
-                        seen[0].Select(j => j.Describe()).Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal).ToList()));
+                        [.. seen[0].Select(j => j.Describe()).Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal)]));
                 }
                 else if (seen.Count > 1 || matches.Count > 1) ambiguous++;
                 else if (matches.Count == 1) candidates.Add(matches[0]);

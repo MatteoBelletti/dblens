@@ -10,18 +10,12 @@ namespace DbLens.Tests;
 /// semantic findings: same rule_ids, same table names (modulo schema prefix), same columns.
 /// Allowed differences: constraint/index names, schema prefixes (public vs dbo).
 /// </summary>
-public sealed class IndexAnalysisParityTests :
+public sealed class IndexAnalysisParityTests(PostgresFixture pg, SqlServerFixture ss) :
     IClassFixture<PostgresFixture>,
     IClassFixture<SqlServerFixture>
 {
-    private readonly PostgresFixture _pg;
-    private readonly SqlServerFixture _ss;
-
-    public IndexAnalysisParityTests(PostgresFixture pg, SqlServerFixture ss)
-    {
-        _pg = pg;
-        _ss = ss;
-    }
+    private readonly PostgresFixture _pg = pg;
+    private readonly SqlServerFixture _ss = ss;
 
     private bool ShouldSkip => !_pg.IsReachable || !_ss.IsReachable;
 

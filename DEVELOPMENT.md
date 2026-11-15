@@ -3,19 +3,26 @@
 ## Prerequisiti
 
 - .NET 10 SDK
-- Docker Desktop
+- Docker (Docker Desktop su Windows e macOS)
 - Node.js / npx (per l'MCP Inspector)
-- Visual Studio 2026 con `dblens.slnx` aperta
-- `make` — installa con `winget install GnuWin32.Make` poi riapri il terminale
+- Un IDE: Visual Studio 2026, Rider o VS Code con C# Dev Kit, su `dblens.slnx`
+- `make` — già presente su Linux e macOS; su Windows `winget install GnuWin32.Make`, poi riapri il terminale
+
+`make attach` e il profilo di debug di Visual Studio esistono solo su Windows; il resto funziona
+ovunque.
 
 ---
 
 ## Setup iniziale
 
-```powershell
-# Avvia i database PostgreSQL e SQL Server
-make db
+```bash
+make db          # PostgreSQL su 5433, SQL Server su 1434 (il primo avvio richiede ~1 minuto)
+dotnet build
+dotnet test      # i test di integrazione usano entrambi i database
 ```
+
+Se un database non è raggiungibile i test di integrazione vengono **saltati**, non superati, e la CI
+fallisce su qualsiasi test saltato.
 
 ---
 
@@ -112,6 +119,21 @@ Oppure da Visual Studio: tasto destro su **DbLens.Mcp → Pubblica → Profilo `
 
 ---
 
+## Stile del codice
+
+Le regole C# sono in `.editorconfig` e la build le applica: con `EnforceCodeStyleInBuild` e
+`TreatWarningsAsErrors` una regola a `warning` è un errore di compilazione. Per applicare le
+correzioni automatiche:
+
+```bash
+dotnet format style dblens.slnx
+```
+
+Attenzione ai predicati di FluentAssertions (`Should().Contain(x => …)`): sono expression tree, che non
+accettano `is null` / `is not null`; lì resta `== null` / `!= null`.
+
+---
+
 ## Struttura del progetto
 
 Dettagli in [docs/architecture.md](docs/architecture.md).
@@ -160,30 +182,34 @@ usa-e-getta: `DbLens__AllowWriteCapableLogin=true`. Per abilitare
 ## Release
 
 Aggiorna `<Version>` in `src/DbLens.Mcp/DbLens.Mcp.csproj` e le due versioni in
-`src/DbLens.Mcp/.mcp/server.json`, poi:
+`src/DbLens.Mcp/.mcp/server.json`, fai il merge su `master`, poi:
 
-```powershell
-git tag v0.1.0
-git push origin v0.1.0
+```bash
+git tag v<versione>
+git push origin v<versione>
 ```
 
-Il workflow `release.yml` produce binari self-contained, estensioni `.mcpb` e il pacchetto NuGet, e
-pubblica quest'ultimo su nuget.org con Trusted Publishing (token OIDC di GitHub, nessuna API key
-salvata). Serve una volta: la policy su nuget.org (owner `MatteoBelletti`, repo `dblens`, workflow
-`release.yml`) e il secret GitHub `NUGET_USER` con il nome profilo nuget.org. Senza il secret il push
-viene saltato.
+La versione pubblicata è quella del tag. Il workflow `release.yml` produce binari self-contained,
+estensioni `.mcpb` e il pacchetto NuGet `DbLens.Mcp`, e lo pubblica su nuget.org con Trusted
+Publishing (token OIDC di GitHub, nessuna API key salvata). La configurazione una tantum — policy su
+nuget.org e secret GitHub `NUGET_USER` con il nome profilo nuget.org — è già fatta; senza il secret il
+push viene saltato e il `.nupkg` resta allegato alla release.
+
+La pagina NuGet mostra il README contenuto nel pacchetto: i link devono essere assoluti, e una modifica
+al README arriva su nuget.org solo con la release successiva.
 
 ---
 
 ## Configurazione Claude Desktop
 
-File: `%APPDATA%\Claude\claude_desktop_config.json`
+File: `%APPDATA%\Claude\claude_desktop_config.json` su Windows,
+`~/Library/Application Support/Claude/claude_desktop_config.json` su macOS.
 
 ```json
 {
   "mcpServers": {
     "dblens": {
-      "command": "C:\\Users\\matte_cc6iqkl\\dblens\\publish\\DbLens.Mcp.exe",
+      "command": "C:\\path\\to\\dblens\\publish\\DbLens.Mcp.exe",
       "args": []
     }
   }

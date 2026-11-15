@@ -53,7 +53,7 @@ public static class DenormalizationVerifier
         }
 
         var split = FindingSplit.Partition(reclassified);
-        var caveats = BuildCaveats(unverified.Caveats, measurements, split);
+        var caveats = BuildCaveats(unverified.Caveats, measurements, split, request.Budget);
 
         return unverified with
         {
@@ -99,7 +99,7 @@ public static class DenormalizationVerifier
                 "A deliberate point-in-time snapshot and a stale cache produce exactly the same " +
                 "measurement. This result shows the values differ; it does not establish that the " +
                 "difference is a defect.",
-            Metadata = WithVerification(signal.Metadata, Outcome(m, ratio)),
+            Metadata = VerificationOutcome.Attach(signal.Metadata, m, ratio),
         };
     }
 
@@ -122,7 +122,7 @@ public static class DenormalizationVerifier
                 $"MEASURED: 0 of {Num.N0(compared)} rows compared — {m.MeasurementDescription}. " +
                 "The heuristic below was tested and not borne out." + smallSample + "\n\n" +
                 "WHAT WAS SUSPECTED: " + signal.Description,
-            Metadata = WithVerification(signal.Metadata, Outcome(m, 0)),
+            Metadata = VerificationOutcome.Attach(signal.Metadata, m, 0),
         };
     }
 
@@ -131,51 +131,18 @@ public static class DenormalizationVerifier
     /// claim changes: an unverified conjecture is exactly as strong as it was before.
     /// </summary>
     private static Finding LeaveAsSignal(Finding signal, VerificationMeasurement m) =>
-        signal with { Metadata = WithVerification(signal.Metadata, Outcome(m, null)) };
+        signal with { Metadata = VerificationOutcome.Attach(signal.Metadata, m, null) };
 
 
-    // ── Metadata and caveats ───────────────────────────────────────────────────
-
-    private static VerificationOutcome Outcome(VerificationMeasurement m, double? ratio) =>
-        new(
-            Status: m.Status.ToString(),
-            Measurement: m.MeasurementDescription,
-            RowsCompared: m.Denominator,
-            RowsDiverging: m.Numerator,
-            DivergenceRatio: ratio is null ? null : Math.Round(ratio.Value, 4),
-            NotVerifiedReason: ReasonOf(m),
-            Query: m.Sql);
-
-
-    private static string? ReasonOf(VerificationMeasurement m) => m.Status switch
-    {
-        VerificationStatus.Confirmed or VerificationStatus.Refuted => null,
-        VerificationStatus.Failed => m.FailureKind.ToString(),
-        VerificationStatus.Inconclusive => "NoRowsCompared",
-        _ => m.SkipReason.ToString(),
-    };
-
-    private static IReadOnlyDictionary<string, object> WithVerification(
-        IReadOnlyDictionary<string, object>? metadata, VerificationOutcome outcome)
-    {
-        var copy = metadata is null
-            ? new Dictionary<string, object>()
-            : new Dictionary<string, object>(metadata);
-
-        copy["verification"] = outcome;
-        return copy;
-    }
+    // ── Caveats ────────────────────────────────────────────────────────────────
 
     private static IReadOnlyList<string> BuildCaveats(
         IReadOnlyList<string> existing,
         IReadOnlyList<VerificationMeasurement> measurements,
-        FindingSplit split)
+        FindingSplit split,
+        VerificationBudget budget)
     {
-        // The unverified pass added a caveat explaining that signals are conjectures. After
-        // verification some of them are not, so that sentence is replaced rather than kept.
-        var caveats = existing
-            .Where(c => !c.Contains("reported under Signals rather than Findings", StringComparison.Ordinal))
-            .ToList();
+        var caveats = FindingSplit.WithoutSignalCaveat(existing);
 
         var inconclusive = measurements.Count(m => m.Status == VerificationStatus.Inconclusive);
         if (inconclusive > 0)
@@ -185,35 +152,7 @@ public static class DenormalizationVerifier
                 "reporting it as 'no divergence found' would be a factual-looking claim derived " +
                 "from nothing.");
 
-        var failed = measurements.Where(m => m.Status == VerificationStatus.Failed).ToList();
-        if (failed.Count > 0)
-            caveats.Add(
-                $"{failed.Count} verification query/queries failed and their signals remain " +
-                "unverified conjectures: " +
-                string.Join("; ", failed.Select(f => f.FailureKind.ToString()).Distinct()) + ".");
-
-        var skipped = measurements
-            .Where(m => m.Status == VerificationStatus.NotAttempted)
-            .GroupBy(m => m.SkipReason)
-            .ToList();
-
-        foreach (var group in skipped)
-            caveats.Add(
-                $"{group.Count()} signal(s) were not verified: " +
-                group.Key switch
-                {
-                    VerificationSkipReason.RowCountUnknown =>
-                        "the tables' sizes are unknown because statistics have never been collected. " +
-                        "Run ANALYZE (PostgreSQL) or UPDATE STATISTICS (SQL Server) and re-run.",
-                    VerificationSkipReason.TableTooLarge =>
-                        "the tables exceed the verification size limit. Raise maxVerifiableTableRows " +
-                        "to include them, at the cost of scanning large tables.",
-                    VerificationSkipReason.QueryBudgetExhausted =>
-                        "the query budget ran out. Raise maxVerificationQueries or narrow the scope.",
-                    VerificationSkipReason.TimeBudgetExhausted =>
-                        "the time budget ran out. Narrow the scope with the schema/tables filters.",
-                    _ => "the heuristic cannot be checked against data without guessing.",
-                });
+        caveats.AddRange(budget.NotRunCaveats(measurements));
 
         if (split.SignalCaveat() is { } signalCaveat)
             caveats.Add(signalCaveat);

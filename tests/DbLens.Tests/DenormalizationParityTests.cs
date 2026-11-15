@@ -9,18 +9,12 @@ namespace DbLens.Tests;
 /// must produce the same findings for the equivalent schema.
 /// Skipped automatically when either database is not reachable.
 /// </summary>
-public sealed class DenormalizationParityTests :
+public sealed class DenormalizationParityTests(PostgresFixture pg, SqlServerFixture ss) :
     IClassFixture<PostgresFixture>,
     IClassFixture<SqlServerFixture>
 {
-    private readonly PostgresFixture _pg;
-    private readonly SqlServerFixture _ss;
-
-    public DenormalizationParityTests(PostgresFixture pg, SqlServerFixture ss)
-    {
-        _pg = pg;
-        _ss = ss;
-    }
+    private readonly PostgresFixture _pg = pg;
+    private readonly SqlServerFixture _ss = ss;
 
     private bool ShouldSkip => !_pg.IsReachable || !_ss.IsReachable;
 

@@ -71,7 +71,7 @@ public static class JoinPredicateExtractor
             return byName.TryGetValue(name, out var list) && list.Count == 1 ? list[0] : null;
         }
 
-        var joins = new List<ObservedJoin>();
+        List<ObservedJoin> joins = [];
 
         foreach (var source in sources)
         {

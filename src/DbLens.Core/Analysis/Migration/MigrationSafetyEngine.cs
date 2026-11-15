@@ -24,9 +24,9 @@ public static class MigrationSafetyEngine
         CheckMigrationSafetyRequest request,
         DatabaseDialect dialect)
     {
-        var findings = new List<Finding>();
-        var caveats = new List<string>();
-        var resolved = new HashSet<(string, string)>();
+        List<Finding> findings = [];
+        List<string> caveats = [];
+        HashSet<(string, string)> resolved = [];
 
         foreach (var statement in statements)
         {

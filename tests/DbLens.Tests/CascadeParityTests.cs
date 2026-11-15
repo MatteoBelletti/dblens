@@ -9,18 +9,12 @@ namespace DbLens.Tests;
 /// Verifies that Postgres and SQL Server produce equivalent findings for the same schema.
 /// Skipped automatically when either database is not reachable.
 /// </summary>
-public sealed class CascadeParityTests :
+public sealed class CascadeParityTests(PostgresFixture pg, SqlServerFixture ss) :
     IClassFixture<PostgresFixture>,
     IClassFixture<SqlServerFixture>
 {
-    private readonly PostgresFixture _pg;
-    private readonly SqlServerFixture _ss;
-
-    public CascadeParityTests(PostgresFixture pg, SqlServerFixture ss)
-    {
-        _pg = pg;
-        _ss = ss;
-    }
+    private readonly PostgresFixture _pg = pg;
+    private readonly SqlServerFixture _ss = ss;
 
     private bool ShouldSkip => !_pg.IsReachable || !_ss.IsReachable;
 

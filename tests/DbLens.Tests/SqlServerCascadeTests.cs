@@ -12,14 +12,9 @@ namespace DbLens.Tests;
 /// Skipped automatically when SQL Server is not reachable.
 /// Run with: dotnet test --filter "Category=Integration"
 /// </summary>
-public sealed class SqlServerCascadeTests : IClassFixture<SqlServerFixture>
+public sealed class SqlServerCascadeTests(SqlServerFixture fixture) : IClassFixture<SqlServerFixture>
 {
-    private readonly SqlServerFixture _fixture;
-
-    public SqlServerCascadeTests(SqlServerFixture fixture)
-    {
-        _fixture = fixture;
-    }
+    private readonly SqlServerFixture _fixture = fixture;
 
     private bool ShouldSkip => !_fixture.IsReachable;
 

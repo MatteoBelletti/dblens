@@ -278,13 +278,12 @@ public abstract partial class DatabaseInspectorBase
         }
 
         // Every table that is the parent of at least one CASCADE foreign key.
-        return edges
+        return [.. edges
             .Where(e => e.OnDelete == "CASCADE")
             .Select(e => (e.ToSchema, e.ToTable))
             .Distinct()
             .OrderBy(t => t.ToSchema)
-            .ThenBy(t => t.ToTable)
-            .ToList();
+            .ThenBy(t => t.ToTable)];
     }
 
     // ── explain_query ──────────────────────────────────────────────────────────
