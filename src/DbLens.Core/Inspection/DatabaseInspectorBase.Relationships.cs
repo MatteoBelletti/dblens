@@ -88,7 +88,7 @@ public abstract partial class DatabaseInspectorBase
         var plan = RelationshipAnalysisEngine.BuildPlan(analysis, rowCounts, Dialect);
         var measurements = await RunVerificationProbesAsync(plan, budget, ct);
 
-        var result = RelationshipAnalysisEngine.ApplyVerification(analysis, measurements, Dialect);
+        var result = RelationshipAnalysisEngine.ApplyVerification(analysis, measurements, Dialect, budget);
         if (VerificationCaveats.Count > 0)
             result = result with { Caveats = [..result.Caveats, ..VerificationCaveats] };
 

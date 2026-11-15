@@ -53,7 +53,7 @@ public static class DenormalizationVerifier
         }
 
         var split = FindingSplit.Partition(reclassified);
-        var caveats = BuildCaveats(unverified.Caveats, measurements, split);
+        var caveats = BuildCaveats(unverified.Caveats, measurements, split, request.Budget);
 
         return unverified with
         {
@@ -139,7 +139,8 @@ public static class DenormalizationVerifier
     private static IReadOnlyList<string> BuildCaveats(
         IReadOnlyList<string> existing,
         IReadOnlyList<VerificationMeasurement> measurements,
-        FindingSplit split)
+        FindingSplit split,
+        VerificationBudget budget)
     {
         var caveats = FindingSplit.WithoutSignalCaveat(existing);
 
@@ -151,35 +152,7 @@ public static class DenormalizationVerifier
                 "reporting it as 'no divergence found' would be a factual-looking claim derived " +
                 "from nothing.");
 
-        var failed = measurements.Where(m => m.Status == VerificationStatus.Failed).ToList();
-        if (failed.Count > 0)
-            caveats.Add(
-                $"{failed.Count} verification query/queries failed and their signals remain " +
-                "unverified conjectures: " +
-                string.Join("; ", failed.Select(f => f.FailureKind.ToString()).Distinct()) + ".");
-
-        var skipped = measurements
-            .Where(m => m.Status == VerificationStatus.NotAttempted)
-            .GroupBy(m => m.SkipReason)
-            .ToList();
-
-        foreach (var group in skipped)
-            caveats.Add(
-                $"{group.Count()} signal(s) were not verified: " +
-                group.Key switch
-                {
-                    VerificationSkipReason.RowCountUnknown =>
-                        "the tables' sizes are unknown because statistics have never been collected. " +
-                        "Run ANALYZE (PostgreSQL) or UPDATE STATISTICS (SQL Server) and re-run.",
-                    VerificationSkipReason.TableTooLarge =>
-                        "the tables exceed the verification size limit. Raise maxVerifiableTableRows " +
-                        "to include them, at the cost of scanning large tables.",
-                    VerificationSkipReason.QueryBudgetExhausted =>
-                        "the query budget ran out. Raise maxVerificationQueries or narrow the scope.",
-                    VerificationSkipReason.TimeBudgetExhausted =>
-                        "the time budget ran out. Narrow the scope with the schema/tables filters.",
-                    _ => "the heuristic cannot be checked against data without guessing.",
-                });
+        caveats.AddRange(budget.NotRunCaveats(measurements));
 
         if (split.SignalCaveat() is { } signalCaveat)
             caveats.Add(signalCaveat);

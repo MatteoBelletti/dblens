@@ -38,6 +38,34 @@ public sealed record VerificationBudget(
         if (probe.ApproximateRowCount is not { } rows) return VerificationSkipReason.RowCountUnknown;
         return rows > MaxTableRows ? VerificationSkipReason.TableTooLarge : VerificationSkipReason.None;
     }
+
+    /// <summary>
+    /// One caveat per reason a probe failed or did not run. The limits are server defaults, not tool
+    /// parameters, so the advice is what the caller can change: the scope, or the statistics.
+    /// </summary>
+    public IEnumerable<string> NotRunCaveats(IReadOnlyList<VerificationMeasurement> measurements)
+    {
+        var failed = measurements.Where(m => m.Status == VerificationStatus.Failed).ToList();
+        if (failed.Count > 0)
+            yield return
+                $"{failed.Count} verification query/queries failed and their signals remain unverified " +
+                "conjectures: " + string.Join("; ", failed.Select(f => f.FailureKind.ToString()).Distinct()) + ".";
+
+        foreach (var group in measurements.Where(m => m.Status == VerificationStatus.NotAttempted).GroupBy(m => m.SkipReason))
+            yield return $"{group.Count()} signal(s) were not verified: " + group.Key switch
+            {
+                VerificationSkipReason.RowCountUnknown =>
+                    "the tables' sizes are unknown because statistics have never been collected. " +
+                    "Run ANALYZE (PostgreSQL) or UPDATE STATISTICS (SQL Server) and re-run.",
+                VerificationSkipReason.TableTooLarge =>
+                    $"the tables exceed the verification size limit of {Num.N0(MaxTableRows)} rows.",
+                VerificationSkipReason.QueryBudgetExhausted =>
+                    $"the query budget ({MaxQueries} per call) ran out. Narrow the scope with the schema/tables filters.",
+                VerificationSkipReason.TimeBudgetExhausted =>
+                    $"the time budget ({TotalBudgetSeconds} s per call) ran out. Narrow the scope with the schema/tables filters.",
+                _ => "the heuristic cannot be checked against data without guessing.",
+            };
+    }
 }
 
 /// <summary>Identifies the signal a probe belongs to. Unique within one analysis run.</summary>

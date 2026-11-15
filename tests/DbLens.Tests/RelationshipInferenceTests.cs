@@ -224,6 +224,10 @@ public sealed class RelationshipInferenceTests
         var outcome = (VerificationOutcome)result.Signals.Single().Metadata!["verification"];
         outcome.Status.Should().Be("NotAttempted");
         outcome.NotVerifiedReason.Should().Be("TableTooLarge");
+
+        // The limit is a server default, so the caveat states it rather than naming a parameter to raise.
+        result.Caveats.Should().Contain(c => c.Contains("1 signal(s) were not verified") && c.Contains("5,000,000 rows"));
+        result.Caveats.Should().NotContain(c => c.Contains("Raise"));
     }
 
     [Fact]

@@ -83,7 +83,8 @@ public static class RelationshipAnalysisEngine
     public static InferRelationshipsResult ApplyVerification(
         Analysis analysis,
         IReadOnlyList<VerificationMeasurement> measurements,
-        DatabaseDialect dialect)
+        DatabaseDialect dialect,
+        VerificationBudget? budget = null)
     {
         var byKey = measurements.ToDictionary(m => m.Target.Key, StringComparer.Ordinal);
         var candidates = analysis.Candidates.ToDictionary(c => TargetOf(c).Key, StringComparer.Ordinal);
@@ -174,6 +175,7 @@ public static class RelationshipAnalysisEngine
             caveats.Add(
                 $"{inconclusive} candidate(s) had no non-null values to compare and remain unverified — an " +
                 "empty column neither confirms nor refutes a reference.");
+        caveats.AddRange((budget ?? new InferRelationshipsRequest().Budget).NotRunCaveats(measurements));
         if (split.SignalCaveat() is { } signalCaveat) caveats.Add(signalCaveat);
 
         return Build(edges, split, caveats, unverified.Summary.TablesAnalyzed,
