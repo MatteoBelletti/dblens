@@ -85,8 +85,17 @@ public sealed record FindingSplit(
     public string? SignalCaveat() =>
         Signals.Count == 0
             ? null
-            : $"{Signals.Count} result(s) are reported under Signals rather than Findings. " +
+            : $"{Signals.Count} result(s) {SignalCaveatMarker}. " +
               "Signals are inferred from column names and table structure, not measured or read " +
               "from catalog guarantees — treat them as hypotheses to confirm against the data, " +
               "and do not report them as established problems.";
+
+    private const string SignalCaveatMarker = "are reported under Signals rather than Findings";
+
+    /// <summary>
+    /// The caveats without the one <see cref="SignalCaveat"/> wrote. A verification pass turns some
+    /// signals into measurements, so it drops that sentence and adds its own for what remains.
+    /// </summary>
+    public static List<string> WithoutSignalCaveat(IEnumerable<string> caveats) =>
+        [.. caveats.Where(c => !c.Contains(SignalCaveatMarker, StringComparison.Ordinal))];
 }

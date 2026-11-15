@@ -167,7 +167,30 @@ public sealed record VerificationOutcome(
     /// <summary>Why nothing was measured. Null when it was.</summary>
     string? NotVerifiedReason,
     /// <summary>The exact SQL that produced the numbers, so the result can be reproduced by hand.</summary>
-    string Query);
+    string Query)
+{
+    /// <summary>A copy of <paramref name="metadata"/> carrying the outcome of <paramref name="m"/> under "verification".</summary>
+    public static IReadOnlyDictionary<string, object> Attach(
+        IReadOnlyDictionary<string, object>? metadata, VerificationMeasurement m, double? ratio)
+    {
+        var copy = metadata is null ? [] : new Dictionary<string, object>(metadata);
+        copy["verification"] = new VerificationOutcome(
+            Status: m.Status.ToString(),
+            Measurement: m.MeasurementDescription,
+            RowsCompared: m.Denominator,
+            RowsDiverging: m.Numerator,
+            DivergenceRatio: ratio is null ? null : Math.Round(ratio.Value, 4),
+            NotVerifiedReason: m.Status switch
+            {
+                VerificationStatus.Confirmed or VerificationStatus.Refuted => null,
+                VerificationStatus.Failed => m.FailureKind.ToString(),
+                VerificationStatus.Inconclusive => "NoRowsCompared",
+                _ => m.SkipReason.ToString(),
+            },
+            Query: m.Sql);
+        return copy;
+    }
+}
 
 /// <summary>Accounting for the verification pass.</summary>
 public sealed record VerificationSummary(

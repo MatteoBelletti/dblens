@@ -213,6 +213,20 @@ public sealed class RelationshipInferenceTests
     }
 
     [Fact]
+    public void SkippedProbe_RecordsWhyItWasNotVerified()
+    {
+        var analysis = Analyze(Orders(), Shipments(Col("order_id", "bigint")));
+        var probe = RelationshipAnalysisEngine.BuildPlan(analysis, new Dictionary<(string, string), long?>(), DatabaseDialect.PostgreSql).Single();
+
+        var result = RelationshipAnalysisEngine.ApplyVerification(
+            analysis, [VerificationMeasurement.Skipped(probe, VerificationSkipReason.TableTooLarge)], DatabaseDialect.PostgreSql);
+
+        var outcome = (VerificationOutcome)result.Signals.Single().Metadata!["verification"];
+        outcome.Status.Should().Be("NotAttempted");
+        outcome.NotVerifiedReason.Should().Be("TableTooLarge");
+    }
+
+    [Fact]
     public void ZeroOrphans_BecomesAVerifiedMeasuredFindingWithAConstraintProposal()
     {
         var result = Verify(compared: 40, orphans: 0);

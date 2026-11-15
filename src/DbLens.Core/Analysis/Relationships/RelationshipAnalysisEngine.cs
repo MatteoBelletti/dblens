@@ -100,7 +100,7 @@ public static class RelationshipAnalysisEngine
             if (!byKey.TryGetValue(key, out var m)
                 || m.Status is not (VerificationStatus.Confirmed or VerificationStatus.Refuted))
             {
-                reclassified.Add(m is null ? signal : signal with { Metadata = WithOutcome(signal, m, null) });
+                reclassified.Add(m is null ? signal : signal with { Metadata = VerificationOutcome.Attach(signal.Metadata, m, null) });
                 edges.Add(InferredEdge(candidate, RelationshipEvidence.Inferred, null, null));
                 continue;
             }
@@ -125,7 +125,7 @@ public static class RelationshipAnalysisEngine
                         "database is not enforcing it. Values matching is strong evidence of a reference, not " +
                         "proof of intent — confirm with whoever owns the schema before declaring the constraint.",
                     SqlFix = UndeclaredForeignKeyRule.BuildConstraint(candidate, dialect),
-                    Metadata = WithOutcome(signal, m, 0),
+                    Metadata = VerificationOutcome.Attach(signal.Metadata, m, 0),
                 });
                 edges.Add(InferredEdge(candidate, RelationshipEvidence.Verified, compared, 0));
             }
@@ -144,7 +144,7 @@ public static class RelationshipAnalysisEngine
                         "WHAT THIS MAY MEAN: most values resolve, which suggests a real reference with orphaned " +
                         "rows — references to parents that were deleted or never existed. A foreign key cannot " +
                         "be added until they are resolved, and a join on this path silently drops them.",
-                    Metadata = WithOutcome(signal, m, orphanRatio),
+                    Metadata = VerificationOutcome.Attach(signal.Metadata, m, orphanRatio),
                 });
                 edges.Add(InferredEdge(candidate, RelationshipEvidence.VerifiedWithOrphans, compared, orphans));
             }
@@ -161,15 +161,13 @@ public static class RelationshipAnalysisEngine
                         $"MEASURED: {Num.P0(orphanRatio)} of the non-null values of {source} match no row of " +
                         $"{target}. Despite the name, the data does not support a reference, and this path has " +
                         "been left out of the relationship map.",
-                    Metadata = WithOutcome(signal, m, orphanRatio),
+                    Metadata = VerificationOutcome.Attach(signal.Metadata, m, orphanRatio),
                 });
             }
         }
 
         var split = FindingSplit.Partition(reclassified);
-        var caveats = unverified.Caveats
-            .Where(c => !c.Contains("reported under Signals rather than Findings", StringComparison.Ordinal))
-            .ToList();
+        var caveats = FindingSplit.WithoutSignalCaveat(unverified.Caveats);
 
         var inconclusive = measurements.Count(x => x.Status == VerificationStatus.Inconclusive);
         if (inconclusive > 0)
@@ -186,15 +184,6 @@ public static class RelationshipAnalysisEngine
     private static RelationshipEdge InferredEdge(
         UndeclaredForeignKeyRule.Candidate c, RelationshipEvidence evidence, long? compared, long? orphans) =>
         new(c.Child.Qualified(), [c.Column.Name], c.Parent.Qualified(), [c.ParentKey], evidence, c.Basis, compared, orphans);
-
-    private static IReadOnlyDictionary<string, object> WithOutcome(Finding signal, VerificationMeasurement m, double? ratio)
-    {
-        var copy = signal.Metadata is null ? [] : new Dictionary<string, object>(signal.Metadata);
-        copy["verification"] = new VerificationOutcome(
-            m.Status.ToString(), m.MeasurementDescription, m.Denominator, m.Numerator,
-            ratio is null ? null : Math.Round(ratio.Value, 4), m.Status is VerificationStatus.Confirmed or VerificationStatus.Refuted ? null : m.Status.ToString(), m.Sql);
-        return copy;
-    }
 
     private static VerificationTarget TargetOf(UndeclaredForeignKeyRule.Candidate c) =>
         new(RelationshipRuleIds.UndeclaredForeignKey, c.Child.Qualified(), [c.Column.Name]);

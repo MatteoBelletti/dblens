@@ -1,12 +1,13 @@
 using System.Data.Common;
 using DbLens.Core.Analysis.Relationships;
+using DbLens.Core.Inspection;
 
 namespace DbLens.Postgres;
 
 public sealed partial class PostgresInspector
 {
     private const string ViewsAndRoutinesSql = """
-        SELECT 'view', schemaname || '.' || viewname, definition
+        SELECT 'view' AS kind, schemaname || '.' || viewname AS name, definition
         FROM pg_views
         WHERE schemaname NOT IN ('pg_catalog', 'information_schema') AND definition IS NOT NULL
         UNION ALL
@@ -36,7 +37,7 @@ public sealed partial class PostgresInspector
         await using var conn = await OpenAsync(ct);
 
         var sources = await ReadAllAsync(Command(conn, ViewsAndRoutinesSql), r => new SqlSource(
-            r.GetString(0) == "view" ? SqlSourceKind.View : SqlSourceKind.Routine, r.GetString(1), r.GetString(2)), ct);
+            r.Text("kind") == "view" ? SqlSourceKind.View : SqlSourceKind.Routine, r.Text("name"), r.Text("definition")), ct);
         List<string> caveats = [];
 
         await using (var check = Command(conn, "SELECT EXISTS (SELECT 1 FROM pg_extension WHERE extname = 'pg_stat_statements')"))
@@ -53,7 +54,7 @@ public sealed partial class PostgresInspector
         try
         {
             sources.AddRange(await ReadAllAsync(Command(conn, WorkloadSql), r => new SqlSource(
-                SqlSourceKind.Workload, "pg_stat_statements", r.GetString(0), r.GetInt64(1)), ct));
+                SqlSourceKind.Workload, "pg_stat_statements", r.Text("query"), r.Number("calls")), ct));
         }
         catch (DbException ex)
         {
