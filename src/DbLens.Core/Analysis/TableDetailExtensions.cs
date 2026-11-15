@@ -50,6 +50,19 @@ public static class IndexDetailExtensions
 
     public static IReadOnlyList<string> Included(this IndexDetail index) => index.IncludedColumns ?? [];
 
+    /// <summary>
+    /// How the first <paramref name="count"/> key columns sort relative to the first one. Two
+    /// indexes with the same signature order rows the same way or exactly opposite, which is one
+    /// index to a b-tree: it reads backwards as well as forwards. (a, b DESC) is another order.
+    /// </summary>
+    public static string KeyOrder(this IndexDetail index, int count)
+    {
+        var descending = new HashSet<string>(index.DescendingColumns ?? [], StringComparer.OrdinalIgnoreCase);
+
+        return string.Concat(index.Columns.Take(count)
+            .Select(c => descending.Contains(c) == descending.Contains(index.Columns[0]) ? '=' : '~'));
+    }
+
     public static bool StartsWith(this IndexDetail index, IReadOnlyList<string> columns)
     {
         if (index.Columns.Count < columns.Count) return false;

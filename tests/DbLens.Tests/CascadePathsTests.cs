@@ -39,6 +39,40 @@ public sealed class CascadePathsTests
             "test_db");
     }
 
+    // ── NO ACTION beside CASCADE ───────────────────────────────────────────────
+
+    private static CascadeAnalysisEngine.FkEdge Key(
+        string constraint, string onDelete, string[] from, string[] to) =>
+        new("public", "orders", constraint, from, "public", "users", to, onDelete);
+
+    [Fact]
+    public void NoAction_OverTheRowsACascadeDeletes_DoesNotBlock()
+    {
+        // Checked when the statement ends, after the cascade has removed every row that references the user.
+        var result = Analyze(
+        [
+            Key("fk_user", "CASCADE", ["user_id"], ["id"]),
+            Key("fk_tenant_user", "NO ACTION", ["tenant_id", "user_id"], ["tenant_id", "id"]),
+        ], [("public", "users")]);
+
+        result.Findings.Should().NotContain(f => f.RuleId == CascadeRuleIds.BreaksWithRestrict);
+        result.Paths.Should().ContainSingle().Which.BrokenAt.Should().BeNull();
+    }
+
+    [Theory]
+    [InlineData("NO ACTION", "approved_by")]   // other rows: those the user approved but did not create
+    [InlineData("RESTRICT", "user_id")]        // checked at once, before or after the cascade
+    public void KeyTheCascadeDoesNotEmpty_StillBlocks(string onDelete, string column)
+    {
+        var result = Analyze(
+        [
+            Key("fk_user", "CASCADE", ["user_id"], ["id"]),
+            Key("fk_other", onDelete, [column], ["id"]),
+        ], [("public", "users")]);
+
+        result.Findings.Should().ContainSingle(f => f.RuleId == CascadeRuleIds.BreaksWithRestrict);
+    }
+
     // ── Empty graph ────────────────────────────────────────────────────────────
 
     [Fact]

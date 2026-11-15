@@ -139,7 +139,10 @@ public sealed partial class PostgresInspector(string connectionString, ILogger<P
                 array_agg(COALESCE(a.attname::text, pg_get_indexdef(ix.indexrelid, k.n, true)) ORDER BY k.n)
                     FILTER (WHERE k.n <= ix.indnkeyatts) AS columns,
                 COALESCE(array_agg(a.attname::text ORDER BY k.n)
-                    FILTER (WHERE k.n > ix.indnkeyatts), '{}'::text[]) AS included_columns
+                    FILTER (WHERE k.n > ix.indnkeyatts), '{}'::text[]) AS included_columns,
+                COALESCE(array_agg(COALESCE(a.attname::text, pg_get_indexdef(ix.indexrelid, k.n, true)) ORDER BY k.n)
+                    FILTER (WHERE k.n <= ix.indnkeyatts AND (ix.indoption[k.n - 1] & 1) = 1), '{}'::text[])
+                    AS descending_columns
             FROM pg_index ix
             CROSS JOIN LATERAL generate_series(1, ix.indnatts) AS k(n)
             LEFT JOIN pg_attribute a
@@ -157,7 +160,8 @@ public sealed partial class PostgresInspector(string connectionString, ILogger<P
             ix.indpred IS NOT NULL                 AS is_partial,
             pg_get_expr(ix.indpred, ix.indrelid)   AS predicate,
             ic.columns,
-            ic.included_columns
+            ic.included_columns,
+            ic.descending_columns
         FROM pg_index ix
         JOIN pg_class ct ON ct.oid = ix.indrelid
         JOIN pg_class ci ON ci.oid = ix.indexrelid
@@ -321,7 +325,8 @@ public sealed partial class PostgresInspector(string connectionString, ILogger<P
             Definition: r.Text("definition"),
             IsPartial: r.Flag("is_partial"),
             Predicate: r.TextOrNull("predicate"),
-            IncludedColumns: r.Field<string[]>("included_columns") is { Length: > 0 } included ? included : null)), ct);
+            IncludedColumns: r.Field<string[]>("included_columns") is { Length: > 0 } included ? included : null,
+            DescendingColumns: r.Field<string[]>("descending_columns") is { Length: > 0 } descending ? descending : null)), ct);
 
         var foreignKeys = await ReadAllAsync(For(TableDetailForeignKeysSql), r => new ForeignKeyDetail(
             ConstraintName: r.Text("constraint_name"),

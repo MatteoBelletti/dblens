@@ -178,6 +178,7 @@ public sealed partial class SqlServerInspector(string connectionString, ILogger<
             ic.index_column_id,
             ic.key_ordinal,
             ic.is_included_column,
+            ic.is_descending_key,
             c.name                  AS column_name
         FROM sys.indexes i
         JOIN sys.objects t ON t.object_id = i.object_id AND RTRIM(t.type) IN ('U', 'V')
@@ -344,6 +345,7 @@ public sealed partial class SqlServerInspector(string connectionString, ILogger<
             Position: r.Number("index_column_id"),
             KeyOrdinal: r.Number("key_ordinal"),
             IsIncluded: r.Flag("is_included_column"),
+            IsDescending: r.Flag("is_descending_key"),
             Column: r.Text("column_name")), ct);
 
         var indexes = indexColumns
@@ -353,6 +355,7 @@ public sealed partial class SqlServerInspector(string connectionString, ILogger<
                 var first = g.First();
                 var key = g.Where(x => x.KeyOrdinal > 0).OrderBy(x => x.KeyOrdinal).Select(x => x.Column).ToArray();
                 var included = g.Where(x => x.IsIncluded).OrderBy(x => x.Position).Select(x => x.Column).ToArray();
+                var descending = g.Where(x => x.KeyOrdinal > 0 && x.IsDescending).Select(x => x.Column).ToArray();
 
                 return (first.Key, Value: new IndexDetail(
                     Name: first.Index,
@@ -361,11 +364,12 @@ public sealed partial class SqlServerInspector(string connectionString, ILogger<
                     IsPrimary: first.IsPrimary,
                     Method: first.Method,
                     Definition: IndexDefinition(first.Key, first.Index, first.IsUnique || first.IsPrimary, first.Method,
-                        key, included, first.Filter),
+                        key, descending, included, first.Filter),
                     // The filter's text needs VIEW DEFINITION; that there is one does not.
                     IsPartial: first.HasFilter,
                     Predicate: first.Filter,
-                    IncludedColumns: included.Length == 0 ? null : included));
+                    IncludedColumns: included.Length == 0 ? null : included,
+                    DescendingColumns: descending.Length == 0 ? null : descending));
             })
             // A columnstore index has no key: it orders nothing, so the index rules have no use for it.
             .Where(x => x.Value.Columns.Count > 0);
@@ -422,14 +426,14 @@ public sealed partial class SqlServerInspector(string connectionString, ILogger<
 
     private static string IndexDefinition(
         (string Schema, string Name) table, string index, bool unique, string method,
-        string[] columns, string[] included, string? filter)
+        string[] columns, string[] descending, string[] included, string? filter)
     {
         static string Quote(string name) => SqlIdentifier.Quote(name, DatabaseDialect.SqlServer);
 
         return "CREATE " + (unique ? "UNIQUE " : "") +
                (method.Equals("NONCLUSTERED", StringComparison.OrdinalIgnoreCase) ? "" : method + " ") +
                $"INDEX {Quote(index)} ON {Quote(table.Schema)}.{Quote(table.Name)} " +
-               $"({string.Join(", ", columns.Select(Quote))})" +
+               $"({string.Join(", ", columns.Select(c => Quote(c) + (descending.Contains(c) ? " DESC" : "")))})" +
                (included.Length > 0 ? $" INCLUDE ({string.Join(", ", included.Select(Quote))})" : "") +
                (filter is null ? "" : $" WHERE {filter}");
     }

@@ -80,7 +80,8 @@ A name is written without quotes or brackets. When it contains dots (`my.schema.
 into schema and table is tried and the catalog decides; on SQL Server names are matched by the
 database's collation, so `USERS` finds `users` where the database is case-insensitive.
 
-An index reports its key in `Columns` and the columns it only carries in `IncludedColumns`; a column
+An index reports its key in `Columns`, the key columns sorted descending in `DescendingColumns` and
+the columns it only carries in `IncludedColumns`; a column
 computed by the database (generated, computed, system-period) has `IsGenerated`. `Kind` is `table`,
 `view` or `materialized view`.
 
@@ -95,14 +96,15 @@ computed by the database (generated, computed, system-period) has `IsGenerated`.
 | Rule | Severity | Evidence | Detects |
 |---|---|---|---|
 | `fk-without-index` | High | Derived | FK columns with no index that leads with them |
-| `duplicate-index` | Medium | Derived | Two indexes with the same key, uniqueness, access method and `INCLUDE` columns |
+| `duplicate-index` | Medium | Derived | Two indexes with the same key and key order, uniqueness, access method and `INCLUDE` columns |
 | `redundant-index` | Low | Derived | A non-unique index whose work another does: its key is a prefix of the other's, or the same key under a unique or wider-covering index |
 | `unused-index` | Low | Measured | A non-unique index with zero scans |
 
 Only an index that can do the job counts. A partial (filtered) index never covers a foreign key or
 makes another index redundant; a hash index covers a foreign key only on exactly its columns; GIN,
 GiST and columnstore indexes are not compared at all. An index is only called redundant when the
-other one also holds every column it carries. Disabled and hypothetical SQL Server indexes are ignored.
+other one also holds every column it carries. Key order counts: `(a, b DESC)` is neither a duplicate
+nor a prefix of `(a, b)`, while `(a DESC, b DESC)` is the same index read backwards. Disabled and hypothetical SQL Server indexes are ignored.
 
 Every finding has a `SqlFix` with the `CREATE INDEX` / `DROP INDEX` statement (kind `Ddl`), written
 not to block writes: `CONCURRENTLY` on PostgreSQL, `ONLINE = ON` on SQL Server (Enterprise or Developer
@@ -152,6 +154,12 @@ range-scans it. This is one input to a maintenance decision. For a maintenance s
 
 Each path carries the approximate row count of every table it reaches. Only declared foreign keys are
 analyzed: ORM cascades and triggers are invisible.
+
+A `NO ACTION` key is checked when the statement ends, so it does not block when a `CASCADE` key from
+the same table deletes every row that references the parent through it (`user_id` cascades, and
+`(tenant_id, user_id)` is `NO ACTION`): such a key is not reported. A key on another column
+(`approved_by` beside `created_by`) keeps rows the cascade does not reach and is reported, as is
+every `RESTRICT` key, which is checked at once.
 
 ## `check_migration_safety`
 
