@@ -13,7 +13,7 @@
     <PackageId>DbLens.Mcp</PackageId>
     <Authors>Matteo Belletti</Authors>
     <Description>Local MCP server that lets Claude inspect and diagnose PostgreSQL and SQL Server databases: schema, undeclared foreign keys, indexes, GDPR exposure, cascades, migration safety and query plans. Read-only; returns no row data by default.</Description>
-    <PackageTags>mcp;model-context-protocol;postgresql;sqlserver;database;schema;claude</PackageTags>
+    <PackageTags>mcp;mcp-server;model-context-protocol;postgresql;postgres;sqlserver;mssql;database;schema;gdpr;migrations;claude</PackageTags>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <PackageProjectUrl>https://github.com/MatteoBelletti/dblens</PackageProjectUrl>

@@ -123,7 +123,7 @@ public static class CascadeAnalysisEngine
                 $"Path enumeration stopped at the limit of {Num.N0(maxPaths)} paths, so the cascade " +
                 "graph was only partially explored and findings below that point are missing. " +
                 "This normally means the schema has a densely branching CASCADE structure. " +
-                "Narrow the analysis with startingTable or schema, or raise maxPaths, " +
+                "Narrow the analysis with startingTable or schema, " +
                 "and do NOT read the result as a complete picture of the cascade graph.");
 
         return new CheckCascadePathsResult(

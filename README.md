@@ -2,7 +2,7 @@
 
 An MCP server, written in .NET 10, that lets Claude (or any MCP client) understand and diagnose
 PostgreSQL and SQL Server databases. It runs locally, never writes to the database, and by default
-never returns row data.
+never returns row data. Published on NuGet as **`DbLens.Mcp`**.
 
 ## Install
 
@@ -70,7 +70,8 @@ Every diagnostic tool returns two lists:
 
 They are separate lists, not a flag, because a flag disappears the moment a response is summarized.
 
-Two tools can test their own guesses. With `verifySignals` / `verifyCandidates`, dblens runs one
+Three tools can test their own guesses: `analyze_denormalization` (`verifySignals`),
+`infer_relationships` (`verifyCandidates`) and `build_glossary` (`verifyJoins`). dblens then runs one
 generated, read-only, rolled-back aggregate query per checkable signal and moves the measured ones into
 `Findings`:
 
@@ -80,7 +81,9 @@ becomes
 
 > all 6 non-null values exist in `public.addresses` *(finding, measured, with the `ALTER TABLE` to declare it)*
 
-Probes return counts only — how many rows, never which ones.
+Probes return counts only — how many rows, never which ones — and run within a fixed budget (20
+queries, 10 s each, 30 s per call, tables up to 5 million rows). What the budget leaves out is named
+in a caveat, not silently dropped.
 
 ## Answers with a receipt
 
@@ -109,7 +112,7 @@ The server then waits on stdin: that is the MCP stdio transport working. To use 
 in Claude Code:
 
 ```bash
-claude mcp add dblens dotnet -- run --project "C:\path\to\dblens\src\DbLens.Mcp"
+claude mcp add dblens -- dotnet run --project /path/to/dblens/src/DbLens.Mcp
 ```
 
 ## Configuration
@@ -121,9 +124,10 @@ claude mcp add dblens dotnet -- run --project "C:\path\to\dblens\src\DbLens.Mcp"
 | `DbLens:AllowQueryResults` | `DbLens__AllowQueryResults` | `false` — enables `query_with_receipt` |
 | `DbLens:AllowWriteCapableLogin` | `DbLens__AllowWriteCapableLogin` | `false` — skips the read-only-login check on remote servers too; disposable databases only |
 | `DbLens:ReadOnlyLoginOnLocalhost` | `DbLens__ReadOnlyLoginOnLocalhost` | `false` — applies the check to a local server as well, for dblens installed on a real database server |
-| `DbLens:CertifiedQueriesPath` | `DbLens__CertifiedQueriesPath` | `%LOCALAPPDATA%/dblens/certified-queries.json` |
+| `DbLens:CertifiedQueriesPath` | `DbLens__CertifiedQueriesPath` | `dblens/certified-queries.json` under the local application-data folder: `%LOCALAPPDATA%` on Windows, `~/.local/share` on Linux, `~/Library/Application Support` on macOS |
 
-A tool call can also pass its own `connectionString`. `analyze_fragmentation` additionally needs
+An empty value means the default, so an unset Claude Desktop setting is harmless. A tool call can
+also pass its own `connectionString`. `analyze_fragmentation` additionally needs
 `pgstattuple` (PostgreSQL) or `VIEW DATABASE STATE` (SQL Server); query history needs
 `pg_stat_statements` or Query Store.
 
@@ -154,4 +158,4 @@ Details in [docs/architecture.md](https://github.com/MatteoBelletti/dblens/blob/
 
 ## Licence
 
-[MIT](LICENSE)
+[MIT](https://github.com/MatteoBelletti/dblens/blob/master/LICENSE)

@@ -118,6 +118,8 @@ Shared types in `Analysis/Verification/`; flow in docs/architecture.md. Non-nego
   `Metadata["verification"]`.
 - One rolled-back transaction per probe (a failed statement poisons a PostgreSQL transaction).
 - A probe failure never propagates: the unverified analysis is still returned.
+- Outcome metadata through `VerificationOutcome.Attach`, skip and failure caveats through
+  `VerificationBudget.NotRunCaveats`: the verifying tools share them so they cannot drift.
 
 ### Executing caller SQL
 
@@ -141,6 +143,12 @@ Probes are dblens's own SQL and skip layer 3, never layers 1 and 2.
 ## Conventions
 
 - `net10.0`, C# 14, nullable, warnings as errors, central package versions in `Directory.Packages.props`.
+- `.editorconfig` rules at `warning` are build errors (`EnforceCodeStyleInBuild`): file-scoped
+  namespaces, `is null`, collection expressions, primary constructors. `dotnet format style dblens.slnx`
+  fixes them. Raise a rule to `warning` only once the build is clean with it. FluentAssertions
+  predicates are expression trees: keep `== null` there (`is null` is CS8122).
+- Text a model reads (caveats, descriptions) never names a request default as something to raise:
+  thresholds are not tool parameters. Say the limit, and what the caller can change.
 - No comments unless the reason is non-obvious.
 - PostgreSQL and SQL Server stay at feature parity. Genuine differences are asserted as differences
   (SQL Server rejects a self-referencing `ON DELETE CASCADE`, Msg 1785, so its demo `categories` is

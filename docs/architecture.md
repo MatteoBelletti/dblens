@@ -39,7 +39,7 @@ no driver. It owns everything that does not depend on SQL dialect:
 
 | Base owns | Dialect supplies |
 |---|---|
-| scope resolution and the 20-table limit | `CreateConnection`, `DialectDisplayName`, `DefaultSchema` |
+| scope resolution | `CreateConnection`, `DialectDisplayName`, `DefaultSchema` |
 | `DbException` wrapping, scope and `NotFound` caveats | — |
 | the schema overview: grouping, totals, summary | `QueryOverviewAsync`: the overview rows |
 | reading a requested name (`ParseTableNames`), assembling table details | `ReadTableCatalogAsync`: the catalog rows |
@@ -49,7 +49,7 @@ no driver. It owns everything that does not depend on SQL dialect:
 | the signal verification loop | `VerificationSetupSql`, `ClassifyVerificationError`, `VerificationCaveats` |
 | join evidence: parsing, filtering own probes | `QuerySqlSourcesAsync` — views, routines, pg_stat_statements / Query Store |
 | `query_with_receipt` and its cross-check | `ReadOnlyQuerySetupSql`, `ReceiptCaveats` |
-| the read-only-login refusal | `DescribeWriteCapabilityAsync` |
+| the read-only-login refusal, and whether a server is local (`LocalServer`) | `DescribeWriteCapabilityAsync`, `ServerHosts` |
 
 `scan_gdpr`, `analyze_denormalization`, `check_migration_safety`, `check_cascade_paths`,
 `infer_relationships` and `build_glossary` need no catalog SQL of their own: they run on `TableDetail` metadata the base already
@@ -60,12 +60,15 @@ reads, plus the SQL sources.
 ```
 DbLens.Core/Analysis/
   Finding.cs, Evidence.cs, Severity.cs, FindingCategory.cs   the result contract
-  FindingSplit.cs        partitions facts and signals, owns the 200-finding cap and summary dictionaries
+  FindingSplit.cs        partitions facts and signals, owns the 200-finding cap, summary dictionaries
+                         and the caveat that explains Signals
+  DiagnosticLimits.cs    the 200-finding cap and the 20-table limit of get_table_details
   SqlProposal.cs         SQL attached to a finding: Ddl or ReadOnlyProbe
   SqlIdentifier.cs       quoting for every generated identifier
   SqlText.cs             per-dialect lexer: code, comments, literals, quoted names; statement splitting
   Num.cs                 locale-invariant number formatting for finding text
   RuleIds.cs             every rule ID constant
+  TableDetailExtensions.cs  table and index helpers the engines share (qualified name, key columns, index order)
   Verification/          probe, budget, measurement and outcome types shared by verifying tools
   Relationships/         undeclared-FK rule, JoinPredicateExtractor (joins in SQL text), engine
   Receipts/              receipt models, ResultComparer (cross-checks), ResultValue
@@ -89,7 +92,10 @@ flowchart LR
 - The plan builder turns verifiable signals into `VerificationProbe`s; `VerificationBudget.Evaluate`
   decides which may run (query cap, table size, unknown row count) — pure.
 - `DatabaseInspectorBase.RunVerificationProbesAsync` executes them, one rolled-back transaction each.
-- `DenormalizationVerifier` / `RelationshipAnalysisEngine.ApplyVerification` reclassify — pure.
+- `DenormalizationVerifier` / `RelationshipAnalysisEngine.ApplyVerification` reclassify — pure. Both
+  attach the outcome with `VerificationOutcome.Attach` and explain what did not run with
+  `VerificationBudget.NotRunCaveats`, so the two tools cannot report the same measurement differently.
+  The wording of a confirmation or refutation is the tool's own.
 
 See [safety.md](safety.md#signal-verification) for the guarantees.
 
@@ -97,6 +103,11 @@ See [safety.md](safety.md#signal-verification) for the guarantees.
 
 `DbLens.Mcp` holds what is not about databases:
 
+- `InspectorTool` — the base of every database tool: resolves the inspector for a call (the keyed
+  singleton, or an ad-hoc one for a caller's `connectionString`) and holds the parameter descriptions
+  the tools share.
+- `DatabaseInspectorFactory` — builds an inspector for a dialect and connection string, applying the
+  server policy. Behind an interface so the tool tests can substitute it.
 - `ServerPolicy` — operator settings that change the contract (`AllowQueryResults`,
   `AllowWriteCapableLogin`, `ReadOnlyLoginOnLocalhost`). Configuration only; never a tool parameter a
   model could set.
@@ -127,6 +138,14 @@ See [safety.md](safety.md#signal-verification) for the guarantees.
 - `demo_good` is the acceptance schema: every diagnostic tool must report nothing there except its
   always-present summary finding.
 
+## Code style
+
+`.editorconfig` holds the C# rules, and the build enforces them: with `EnforceCodeStyleInBuild` and
+`TreatWarningsAsErrors`, a rule at `warning` is a build error. File-scoped namespaces, `is null`,
+collection expressions, primary constructors, tuple deconstruction and the `I` prefix are at
+`warning`; the rest is at `suggestion` until the code complies. `dotnet format style dblens.slnx`
+applies the fixes. A rule moves to `warning` only once the build is clean with it.
+
 ## Demo databases
 
 `docker compose up -d` starts PostgreSQL 17 on port 5433 and SQL Server 2022 on 1434, initialized
@@ -147,14 +166,19 @@ Volumes hold demo data only; `docker compose down -v && docker compose up -d` re
 
 ## Releases
 
-Pushing a `v*` tag runs `.github/workflows/release.yml`: engine tests, self-contained single-file
+Pushing a `v*` tag runs `.github/workflows/release.yml`. The version comes from the tag
+(`v0.1.4` → `0.1.4`) and is stamped into the package and `.mcp/server.json`; keep `<Version>` in
+`DbLens.Mcp.csproj` and `server.json` in step anyway, so a local build reports the same number. The
+workflow runs engine tests, then builds self-contained single-file
 binaries for `win-x64`, `linux-x64` and `osx-arm64`, one Claude Desktop extension per platform
 (`.mcpb`, from `packaging/mcpb/manifest.json`), the NuGet tool package (`dotnet tool install -g
 DbLens.Mcp`, also typed `McpServer` with `.mcp/server.json`), and the GitHub release. Binaries ship
 without symbols, `web.config` or the IIS module.
 
 The package reaches nuget.org through **Trusted Publishing**: the job's GitHub OIDC token is exchanged
-by `NuGet/login@v1` for an API key valid one hour, so no long-lived key is stored. One-time setup:
+by `NuGet/login@v1` for an API key valid one hour, so no long-lived key is stored. The package page
+shows the README packed into the `.nupkg`, so its links must be absolute and a README change reaches
+nuget.org only with the next release. One-time setup, already done for this repository:
 
 1. On nuget.org, *Trusted Publishing* → new policy: owner `MatteoBelletti`, repository `dblens`,
    workflow file `release.yml` (file name only), no environment.

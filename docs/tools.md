@@ -11,8 +11,13 @@ All database tools share these parameters, so the tables below leave them out:
 | `connectionString` | string | server default | Use a different database for this call only |
 
 Scoped tools also take `schema` (null = every user schema) and `tables` (bare names, null = every
-table in scope). A schema or table that matches nothing is named in a caveat: an empty result for a
-mistyped name is not a clean one. An empty `connectionString` means the server default.
+table in scope): `analyze_indexes`, `analyze_fragmentation`, `analyze_denormalization`, `scan_gdpr`,
+`infer_relationships` and `build_glossary`. `check_cascade_paths` takes `schema` only, and starts from
+`startingTable` instead. A schema or table that matches nothing is named in a caveat: an empty result
+for a mistyped name is not a clean one. An empty `connectionString` means the server default.
+
+Thresholds, budgets and caps are server defaults, not parameters: a model has no reason to tune them,
+and the result states the ones that applied.
 
 | Tool | Reads | Executes SQL? | Results in |
 |---|---|---|---|
@@ -32,7 +37,7 @@ mistyped name is not a clean one. An empty `connectionString` means the server d
 | [`certify_query`](#certify_query) / [`list_certified_queries`](#certify_query) | plan only | no | local file |
 
 Caller SQL (`explain_query` with `analyze`, `query_with_receipt`) only runs on a read-only login when
-the server is on another machine; see [safety.md](safety.md#read-only-login).
+the server is on another machine; see [safety.md](safety.md#3-read-only-login).
 
 Every diagnostic result has the same skeleton: `Findings`, `Signals`, a `Summary` whose `BySeverity`
 and `ByRule` dictionaries always contain every key, `Caveats`, and — where relevant — a `Disclaimer`.
@@ -43,8 +48,8 @@ first within each, and a caveat says how many were cut. The `Summary` counts wha
 
 ## `ping`
 
-No parameters. Returns the server version, a UTC timestamp and the supported dialects. Use it to
-check the server is reachable.
+Returns the server version, a UTC timestamp, the supported dialects and `message` echoed back
+(default `pong`). Touches no database: use it to check the server is reachable.
 
 ## `get_schema`
 
@@ -142,6 +147,7 @@ range-scans it. This is one input to a maintenance decision. For a maintenance s
 |---|---|---|
 | `startingTable` | — | Qualified table, e.g. `public.users`. Omitted: every table targeted by an `ON DELETE CASCADE` key. A table that does not exist is an error, not an empty result |
 | `maxDepth` | `10` | Hard cap 50 |
+| `schema` | — | Restrict the cascade roots to one schema |
 
 | Rule | Severity | Detects |
 |---|---|---|
@@ -152,7 +158,8 @@ range-scans it. This is one input to a maintenance decision. For a maintenance s
 | `cascade-self-referencing` | Info | A self-referencing `CASCADE` key (a tree) |
 | `cascade-summary` | Info | Always exactly one: paths, max depth, tables reached |
 
-Each path carries the approximate row count of every table it reaches. Only declared foreign keys are
+Each path carries the approximate row count of every table it reaches. At most 500 paths are
+followed; beyond that `PathsTruncated` is true and a caveat says so. Only declared foreign keys are
 analyzed: ORM cascades and triggers are invisible.
 
 A `NO ACTION` key is checked when the statement ends, so it does not block when a `CASCADE` key from
@@ -246,12 +253,12 @@ signal (`c1`, `fld_07`, codenames) and lists examples; always report it with the
 
 | Rule | Severity | Confidence | Detects | Verifiable |
 |---|---|---|---|---|
-| `denorm-repeating-group` | Medium (3+) / Low | — | `phone1`, `phone2`, `phone3` | **yes**: rows that fill every slot |
+| `denorm-repeating-group` | Medium (3+) / Low | 0.9 / 0.6 | `phone1`, `phone2`, `phone3` | **yes**: rows that fill every slot |
 | `denorm-derived-column` | Medium | 0.6 | A cached child count (`order_count`) | **yes**, when one child table is the obvious source |
 | `denorm-derived-column` | Low | 0.7 | A concatenation of siblings (`full_name`) | no |
 | `denorm-duplicated-column` | Low | 0.55 | The same column on two FK-linked tables | **yes** |
 | `denorm-multivalue-column` | Medium | 0.5 | Text named like a list (`tags`, `role_list`) | **yes**: values holding a delimiter |
-| `denorm-wide-table` | Low / Info | 0.5 / 0.3 | More than 40 columns | no |
+| `denorm-wide-table` | Low / Info | 0.5 / 0.3 | More than 40 columns; Low when at least 70 % of them are nullable | no |
 
 Sums (`total`, `amount`) are never verified: the catalog does not say which column they sum. A
 column the database computes itself (generated, computed) is never reported as derived.
@@ -259,8 +266,15 @@ column the database computes itself (generated, computed) is never reported as d
 With `verifySignals: true`, see [signal verification](safety.md#signal-verification). A measured
 signal moves into `Findings` with `Evidence: Measured`; its title states the count and its
 interpretation goes under `WHAT THIS MAY MEAN:`. A refuted signal is still reported, as `Info`.
-`Verification` in the result is `null` when verification was not requested — different from
-verification finding nothing.
+Zero rows compared is *not measured*, never *refuted*.
+
+Every signal a probe was built for carries `Metadata["verification"]`: `Status`, `RowsCompared`,
+`RowsDiverging`, `DivergenceRatio`, the exact `Query`, and `NotVerifiedReason` when nothing was
+measured (`TableTooLarge`, `RowCountUnknown`, `QueryBudgetExhausted`, `TimeBudgetExhausted`,
+`NoRowsCompared`, or the failure kind such as `PermissionDenied`). The `Verification` block of the
+result counts the outcomes; it is `null` when verification was not requested — different from
+verification finding nothing. Probes run within the [budget](safety.md#signal-verification), and a
+caveat names every signal left unverified and why.
 
 ## `infer_relationships`
 
@@ -277,8 +291,11 @@ Returns `Relationships`: every join path, each with an `Evidence` of its own:
 | `Verified` | Checked: every non-null value has a parent |
 | `VerifiedWithOrphans` | Checked: at most half the values have no parent — a real but dirty reference |
 
-A candidate with more than half orphans is dropped from the map and reported as an `Info` finding.
-Candidates come from `relationship-undeclared-fk`, strongest evidence first:
+Unverified candidates are `Low` signals. Verified, a candidate with no orphans stays `Low` and
+becomes a measured finding; one with at most half orphans becomes `Medium`; one with more than half is
+dropped from the map and reported as an `Info` finding. Verification metadata, budget and caveats work
+as in [`analyze_denormalization`](#analyze_denormalization). Candidates come from
+`relationship-undeclared-fk`, strongest evidence first:
 
 | Basis | Confidence | Example |
 |---|---|---|
@@ -308,7 +325,7 @@ writing SQL.
 
 | Parameter | Default | Meaning |
 |---|---|---|
-| `verifyJoins` | `false` | Count orphans for inferred joins, as `infer_relationships` does |
+| `verifyJoins` | `false` | Count orphans for inferred joins, as `infer_relationships` does, within the same budget |
 | `writeSkillTo` | — | Absolute directory to write `SKILL.md` into, e.g. `<project>/.claude/skills/erp-data-map` |
 | `overwrite` | `false` | Replace an existing `SKILL.md` |
 
@@ -364,7 +381,8 @@ be re-run by name, is cited in receipts and appears in the glossary.
 | `sql` | The confirmed `SELECT` |
 
 The SQL is checked by the statement guard and planned with `EXPLAIN`; nothing is executed. Entries are
-scoped to dialect and database and stored in one JSON file — `%LOCALAPPDATA%/dblens/certified-queries.json`
-(or `~/.local/share/dblens/…`), overridable with `DbLens:CertifiedQueriesPath`. `list_certified_queries`
+scoped to dialect and database and stored in one JSON file, `dblens/certified-queries.json` under the
+local application-data folder (`%LOCALAPPDATA%` on Windows, `~/.local/share` on Linux,
+`~/Library/Application Support` on macOS), overridable with `DbLens:CertifiedQueriesPath`. `list_certified_queries`
 returns the entries for the current database.
 
