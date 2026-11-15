@@ -6,15 +6,15 @@ never returns row data.
 
 ## Install
 
-> Releases are built by `.github/workflows/release.yml` when a `v*` tag is pushed. The NuGet package
-> is published with Trusted Publishing once it is configured (see docs/architecture.md#releases);
-> until then use the release downloads.
+The package is [`DbLens.Mcp`](https://www.nuget.org/packages/DbLens.Mcp) on NuGet — not `dblens`,
+which is an unrelated tool. Every release also ships on
+[GitHub Releases](https://github.com/MatteoBelletti/dblens/releases).
 
 **Claude Desktop** — download `dblens-<version>-<platform>.mcpb` from
 [Releases](https://github.com/MatteoBelletti/dblens/releases), open it, and fill in the connection
 strings when asked.
 
-**Any MCP client, with the .NET 10 runtime** — install the tool and point the client at it:
+**Any MCP client, with the .NET 10 runtime** — install the `DbLens.Mcp` tool and point the client at it:
 
 ```bash
 dotnet tool install -g DbLens.Mcp
@@ -31,7 +31,7 @@ use the extracted `DbLens.Mcp` executable as the command.
 
 **Use a read-only login for any shared database.** dblens refuses to execute caller SQL on a login
 that can write when the server is on another machine, so create one first — two statements, in
-[docs/safety.md](docs/safety.md#creating-the-login). A database on your own machine (localhost,
+[docs/safety.md](https://github.com/MatteoBelletti/dblens/blob/master/docs/safety.md#creating-the-login). A database on your own machine (localhost,
 loopback, socket, `(local)`, LocalDB) is exempt: the admin login works there.
 
 ## Tools
@@ -53,7 +53,7 @@ loopback, socket, `(local)`, LocalDB) is exempt: the admin login works there.
 | `query_with_receipt` | What is the figure, and what is the proof? *(off unless the operator enables it)* |
 | `certify_query`, `list_certified_queries` | Remember the queries the user confirmed as right |
 
-Full parameters, rules and limits: **[docs/tools.md](docs/tools.md)**.
+Full parameters, rules and limits: **[docs/tools.md](https://github.com/MatteoBelletti/dblens/blob/master/docs/tools.md)**.
 
 A typical session: `get_schema` to orient, `infer_relationships` and `build_glossary` to learn the
 structure, then the diagnostic tool that fits the question. For a slow query start from
@@ -90,7 +90,7 @@ computes the same figure another way — whether the two agree. If they disagree
 of choosing. Queries the user confirms can be certified and re-run by name; the glossary lists them.
 
 It is off by default because it is the one tool that returns values from the data. What runs, and
-what stops it from doing harm: **[docs/safety.md](docs/safety.md)**.
+what stops it from doing harm: **[docs/safety.md](https://github.com/MatteoBelletti/dblens/blob/master/docs/safety.md)**.
 
 ## Quick start
 
@@ -139,18 +139,18 @@ SQL Server  Server=localhost,1434;Database=dblens_demo;User Id=dblens_reader;Pas
 `public` / `dbo` is an e-commerce schema with deliberate flaws — unindexed foreign keys, duplicate
 indexes, plaintext PII, cascade chains, cached counts that have drifted, undeclared references (one
 visible only through a view). `demo_good` is a clean design on which every tool reports nothing.
-Details in [docs/architecture.md](docs/architecture.md#demo-databases).
+Details in [docs/architecture.md](https://github.com/MatteoBelletti/dblens/blob/master/docs/architecture.md#demo-databases).
 
 ## Documentation
 
 | Document | For |
 |---|---|
-| [docs/tools.md](docs/tools.md) | Every tool: parameters, rules, severities, limits |
-| [docs/safety.md](docs/safety.md) | The contract, what can execute, the read-only login |
-| [docs/architecture.md](docs/architecture.md) | How the code is organized, pipelines, testing, releases |
-| [GLOSSARY.md](GLOSSARY.md) | Finding, signal, evidence, probe, receipt… |
-| [DEVELOPMENT.md](DEVELOPMENT.md) | Dev workflows, MCP Inspector, debugging (Italian) |
-| [CLAUDE.md](CLAUDE.md) | Conventions for contributors and coding agents |
+| [docs/tools.md](https://github.com/MatteoBelletti/dblens/blob/master/docs/tools.md) | Every tool: parameters, rules, severities, limits |
+| [docs/safety.md](https://github.com/MatteoBelletti/dblens/blob/master/docs/safety.md) | The contract, what can execute, the read-only login |
+| [docs/architecture.md](https://github.com/MatteoBelletti/dblens/blob/master/docs/architecture.md) | How the code is organized, pipelines, testing, releases |
+| [GLOSSARY.md](https://github.com/MatteoBelletti/dblens/blob/master/GLOSSARY.md) | Finding, signal, evidence, probe, receipt… |
+| [DEVELOPMENT.md](https://github.com/MatteoBelletti/dblens/blob/master/DEVELOPMENT.md) | Dev workflows, MCP Inspector, debugging (Italian) |
+| [CLAUDE.md](https://github.com/MatteoBelletti/dblens/blob/master/CLAUDE.md) | Conventions for contributors and coding agents |
 
 ## Licence
 
