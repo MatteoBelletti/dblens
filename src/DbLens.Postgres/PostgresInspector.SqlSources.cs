@@ -37,7 +37,7 @@ public sealed partial class PostgresInspector
 
         var sources = await ReadAllAsync(Command(conn, ViewsAndRoutinesSql), r => new SqlSource(
             r.GetString(0) == "view" ? SqlSourceKind.View : SqlSourceKind.Routine, r.GetString(1), r.GetString(2)), ct);
-        var caveats = new List<string>();
+        List<string> caveats = [];
 
         await using (var check = Command(conn, "SELECT EXISTS (SELECT 1 FROM pg_extension WHERE extname = 'pg_stat_statements')"))
         {

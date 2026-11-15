@@ -23,8 +23,8 @@ public static class QueryPlanAnalysisEngine
         ExplainQueryRequest request,
         DatabaseDialect dialect)
     {
-        var caveats = new List<string>();
-        var findings = new List<Finding>();
+        List<string> caveats = [];
+        List<Finding> findings = [];
 
         if (root is null)
         {

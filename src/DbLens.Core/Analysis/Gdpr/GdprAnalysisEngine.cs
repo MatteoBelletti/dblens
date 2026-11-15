@@ -15,9 +15,9 @@ public static class GdprAnalysisEngine
         ScanGdprRequest request,
         DatabaseDialect dialect)
     {
-        var findings = new List<Finding>();
-        var caveats = new List<string>();
-        var matchedColumns = new List<(string Table, string Column)>();
+        List<Finding> findings = [];
+        List<string> caveats = [];
+        List<(string Table, string Column)> matchedColumns = [];
 
         foreach (var table in tables)
         {
@@ -117,7 +117,7 @@ public static class GdprAnalysisEngine
     private static IEnumerable<Finding> BuildGapFindings(
         TableDetail table, TableGap gap, int piiColumnCount)
     {
-        var missing = new List<string>();
+        List<string> missing = [];
         if (!gap.HasSoftDelete)  missing.Add("soft-delete column (e.g. deleted_at / is_deleted)");
         if (!gap.HasCreatedAt)   missing.Add("created_at audit timestamp");
         if (!gap.HasUpdatedAt)   missing.Add("updated_at audit timestamp");

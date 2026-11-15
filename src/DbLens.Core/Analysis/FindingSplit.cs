@@ -25,8 +25,8 @@ public sealed record FindingSplit(
     /// </summary>
     public static FindingSplit Partition(IEnumerable<Finding> all)
     {
-        var findings = new List<Finding>();
-        var signals = new List<Finding>();
+        List<Finding> findings = [];
+        List<Finding> signals = [];
 
         foreach (var finding in all)
             (finding.Evidence.IsFactual() ? findings : signals).Add(finding);

@@ -221,7 +221,7 @@ public abstract class EdgeCatalogTestsBase(IEdgeFixture fixture)
 
         result.Findings.Where(f => f.RuleId == CascadeRuleIds.BreaksWithRestrict).Select(f => f.Table)
             .Should().Equal($"{Schema}.approval");
-        result.Paths.Should().Contain(p => p.LeafTables.Contains($"{Schema}.membership") && p.BrokenAt == null);
+        result.Paths.Should().Contain(p => p.LeafTables.Contains($"{Schema}.membership") && p.BrokenAt is null);
     }
 
     [SkippableFact]

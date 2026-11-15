@@ -37,7 +37,7 @@ public static class RelationshipAnalysisEngine
             c.Child.Qualified(), [c.Column.Name], c.Parent.Qualified(), [c.ParentKey],
             RelationshipEvidence.Inferred, c.Basis));
 
-        var caveats = new List<string>();
+        List<string> caveats = [];
         if (found.AmbiguousSkipped > 0)
             caveats.Add(
                 $"{found.AmbiguousSkipped} column(s) matched more than one possible parent table and were left " +

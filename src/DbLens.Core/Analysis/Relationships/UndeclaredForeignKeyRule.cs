@@ -27,7 +27,7 @@ public static class UndeclaredForeignKeyRule
         var joins = (observed ?? [])
             .ToLookup(j => (j.Child, j.ChildColumn.ToLowerInvariant()));
 
-        var candidates = new List<Candidate>();
+        List<Candidate> candidates = [];
         var ambiguous = 0;
 
         foreach (var child in tables.Where(t => t.Kind == "table"))

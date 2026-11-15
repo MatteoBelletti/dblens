@@ -35,7 +35,7 @@ public sealed partial class SqlServerInspector
 
         var sources = await ReadAllAsync(Command(conn, ModulesSql), r => new SqlSource(
             r.GetString(0).Trim() == "V" ? SqlSourceKind.View : SqlSourceKind.Routine, r.GetString(1), r.GetString(2)), ct);
-        var caveats = new List<string>();
+        List<string> caveats = [];
 
         try
         {

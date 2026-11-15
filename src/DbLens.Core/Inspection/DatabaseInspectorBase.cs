@@ -80,7 +80,7 @@ public abstract partial class DatabaseInspectorBase(ILogger logger) : IDatabaseI
     {
         await using (cmd)
         {
-            var rows = new List<T>();
+            List<T> rows = [];
             await using var reader = await cmd.ExecuteReaderAsync(ct);
             while (await reader.ReadAsync(ct))
                 rows.Add(map(reader));
@@ -267,7 +267,7 @@ public abstract partial class DatabaseInspectorBase(ILogger logger) : IDatabaseI
     protected IReadOnlyList<ParsedName> ParseTableNames(string[] tables, string? defaultSchema)
     {
         var schema = defaultSchema ?? DefaultSchema;
-        var parsed = new List<ParsedName>();
+        List<ParsedName> parsed = [];
 
         foreach (var table in tables)
         {
@@ -316,9 +316,9 @@ public abstract partial class DatabaseInspectorBase(ILogger logger) : IDatabaseI
 
     private TableDetailsResult BuildTableDetails(IReadOnlyList<ParsedName> names, string database, TableCatalog catalog)
     {
-        var notFound = new List<string>();
-        var tables = new List<TableDetail>();
-        var seen = new HashSet<(string, string)>();
+        List<string> notFound = [];
+        List<TableDetail> tables = [];
+        HashSet<(string, string)> seen = [];
 
         foreach (var readings in names.GroupBy(n => n.Original, StringComparer.Ordinal))
         {

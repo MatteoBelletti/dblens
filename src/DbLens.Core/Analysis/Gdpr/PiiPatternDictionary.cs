@@ -22,7 +22,7 @@ internal static class PiiPatternDictionary
     private static IReadOnlyList<PiiPatternEntry> LoadAll()
     {
         var assembly = typeof(PiiPatternDictionary).Assembly;
-        var list = new List<PiiPatternEntry>();
+        List<PiiPatternEntry> list = [];
 
         foreach (var resource in new[] { "pii_patterns_en.json", "pii_patterns_it.json" })
         {

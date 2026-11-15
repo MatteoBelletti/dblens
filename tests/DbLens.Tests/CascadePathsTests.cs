@@ -558,7 +558,7 @@ public sealed class CascadePathsTests
     /// </summary>
     private static List<CascadeAnalysisEngine.FkEdge> BranchingGraph(int levels, int branching)
     {
-        var edges = new List<CascadeAnalysisEngine.FkEdge>();
+        List<CascadeAnalysisEngine.FkEdge> edges = [];
 
         for (var level = 0; level < levels; level++)
             for (var parent = 0; parent < (int)Math.Pow(branching, level); parent++)

@@ -19,7 +19,7 @@ public static class VerificationPlanBuilder
         DatabaseDialect dialect)
     {
         var byQualifiedName = tables.ToDictionary(t => t.Qualified(), StringComparer.Ordinal);
-        var probes = new List<VerificationProbe>();
+        List<VerificationProbe> probes = [];
 
         foreach (var signal in signals)
         {

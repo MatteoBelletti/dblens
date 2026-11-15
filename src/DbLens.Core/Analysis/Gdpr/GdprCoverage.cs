@@ -44,7 +44,7 @@ public static class GdprCoverageAnalyzer
 
         var scanned = 0;
         var matchedCount = 0;
-        var opaque = new List<string>();
+        List<string> opaque = [];
 
         foreach (var table in tables)
         {

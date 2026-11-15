@@ -20,14 +20,14 @@ public static class DenormalizationAnalysisEngine
         AnalyzeDenormalizationRequest request,
         DatabaseDialect dialect)
     {
-        var findings = new List<Finding>();
+        List<Finding> findings = [];
         findings.AddRange(RepeatingGroupRule.Apply(tables, dialect));
         findings.AddRange(DerivedColumnRule.Apply(tables, dialect));
         findings.AddRange(DuplicatedColumnRule.Apply(tables, dialect));
         findings.AddRange(MultiValueColumnRule.Apply(tables, dialect));
         findings.AddRange(WideTableRule.Apply(tables, request, dialect));
 
-        var caveats = new List<string>();
+        List<string> caveats = [];
 
         var split = FindingSplit.Partition(findings);
 

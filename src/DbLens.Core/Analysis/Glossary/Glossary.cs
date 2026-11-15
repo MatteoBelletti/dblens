@@ -111,7 +111,7 @@ public static class GlossaryEngine
             md.AppendLine($"### {name}{(table.Kind == "table" ? "" : $" ({table.Kind})")}");
             md.AppendLine();
 
-            var facts = new List<string>();
+            List<string> facts = [];
             if (rowCounts.GetValueOrDefault((table.Schema, table.Name)) is { } rows) facts.Add($"~{Num.N0(rows)} rows");
             if (usage.GetValueOrDefault(name) is { Mentions: > 0 } u)
                 facts.Add($"referenced by {u.Mentions} SQL source(s)" +
@@ -160,7 +160,7 @@ public static class GlossaryEngine
         var columns = tables.SelectMany(t => t.Columns).ToList();
         var documented = columns.Count(c => !string.IsNullOrWhiteSpace(c.Comment));
 
-        var caveats = new List<string>();
+        List<string> caveats = [];
         if (documented == 0 && columns.Count > 0)
             caveats.Add(
                 "No column carries a comment, so the map holds structure and no meanings. Meanings have to come from " +

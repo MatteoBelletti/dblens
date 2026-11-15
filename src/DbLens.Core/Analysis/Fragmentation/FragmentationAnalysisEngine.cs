@@ -29,7 +29,7 @@ public static class FragmentationAnalysisEngine
         AnalyzeFragmentationRequest request,
         DatabaseDialect dialect)
     {
-        var caveats = new List<string>();
+        List<string> caveats = [];
 
         if (!stats.StatsAvailable)
         {
@@ -42,7 +42,7 @@ public static class FragmentationAnalysisEngine
         var eligible = stats.Indexes.Where(i => i.PageCount >= request.MinPageCount).ToList();
         var skipped = stats.Indexes.Count - eligible.Count;
 
-        var findings = new List<Finding>();
+        List<Finding> findings = [];
 
         foreach (var index in eligible.OrderByDescending(i => i.FragmentationPercent))
         {

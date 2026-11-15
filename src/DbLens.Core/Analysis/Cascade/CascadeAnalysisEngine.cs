@@ -36,9 +36,9 @@ public static class CascadeAnalysisEngine
             Math.Max(request.MaxDepth, 1),
             MaxDepthHardCap);
 
-        var findings = new List<Finding>();
-        var paths = new List<CascadePath>();
-        var caveats = new List<string>();
+        List<Finding> findings = [];
+        List<CascadePath> paths = [];
+        List<string> caveats = [];
 
         // Build lookup: (toSchema, toTable) → list of FkEdges pointing to that table
         var edgesByTarget = allFks
@@ -167,7 +167,7 @@ public static class CascadeAnalysisEngine
         int maxDepth,
         int maxPaths)
     {
-        var result = new List<CascadePath>();
+        List<CascadePath> result = [];
         var truncated = false;
         var qualifiedRoot = $"{root.Schema}.{root.Name}";
 
@@ -450,7 +450,7 @@ public static class CascadeAnalysisEngine
     private static List<Finding> DeduplicateFindings(List<Finding> findings)
     {
         // Keep only the first occurrence of (RuleId, Table) pairs
-        var seen = new HashSet<(string, string)>();
+        HashSet<(string, string)> seen = [];
         var result = new List<Finding>(findings.Count);
         foreach (var f in findings)
         {
