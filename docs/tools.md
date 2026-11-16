@@ -200,6 +200,11 @@ every `RESTRICT` key, which is checked at once.
 | `migration-destructive` | Critical | `DROP TABLE`, `DROP COLUMN`, `TRUNCATE`, `DROP SCHEMA` / `DROP DATABASE` |
 | `migration-summary` | Info | Always exactly one |
 
+For an EF Core migration, pass the script `dotnet ef migrations script` writes — the command
+`compare_ef_model` gives — without `--idempotent`: the idempotent script wraps every statement in a
+`DO` block (PostgreSQL) or `IF NOT EXISTS` (SQL Server), which this tool does not see into. In the
+plain script, `START TRANSACTION` and the `INSERT` into the history table are listed as `Unknown`.
+
 `ALTER TABLE … VALIDATE CONSTRAINT` (the second half of PostgreSQL's `NOT VALID` pattern) is recognized
 and raises nothing: it scans without blocking reads or writes.
 
