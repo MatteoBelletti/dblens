@@ -31,6 +31,7 @@ Demo volumes hold demo data only; after editing `db/*/0*.sql` recreate them with
 | `DbLens.Core/Analysis/<Feature>/` | request/result records and a **pure static engine** — no DB access |
 | `DbLens.Core/Inspection/DatabaseInspectorBase*.cs` | orchestration, anything writable without dialect SQL |
 | `DbLens.Postgres` / `DbLens.SqlServer` (partial classes) | catalog SQL and dialect hooks only |
+| `DbLens.EfCore` | reading EF Core snapshots as text (Roslyn); referenced by `DbLens.Mcp` only |
 | `DbLens.Mcp/Tools/` | thin tools deriving from `InspectorTool` |
 
 Logic goes in the base whenever it can be written without dialect SQL: a rule enforced there cannot
@@ -181,6 +182,9 @@ Probes are dblens's own SQL and skip layer 3, never layers 1 and 2.
 - A catalog shape the demo schema lacks (partitions, odd names, index kinds) gets a table in the
   `dblens_edge` fixtures and a test in `EdgeCatalogTestsBase`, not a new demo table.
 - Summary findings (`*-summary`) are exactly one, `Info`, never deduplicated.
+- EF Core snapshots are never compiled or loaded: `SnapshotReader` reads syntax only. Test snapshots
+  come from the real `dotnet ef` of each major (`scripts/generate-ef-fixtures.sh`); after changing
+  `samples/DemoShop.EfCore`, regenerate them rather than editing them by hand.
 
 ## Defaults
 

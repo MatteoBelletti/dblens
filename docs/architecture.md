@@ -6,6 +6,7 @@
 DbLens.Core        interfaces, models, pure analysis engines, DatabaseInspectorBase   (no DB driver)
 DbLens.Postgres    PostgresInspector  : DatabaseInspectorBase                          (Npgsql)
 DbLens.SqlServer   SqlServerInspector : DatabaseInspectorBase                          (Microsoft.Data.SqlClient)
+DbLens.EfCore      SnapshotReader: an EF Core snapshot read as C# text with Roslyn         (no build)
 DbLens.Mcp         MCP server: Program.cs, tools, DI wiring
 DbLens.Tests       xUnit: pure engine tests + integration tests against both demo databases
 ```
@@ -53,7 +54,7 @@ no driver. It owns everything that does not depend on SQL dialect:
 | the read-only-login refusal, and whether a server is local (`LocalServer`) | `DescribeWriteCapabilityAsync`, `ServerHosts` |
 
 `scan_gdpr`, `analyze_denormalization`, `check_migration_safety`, `check_cascade_paths`,
-`infer_relationships` and `build_glossary` need no catalog SQL of their own: they run on `TableDetail` metadata the base already
+`infer_relationships`, `build_glossary` and `compare_ef_model` need no catalog SQL of their own: they run on `TableDetail` metadata the base already
 reads, plus the SQL sources.
 
 ## Analysis layout
@@ -74,6 +75,8 @@ DbLens.Core/Analysis/
   Relationships/         undeclared-FK rule, JoinPredicateExtractor (joins in SQL text), engine
   Receipts/              receipt models, ResultComparer (cross-checks), ResultValue
   Glossary/              GlossaryEngine: the SKILL.md data map
+  EfCore/                EfModel (a snapshot's model), EfModelMatcher (entity ↔ table, property ↔ column),
+                         EfDriftEngine (compare_ef_model)
   Indexes/ Gdpr/ Cascade/ Denormalization/ Fragmentation/ QueryPlan/ Migration/
 ```
 
@@ -99,6 +102,27 @@ flowchart LR
   The wording of a confirmation or refutation is the tool's own.
 
 See [safety.md](safety.md#signal-verification) for the guarantees.
+
+## EF Core models
+
+`compare_ef_model` takes an EF Core model the tool reads from disk before the inspector sees it:
+
+1. `SnapshotReader` (`DbLens.EfCore`) parses `*ModelSnapshot.cs` with Roslyn — syntax only, nothing
+   compiled or loaded — into an `EfModel`: entities with their resolved tables, properties → columns,
+   keys, indexes, relationships, and the migration ids of the `*.Designer.cs` files of the same
+   DbContext. Owned types and TPH subtypes are folded into the table they share, with the nullable
+   columns EF gives them; mappings it does not compare go into `Unsupported`.
+2. `DatabaseInspectorBase.CompareEfModelAsync` reads the tables of the schemas the model maps and the
+   history table, found by name in the schema overview and read with quoted identifiers.
+3. `EfModelMatcher` pairs entities with tables and properties with columns; `EfDriftEngine` turns the
+   pairs into findings — both pure.
+
+Roslyn stays out of Core: only `DbLens.Mcp` references `DbLens.EfCore`. The test snapshots under
+`tests/DbLens.Tests/Fixtures/EfSnapshots/ef{8,9,10}` are written by the real `dotnet ef` of each major
+from `samples/DemoShop.EfCore` (`scripts/generate-ef-fixtures.sh`), because the snapshot format may
+change between versions; the fixtures are copied to the test output and never compiled. The EF
+integration tests build `dblens_ef` (first migration, then a deliberate drift) and `dblens_ef_clean`
+(every migration, no drift) from the SQL those same tools wrote.
 
 ## Server layer
 

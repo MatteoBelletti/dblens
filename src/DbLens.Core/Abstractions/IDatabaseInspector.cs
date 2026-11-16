@@ -1,5 +1,6 @@
 using DbLens.Core.Analysis.Cascade;
 using DbLens.Core.Analysis.Denormalization;
+using DbLens.Core.Analysis.EfCore;
 using DbLens.Core.Analysis.Fragmentation;
 using DbLens.Core.Analysis.Gdpr;
 using DbLens.Core.Analysis.Glossary;
@@ -59,4 +60,6 @@ public interface IDatabaseInspector
 
     Task<CheckCascadePathsResult> CheckCascadePathsAsync(
         CheckCascadePathsRequest request, CancellationToken ct = default);
+
+    Task<CompareEfModelResult> CompareEfModelAsync(CompareEfModelRequest request, CancellationToken ct = default);
 }

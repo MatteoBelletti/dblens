@@ -89,3 +89,22 @@ public static class RelationshipRuleIds
 
     public static readonly string[] All = [UndeclaredForeignKey];
 }
+
+public static class EfRuleIds
+{
+    public const string MigrationUnknown = "ef-migration-unknown";
+    public const string TableMissing     = "ef-table-missing";
+    public const string ColumnMissing    = "ef-column-missing";
+    public const string IndexMissing     = "ef-index-missing";
+    public const string MigrationPending = "ef-migration-pending";
+    public const string IndexUnmodeled   = "ef-index-unmodeled";
+    public const string ForeignKeyMissing = "ef-fk-missing";
+    public const string UnmappedTable    = "ef-unmapped-table";
+    public const string DriftSummary     = "ef-drift-summary";
+
+    public static readonly string[] All =
+    [
+        MigrationUnknown, TableMissing, ColumnMissing, IndexMissing, MigrationPending,
+        IndexUnmodeled, ForeignKeyMissing, UnmappedTable, DriftSummary,
+    ];
+}

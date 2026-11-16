@@ -3,7 +3,7 @@
   <PropertyGroup>
     <OutputType>Exe</OutputType>
     <AssemblyName>DbLens.Mcp</AssemblyName>
-    <Version>0.1.5</Version>
+    <Version>0.2.0</Version>
 
     <!-- dotnet tool install -g DbLens.Mcp, then run as `dblens`; also listed as an MCP server package. -->
     <IsPackable>true</IsPackable>
@@ -31,6 +31,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\DbLens.Core\DbLens.Core.csproj" />
+    <ProjectReference Include="..\DbLens.EfCore\DbLens.EfCore.csproj" />
     <ProjectReference Include="..\DbLens.Postgres\DbLens.Postgres.csproj" />
     <ProjectReference Include="..\DbLens.SqlServer\DbLens.SqlServer.csproj" />
     <PackageReference Include="ModelContextProtocol" />

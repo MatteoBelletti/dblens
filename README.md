@@ -51,6 +51,7 @@ loopback, socket, `(local)`, LocalDB) is exempt: the admin login works there.
 | `check_migration_safety` | Will this migration lock, rewrite or destroy anything, given real table sizes? |
 | `explain_query` | Why is this query slow? |
 | `query_with_receipt` | What is the figure, and what is the proof? *(off unless the operator enables it)* |
+| `compare_ef_model` | What does production have that the EF Core model does not know — and which migrations are pending? |
 | `certify_query`, `list_certified_queries` | Remember the queries the user confirmed as right |
 
 Full parameters, rules and limits: **[docs/tools.md](https://github.com/MatteoBelletti/dblens/blob/master/docs/tools.md)**.

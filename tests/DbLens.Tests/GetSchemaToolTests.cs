@@ -278,6 +278,10 @@ public sealed class GetSchemaToolTests
         public Task<DbLens.Core.Analysis.Cascade.CheckCascadePathsResult> CheckCascadePathsAsync(
             DbLens.Core.Analysis.Cascade.CheckCascadePathsRequest request, CancellationToken ct = default) =>
             throw new NotSupportedException();
+
+        public Task<DbLens.Core.Analysis.EfCore.CompareEfModelResult> CompareEfModelAsync(
+            DbLens.Core.Analysis.EfCore.CompareEfModelRequest request, CancellationToken ct = default) =>
+            throw new NotSupportedException();
         public Task<DbLens.Core.Analysis.Denormalization.AnalyzeDenormalizationResult> AnalyzeDenormalizationAsync(
             DbLens.Core.Analysis.Denormalization.AnalyzeDenormalizationRequest request,
             CancellationToken ct = default) =>

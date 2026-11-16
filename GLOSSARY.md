@@ -165,6 +165,14 @@ The words dblens uses in its results and its code, and what each one commits to.
 : Personal data; GDPR Article 9 categories (health, biometrics, religion, politics, ethnicity,
   orientation) get the highest severity.
 
+**EF snapshot**
+: The `*ModelSnapshot.cs` file EF Core keeps beside its migrations: the model as the last migration
+  left it. `compare_ef_model` reads it as text, never compiling it.
+
+**Drift**
+: A difference between the EF model and the database: a table, column, index or foreign key one side
+  has and the other lacks, or a migration applied on one side only.
+
 **Counting window**
 : How long an index's scan counters have been counting: since the latest of the server start, the
   database's creation or restore, and a statistics reset. `unused-index` needs 7 days of it.

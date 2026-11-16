@@ -27,6 +27,7 @@ and the result states the ones that applied.
 | [`analyze_indexes`](#analyze_indexes) | catalog + scan counters | no | Findings |
 | [`analyze_fragmentation`](#analyze_fragmentation) | physical stats | no | Findings |
 | [`check_cascade_paths`](#check_cascade_paths) | catalog | no | Findings |
+| [`compare_ef_model`](#compare_ef_model) | an EF Core snapshot (as text) + catalog | no | Findings |
 | [`check_migration_safety`](#check_migration_safety) | catalog (table sizes) | **never** the script | Findings |
 | [`explain_query`](#explain_query) | plan | only with `analyze: true`, pure `SELECT`, rolled back | Findings |
 | [`scan_gdpr`](#scan_gdpr) | column names | no | Signals only |
@@ -380,6 +381,53 @@ A cross-check compares the two results as sets of rows, so row order does not ma
 equals `120.5`. Without one, a caveat says the figure is unconfirmed; with a disagreement, the caveat
 says to report both figures rather than pick one. Useful pairs: two join paths to the same total, or
 line items summed against the stored header total.
+
+## `compare_ef_model`
+
+Compares an EF Core model with the database: what production has that the code does not know, and the
+reverse. The model is read from the migrations snapshot (`*ModelSnapshot.cs`) and the migration ids
+from the `[Migration("…")]` attributes of the `*.Designer.cs` files beside it — **parsed as C#
+text, never compiled**: no project is built and none of the user's code runs.
+
+| Parameter | Default | Meaning |
+|---|---|---|
+| `snapshotPath` | required | Absolute path of the snapshot file, or of the folder holding exactly one |
+| `schema` | — | Compare one schema only. Default: every schema the model maps |
+
+| Rule | Severity | Detects |
+|---|---|---|
+| `ef-migration-unknown` | High | A migration applied in the database that the code lacks: another branch, or a hotfix |
+| `ef-table-missing` | High | A table the model maps that the database lacks |
+| `ef-column-missing` | High | A column the model maps that its table lacks |
+| `ef-index-missing` | High | A `HasIndex` with no index on those columns |
+| `ef-migration-pending` | Medium | Migrations in the code not yet applied (one finding listing them) |
+| `ef-index-unmodeled` | Medium | An index in the database the model does not declare — added by hand |
+| `ef-fk-missing` | Medium | A relationship in the model with no foreign key in the database |
+| `ef-unmapped-table` | Info | A table in a compared schema that no entity maps (the history table excluded) |
+| `ef-drift-summary` | Info | Always exactly one |
+
+Every finding is `Derived`. `Metadata["ef"]` names the `entity` and `property` to touch and, where it
+can be written, the `fluent` call: for an unmodeled index
+`b.HasIndex(e => e.CreatedAt).HasDatabaseName("ix_orders_created_manual")`. Declaring such an index
+later makes the next migration contain a `CreateIndex` that fails where the index already exists;
+the finding says to remove that call or make it conditional with `migrationBuilder.Sql`.
+
+`Migrations` in the result gives the history table read, the last migration both sides know, the
+pending and unknown ones, and the command that scripts the pending ones —
+`dotnet ef migrations script <last applied> --context <Context> -o pending.sql` — whose output
+`check_migration_safety` reads. The history table is found by name in any schema (EF writes it
+unqualified, so it lands in the login's default schema, not the model's); none found is a caveat,
+and the schema comparison still runs.
+
+Indexes and foreign keys are matched by their columns, since a snapshot names them only when
+`HasDatabaseName` does. Names are matched exactly first, then ignoring case; a name that matches
+several objects by case alone is a caveat, never a guess.
+
+**Compared:** plain entities, table-per-hierarchy subtypes (their columns nullable), owned types in
+their owner's table, complex properties, alternate keys. **Not compared**, each named in a caveat:
+table-per-type and table-per-concrete-type mappings, JSON columns (`ToJson`), table splitting, views
+(`ToView`) and keyless entities. **Not considered here:** column types, lengths and nullability. A
+project without migrations has no snapshot to read.
 
 ## `certify_query`
 
