@@ -20,10 +20,17 @@ public abstract partial class DatabaseInspectorBase
     // ── Dialect hooks ──────────────────────────────────────────────────────────
 
     /// <summary>
-    /// A command returning schema_name, table_name, index_name, scans and uptime_days: the scan
-    /// counter of every index of the tables, and how long the server has been counting.
+    /// A command returning schema_name, table_name, index_name and scans: the scan counter of every
+    /// index of the tables.
     /// </summary>
     protected abstract DbCommand IndexUsageCommand(DbConnection conn, IReadOnlyList<ScopedTable> tables);
+
+    /// <summary>
+    /// A command returning one row: server_start_days, created_days, restored_days,
+    /// stats_reset_days (days since each event, null when unknown) and restore_visible. The base
+    /// takes the most recent event as the start of the scan counters.
+    /// </summary>
+    protected abstract Task<DbCommand> StatsWindowCommandAsync(DbConnection conn, CancellationToken ct);
 
     private async Task<IndexUsageStats> QueryIndexUsageStatsAsync(IReadOnlyList<ScopedTable> tables, CancellationToken ct)
     {
@@ -31,11 +38,16 @@ public abstract partial class DatabaseInspectorBase
 
         var rows = await ReadAllAsync(IndexUsageCommand(conn, tables), r => (
             Index: (r.Text("schema_name"), r.Text("table_name"), r.Text("index_name")),
-            Scans: r.Number("scans"),
-            UptimeDays: r.RealOrNull("uptime_days") ?? 0), ct);
+            Scans: r.Number("scans")), ct);
 
-        return new IndexUsageStats(
-            rows.ToDictionary(r => r.Index, r => r.Scans), rows.Select(r => r.UptimeDays).FirstOrDefault());
+        var window = await ReadAllAsync(await StatsWindowCommandAsync(conn, ct), r => StatsWindow.From(
+            r.RealOrNull("server_start_days") ?? 0,
+            r.RealOrNull("created_days"),
+            r.RealOrNull("restored_days"),
+            r.RealOrNull("stats_reset_days"),
+            r.Flag("restore_visible")), ct);
+
+        return new IndexUsageStats(rows.ToDictionary(r => r.Index, r => r.Scans), window.Single());
     }
 
     /// <summary>

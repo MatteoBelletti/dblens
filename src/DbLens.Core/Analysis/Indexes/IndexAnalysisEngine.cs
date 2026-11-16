@@ -24,12 +24,14 @@ public static class IndexAnalysisEngine
 
         if (request.IncludeUnusedIndexes && stats is not null)
         {
-            if (stats.UptimeDays < request.UnusedIndexMinDays)
+            var window = stats.Window;
+            var days = Num.F0(window.Days);
+
+            if (window.Days < request.UnusedIndexMinDays)
             {
                 caveats.Add(
-                    $"Insufficient DB uptime for the 'unused-index' rule " +
-                    $"({Num.F0(stats.UptimeDays)} day(s), minimum required: {request.UnusedIndexMinDays}). " +
-                    "The rule was skipped.");
+                    $"The scan counters cover only {days} day(s), {window.SinceText}; the 'unused-index' " +
+                    $"rule needs {request.UnusedIndexMinDays}, so it was skipped.");
             }
             else
             {
@@ -37,10 +39,15 @@ public static class IndexAnalysisEngine
                 findings.AddRange(unusedFindings);
                 if (unusedFindings.Count > 0)
                     caveats.Add(
-                        $"Database uptime: {Num.F0(stats.UptimeDays)} day(s). " +
-                        "The 'unused-index' rule counts scans accumulated since the last DB restart. " +
+                        $"The 'unused-index' rule read {days} day(s) of scan counters, {window.SinceText}. " +
                         "Verify manually before dropping any index.");
             }
+
+            if (!window.RestoreVisible)
+                caveats.Add(
+                    "This login cannot see when the database was created or restored (on PostgreSQL that needs " +
+                    "EXECUTE on pg_stat_file), so the scan counters are dated from the server start. If the " +
+                    "database was restored later, they cover less time and 'unused-index' findings may be false.");
         }
 
         var split = FindingSplit.Partition(findings);

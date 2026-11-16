@@ -114,9 +114,21 @@ nor a prefix of `(a, b)`, while `(a DESC, b DESC)` is the same index read backwa
 Every finding has a `SqlFix` with the `CREATE INDEX` / `DROP INDEX` statement (kind `Ddl`), written
 not to block writes: `CONCURRENTLY` on PostgreSQL, `ONLINE = ON` on SQL Server (Enterprise or Developer
 edition; on Standard drop the option and schedule a window).
-`unused-index` needs at least 7 days of uptime: scan counters reset on restart, so read the `Caveats`
-before dropping anything. A login that cannot read the counters (`VIEW SERVER STATE` on SQL Server)
-gets the other three rules and a caveat.
+`unused-index` needs at least 7 days of scan counts. The counting window starts at the latest of: the
+server start, the database's creation, its last restore, and a statistics reset — so a dump restored
+yesterday on a server up for a month has one day, and the rule is skipped. Each finding carries the
+window in `Metadata` (`stats_window_days`, `stats_since`), and a caveat states it.
+
+| Engine | Creation | Restore | Reset |
+|---|---|---|---|
+| SQL Server | `sys.databases.create_date` | `msdb.dbo.restorehistory`, which also sees `RESTORE … WITH REPLACE` | — |
+| PostgreSQL | the `PG_VERSION` file, read only with `EXECUTE` on `pg_stat_file` | a restore is a new database: its creation | `pg_stat_database.stats_reset` |
+
+Without `pg_stat_file` a PostgreSQL restore made after the server start cannot be seen: the window is
+dated from the start, findings drop to confidence 0.6, and a caveat says so. PostgreSQL 15+ keeps
+statistics across a clean restart, so dating from the start only ever shortens the window. A login
+that cannot read the counters (`VIEW SERVER STATE` on SQL Server) gets the other three rules and a
+caveat.
 
 ## `analyze_fragmentation`
 

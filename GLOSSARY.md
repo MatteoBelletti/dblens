@@ -165,6 +165,10 @@ The words dblens uses in its results and its code, and what each one commits to.
 : Personal data; GDPR Article 9 categories (health, biometrics, religion, politics, ethnicity,
   orientation) get the highest severity.
 
+**Counting window**
+: How long an index's scan counters have been counting: since the latest of the server start, the
+  database's creation or restore, and a statistics reset. `unused-index` needs 7 days of it.
+
 **Fragmentation / page density**
 : How out of order an index's pages are / how full they are. Only measured, never inferred.
 

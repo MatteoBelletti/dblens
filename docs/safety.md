@@ -117,12 +117,14 @@ The demo databases ship one (`db/*/03-reader.sql`); mirror it in production.
 -- PostgreSQL 14+
 CREATE ROLE dblens_reader LOGIN PASSWORD '…';
 GRANT pg_read_all_data, pg_monitor TO dblens_reader;   -- pg_monitor: stats, pg_stat_statements, pgstattuple
+-- optional: lets unused-index see when the database was created or restored
+GRANT EXECUTE ON FUNCTION pg_stat_file(text) TO dblens_reader;
 ```
 
 ```sql
 -- SQL Server
 CREATE LOGIN dblens_reader WITH PASSWORD = '…';
-GRANT VIEW SERVER STATE TO dblens_reader;              -- uptime for unused-index
+GRANT VIEW SERVER STATE TO dblens_reader;              -- server start, for unused-index
 USE your_database;
 CREATE USER dblens_reader FOR LOGIN dblens_reader;
 ALTER ROLE db_datareader ADD MEMBER dblens_reader;
@@ -193,7 +195,7 @@ contributes table and column names only.
 | `check_migration_safety` | maybe nothing was recognized | statements of kind `Unknown` |
 | any scoped tool | maybe the schema or table name matched nothing | a caveat naming what was not found |
 | `check_cascade_paths` | — | an unknown `startingTable` is an error |
-| `analyze_indexes` (`unused-index`) | maybe counters were just reset | uptime caveat; rule skipped under 7 days |
+| `analyze_indexes` (`unused-index`) | maybe counters were just reset or the dump just restored | the counting window and its start; rule skipped under 7 days |
 | `check_cascade_paths` | no *declared* cascade | disclaimer: ORM cascades and triggers are invisible |
 | `infer_relationships` | maybe no query history | caveat when pg_stat_statements / Query Store is unavailable |
 | `query_with_receipt` | the figure is unconfirmed | caveat when no cross-check ran; `Disagree` when one failed |

@@ -15,6 +15,21 @@ public sealed class PostgresEdgeCatalogTests(PostgresEdgeFixture fixture)
 {
     [SkippableFact]
     [Trait("Category", "Integration")]
+    public async Task UnusedIndex_WithoutFileAccess_SaysTheRestoreIsInvisible()
+    {
+        Skip.If(ShouldSkip, TestSkip.Reason);
+
+        // Without EXECUTE on pg_stat_file the creation time cannot be read: dated from the server start.
+        var result = await Fixture.LimitedInspector!.AnalyzeIndexesAsync(
+            new AnalyzeIndexesRequest(Schema, ["covered"], IncludeUnusedIndexes: true, UnusedIndexMinDays: 0));
+
+        result.Caveats.Should().Contain(c => c.Contains("cannot see when the database was created or restored"));
+        result.Findings.Where(f => f.RuleId == IndexRuleIds.UnusedIndex).Should().OnlyContain(f =>
+            (string)f.Metadata!["stats_since"] == nameof(StatsWindowStart.ServerStart) && f.Confidence < 0.9);
+    }
+
+    [SkippableFact]
+    [Trait("Category", "Integration")]
     public async Task PartitionedTable_IsOneTable_WithItsPartitionsMarked()
     {
         Skip.If(ShouldSkip, TestSkip.Reason);
