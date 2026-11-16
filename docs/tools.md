@@ -126,7 +126,10 @@ window in `Metadata` (`stats_window_days`, `stats_since`), and a caveat states i
 | PostgreSQL | the `PG_VERSION` file, read only with `EXECUTE` on `pg_stat_file` | a restore is a new database: its creation | `pg_stat_database.stats_reset` |
 
 Without `pg_stat_file` a PostgreSQL restore made after the server start cannot be seen: the window is
-dated from the start, findings drop to confidence 0.6, and a caveat says so. PostgreSQL 15+ keeps
+dated from the start, findings drop to confidence 0.6, and a caveat says so. A `pg_restore --clean`
+into an existing database changes none of these dates; for that, and any restore the dates miss,
+the rule is skipped with a caveat when no index of the database has recorded a single scan — the
+workload has not run there, so every index would look unused. PostgreSQL 15+ keeps
 statistics across a clean restart, so dating from the start only ever shortens the window. A login
 that cannot read the counters (`VIEW SERVER STATE` on SQL Server) gets the other three rules and a
 caveat.
@@ -393,6 +396,8 @@ text, never compiled**: no project is built and none of the user's code runs.
 |---|---|---|
 | `snapshotPath` | required | Absolute path of the snapshot file, or of the folder holding exactly one |
 | `schema` | — | Compare one schema only. Default: every schema the model maps |
+| `historyTable` | `__EFMigrationsHistory` | The history table, when the DbContext sets `MigrationsHistoryTable` |
+| `historySchema` | — | Its schema. Default: wherever a table of that name is found |
 
 | Rule | Severity | Detects |
 |---|---|---|
@@ -400,7 +405,7 @@ text, never compiled**: no project is built and none of the user's code runs.
 | `ef-table-missing` | High | A table the model maps that the database lacks |
 | `ef-column-missing` | High | A column the model maps that its table lacks |
 | `ef-index-missing` | High | A `HasIndex` with no index on those columns |
-| `ef-migration-pending` | Medium | Migrations in the code not yet applied (one finding listing them) |
+| `ef-migration-pending` | Medium / High | Migrations in the code not yet applied (one finding listing them); High when one is older than the last applied |
 | `ef-index-unmodeled` | Medium | An index in the database the model does not declare — added by hand |
 | `ef-fk-missing` | Medium | A relationship in the model with no foreign key in the database |
 | `ef-unmapped-table` | Info | A table in a compared schema that no entity maps (the history table excluded) |
@@ -413,15 +418,26 @@ later makes the next migration contain a `CreateIndex` that fails where the inde
 the finding says to remove that call or make it conditional with `migrationBuilder.Sql`.
 
 `Migrations` in the result gives the history table read, the last migration both sides know, the
-pending and unknown ones, and the command that scripts the pending ones —
-`dotnet ef migrations script <last applied> --context <Context> -o pending.sql` — whose output
-`check_migration_safety` reads. The history table is found by name in any schema (EF writes it
-unqualified, so it lands in the login's default schema, not the model's); none found is a caveat,
-and the schema comparison still runs.
+pending ones, the `OutOfOrder` ones among them, the `Unknown` ones, the `OtherContexts` ones set
+aside, and `ScriptCommands`: one `dotnet ef migrations script <from> <to> --context <Context>` per
+run of consecutive pending migrations, whose output `check_migration_safety` reads. A pending
+migration older than the last applied one — usually from a merge — is one `database update` applies
+and a script from the last applied one leaves out, so it is flagged (High) and scripted on its own.
+
+Every DbContext writes to the same history table by default. The migration ids of the other
+contexts, read from the `*.Designer.cs` files under the folder above the snapshot's, are set aside
+with a caveat rather than reported as unknown; a context whose migrations live elsewhere still shows
+up as unknown, and the finding says so.
+
+The history table is found by name in any schema (EF writes it unqualified, so it lands in the
+login's default schema, not the model's); `historyTable` and `historySchema` name another. None
+found is a caveat, and the schema comparison still runs. Its rows' `MigrationId` is the one value
+from a table the tool reads ([safety](safety.md#ef-cores-history-table)).
 
 Indexes and foreign keys are matched by their columns, since a snapshot names them only when
 `HasDatabaseName` does. Names are matched exactly first, then ignoring case; a name that matches
-several objects by case alone is a caveat, never a guess.
+several objects by case alone is a caveat, never a guess, and nothing is reported missing or
+unmapped for it.
 
 **Compared:** plain entities, table-per-hierarchy subtypes (their columns nullable), owned types in
 their owner's table, complex properties, alternate keys. **Not compared**, each named in a caveat:

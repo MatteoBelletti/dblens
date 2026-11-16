@@ -29,18 +29,46 @@ public static class SnapshotReader
         if (string.IsNullOrWhiteSpace(path) || !Path.IsPathFullyQualified(path))
             throw new ArgumentException("snapshotPath must be an absolute path to a *ModelSnapshot.cs file or its Migrations folder.");
 
-        var snapshot = FindSnapshot(path);
-        var snapshotText = ReadLimited(snapshot);
-        var directory = Path.GetDirectoryName(snapshot)!;
+        try
+        {
+            var snapshot = FindSnapshot(path);
+            var snapshotText = ReadLimited(snapshot);
 
-        var designers = Directory
-            .EnumerateFiles(directory, "*" + DesignerSuffix, SearchOption.AllDirectories)
-            .Take(MaxDesignerFiles + 1)
-            .ToList();
-        if (designers.Count > MaxDesignerFiles)
-            throw new ArgumentException($"More than {MaxDesignerFiles} *.Designer.cs files under {directory}: point snapshotPath at the Migrations folder itself.");
+            // The folder above the snapshot's holds the other contexts' migrations in the usual layouts
+            // (Project/Migrations, Migrations/<Context>): their ids are needed to read a shared history table.
+            var directory = Path.GetDirectoryName(snapshot)!;
+            var searchRoot = Path.GetDirectoryName(directory) ?? directory;
+            var designers = Designers(searchRoot);
 
-        return Parse(snapshotText, designers.Select(ReadLimited));
+            return Parse(snapshotText, designers.Select(ReadLimited));
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            // Shown to the caller: the SDK hides any other exception's message.
+            throw new ArgumentException($"The snapshot could not be read: {ex.Message}", ex);
+        }
+    }
+
+    private static readonly string[] SkippedFolders = ["bin", "obj", "node_modules", ".git"];
+
+    private static List<string> Designers(string root)
+    {
+        List<string> found = [];
+        Stack<string> folders = new([root]);
+
+        while (folders.Count > 0)
+        {
+            var folder = folders.Pop();
+            found.AddRange(Directory.EnumerateFiles(folder, "*" + DesignerSuffix));
+            if (found.Count > MaxDesignerFiles)
+                throw new ArgumentException($"More than {MaxDesignerFiles} *.Designer.cs files under {root}: point snapshotPath at the Migrations folder itself.");
+
+            foreach (var sub in Directory.EnumerateDirectories(folder))
+                if (!SkippedFolders.Contains(Path.GetFileName(sub), StringComparer.OrdinalIgnoreCase))
+                    folders.Push(sub);
+        }
+
+        return found;
     }
 
     private static string FindSnapshot(string path)
@@ -68,18 +96,10 @@ public static class SnapshotReader
 
     private static string ReadLimited(string file)
     {
-        try
-        {
-            var length = new FileInfo(file).Length;
-            if (length > MaxFileBytes)
-                throw new ArgumentException($"{Path.GetFileName(file)} is {length / (1024 * 1024)} MB, over the {MaxFileBytes / (1024 * 1024)} MB dblens reads.");
-            return File.ReadAllText(file);
-        }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
-        {
-            // Shown to the caller: the SDK hides any other exception's message.
-            throw new ArgumentException($"{Path.GetFileName(file)} could not be read: {ex.Message}", ex);
-        }
+        var length = new FileInfo(file).Length;
+        if (length > MaxFileBytes)
+            throw new ArgumentException($"{Path.GetFileName(file)} is {length / (1024 * 1024)} MB, over the {MaxFileBytes / (1024 * 1024)} MB dblens reads.");
+        return File.ReadAllText(file);
     }
 
     /// <summary>The model in <paramref name="snapshot"/>, with the migrations of the same DbContext among <paramref name="designers"/>.</summary>
@@ -101,17 +121,21 @@ public static class SnapshotReader
         foreach (var statement in buildModel.Body!.Statements)
             ReadModelStatement(statement, modelBuilder, model);
 
-        var migrations = designers
+        var byContext = designers
             .Select(text => CSharpSyntaxTree.ParseText(text).GetCompilationUnitRoot())
             .SelectMany(r => r.DescendantNodes().OfType<ClassDeclarationSyntax>())
-            .Where(c => ContextOf(c) == context)
-            .Select(MigrationIdOf)
-            .OfType<string>()
-            .Distinct(StringComparer.Ordinal)
-            .Order(StringComparer.Ordinal)
-            .ToList();
+            .Select(c => (Context: ContextOf(c), Id: MigrationIdOf(c)))
+            .Where(m => m.Context is not null && m.Id is not null)
+            .GroupBy(m => m.Context!, StringComparer.Ordinal)
+            .ToDictionary(
+                g => g.Key,
+                g => (IReadOnlyList<string>)[.. g.Select(m => m.Id!).Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal)],
+                StringComparer.Ordinal);
 
-        return model.Resolve(context, migrations);
+        var migrations = byContext.GetValueOrDefault(context) ?? [];
+        byContext.Remove(context);
+
+        return model.Resolve(context, migrations) with { OtherContexts = byContext };
     }
 
     // ── Model statements ───────────────────────────────────────────────────────
@@ -138,7 +162,9 @@ public static class SnapshotReader
         }
     }
 
-    private static void ReadEntity(EntityState entity, LambdaExpressionSyntax lambda, ModelState model)
+    /// <param name="prefix">For a complex property's members, "Billing." — so that two complex
+    /// properties of one type do not configure the same property.</param>
+    private static void ReadEntity(EntityState entity, LambdaExpressionSyntax lambda, ModelState model, string prefix = "")
     {
         if (ParameterOf(lambda) is not { } builder) return;
 
@@ -153,7 +179,7 @@ public static class SnapshotReader
             switch (head.Name)
             {
                 case "Property" when Str(head.Arg(0)) is { } name:
-                    ReadProperty(entity.Property(name, head.TypeArgument), rest);
+                    ReadProperty(entity.Property(prefix + name, head.TypeArgument, prefix.Replace('.', '_') + name), rest);
                     break;
                 case "HasKey":
                     entity.Key = Strings(head.Arguments);
@@ -196,9 +222,10 @@ public static class SnapshotReader
                     owned.OwnsMany = head.Name == "OwnsMany";
                     ReadEntity(owned, ownedLambda, model);
                     break;
-                case "ComplexProperty" when head.Arguments.LastOrDefault()?.Expression is LambdaExpressionSyntax complexLambda:
-                    // A complex type's properties are columns of the entity's own table.
-                    ReadEntity(entity, complexLambda, model);
+                case "ComplexProperty" when Str(head.Arg(0)) is { } complexName
+                                            && head.Arguments.LastOrDefault()?.Expression is LambdaExpressionSyntax complexLambda:
+                    // A complex type's properties are columns of the entity's own table, named Name_Member by default.
+                    ReadEntity(entity, complexLambda, model, $"{prefix}{complexName}.");
                     break;
                 case "Navigation" when Str(head.Arg(0)) is { } navigation && rest.Any(c => c.Name == "IsRequired" && Bool(c.Arg(0)) != false):
                     entity.RequiredNavigations.Add(navigation);

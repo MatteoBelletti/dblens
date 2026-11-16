@@ -33,6 +33,13 @@ public static class IndexAnalysisEngine
                     $"The scan counters cover only {days} day(s), {window.SinceText}; the 'unused-index' " +
                     $"rule needs {request.UnusedIndexMinDays}, so it was skipped.");
             }
+            else if (!window.AnyIndexScanned)
+            {
+                caveats.Add(
+                    $"No index of this database has recorded a single scan in {days} day(s) of counters: the workload " +
+                    "has not run here (a freshly restored copy, for one), so every index would look unused. The " +
+                    "'unused-index' rule was skipped.");
+            }
             else
             {
                 var unusedFindings = UnusedIndexRule.Apply(tables, stats, dialect).ToList();

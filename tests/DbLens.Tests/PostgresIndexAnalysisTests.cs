@@ -89,7 +89,8 @@ public sealed class PostgresIndexAnalysisTests(PostgresFixture fixture) : IClass
         Skip.If(ShouldSkip, TestSkip.Reason);
 
         // idx_orders_status is a deliberately unused non-unique index (never scanned during seeding).
-        // unusedIndexMinDays = 0 bypasses the uptime threshold.
+        // unusedIndexMinDays = 0 bypasses the window threshold; the workload is another table's.
+        await _fixture.RunWorkloadAsync();
         var result = await _fixture.Inspector!.AnalyzeIndexesAsync(
             new AnalyzeIndexesRequest(
                 Schema: "public",

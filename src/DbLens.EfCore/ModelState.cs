@@ -48,6 +48,19 @@ internal sealed class ModelState
             foreach (var name in names) placements.Remove(name);
         }
 
+        // A subtype or owned type whose table owner was not placed has no table to be compared in.
+        for (var removed = true; removed;)
+        {
+            removed = false;
+            foreach (var orphan in placements.Values
+                         .Where(p => p.SharesTableWith is { } host && !placements.ContainsKey(host)).ToList())
+            {
+                unsupported.Add($"{orphan.Entity.Name} is stored in the table of {orphan.SharesTableWith}, which was not compared, so it was not either.");
+                placements.Remove(orphan.Entity.Name);
+                removed = true;
+            }
+        }
+
         var foreignKeys = Relationships
             .Select(r => ForeignKeyOf(r))
             .OfType<(string Dependent, EfForeignKey Key)>()
@@ -217,11 +230,11 @@ internal sealed class EntityState(string name)
     public HashSet<string> RequiredNavigations { get; } = new(StringComparer.Ordinal);
 
     /// <summary>The same property is configured again by later statements (identity, comments…).</summary>
-    public PropertyState Property(string name, string? clrType)
+    public PropertyState Property(string name, string? clrType, string defaultColumn)
     {
         if (!_properties.TryGetValue(name, out var property))
         {
-            property = new PropertyState(name);
+            property = new PropertyState(name, defaultColumn);
             _properties[name] = property;
             Properties.Add(property);
         }
@@ -231,7 +244,7 @@ internal sealed class EntityState(string name)
     }
 }
 
-internal sealed class PropertyState(string name)
+internal sealed class PropertyState(string name, string defaultColumn)
 {
     public string Name { get; } = name;
     public string? ClrType { get; set; }
@@ -247,7 +260,7 @@ internal sealed class PropertyState(string name)
     {
         var type = ClrType ?? "object";
         var nullable = columnNullable || type.EndsWith('?') || (IsReferenceType(type) && !Required);
-        return new EfProperty(Name, type, Column ?? Name, ColumnType, nullable, MaxLength, Unicode, Precision, Scale);
+        return new EfProperty(Name, type, Column ?? defaultColumn, ColumnType, nullable, MaxLength, Unicode, Precision, Scale);
     }
 
     /// <summary>

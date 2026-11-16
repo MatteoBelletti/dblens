@@ -192,6 +192,8 @@ public sealed class PostgresEdgeFixture : IAsyncLifetime, IEdgeFixture
 
     public IDatabaseInspector? LimitedInspector { get; private set; }
 
+    public Task RunWorkloadAsync() => IndexWorkload.OnPostgresAsync(EdgeConnectionString, "edge.account");
+
     public async Task InitializeAsync()
     {
         try

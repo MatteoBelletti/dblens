@@ -16,7 +16,8 @@ public sealed class CompareEfModelTool(IServiceProvider services, IDatabaseInspe
         "unknown to the code, migrations pending, tables, columns, indexes and foreign keys the model expects and the " +
         "database lacks, and indexes or tables the database has and the model does not. Each finding names the entity " +
         "and property to change in Metadata[\"ef\"]; Migrations gives the command that scripts the pending ones. " +
-        "IMPORTANT: the snapshot is parsed as text — no project is built and no code of the user's runs. Column types, " +
+        "IMPORTANT: the snapshot is parsed as text — no project is built and no code of the user's runs. The only rows " +
+        "read are the migration ids in EF's history table. Column types, " +
         "lengths and nullability are not compared. Read the Caveats: mappings dblens does not compare are named there. " +
         "Do NOT infer differences beyond what this tool returns.")]
     public Task<CompareEfModelResult> CompareEfModel(
@@ -26,9 +27,17 @@ public sealed class CompareEfModelTool(IServiceProvider services, IDatabaseInspe
         DatabaseDialect dialect = DatabaseDialect.PostgreSql,
         [Description("Schema to compare. Null = every schema the model maps.")]
         string? schema = null,
+        [Description("The migrations history table, when the DbContext sets MigrationsHistoryTable. Default __EFMigrationsHistory.")]
+        string? historyTable = null,
+        [Description("The history table's schema. Null = wherever a table of that name is found.")]
+        string? historySchema = null,
         [Description(ConnectionStringHelp)]
         string? connectionString = null,
         CancellationToken cancellationToken = default) =>
         ResolveInspector(dialect, connectionString).CompareEfModelAsync(
-            new CompareEfModelRequest(SnapshotReader.Read(snapshotPath), schema), cancellationToken);
+            new CompareEfModelRequest(
+                SnapshotReader.Read(snapshotPath), schema,
+                string.IsNullOrWhiteSpace(historyTable) ? "__EFMigrationsHistory" : historyTable,
+                string.IsNullOrWhiteSpace(historySchema) ? null : historySchema),
+            cancellationToken);
 }

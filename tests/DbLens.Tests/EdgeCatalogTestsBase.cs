@@ -24,6 +24,9 @@ public interface IEdgeFixture
 
     /// <summary>A login that can read the edge schema's tables and nothing about the server.</summary>
     IDatabaseInspector? LimitedInspector { get; }
+
+    /// <summary>Scans edge.account's primary key, so the database has seen a workload (<see cref="IndexWorkload"/>).</summary>
+    Task RunWorkloadAsync();
 }
 
 /// <summary>
@@ -60,6 +63,7 @@ public abstract class EdgeCatalogTestsBase(IEdgeFixture fixture)
         Skip.If(ShouldSkip, TestSkip.Reason);
 
         // The fixture creates this database after the server started, as a restore of a dump would.
+        await Fixture.RunWorkloadAsync();
         var result = await Inspector.AnalyzeIndexesAsync(
             new AnalyzeIndexesRequest(Schema, ["covered"], IncludeUnusedIndexes: true, UnusedIndexMinDays: 0));
 

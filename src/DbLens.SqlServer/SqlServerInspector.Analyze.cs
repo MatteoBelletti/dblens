@@ -36,7 +36,11 @@ public sealed partial class SqlServerInspector
             CAST(DATEDIFF_BIG(SECOND, d.create_date, GETDATE()) AS FLOAT) / 86400.0 AS created_days,
             {0} AS restored_days,
             CAST(NULL AS FLOAT) AS stats_reset_days,
-            CAST({1} AS BIT) AS restore_visible
+            CAST({1} AS BIT) AS restore_visible,
+            CAST(CASE WHEN EXISTS (
+                SELECT 1 FROM sys.dm_db_index_usage_stats u
+                WHERE u.database_id = DB_ID() AND u.user_seeks + u.user_scans + u.user_lookups > 0)
+                THEN 1 ELSE 0 END AS BIT) AS any_index_scanned
         FROM sys.dm_os_sys_info si
         CROSS JOIN sys.databases d
         WHERE d.database_id = DB_ID()

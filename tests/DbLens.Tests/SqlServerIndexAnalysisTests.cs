@@ -69,6 +69,8 @@ public sealed class SqlServerIndexAnalysisTests(SqlServerFixture fixture) : ICla
     {
         Skip.If(ShouldSkip, TestSkip.Reason);
 
+        await _fixture.RunWorkloadAsync();
+
         var result = await _fixture.Inspector!.AnalyzeIndexesAsync(
             new AnalyzeIndexesRequest(
                 Schema: "dbo",

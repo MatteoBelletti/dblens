@@ -2,8 +2,11 @@ using DbLens.Core.Models;
 
 namespace DbLens.Core.Analysis.EfCore;
 
-/// <summary>A property and the column it found; <see cref="Column"/> is null when the table has none by that name.</summary>
-public sealed record EfColumnMatch(EfEntity Entity, EfProperty Property, ColumnDetail? Column);
+/// <summary>
+/// A property and the column it found. <see cref="Column"/> is null when the table has none by that
+/// name, or when several differ from it only in case (<see cref="Ambiguous"/>): then nothing is known.
+/// </summary>
+public sealed record EfColumnMatch(EfEntity Entity, EfProperty Property, ColumnDetail? Column, bool Ambiguous = false);
 
 /// <summary>
 /// One table the model maps, with every entity stored in it (an owner and its owned types, a TPH
@@ -14,10 +17,12 @@ public sealed record EfTableMatch(
     string Name,
     IReadOnlyList<EfEntity> Entities,
     TableDetail? Table,
-    IReadOnlyList<EfColumnMatch> Columns)
+    IReadOnlyList<EfColumnMatch> Columns,
+    /// <summary>Several tables differ from the name only in case: none was chosen, none is missing.</summary>
+    bool Ambiguous = false)
 {
     /// <summary>The entity the table belongs to: the one that shares it with no other.</summary>
-    public EfEntity Owner => Entities.First(e => e.SharesTableWith is null);
+    public EfEntity Owner => Entities.FirstOrDefault(e => e.SharesTableWith is null) ?? Entities[0];
 
     public string Qualified => $"{Schema}.{Name}";
 }
@@ -50,17 +55,22 @@ public static class EfModelMatcher
         foreach (var group in groups)
         {
             var (schema, name) = group.Key;
-            var table = Find(tables, t => (t.Schema, t.Name), (schema, name), $"table {schema}.{name}", ambiguities);
+            var (table, candidates) = Find(tables, t => (t.Schema, t.Name), (schema, name), $"table {schema}.{name}", ambiguities);
             if (table is not null) mapped.Add(table);
+            // Each of the tables it could be is possibly mapped: none is reported as unmapped.
+            foreach (var candidate in candidates) mapped.Add(candidate);
 
             var columns = group
-                .SelectMany(entity => entity.Properties.Select(property => new EfColumnMatch(
-                    entity, property,
-                    table is null ? null : Find(table.Columns, c => ("", c.Name), ("", property.Column),
-                        $"column {schema}.{name}.{property.Column}", ambiguities))))
+                .SelectMany(entity => entity.Properties.Select(property =>
+                {
+                    if (table is null) return new EfColumnMatch(entity, property, null);
+                    var (column, same) = Find(table.Columns, c => ("", c.Name), ("", property.Column),
+                        $"column {schema}.{name}.{property.Column}", ambiguities);
+                    return new EfColumnMatch(entity, property, column, same.Count > 0);
+                }))
                 .ToList();
 
-            matches.Add(new EfTableMatch(schema, name, [.. group], table, columns));
+            matches.Add(new EfTableMatch(schema, name, [.. group], table, columns, candidates.Count > 0));
         }
 
         return new EfModelMatch(matches, [.. tables.Where(t => !mapped.Contains(t))], ambiguities);
@@ -84,21 +94,24 @@ public static class EfModelMatcher
         return columns;
     }
 
-    private static T? Find<T>(
+    /// <returns>The match, or none and the objects it could be when several differ only in case.</returns>
+    private static (T? Match, IReadOnlyList<T> Ambiguous) Find<T>(
         IEnumerable<T> candidates, Func<T, (string, string)> key, (string, string) wanted, string what, List<string> ambiguities)
         where T : class
     {
         var list = candidates as IReadOnlyCollection<T> ?? [.. candidates];
 
         var exact = list.Where(c => key(c) == wanted).ToList();
-        if (exact.Count == 1) return exact[0];
+        if (exact.Count == 1) return (exact[0], []);
 
         var byCase = list.Where(c => PairComparer.Instance.Equals(key(c), wanted)).ToList();
-        if (byCase.Count == 1) return byCase[0];
+        if (byCase.Count == 1) return (byCase[0], []);
+        if (byCase.Count == 0) return (null, []);
 
-        if (byCase.Count > 1)
-            ambiguities.Add($"The model's {what} matches {byCase.Count} objects that differ only in case, so it was not matched.");
-        return null;
+        ambiguities.Add(
+            $"The model's {what} matches {byCase.Count} objects that differ only in case, so it was not compared: " +
+            "nothing is reported missing or unmapped for it.");
+        return (null, byCase);
     }
 
     private sealed class PairComparer : IEqualityComparer<(string, string)>

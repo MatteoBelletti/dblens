@@ -26,7 +26,8 @@ public sealed partial class PostgresInspector
             {0} AS created_days,
             NULL::float8 AS restored_days,
             EXTRACT(EPOCH FROM (NOW() - d.stats_reset)) / 86400.0 AS stats_reset_days,
-            {1} AS restore_visible
+            {1} AS restore_visible,
+            EXISTS (SELECT 1 FROM pg_stat_user_indexes WHERE idx_scan > 0) AS any_index_scanned
         FROM pg_stat_database d
         JOIN pg_database db ON db.oid = d.datid
         WHERE d.datname = current_database()

@@ -17,4 +17,7 @@ public interface IDatabaseFixture
 
     /// <summary>An inspector on the administrator login, which can write.</summary>
     IDatabaseInspector CreateAdminInspector(bool readOnlyLoginOnLocalhost = false);
+
+    /// <summary>Scans one index of another table, so the database has seen a workload (<see cref="IndexWorkload"/>).</summary>
+    Task RunWorkloadAsync();
 }

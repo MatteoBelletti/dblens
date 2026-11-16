@@ -27,7 +27,8 @@ public abstract partial class DatabaseInspectorBase
 
     /// <summary>
     /// A command returning one row: server_start_days, created_days, restored_days,
-    /// stats_reset_days (days since each event, null when unknown) and restore_visible. The base
+    /// stats_reset_days (days since each event, null when unknown), restore_visible and
+    /// any_index_scanned (whether any index of the database has recorded a scan). The base
     /// takes the most recent event as the start of the scan counters.
     /// </summary>
     protected abstract Task<DbCommand> StatsWindowCommandAsync(DbConnection conn, CancellationToken ct);
@@ -45,7 +46,8 @@ public abstract partial class DatabaseInspectorBase
             r.RealOrNull("created_days"),
             r.RealOrNull("restored_days"),
             r.RealOrNull("stats_reset_days"),
-            r.Flag("restore_visible")), ct);
+            r.Flag("restore_visible"),
+            r.Flag("any_index_scanned")), ct);
 
         return new IndexUsageStats(rows.ToDictionary(r => r.Index, r => r.Scans), window.Single());
     }

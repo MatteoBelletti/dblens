@@ -18,7 +18,12 @@ public sealed record EfModel(
     /// Mappings outside what dblens compares (TPT, TPC, JSON columns, views, keyless entities…),
     /// one sentence each naming the entity: reported, never silently skipped.
     /// </summary>
-    IReadOnlyList<string> Unsupported);
+    IReadOnlyList<string> Unsupported,
+    /// <summary>
+    /// The migrations of the other DbContexts found in the same project, by context. Every context
+    /// writes to the same history table by default, so their rows are not this model's unknowns.
+    /// </summary>
+    IReadOnlyDictionary<string, IReadOnlyList<string>>? OtherContexts = null);
 
 /// <summary>An entity type and the table it is stored in.</summary>
 public sealed record EfEntity(

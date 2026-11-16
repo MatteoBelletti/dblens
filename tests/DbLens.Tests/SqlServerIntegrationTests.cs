@@ -241,6 +241,8 @@ public sealed class SqlServerFixture : IAsyncLifetime, IDatabaseFixture
     private static string AdminConnectionString =>
         Environment.GetEnvironmentVariable("DBLENS_TEST_SS_ADMIN_CONNECTION") ?? DefaultAdminConnectionString;
 
+    public Task RunWorkloadAsync() => IndexWorkload.OnSqlServerAsync(ConnectionString, "users");
+
     public DbLens.Core.Abstractions.IDatabaseInspector CreateAdminInspector(bool readOnlyLoginOnLocalhost = false) =>
         new SqlServerInspector(AdminConnectionString, NullLogger<SqlServerInspector>.Instance)
         {

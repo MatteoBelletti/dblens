@@ -78,8 +78,9 @@ public abstract class EfDriftTestsBase(IEfFixture fixture)
         migrations.LastApplied.Should().Be(model.MigrationIds[0]);
         migrations.Pending.Should().Equal(model.MigrationIds[1]);
         migrations.Unknown.Should().Equal(Hotfix);
-        migrations.ScriptCommand.Should().Be(
-            $"dotnet ef migrations script {model.MigrationIds[0]} --context {model.ContextName} -o pending.sql");
+        migrations.OutOfOrder.Should().BeEmpty();
+        migrations.ScriptCommands.Should().Equal(
+            $"dotnet ef migrations script {model.MigrationIds[0]} {model.MigrationIds[1]} --context {model.ContextName} -o pending.sql");
     }
 
     [SkippableFact]
@@ -108,7 +109,7 @@ public abstract class EfDriftTestsBase(IEfFixture fixture)
         result.Findings.Should().ContainSingle().Which.RuleId.Should().Be(EfRuleIds.DriftSummary);
         result.Migrations.Pending.Should().BeEmpty();
         result.Migrations.Unknown.Should().BeEmpty();
-        result.Migrations.ScriptCommand.Should().BeNull();
+        result.Migrations.ScriptCommands.Should().BeEmpty();
     }
 
     private static string HistoryTable(CompareEfModelResult result) => result.Migrations.HistoryTable!;

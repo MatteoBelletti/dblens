@@ -10,24 +10,27 @@ namespace DbLens.Core.Analysis.EfCore;
 public static class EfDriftEngine
 {
     /// <param name="applied">The applied migration ids; null when no history table was found.</param>
+    /// <param name="historyTable">The history table read, as a catalog pair.</param>
     /// <param name="schemas">The schemas compared: a table there that no entity maps is reported.</param>
     public static CompareEfModelResult Analyze(
         EfModel model,
         EfModelMatch match,
         IReadOnlyList<string>? applied,
-        string? historyTable,
+        (string Schema, string Name)? historyTable,
         IReadOnlySet<string> schemas)
     {
         List<Finding> findings = [];
         List<string> caveats = [.. model.Unsupported, .. match.Ambiguities];
 
-        var migrations = Migrations(model, applied, historyTable, findings, caveats);
+        var history = historyTable is { } h ? $"{h.Schema}.{h.Name}" : null;
+        var migrations = Migrations(model, applied, history, findings, caveats);
 
-        foreach (var table in match.Tables)
+        foreach (var table in match.Tables.Where(t => !t.Ambiguous))
             CompareTable(table, match, findings);
 
         foreach (var table in match.UnmappedTables.Where(t =>
-                     schemas.Contains(t.Schema) && !IsHistory(t, historyTable)))
+                     schemas.Contains(t.Schema)
+                     && !(historyTable is { } ht && Same(t.Schema, ht.Schema) && Same(t.Name, ht.Name))))
             findings.Add(Unmapped(table));
 
         var differences = findings.Count;
@@ -56,44 +59,90 @@ public static class EfDriftEngine
             caveats.Add(
                 "No migrations history table was found, so which migrations are applied is unknown: the database " +
                 "was created another way (EnsureCreated, a script, another tool) or the history lives under another " +
-                "name. The schema comparison below does not depend on it.");
-            return new EfMigrationState(false, null, null, [], [], null);
+                "name (pass historyTable and historySchema). The schema comparison below does not depend on it.");
+            return new EfMigrationState(false, null, null, [], [], [], [], []);
         }
 
-        var code = new HashSet<string>(model.MigrationIds, StringComparer.Ordinal);
+        var code = model.MigrationIds;
         var inDatabase = new HashSet<string>(applied, StringComparer.Ordinal);
-        var pending = model.MigrationIds.Where(id => !inDatabase.Contains(id)).ToList();
-        var unknown = applied.Where(id => !code.Contains(id)).Order(StringComparer.Ordinal).ToList();
-        var lastApplied = model.MigrationIds.LastOrDefault(inDatabase.Contains);
+        var others = (model.OtherContexts ?? new Dictionary<string, IReadOnlyList<string>>())
+            .SelectMany(c => c.Value.Select(id => (Id: id, Context: c.Key)))
+            .GroupBy(m => m.Id, StringComparer.Ordinal)
+            .ToDictionary(g => g.Key, g => g.First().Context, StringComparer.Ordinal);
+
+        var lastIndex = code.Select((id, i) => (id, i)).LastOrDefault(x => inDatabase.Contains(x.id), (null!, -1)).i;
+        var lastApplied = lastIndex >= 0 ? code[lastIndex] : null;
+        var pending = code.Where(id => !inDatabase.Contains(id)).ToList();
+        var outOfOrder = code.Take(Math.Max(lastIndex, 0)).Where(id => !inDatabase.Contains(id)).ToList();
+        var notInCode = applied.Where(id => !code.Contains(id, StringComparer.Ordinal)).Order(StringComparer.Ordinal).ToList();
+        var otherContexts = notInCode.Where(others.ContainsKey).ToList();
+        var unknown = notInCode.Where(id => !others.ContainsKey(id)).ToList();
+
+        if (otherContexts.Count > 0)
+            caveats.Add(
+                $"{Num.N0(otherContexts.Count)} applied migration(s) belong to other DbContexts of the project " +
+                $"({string.Join(", ", otherContexts.Select(id => others[id]).Distinct())}), which share {historyTable}; they were set aside.");
 
         foreach (var id in unknown)
             findings.Add(new Finding(
                 EfRuleIds.MigrationUnknown, Severity.High, FindingCategory.Structure, 1.0, Evidence.Derived,
                 historyTable!, null,
                 $"Migration '{id}' is applied in the database but not in the code",
-                $"{historyTable} records '{id}', which no migration beside the snapshot declares. It came from another " +
-                "branch, or was applied by hand as a hotfix: the next migration generated from this code does not know " +
-                "what it changed. Merge that migration into the code before generating a new one.",
+                $"{historyTable} records '{id}', which no migration of {model.ContextName} declares, nor any other DbContext " +
+                "found beside it. It came from another branch, or was applied by hand as a hotfix: the next migration " +
+                "generated from this code does not know what it changed. Merge that migration into the code before " +
+                "generating a new one. If a DbContext whose migrations live elsewhere shares this history table, its " +
+                "migrations appear here too.",
                 null,
                 new Dictionary<string, object> { ["migration"] = id }));
 
-        string? command = null;
+        var commands = ScriptCommands(model, inDatabase);
         if (pending.Count > 0)
         {
-            command = $"dotnet ef migrations script {lastApplied ?? "0"} --context {model.ContextName} -o pending.sql";
+            var outOfOrderText = outOfOrder.Count == 0
+                ? ""
+                : $" {string.Join(", ", outOfOrder)} {(outOfOrder.Count == 1 ? "is" : "are")} older than the last applied " +
+                  $"migration, {lastApplied}: `dotnet ef database update` applies {(outOfOrder.Count == 1 ? "it" : "them")}, " +
+                  $"but a script from {lastApplied} leaves {(outOfOrder.Count == 1 ? "it" : "them")} out, so each run of " +
+                  "pending migrations is scripted on its own.";
+
             findings.Add(new Finding(
-                EfRuleIds.MigrationPending, Severity.Medium, FindingCategory.Structure, 1.0, Evidence.Derived,
+                EfRuleIds.MigrationPending, outOfOrder.Count > 0 ? Severity.High : Severity.Medium,
+                FindingCategory.Structure, 1.0, Evidence.Derived,
                 historyTable!, null,
-                $"{Num.N0(pending.Count)} migration(s) in the code are not applied: {pending[0]}" +
-                (pending.Count > 1 ? $" … {pending[^1]}" : ""),
-                $"The database's last applied migration is {lastApplied ?? "none"}. The differences below that these " +
-                $"migrations would create are expected until they run. Write their SQL with `{command}` and check it " +
-                "with check_migration_safety before applying it.",
+                $"{Num.N0(pending.Count)} migration(s) in the code are not applied" +
+                (outOfOrder.Count > 0 ? $", {Num.N0(outOfOrder.Count)} of them older than the last applied" : "") +
+                $": {pending[0]}" + (pending.Count > 1 ? $" … {pending[^1]}" : ""),
+                $"The database's last applied migration is {lastApplied ?? "none"}.{outOfOrderText} The differences below " +
+                "that these migrations would create are expected until they run. Write their SQL with " +
+                string.Join(" and ", commands.Select(c => $"`{c}`")) + ", and check it with check_migration_safety before applying it.",
                 null,
-                new Dictionary<string, object> { ["pending"] = pending, ["lastApplied"] = lastApplied ?? "" }));
+                new Dictionary<string, object> { ["pending"] = pending, ["outOfOrder"] = outOfOrder, ["lastApplied"] = lastApplied ?? "" }));
         }
 
-        return new EfMigrationState(true, historyTable, lastApplied, pending, unknown, command);
+        return new EfMigrationState(true, historyTable, lastApplied, pending, outOfOrder, unknown, otherContexts, commands);
+    }
+
+    /// <summary>
+    /// One `migrations script FROM TO` per run of consecutive pending migrations: FROM is the migration
+    /// before the run (0 = the start), TO the run's last, so nothing applied is scripted again.
+    /// </summary>
+    private static List<string> ScriptCommands(EfModel model, HashSet<string> inDatabase)
+    {
+        List<string> commands = [];
+        var code = model.MigrationIds;
+
+        for (var i = 0; i < code.Count; i++)
+        {
+            if (inDatabase.Contains(code[i])) continue;
+
+            var from = i == 0 ? "0" : code[i - 1];
+            while (i + 1 < code.Count && !inDatabase.Contains(code[i + 1])) i++;
+            commands.Add($"dotnet ef migrations script {from} {code[i]} --context {model.ContextName} -o pending-{commands.Count + 1}.sql");
+        }
+
+        if (commands.Count == 1) commands[0] = commands[0].Replace("-o pending-1.sql", "-o pending.sql", StringComparison.Ordinal);
+        return commands;
     }
 
     // ── Tables, columns, indexes, foreign keys ─────────────────────────────────
@@ -115,7 +164,7 @@ public static class EfDriftEngine
             return;
         }
 
-        foreach (var column in table.Columns.Where(c => c.Column is null))
+        foreach (var column in table.Columns.Where(c => c.Column is null && !c.Ambiguous))
             findings.Add(new Finding(
                 EfRuleIds.ColumnMissing, Severity.High, FindingCategory.Structure, 1.0, Evidence.Derived,
                 table.Qualified, [column.Property.Column],
@@ -240,7 +289,4 @@ public static class EfDriftEngine
 
     private static bool SameColumns(IReadOnlyList<string> a, IReadOnlyList<string> b) =>
         a.Count == b.Count && a.Zip(b).All(p => Same(p.First, p.Second));
-
-    private static bool IsHistory(TableDetail table, string? historyTable) =>
-        historyTable is not null && Same($"{table.Schema}.{table.Name}", historyTable);
 }

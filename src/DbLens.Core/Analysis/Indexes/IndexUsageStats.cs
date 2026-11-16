@@ -27,13 +27,19 @@ public sealed record StatsWindow(
     /// False when the engine would not say when the database was created or restored (PostgreSQL
     /// without file access): a restore after the server started would then go unseen.
     /// </summary>
-    bool RestoreVisible)
+    bool RestoreVisible,
+    /// <summary>
+    /// Whether any index of the database has recorded a scan. None has when the workload never ran
+    /// here — a restore the dates cannot show (pg_restore --clean into an existing database) included.
+    /// </summary>
+    bool AnyIndexScanned = true)
 {
     /// <summary>Days since each event, null when it never happened or cannot be read; the most recent wins.</summary>
     public static StatsWindow From(
-        double serverStartDays, double? createdDays, double? restoredDays, double? statsResetDays, bool restoreVisible)
+        double serverStartDays, double? createdDays, double? restoredDays, double? statsResetDays, bool restoreVisible,
+        bool anyIndexScanned = true)
     {
-        var window = new StatsWindow(Math.Max(serverStartDays, 0), StatsWindowStart.ServerStart, restoreVisible);
+        var window = new StatsWindow(Math.Max(serverStartDays, 0), StatsWindowStart.ServerStart, restoreVisible, anyIndexScanned);
         window = window.Later(createdDays, StatsWindowStart.DatabaseCreated);
         window = window.Later(restoredDays, StatsWindowStart.DatabaseRestored);
         return window.Later(statsResetDays, StatsWindowStart.StatisticsReset);

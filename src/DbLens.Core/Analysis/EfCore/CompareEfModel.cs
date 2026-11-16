@@ -37,7 +37,17 @@ public sealed record EfMigrationState(
     string? LastApplied,
     /// <summary>In the code, not applied, oldest first.</summary>
     IReadOnlyList<string> Pending,
-    /// <summary>Applied, not in the code: another branch, or a hotfix applied by hand.</summary>
+    /// <summary>
+    /// Pending migrations older than <see cref="LastApplied"/>, usually from a merge: `database update`
+    /// applies them, but a script from the last applied one leaves them out.
+    /// </summary>
+    IReadOnlyList<string> OutOfOrder,
+    /// <summary>Applied, not in the code nor in another DbContext of the project: another branch, or a hotfix.</summary>
     IReadOnlyList<string> Unknown,
-    /// <summary>The command that writes the SQL of the pending migrations. Null when none are pending.</summary>
-    string? ScriptCommand);
+    /// <summary>Applied migrations that belong to the project's other DbContexts, set aside.</summary>
+    IReadOnlyList<string> OtherContexts,
+    /// <summary>
+    /// The commands that write the SQL of the pending migrations, one per run of consecutive pending
+    /// migrations, in order. Empty when none are pending.
+    /// </summary>
+    IReadOnlyList<string> ScriptCommands);

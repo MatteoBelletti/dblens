@@ -59,6 +59,16 @@ public sealed class StatsWindowTests
     }
 
     [Fact]
+    public void ADatabaseWhereNoIndexWasEverScanned_SkipsTheRule()
+    {
+        // pg_restore --clean into an existing database: the dates say 90 days, the counters say nothing ran.
+        var result = Analyze(StatsWindow.From(90, 90, null, null, restoreVisible: true, anyIndexScanned: false));
+
+        result.Findings.Should().NotContain(f => f.RuleId == IndexRuleIds.UnusedIndex);
+        result.Caveats.Should().Contain(c => c.Contains("No index of this database has recorded a single scan in 90 day(s)"));
+    }
+
+    [Fact]
     public void AVisibleWindow_StatesItsDaysAndStart()
     {
         var finding = Analyze(StatsWindow.From(30, 45, null, null, restoreVisible: true))

@@ -120,6 +120,8 @@ public sealed class SqlServerEdgeFixture : IAsyncLifetime, IEdgeFixture
 
     public IDatabaseInspector? LimitedInspector { get; private set; }
 
+    public Task RunWorkloadAsync() => IndexWorkload.OnSqlServerAsync(EdgeConnectionString, "edge.account");
+
     public async Task InitializeAsync()
     {
         try

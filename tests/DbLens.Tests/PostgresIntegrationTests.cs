@@ -226,6 +226,8 @@ public sealed class PostgresFixture : IAsyncLifetime, IDatabaseFixture
     private static string AdminConnectionString =>
         Environment.GetEnvironmentVariable("DBLENS_TEST_PG_ADMIN_CONNECTION") ?? DefaultAdminConnectionString;
 
+    public Task RunWorkloadAsync() => IndexWorkload.OnPostgresAsync(ConnectionString, "users");
+
     public DbLens.Core.Abstractions.IDatabaseInspector CreateAdminInspector(bool readOnlyLoginOnLocalhost = false) =>
         new PostgresInspector(AdminConnectionString, NullLogger<PostgresInspector>.Instance)
         {
