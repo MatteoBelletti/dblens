@@ -17,7 +17,7 @@ public readonly record struct SqlSegment(SqlSegmentKind Kind, string Text, strin
 /// comments, string literals and quoted identifiers the way each engine does, far enough for shape
 /// matching and for the statement guard to see exactly the code the engine will see.
 /// </summary>
-public static class SqlText
+public static partial class SqlText
 {
     private static readonly Regex DollarTagRx =
         new(@"\G\$(?:[A-Za-z_\u0080-￿][A-Za-z0-9_\u0080-￿]*)?\$", RegexOptions.Compiled);
@@ -105,6 +105,24 @@ public static class SqlText
             SqlSegmentKind.Comment => " ",
             _ => replace(s),
         }));
+
+    /// <summary>
+    /// What a query does, without what it was called with: every string and number literal becomes
+    /// "?", every comment goes. Workload text can hold personal data in a WHERE clause or a comment,
+    /// so this is the only form in which dblens returns it. Parameters ($1, @p0) stay as they are.
+    /// </summary>
+    public static string Redact(string sql, DatabaseDialect dialect) =>
+        string.Concat(Segments(sql, dialect).Select(s => s.Kind switch
+        {
+            SqlSegmentKind.Code => NumberLiteral().Replace(s.Text, "?"),
+            SqlSegmentKind.Comment => " ",
+            SqlSegmentKind.StringLiteral => "?",
+            _ => s.Source,
+        }));
+
+    // A number standing alone: not part of a name (t1, x.2), a parameter ($1, @p1) or a temp table (#t1).
+    [GeneratedRegex(@"(?<![\w$@#.])(?:0[xX][0-9A-Fa-f]+|\d+(?:\.\d*)?(?:[eE][+-]?\d+)?|\.\d+(?:[eE][+-]?\d+)?)(?![\w$])")]
+    private static partial System.Text.RegularExpressions.Regex NumberLiteral();
 
     /// <summary>
     /// The code alone: the contents of comments, literals and quoted identifiers can never be

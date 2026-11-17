@@ -172,6 +172,10 @@ COMMENT ON COLUMN orders.total IS 'Order total in EUR, VAT included';
 -- returns StatsAvailable = false rather than fragmentation findings.
 CREATE EXTENSION IF NOT EXISTS pgstattuple;
 
+-- pg_stat_statements backs find_hot_queries and the query-history join evidence of
+-- infer_relationships. The server preloads it (docker-compose.yml); the view lives per database.
+CREATE EXTENSION IF NOT EXISTS pg_stat_statements;
+
 -- ============================================================
 -- demo_good schema: clean design with no intentional issues.
 -- Used by AnalyzeIndexes tests to assert Findings = [] on a healthy schema.

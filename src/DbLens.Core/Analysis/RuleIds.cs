@@ -108,3 +108,14 @@ public static class EfRuleIds
         IndexUnmodeled, ForeignKeyMissing, UnmappedTable, DriftSummary,
     ];
 }
+
+public static class HotQueryRuleIds
+{
+    public const string ReadsPerRow = "hot-query-reads-per-row";
+    public const string DiskReads   = "hot-query-disk-reads";
+    public const string TempSpill   = "hot-query-temp-spill";
+    public const string JoinFanOut  = "join-fanout";
+    public const string Summary     = "hot-query-summary";
+
+    public static readonly string[] All = [ReadsPerRow, DiskReads, TempSpill, JoinFanOut, Summary];
+}

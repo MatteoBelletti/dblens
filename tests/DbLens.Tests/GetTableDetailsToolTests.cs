@@ -259,6 +259,10 @@ public sealed class GetTableDetailsToolTests
         public Task<DbLens.Core.Analysis.EfCore.CompareEfModelResult> CompareEfModelAsync(
             DbLens.Core.Analysis.EfCore.CompareEfModelRequest request, CancellationToken ct = default) =>
             throw new NotSupportedException();
+
+        public Task<DbLens.Core.Analysis.HotQueries.FindHotQueriesResult> FindHotQueriesAsync(
+            DbLens.Core.Analysis.HotQueries.FindHotQueriesRequest request, CancellationToken ct = default) =>
+            throw new NotSupportedException();
         public Task<DbLens.Core.Analysis.Denormalization.AnalyzeDenormalizationResult> AnalyzeDenormalizationAsync(
             DbLens.Core.Analysis.Denormalization.AnalyzeDenormalizationRequest request,
             CancellationToken ct = default) =>

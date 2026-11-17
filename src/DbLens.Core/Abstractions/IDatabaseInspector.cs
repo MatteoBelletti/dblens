@@ -4,6 +4,7 @@ using DbLens.Core.Analysis.EfCore;
 using DbLens.Core.Analysis.Fragmentation;
 using DbLens.Core.Analysis.Gdpr;
 using DbLens.Core.Analysis.Glossary;
+using DbLens.Core.Analysis.HotQueries;
 using DbLens.Core.Analysis.Indexes;
 using DbLens.Core.Analysis.Migration;
 using DbLens.Core.Analysis.QueryPlan;
@@ -62,4 +63,6 @@ public interface IDatabaseInspector
         CheckCascadePathsRequest request, CancellationToken ct = default);
 
     Task<CompareEfModelResult> CompareEfModelAsync(CompareEfModelRequest request, CancellationToken ct = default);
+
+    Task<FindHotQueriesResult> FindHotQueriesAsync(FindHotQueriesRequest request, CancellationToken ct = default);
 }
