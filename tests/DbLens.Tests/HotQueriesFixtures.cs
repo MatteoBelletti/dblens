@@ -62,7 +62,7 @@ internal static class HotWorkload
     public const string WithSecrets = """
         /* customer mario.rossi@example.com */
         SELECT o.id FROM hot.orders o JOIN hot.payments p ON p.order_id = o.id
-        WHERE o.note = 'Mario Rossi' AND p.amount > 4242
+        WHERE o.note = 'Mario Rossi' AND p.amount > 4242.42
         """;
 }
 

@@ -1,5 +1,6 @@
 using System.Data.Common;
 using DbLens.Core.Analysis.HotQueries;
+using DbLens.Core.Analysis.QueryPlan;
 using DbLens.Core.Inspection;
 
 namespace DbLens.SqlServer;
@@ -123,4 +124,10 @@ public sealed partial class SqlServerInspector
             ? Convert.ToDouble(days, System.Globalization.CultureInfo.InvariantCulture)
             : null;
     }
+
+    /// <summary>The plan Query Store or the plan cache stored with the query: nothing is compiled or run.</summary>
+    protected override Task<(QueryPlanNode? Root, string? Caveat)> PlanHotQueryAsync(HotQueryStats query, CancellationToken ct) =>
+        Task.FromResult(query.StoredPlan is { Length: > 0 } xml
+            ? (ParsePlan(xml), (string?)null)
+            : ((QueryPlanNode?)null, $"No plan is stored for query {query.QueryId}."));
 }

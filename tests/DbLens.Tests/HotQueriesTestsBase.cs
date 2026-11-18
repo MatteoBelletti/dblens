@@ -23,7 +23,7 @@ public interface IHotFixture
 public abstract class HotQueriesTestsBase(IHotFixture fixture)
 {
     /// <summary>Words of the workload's literals and comment.</summary>
-    public static readonly string[] Secrets = ["mario.rossi", "Mario Rossi", "4242"];
+    public static readonly string[] Secrets = ["mario.rossi", "Mario Rossi", "4242.42"];
 
     protected IHotFixture Fixture { get; } = fixture;
 
@@ -78,5 +78,21 @@ public abstract class HotQueriesTestsBase(IHotFixture fixture)
 
         result.Findings.Should().Contain(f => f.RuleId == HotQueryRuleIds.ReadsPerRow && f.Table == "hot.events")
             .Which.Evidence.Should().Be(Evidence.Measured);
+    }
+
+    [SkippableFact]
+    [Trait("Category", "Integration")]
+    public async Task ThePlanOfTheSelectiveQuery_ShowsTheFullScan()
+    {
+        Skip.If(ShouldSkip, TestSkip.Reason);
+
+        var result = await Find();
+        var selective = result.Queries.Single(q => q.Text.Contains("lower(e.kind)", StringComparison.OrdinalIgnoreCase));
+
+        result.Summary.PlansRead.Should().BeGreaterThan(0);
+        // A filter through LOWER() cannot use an index: the plan reads the whole table and filters after.
+        result.Findings.Should().Contain(f =>
+            f.RuleId == QueryPlanRuleIds.ScanWithFilter && f.Table.EndsWith("events")
+            && (string)f.Metadata!["queryId"] == selective.QueryId);
     }
 }
