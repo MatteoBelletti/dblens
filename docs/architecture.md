@@ -46,6 +46,7 @@ no driver. It owns everything that does not depend on SQL dialect:
 | reading a requested name (`ParseTableNames`), assembling table details | `ReadTableCatalogAsync`: the catalog rows |
 | the `explain_query` statement guard | `FetchQueryPlanAsync` (after the guard has run) |
 | orchestration of every diagnostic tool; the cascade graph, built from the table details | `IndexUsageCommand`, `QueryFragmentationStatsAsync` |
+| the heaviest queries: ranking, redaction, rules, join fan-out | `QueryHotQueriesAsync` (statistics and availability), `PlanHotQueryAsync` (a stored or generic plan) |
 | when the scan counters started (`StatsWindow`: the latest of server start, creation, restore, reset) | `StatsWindowCommandAsync`: days since each event |
 | connections, commands, row mapping, rolled-back transactions (`OpenAsync`, `Command`, `ReadAllAsync`, `InRolledBackTransactionAsync`) and reading a column by name (`DbReading`) | SQL text and typed parameters |
 | the signal verification loop | `VerificationSetupSql`, `ClassifyVerificationError`, `VerificationCaveats` |
@@ -75,6 +76,7 @@ DbLens.Core/Analysis/
   Relationships/         undeclared-FK rule, JoinPredicateExtractor (joins in SQL text), engine
   Receipts/              receipt models, ResultComparer (cross-checks), ResultValue
   Glossary/              GlossaryEngine: the SKILL.md data map
+  HotQueries/            HotQueryEngine (ranking, figures, rules), JoinFanOut (shape, probe, reclassification)
   EfCore/                EfModel (a snapshot's model), EfModelMatcher (entity ↔ table, property ↔ column),
                          EfDriftEngine (compare_ef_model)
   Indexes/ Gdpr/ Cascade/ Denormalization/ Fragmentation/ QueryPlan/ Migration/
@@ -92,7 +94,7 @@ flowchart LR
     V --> R[Findings: Measured<br/>Signals: still inferred]
 ```
 
-- `DenormalizationAnalysisEngine` / `RelationshipAnalysisEngine` produce signals — pure.
+- `DenormalizationAnalysisEngine` / `RelationshipAnalysisEngine` / `JoinFanOut` produce signals — pure.
 - The plan builder turns verifiable signals into `VerificationProbe`s; `VerificationBudget.Evaluate`
   decides which may run (query cap, table size, unknown row count) — pure.
 - `DatabaseInspectorBase.RunVerificationProbesAsync` executes them, one rolled-back transaction each.

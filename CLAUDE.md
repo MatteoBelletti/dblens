@@ -4,7 +4,7 @@ dblens is a local MCP server in .NET 10 that inspects and diagnoses PostgreSQL a
 databases. It never writes to a database and returns no row data — except `query_with_receipt`, which
 is disabled unless the operator sets `DbLens:AllowQueryResults`, and the migration ids
 `compare_ef_model` reads from EF Core's history table (docs/safety.md). Do not add another path that
-returns values from the data.
+returns values from the data. Workload SQL leaves only through `SqlText.Redact` (`find_hot_queries`).
 
 Read first: [docs/architecture.md](docs/architecture.md) (layout, data flow, verification pipeline),
 [docs/safety.md](docs/safety.md) (what may execute), [docs/tools.md](docs/tools.md) (every tool and

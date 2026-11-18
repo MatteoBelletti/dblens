@@ -28,6 +28,7 @@ and the result states the ones that applied.
 | [`analyze_fragmentation`](#analyze_fragmentation) | physical stats | no | Findings |
 | [`check_cascade_paths`](#check_cascade_paths) | catalog | no | Findings |
 | [`compare_ef_model`](#compare_ef_model) | an EF Core snapshot (as text) + catalog | no | Findings |
+| [`find_hot_queries`](#find_hot_queries) | the engine's query statistics + estimated or stored plans | only with `verifyJoins: true`, counts only | Findings + Signals |
 | [`check_migration_safety`](#check_migration_safety) | catalog (table sizes) | **never** the script | Findings |
 | [`explain_query`](#explain_query) | plan | only with `analyze: true`, pure `SELECT`, rolled back | Findings |
 | [`scan_gdpr`](#scan_gdpr) | column names | no | Signals only |
@@ -389,6 +390,58 @@ A cross-check compares the two results as sets of rows, so row order does not ma
 equals `120.5`. Without one, a caveat says the figure is unconfirmed; with a disagreement, the caveat
 says to report both figures rather than pick one. Useful pairs: two join paths to the same total, or
 line items summed against the stored header total.
+
+## `find_hot_queries`
+
+Finds the queries that weigh most on the database, from the statistics the engine keeps, without
+being given one: then reads their plans and measures the joins that multiply rows.
+
+| Parameter | Default | Meaning |
+|---|---|---|
+| `verifyJoins` | `false` | Measure each join of one parent to two children with an aggregate probe |
+
+| Engine | Source, in order | Read |
+|---|---|---|
+| PostgreSQL | `pg_stat_statements` of the current database | calls, total time, rows, pages from cache and from outside it, temp pages |
+| SQL Server | Query Store, then the plan cache (`sys.dm_exec_query_stats`) | executions, duration, logical and physical reads, rows, tempdb (Query Store only) |
+
+The 20 heaviest by total time are listed: only statements that read or write rows (`SELECT`, `WITH`,
+`INSERT`, `UPDATE`, `DELETE`, `MERGE`) and name at least one user table. DDL, utility statements,
+catalog queries and dblens's own probes are set aside. Each listed query carries its id, its text
+**redacted** — every string and number literal replaced by `?`, every comment removed, at most 2,000
+characters — its calls, total and mean time, rows per call, pages per row, share read outside the
+cache, temp pages, and the tables it names.
+
+| Rule | Severity | Evidence | Detects |
+|---|---|---|---|
+| `hot-query-reads-per-row` | Medium | Measured | More than 100 pages read per row returned, over at least 2 calls |
+| `hot-query-disk-reads` | Low | Measured | 20% or more of 1,000+ pages read outside the database's cache (on PostgreSQL, possibly from the OS cache) |
+| `hot-query-temp-spill` | Medium | Measured | Pages written to temporary files or tempdb |
+| `plan-*` of [`explain_query`](#explain_query) | as there | Derived | On the plan of the first 10, each with `Metadata["queryId"]` |
+| `join-fanout` | Medium | Inferred → Measured | A parent joined to two 1:N children in one query |
+| `hot-query-summary` | Info | Derived | Always one: source, window covered, plans read |
+
+**Plans, never executions.** On SQL Server the plan is the one Query Store or the plan cache stored
+with the query. On PostgreSQL `pg_stat_statements` keeps the query normalized (`$1` for each value),
+so the text is `PREPARE`d and explained with `EXPLAIN EXECUTE` under `plan_cache_mode =
+force_generic_plan` — the plan for any value — in a read-only, rolled-back transaction, then
+deallocated (PostgreSQL 12+). A query the planner cannot take (a `$n` of ambiguous type) loses its
+plan, with a caveat. Plan filters are redacted like the text: a stored plan keeps its literals.
+
+**Joins that multiply rows.** A query that joins one parent to two children through their foreign
+keys returns, per parent, the product of its child rows — what EF Core writes for two `Include` on
+collections. Recognized from the text and the keys (a chain `A ← B ← C`, a 1:1 child or a single
+child does not count), it is a signal. With `verifyJoins: true` one probe per shape counts, over the
+whole tables, the rows the join returns against the children read separately, within the shared
+[budget](safety.md#signal-verification); when the join returns more the title states both counts.
+The query's own filters are not applied: it is the shape of the data. `Metadata["ef"]` proposes
+`.AsSplitQuery()`, or `UseQuerySplittingBehavior(QuerySplittingBehavior.SplitQuery)` on the context.
+
+**Availability.** The result says which source was read and how many days it covers, and for each
+source that was missing what would enable it: `pg_stat_statements` in `shared_preload_libraries`
+and created in the database, Query Store on, `VIEW SERVER STATE` for the plan cache. With none an
+empty list means nothing was measured. A SQL Server backup carries its Query Store; a PostgreSQL
+dump does not carry `pg_stat_statements`, which is read on the server itself.
 
 ## `compare_ef_model`
 

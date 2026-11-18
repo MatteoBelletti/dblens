@@ -165,6 +165,18 @@ The words dblens uses in its results and its code, and what each one commits to.
 : Personal data; GDPR Article 9 categories (health, biometrics, religion, politics, ethnicity,
   orientation) get the highest severity.
 
+**Hot query**
+: One of the queries that weigh most on the database by total time, as the engine's own statistics
+  count them (pg_stat_statements, Query Store, the plan cache). Returned only redacted.
+
+**Redacted text**
+: SQL with every literal replaced by `?` and every comment removed (`SqlText.Redact`): what a query
+  does, not what it was called with.
+
+**Join fan-out**
+: A parent joined to two 1:N children in one query: each parent row comes back once per pair of
+  child rows. EF Core's split query avoids it.
+
 **EF snapshot**
 : The `*ModelSnapshot.cs` file EF Core keeps beside its migrations: the model as the last migration
   left it. `compare_ef_model` reads it as text, never compiling it.
