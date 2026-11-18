@@ -165,6 +165,17 @@ The words dblens uses in its results and its code, and what each one commits to.
 : Personal data; GDPR Article 9 categories (health, biometrics, religion, politics, ethnicity,
   orientation) get the highest severity.
 
+**Audit dates**
+: The columns recording when a row was created and last updated (`created_at`, `updated_at`,
+  `data_creazione`…). `analyze_table_hygiene` checks they exist, are dates with a time zone, and are kept.
+
+**Abandoned column**
+: A column older rows hold and recent rows do not: the code that writes the table stopped filling it.
+
+**Planner statistics**
+: What the engine keeps about a column's distribution to plan queries (`pg_stats`, a SQL Server
+  histogram): read for signals, never for its values.
+
 **Hot query**
 : One of the queries that weigh most on the database by total time, as the engine's own statistics
   count them (pg_stat_statements, Query Store, the plan cache). Returned only redacted.

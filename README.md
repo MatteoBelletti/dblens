@@ -77,6 +77,7 @@ The two above, and the rest of what dblens can tell about a database:
 | `analyze_denormalization` | Where is data repeated, cached or packed into one column — and has it drifted? |
 | `scan_gdpr` | Which columns look like personal data? |
 | `check_cascade_paths` | What does a DELETE on this table actually remove? |
+| `analyze_table_hygiene` | Which columns does nobody fill, and which tables lack or neglect their creation and update dates? |
 | `find_hot_queries` | Which queries weigh most — and which joins multiply rows? Found from the engine's own statistics |
 | `explain_query` | Why is this query slow? |
 | `query_with_receipt` | What is the figure, and what is the proof? *(off unless the operator enables it)* |

@@ -28,6 +28,7 @@ and the result states the ones that applied.
 | [`analyze_fragmentation`](#analyze_fragmentation) | physical stats | no | Findings |
 | [`check_cascade_paths`](#check_cascade_paths) | catalog | no | Findings |
 | [`compare_ef_model`](#compare_ef_model) | an EF Core snapshot (as text) + catalog | no | Findings |
+| [`analyze_table_hygiene`](#analyze_table_hygiene) | planner statistics, catalog, update counters (+ an EF snapshot as text) | only with `verifySignals: true`, counts only | Findings + Signals |
 | [`find_hot_queries`](#find_hot_queries) | the engine's query statistics + estimated or stored plans | only with `verifyJoins: true`, counts only | Findings + Signals |
 | [`check_migration_safety`](#check_migration_safety) | catalog (table sizes) | **never** the script | Findings |
 | [`explain_query`](#explain_query) | plan | only with `analyze: true`, pure `SELECT`, rolled back | Findings |
@@ -390,6 +391,57 @@ A cross-check compares the two results as sets of rows, so row order does not ma
 equals `120.5`. Without one, a caveat says the figure is unconfirmed; with a disagreement, the caveat
 says to report both figures rather than pick one. Useful pairs: two join paths to the same total, or
 line items summed against the stored header total.
+
+## `analyze_table_hygiene`
+
+Columns nobody fills and tables whose creation and update dates are missing or not kept up to date,
+in a code-first database: each finding carries the EF Core change in `Metadata["ef"]`.
+
+| Parameter | Default | Meaning |
+|---|---|---|
+| `verifySignals` | `false` | Confirm signals with probes: two counts each, never a value |
+| `modelSnapshotPath` | — | A `*ModelSnapshot.cs`, or a folder with one per DbContext: names the entity and property in each fix, and enables `column-not-in-model`. Unreadable = a caveat, the rest runs |
+
+| Rule | Severity | Evidence | Candidate → fact |
+|---|---|---|---|
+| `column-always-null` | Low | Inferred → Measured | Statistics see only NULLs → no row holds a value |
+| `column-single-value` | Low | Inferred → Measured | Statistics see one distinct value → one value on at least 100 filled rows. The value is never reported |
+| `column-abandoned` | Medium | Measured only | With `verifySignals`, a nullable column of a table with one creation date → no value on at least 1,000 rows of the last 90 days |
+| `column-not-in-model` | Medium | Derived | A column of a table the EF model maps, mapped by no property |
+| `column-legacy-name` | Info | Inferred | A name word such as `old`, `bak`, `tmp`, `legacy`, `deprecated`, `vecchio`, or a comment saying deprecated / obsolete |
+| `audit-missing-created` | Low | Inferred | No creation date on a table of 1,000+ rows |
+| `audit-missing-updated` | Medium if updated, else Low | Inferred | No update date; not reported on a table known to be insert-only |
+| `audit-updated-not-maintained` | Medium | Inferred → Measured | Both dates on an updated table → the update date equals the creation date on more than 95% of rows |
+| `audit-update-before-create` | Low | Measured only | With `verifySignals` → any row updated before it was created |
+| `audit-created-nullable` | Low | Derived | The creation date accepts NULL |
+| `audit-timestamp-without-timezone` | Low | Derived | `timestamp without time zone`; SQL Server `datetime`, `smalldatetime` |
+| `hygiene-summary` | Info | Derived | Always one |
+
+Creation and update columns are recognized by name (English and Italian, in
+`Analysis/Hygiene/audit_columns.json`), compared in lower snake case, and must be dates. Keys,
+indexed, constrained and referencing columns, generated and identity columns are never candidates;
+audit dates are not checked for a single value.
+
+**Statistics, never values.** On PostgreSQL `pg_stats.null_frac` and `n_distinct`, after `ANALYZE`.
+On SQL Server the histogram of a statistics object led by the column: only the number of its steps
+and whether their keys are NULL are read — a column of NULLs has a histogram of no steps. SQL Server
+keeps statistics only on columns that were indexed or filtered on; a caveat counts the columns
+neither engine has statistics for.
+
+**Updates.** `pg_stat_user_tables.n_tup_upd` / `sys.dm_db_index_operational_stats`, read only when the
+counting window of [`unused-index`](#analyze_indexes) covers 7 days and the workload has run: a zero
+otherwise means nothing, so no table is taken as insert-only and a caveat says so.
+
+**Measured checks.** Probes are ordered smallest table first within the shared
+[budget](safety.md#signal-verification). A check with too few rows (fewer than 100 filled rows, or
+1,000 recent ones) is not measured, never refuted. `column-abandoned` and `audit-update-before-create`
+have no signal: they appear only when a probe finds the defect.
+
+**EF Core changes** in `Metadata["ef"]`: the entity and property when the snapshot maps the column;
+removing a column in two releases (drop the property and the generated `DropColumn` first, drop the
+column once no running version reads it); `IAuditable` with a `SaveChangesInterceptor` and a
+`.SetProperty` in every `ExecuteUpdate`; on a table with rows, a nullable `CreatedAt` — a
+non-nullable `DateTime` or `HasDefaultValueSql("now()")` gives every existing row a false creation date.
 
 ## `find_hot_queries`
 
