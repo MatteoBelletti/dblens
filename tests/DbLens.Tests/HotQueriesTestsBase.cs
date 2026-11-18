@@ -2,6 +2,9 @@ using System.Text.Json;
 using DbLens.Core.Abstractions;
 using DbLens.Core.Analysis;
 using DbLens.Core.Analysis.HotQueries;
+using DbLens.Core.Analysis.QueryPlan;
+using DbLens.Core.Analysis.Receipts;
+using DbLens.Core.Analysis.Verification;
 using FluentAssertions;
 
 namespace DbLens.Tests;
@@ -94,5 +97,60 @@ public abstract class HotQueriesTestsBase(IHotFixture fixture)
         result.Findings.Should().Contain(f =>
             f.RuleId == QueryPlanRuleIds.ScanWithFilter && f.Table.EndsWith("events")
             && (string)f.Metadata!["queryId"] == selective.QueryId);
+    }
+
+    [SkippableFact]
+    [Trait("Category", "Integration")]
+    public async Task AJoinToTwoChildren_IsASignal_UntilMeasured()
+    {
+        Skip.If(ShouldSkip, TestSkip.Reason);
+
+        var result = await Find();
+
+        var signal = result.Signals.Should().ContainSingle(f => f.RuleId == HotQueryRuleIds.JoinFanOut).Subject;
+        signal.Table.Should().Be("hot.orders");
+        signal.Evidence.Should().Be(Evidence.Inferred);
+        ((IReadOnlyDictionary<string, object>)signal.Metadata!["ef"])["fluent"].Should().Be(".AsSplitQuery()");
+        result.Verification.Should().BeNull("verification was not requested");
+    }
+
+    [SkippableFact]
+    [Trait("Category", "Integration")]
+    public async Task AJoinToTwoChildren_IsMeasured_OnTheData()
+    {
+        Skip.If(ShouldSkip, TestSkip.Reason);
+
+        var result = await Find(new FindHotQueriesRequest(VerifyJoins: true));
+
+        // 120 orders with 20 items and 20 payments each: 120 × 20 × 20 joined, 2 × 2,400 read apart.
+        var fact = result.Findings.Should().ContainSingle(f => f.RuleId == HotQueryRuleIds.JoinFanOut).Subject;
+        fact.Evidence.Should().Be(Evidence.Measured);
+        fact.Title.Should().Be("hot.orders: the join returns 48,000 rows where two queries read 4,800");
+        fact.Description.Should().Contain("WHAT THIS MAY MEAN:");
+        result.Signals.Should().NotContain(f => f.RuleId == HotQueryRuleIds.JoinFanOut);
+        result.Verification!.Confirmed.Should().Be(1);
+    }
+
+    /// <summary>
+    /// The composition case for this probe (see CompositionTestsBase): the demo workload has no join to
+    /// two children, so it is checked here, on the database that has one.
+    /// </summary>
+    [SkippableFact]
+    [Trait("Category", "Integration")]
+    public async Task FanOutProbe_PassesExplainQuery_AndReceiptReproducesTheMeasurement()
+    {
+        Skip.If(ShouldSkip, TestSkip.Reason);
+
+        var result = await Find(new FindHotQueriesRequest(VerifyJoins: true));
+        var outcome = (VerificationOutcome)result.Findings.Single(f => f.RuleId == HotQueryRuleIds.JoinFanOut).Metadata!["verification"];
+        var inspector = Fixture.Inspector!;
+
+        StatementGuard.IsReadOnlySelect(outcome.Query, inspector.Dialect).Allowed.Should().BeTrue();
+        (await inspector.ExplainQueryAsync(new ExplainQueryRequest(outcome.Query, Analyze: true))).Should().NotBeNull();
+
+        var receipt = await inspector.QueryWithReceiptAsync(new QueryWithReceiptRequest(outcome.Query));
+        var row = receipt.Result.Rows.Single();
+        Convert.ToInt64(row[0]).Should().Be(outcome.RowsCompared);
+        Convert.ToInt64(row[1]).Should().Be(outcome.RowsDiverging);
     }
 }

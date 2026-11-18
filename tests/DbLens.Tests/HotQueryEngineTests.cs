@@ -1,7 +1,10 @@
 using DbLens.Core.Analysis;
 using DbLens.Core.Analysis.HotQueries;
+using DbLens.Core.Analysis.QueryPlan;
 using DbLens.Core.Models;
+using DbLens.Core.Analysis.Verification;
 using FluentAssertions;
+using static DbLens.Tests.TestSchema;
 
 namespace DbLens.Tests;
 
@@ -102,5 +105,69 @@ public sealed class HotQueryEngineTests
 
         result.Findings.Should().ContainSingle().Which.Description.Should().Contain("not the same as no slow query");
         result.Availability.Missing.Should().ContainSingle();
+    }
+
+    // ── Join fan-out ───────────────────────────────────────────────────────────
+
+    private static readonly TableDetail[] Shop =
+    [
+        Table("orders", [Col("id", "int")]),
+        Table("items", [Col("id", "int"), Col("order_id", "int")]),
+        Table("payments", [Col("id", "int"), Col("order_id", "int")]),
+        Table("notes", [Col("id", "int"), Col("item_id", "int")]),
+        Table("invoices", [Col("id", "int"), Col("order_id", "int")]) with
+        {
+            UniqueConstraints = [new UniqueConstraintDetail("uq_invoice_order", ["order_id"])],
+        },
+    ];
+
+    private static IReadOnlyList<JoinFanOut.Shape> Detect(string sql)
+    {
+        var tables = Shop.Select(t => (t.Schema, t.Name)).ToList();
+        var ranked = HotQueryEngine.Rank([Stats("q", sql, 10)], tables, DatabaseDialect.PostgreSql, new FindHotQueriesRequest());
+        return JoinFanOut.Detect(ranked, Shop, "public", DatabaseDialect.PostgreSql);
+    }
+
+    [Fact]
+    public void TwoChildrenOfOneParent_Multiply()
+    {
+        var shape = Detect("SELECT * FROM orders o JOIN items i ON i.order_id = o.id LEFT JOIN payments p ON p.order_id = o.id").Single();
+
+        shape.Parent.Name.Should().Be("orders");
+        new[] { shape.FirstChild.Name, shape.SecondChild.Name }.Should().BeEquivalentTo(["items", "payments"]);
+    }
+
+    [Theory]
+    [InlineData("SELECT * FROM orders o JOIN items i ON i.order_id = o.id JOIN notes n ON n.item_id = i.id")]
+    [InlineData("SELECT * FROM orders o JOIN items i ON i.order_id = o.id JOIN invoices v ON v.order_id = o.id")]
+    [InlineData("SELECT * FROM orders o JOIN items i ON i.order_id = o.id")]
+    public void AChainAOneToOneOrASingleChild_DoesNotMultiply(string sql) =>
+        Detect(sql).Should().BeEmpty();
+
+    [Fact]
+    public void TheProbe_IsAggregateOnly_AndPassesTheGuard()
+    {
+        var shape = Detect("SELECT * FROM orders o JOIN items i ON i.order_id = o.id JOIN payments p ON p.order_id = o.id").Single();
+
+        foreach (var dialect in new[] { DatabaseDialect.PostgreSql, DatabaseDialect.SqlServer })
+        {
+            var probe = JoinFanOut.Probe(shape, new Dictionary<(string, string), long?>(), dialect);
+            probe.Sql.Should().Contain("compared_rows").And.Contain("divergent_rows").And.NotContain(";");
+            StatementGuard.IsReadOnlySelect(probe.Sql, dialect).Allowed.Should().BeTrue();
+            if (dialect == DatabaseDialect.SqlServer) probe.Sql.Should().Contain("COUNT_BIG(");
+        }
+    }
+
+    [Fact]
+    public void NoMoreRowsThanSeparateReads_IsAFactAtInfo()
+    {
+        var shape = Detect("SELECT * FROM orders o JOIN items i ON i.order_id = o.id JOIN payments p ON p.order_id = o.id").Single();
+        var probe = JoinFanOut.Probe(shape, new Dictionary<(string, string), long?>(), DatabaseDialect.PostgreSql);
+
+        var refuted = JoinFanOut.Apply(JoinFanOut.ToSignal(shape), VerificationMeasurement.Measured(probe, 40, 20, 1));
+
+        refuted.Evidence.Should().Be(Evidence.Measured);
+        refuted.Severity.Should().Be(Severity.Info);
+        VerificationMeasurement.Measured(probe, 0, 0, 1).Status.Should().Be(VerificationStatus.Inconclusive);
     }
 }

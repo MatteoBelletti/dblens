@@ -2,6 +2,7 @@ using System.Data.Common;
 using DbLens.Core.Analysis;
 using DbLens.Core.Analysis.HotQueries;
 using DbLens.Core.Analysis.QueryPlan;
+using DbLens.Core.Analysis.Verification;
 
 namespace DbLens.Core.Inspection;
 
@@ -45,7 +46,10 @@ public abstract partial class DatabaseInspectorBase
                 findings.AddRange(planFindings);
             }
 
-            return HotQueryEngine.Build(ranked, findings, availability, plansRead, [.. caveats.Distinct()]);
+            var (fanOut, verification) = await JoinFanOutAsync(ranked, tables, request, caveats, ct);
+            findings.AddRange(fanOut);
+
+            return HotQueryEngine.Build(ranked, findings, availability, plansRead, [.. caveats.Distinct()], verification);
         });
 
     /// <summary>The plan rules of explain_query on one listed query; null when its plan could not be had.</summary>
@@ -83,4 +87,37 @@ public abstract partial class DatabaseInspectorBase
         Filter = node.Filter is null ? null : SqlText.Redact(node.Filter, Dialect),
         Children = [.. node.Children.Select(Redacted)],
     };
+
+    /// <summary>
+    /// Joins of one parent to two children among the listed queries: signals, measured when asked.
+    /// Only the tables the queries name are read from the catalog.
+    /// </summary>
+    private async Task<(IReadOnlyList<Finding> Findings, VerificationSummary? Verification)> JoinFanOutAsync(
+        IReadOnlyList<HotQueryEngine.Ranked> ranked, IReadOnlyList<ScopedTable> tables, FindHotQueriesRequest request,
+        List<string> caveats, CancellationToken ct)
+    {
+        var named = ranked.SelectMany(r => r.Tables).ToHashSet();
+        var scope = tables.Where(t => named.Contains((t.Schema, t.Name))).ToList();
+        if (scope.Count == 0) return ([], request.VerifyJoins ? VerificationSummary.From([], attempted: true) : null);
+
+        var details = await GetTableDetailsAsync(scope, ct);
+        var shapes = JoinFanOut.Detect(ranked, details.Tables, DefaultSchema, Dialect)
+            .DistinctBy(s => s.Target.Key)
+            .ToList();
+        var signals = shapes.Select(JoinFanOut.ToSignal).ToList();
+
+        if (!request.VerifyJoins) return (signals, null);
+
+        var rowCounts = scope.ToDictionary(t => (t.Schema, t.Name), t => t.ApproximateRowCount);
+        var probes = shapes.Select(s => JoinFanOut.Probe(s, rowCounts, Dialect)).ToList();
+        var measurements = await RunVerificationProbesAsync(probes, request.Budget, ct);
+        var byTarget = measurements.ToDictionary(m => m.Target.Key, StringComparer.Ordinal);
+
+        caveats.AddRange(request.Budget.NotRunCaveats(measurements));
+        if (measurements.Any(m => m.Status == VerificationStatus.Inconclusive))
+            caveats.Add("A join whose children have no rows in common compared nothing, so it is reported as not measured, not as refuted.");
+
+        return ([.. shapes.Select((shape, i) => byTarget.TryGetValue(shape.Target.Key, out var m) ? JoinFanOut.Apply(signals[i], m) : signals[i])],
+            VerificationSummary.From(measurements, attempted: true));
+    }
 }

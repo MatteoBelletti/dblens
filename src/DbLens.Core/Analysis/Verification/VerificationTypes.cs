@@ -16,6 +16,8 @@ public enum VerificationProbeKind
     /// kind, the hypothesis here ("this column references that table") is confirmed by ZERO.
     /// </summary>
     InclusionDependency,
+    /// <summary>Rows a join to two children returns, against the children's rows read separately.</summary>
+    JoinFanOut,
 }
 
 /// <summary>
@@ -159,7 +161,13 @@ public sealed record VerificationMeasurement(
     {
         if (denominator == 0) return VerificationStatus.Inconclusive;
 
-        var hypothesisHolds = kind == VerificationProbeKind.InclusionDependency ? numerator == 0 : numerator > 0;
+        var hypothesisHolds = kind switch
+        {
+            VerificationProbeKind.InclusionDependency => numerator == 0,
+            // The join multiplies when it returns more rows than the separate reads.
+            VerificationProbeKind.JoinFanOut => numerator > denominator,
+            _ => numerator > 0,
+        };
         return hypothesisHolds ? VerificationStatus.Confirmed : VerificationStatus.Refuted;
     }
 
