@@ -41,6 +41,12 @@ public abstract partial class DatabaseInspectorBase
             Index: (r.Text("schema_name"), r.Text("table_name"), r.Text("index_name")),
             Scans: r.Number("scans")), ct);
 
+        return new IndexUsageStats(rows.ToDictionary(r => r.Index, r => r.Scans), await ReadStatsWindowAsync(conn, ct));
+    }
+
+    /// <summary>How long the engine's activity counters (scans, updates) have been counting.</summary>
+    private async Task<StatsWindow> ReadStatsWindowAsync(DbConnection conn, CancellationToken ct)
+    {
         var window = await ReadAllAsync(await StatsWindowCommandAsync(conn, ct), r => StatsWindow.From(
             r.RealOrNull("server_start_days") ?? 0,
             r.RealOrNull("created_days"),
@@ -48,8 +54,7 @@ public abstract partial class DatabaseInspectorBase
             r.RealOrNull("stats_reset_days"),
             r.Flag("restore_visible"),
             r.Flag("any_index_scanned")), ct);
-
-        return new IndexUsageStats(rows.ToDictionary(r => r.Index, r => r.Scans), window.Single());
+        return window.Single();
     }
 
     /// <summary>

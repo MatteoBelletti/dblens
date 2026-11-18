@@ -49,6 +49,26 @@ public static class SnapshotReader
         }
     }
 
+    /// <summary>
+    /// Every model under <paramref name="path"/>: one per snapshot, for a project with several
+    /// DbContexts. A file reads as that one snapshot.
+    /// </summary>
+    public static IReadOnlyList<EfModel> ReadAll(string path)
+    {
+        if (string.IsNullOrWhiteSpace(path) || !Path.IsPathFullyQualified(path) || !Directory.Exists(path))
+            return [Read(path)];
+
+        try
+        {
+            var snapshots = Directory.EnumerateFiles(path, "*" + SnapshotSuffix, SearchOption.AllDirectories).Take(20).ToList();
+            return snapshots.Count == 0 ? [Read(path)] : [.. snapshots.Select(Read)];
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            throw new ArgumentException($"The snapshots could not be read: {ex.Message}", ex);
+        }
+    }
+
     private static readonly string[] SkippedFolders = ["bin", "obj", "node_modules", ".git"];
 
     private static List<string> Designers(string root)

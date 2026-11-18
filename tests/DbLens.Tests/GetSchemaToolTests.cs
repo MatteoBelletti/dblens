@@ -286,6 +286,10 @@ public sealed class GetSchemaToolTests
         public Task<DbLens.Core.Analysis.HotQueries.FindHotQueriesResult> FindHotQueriesAsync(
             DbLens.Core.Analysis.HotQueries.FindHotQueriesRequest request, CancellationToken ct = default) =>
             throw new NotSupportedException();
+
+        public Task<DbLens.Core.Analysis.Hygiene.AnalyzeTableHygieneResult> AnalyzeTableHygieneAsync(
+            DbLens.Core.Analysis.Hygiene.AnalyzeTableHygieneRequest request, CancellationToken ct = default) =>
+            throw new NotSupportedException();
         public Task<DbLens.Core.Analysis.Denormalization.AnalyzeDenormalizationResult> AnalyzeDenormalizationAsync(
             DbLens.Core.Analysis.Denormalization.AnalyzeDenormalizationRequest request,
             CancellationToken ct = default) =>

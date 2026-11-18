@@ -18,6 +18,14 @@ public enum VerificationProbeKind
     InclusionDependency,
     /// <summary>Rows a join to two children returns, against the children's rows read separately.</summary>
     JoinFanOut,
+    /// <summary>Rows that hold a value. The hypothesis ("never filled") is confirmed by ZERO.</summary>
+    NoValue,
+    /// <summary>Distinct values among the filled rows. Confirmed by exactly ONE.</summary>
+    SingleValue,
+    /// <summary>Rows matching a condition; confirmed when their share exceeds the probe's <see cref="VerificationProbe.ConfirmShare"/>.</summary>
+    ShareAbove,
+    /// <summary>Rows matching a condition that should match none. Confirmed by any.</summary>
+    RowsMatching,
 }
 
 /// <summary>
@@ -88,7 +96,11 @@ public sealed record VerificationProbe(
     /// <summary>One sentence stating exactly what the numerator counts.</summary>
     string MeasurementDescription,
     /// <summary>Approximate rows in the scanned table, for ordering and skipping. Null = unknown.</summary>
-    long? ApproximateRowCount);
+    long? ApproximateRowCount,
+    /// <summary>Fewer rows compared than this settle nothing: Inconclusive, never Refuted.</summary>
+    long MinimumCompared = 1,
+    /// <summary>For <see cref="VerificationProbeKind.ShareAbove"/>: the share of compared rows that confirms.</summary>
+    double ConfirmShare = 0);
 
 public enum VerificationStatus
 {
@@ -148,22 +160,25 @@ public sealed record VerificationMeasurement(
 {
     public static VerificationMeasurement Measured(
         VerificationProbe probe, long denominator, long numerator, double elapsedMs) =>
-        new(probe.Target, probe.Kind, StatusOf(probe.Kind, denominator, numerator),
+        new(probe.Target, probe.Kind, StatusOf(probe, denominator, numerator),
             denominator, numerator, probe.MeasurementDescription, probe.Sql,
             VerificationSkipReason.None, VerificationFailureKind.Unknown, null, elapsedMs);
 
     /// <summary>
     /// Confirmed means the hypothesis held. For most kinds the hypothesis is "something diverges",
-    /// confirmed by a non-zero count; for an inclusion dependency it is "every value resolves",
-    /// confirmed by zero orphans. Zero compared rows settles nothing either way.
+    /// confirmed by a non-zero count; for an inclusion dependency it is "every value resolves" and
+    /// for a never-filled column "no row holds a value", both confirmed by zero. Fewer compared rows
+    /// than the probe needs settle nothing either way.
     /// </summary>
-    private static VerificationStatus StatusOf(VerificationProbeKind kind, long denominator, long numerator)
+    private static VerificationStatus StatusOf(VerificationProbe probe, long denominator, long numerator)
     {
-        if (denominator == 0) return VerificationStatus.Inconclusive;
+        if (denominator < Math.Max(probe.MinimumCompared, 1)) return VerificationStatus.Inconclusive;
 
-        var hypothesisHolds = kind switch
+        var hypothesisHolds = probe.Kind switch
         {
-            VerificationProbeKind.InclusionDependency => numerator == 0,
+            VerificationProbeKind.InclusionDependency or VerificationProbeKind.NoValue => numerator == 0,
+            VerificationProbeKind.SingleValue => numerator == 1,
+            VerificationProbeKind.ShareAbove => (double)numerator / denominator > probe.ConfirmShare,
             // The join multiplies when it returns more rows than the separate reads.
             VerificationProbeKind.JoinFanOut => numerator > denominator,
             _ => numerator > 0,
@@ -220,7 +235,7 @@ public sealed record VerificationOutcome(
             {
                 VerificationStatus.Confirmed or VerificationStatus.Refuted => null,
                 VerificationStatus.Failed => m.FailureKind.ToString(),
-                VerificationStatus.Inconclusive => "NoRowsCompared",
+                VerificationStatus.Inconclusive => m.Denominator is > 0 ? "TooFewRowsCompared" : "NoRowsCompared",
                 _ => m.SkipReason.ToString(),
             },
             Query: m.Sql);

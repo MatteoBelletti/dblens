@@ -119,3 +119,26 @@ public static class HotQueryRuleIds
 
     public static readonly string[] All = [ReadsPerRow, DiskReads, TempSpill, JoinFanOut, Summary];
 }
+
+public static class HygieneRuleIds
+{
+    public const string ColumnAlwaysNull   = "column-always-null";
+    public const string ColumnSingleValue  = "column-single-value";
+    public const string ColumnAbandoned    = "column-abandoned";
+    public const string ColumnNotInModel   = "column-not-in-model";
+    public const string ColumnLegacyName   = "column-legacy-name";
+    public const string MissingCreated     = "audit-missing-created";
+    public const string MissingUpdated     = "audit-missing-updated";
+    public const string UpdatedNotMaintained = "audit-updated-not-maintained";
+    public const string UpdateBeforeCreate = "audit-update-before-create";
+    public const string CreatedNullable    = "audit-created-nullable";
+    public const string WithoutTimeZone    = "audit-timestamp-without-timezone";
+    public const string Summary            = "hygiene-summary";
+
+    public static readonly string[] All =
+    [
+        ColumnAlwaysNull, ColumnSingleValue, ColumnAbandoned, ColumnNotInModel, ColumnLegacyName,
+        MissingCreated, MissingUpdated, UpdatedNotMaintained, UpdateBeforeCreate, CreatedNullable,
+        WithoutTimeZone, Summary,
+    ];
+}

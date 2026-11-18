@@ -8,6 +8,7 @@
   <ItemGroup>
     <EmbeddedResource Include="Analysis\Gdpr\Patterns\pii_patterns_en.json" />
     <EmbeddedResource Include="Analysis\Gdpr\Patterns\pii_patterns_it.json" />
+    <EmbeddedResource Include="Analysis\Hygiene\audit_columns.json" />
   </ItemGroup>
 
 </Project>
