@@ -2,6 +2,7 @@ using DbLens.Core.Analysis.EfCore;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
+using MigrationsByContext = System.Collections.Generic.Dictionary<string, System.Collections.Generic.IReadOnlyList<string>>;
 
 namespace DbLens.EfCore;
 
@@ -31,16 +32,7 @@ public static class SnapshotReader
 
         try
         {
-            var snapshot = FindSnapshot(path);
-            var snapshotText = ReadLimited(snapshot);
-
-            // The folder above the snapshot's holds the other contexts' migrations in the usual layouts
-            // (Project/Migrations, Migrations/<Context>): their ids are needed to read a shared history table.
-            var directory = Path.GetDirectoryName(snapshot)!;
-            var searchRoot = Path.GetDirectoryName(directory) ?? directory;
-            var designers = Designers(searchRoot);
-
-            return Parse(snapshotText, designers.Select(ReadLimited));
+            return Load(FindSnapshot(path), []);
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
@@ -61,12 +53,28 @@ public static class SnapshotReader
         try
         {
             var snapshots = Directory.EnumerateFiles(path, "*" + SnapshotSuffix, SearchOption.AllDirectories).Take(20).ToList();
-            return snapshots.Count == 0 ? [Read(path)] : [.. snapshots.Select(Read)];
+            Dictionary<string, MigrationsByContext> byRoot = new(StringComparer.Ordinal);
+            return snapshots.Count == 0 ? [Read(path)] : [.. snapshots.Select(s => Load(s, byRoot))];
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
             throw new ArgumentException($"The snapshots could not be read: {ex.Message}", ex);
         }
+    }
+
+    /// <summary>
+    /// The folder above the snapshot's holds the other contexts' migrations in the usual layouts
+    /// (Project/Migrations, Migrations/&lt;Context&gt;): their ids are needed to read a shared history
+    /// table. Snapshots under the same folder share one reading of it.
+    /// </summary>
+    private static EfModel Load(string snapshot, Dictionary<string, MigrationsByContext> byRoot)
+    {
+        var directory = Path.GetDirectoryName(snapshot)!;
+        var root = Path.GetDirectoryName(directory) ?? directory;
+        if (!byRoot.TryGetValue(root, out var migrations))
+            byRoot[root] = migrations = ReadMigrations(Designers(root).Select(ReadLimited));
+
+        return Parse(ReadLimited(snapshot), migrations);
     }
 
     private static readonly string[] SkippedFolders = ["bin", "obj", "node_modules", ".git"];
@@ -123,7 +131,9 @@ public static class SnapshotReader
     }
 
     /// <summary>The model in <paramref name="snapshot"/>, with the migrations of the same DbContext among <paramref name="designers"/>.</summary>
-    public static EfModel Parse(string snapshot, IEnumerable<string> designers)
+    public static EfModel Parse(string snapshot, IEnumerable<string> designers) => Parse(snapshot, ReadMigrations(designers));
+
+    private static EfModel Parse(string snapshot, MigrationsByContext migrationsByContext)
     {
         var root = CSharpSyntaxTree.ParseText(snapshot).GetCompilationUnitRoot();
         var snapshotClass = root.DescendantNodes().OfType<ClassDeclarationSyntax>()
@@ -141,7 +151,13 @@ public static class SnapshotReader
         foreach (var statement in buildModel.Body!.Statements)
             ReadModelStatement(statement, modelBuilder, model);
 
-        var byContext = designers
+        var others = migrationsByContext.Where(m => m.Key != context).ToDictionary(m => m.Key, m => m.Value, StringComparer.Ordinal);
+        return model.Resolve(context, migrationsByContext.GetValueOrDefault(context) ?? []) with { OtherContexts = others };
+    }
+
+    /// <summary>The migration ids of every DbContext among the designer files, oldest first.</summary>
+    private static MigrationsByContext ReadMigrations(IEnumerable<string> designers) =>
+        designers
             .Select(text => CSharpSyntaxTree.ParseText(text).GetCompilationUnitRoot())
             .SelectMany(r => r.DescendantNodes().OfType<ClassDeclarationSyntax>())
             .Select(c => (Context: ContextOf(c), Id: MigrationIdOf(c)))
@@ -151,12 +167,6 @@ public static class SnapshotReader
                 g => g.Key,
                 g => (IReadOnlyList<string>)[.. g.Select(m => m.Id!).Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal)],
                 StringComparer.Ordinal);
-
-        var migrations = byContext.GetValueOrDefault(context) ?? [];
-        byContext.Remove(context);
-
-        return model.Resolve(context, migrations) with { OtherContexts = byContext };
-    }
 
     // ── Model statements ───────────────────────────────────────────────────────
 

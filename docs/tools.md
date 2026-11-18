@@ -407,7 +407,7 @@ in a code-first database: each finding carries the EF Core change in `Metadata["
 | `column-always-null` | Low | Inferred → Measured | Statistics see only NULLs → no row holds a value |
 | `column-single-value` | Low | Inferred → Measured | Statistics see one distinct value → one value on at least 100 filled rows. The value is never reported |
 | `column-abandoned` | Medium | Measured only | With `verifySignals`, a nullable column of a table with one creation date → no value on at least 1,000 rows of the last 90 days |
-| `column-not-in-model` | Medium | Derived | A column of a table the EF model maps, mapped by no property |
+| `column-not-in-model` | Medium | Derived | A column of a table the EF model maps, mapped by no property of any context; tables holding a mapping dblens does not compare (JSON, TPT…) are skipped |
 | `column-legacy-name` | Info | Inferred | A name word such as `old`, `bak`, `tmp`, `legacy`, `deprecated`, `vecchio`, or a comment saying deprecated / obsolete |
 | `audit-missing-created` | Low | Inferred | No creation date on a table of 1,000+ rows |
 | `audit-missing-updated` | Medium if updated, else Low | Inferred | No update date; not reported on a table known to be insert-only |
@@ -430,7 +430,8 @@ neither engine has statistics for.
 
 **Updates.** `pg_stat_user_tables.n_tup_upd` / `sys.dm_db_index_operational_stats`, read only when the
 counting window of [`unused-index`](#analyze_indexes) covers 7 days and the workload has run: a zero
-otherwise means nothing, so no table is taken as insert-only and a caveat says so.
+otherwise means nothing, so no table is taken as insert-only and a caveat says so; likewise when the
+login cannot read the counters, or they hold nothing for a table.
 
 **Measured checks.** Probes are ordered smallest table first within the shared
 [budget](safety.md#signal-verification). A check with too few rows (fewer than 100 filled rows, or
@@ -482,16 +483,18 @@ plan, with a caveat. Plan filters are redacted like the text: a stored plan keep
 
 **Joins that multiply rows.** A query that joins one parent to two children through their foreign
 keys returns, per parent, the product of its child rows — what EF Core writes for two `Include` on
-collections. Recognized from the text and the keys (a chain `A ← B ← C`, a 1:1 child or a single
-child does not count), it is a signal. With `verifyJoins: true` one probe per shape counts, over the
+collections. Recognized from the text and the keys (a chain `A ← B ← C`, a 1:1 child, a single
+child or one child joined through two keys does not count), it is a signal. With `verifyJoins: true` one probe per shape counts, over the
 whole tables, the rows the join returns against the children read separately, within the shared
-[budget](safety.md#signal-verification); when the join returns more the title states both counts.
+[budget](safety.md#signal-verification); when the join returns more the title states both counts. No more is a fact at `Info` about the
+total only: a few parents with many children of both kinds can hide in it.
 The query's own filters are not applied: it is the shape of the data. `Metadata["ef"]` proposes
 `.AsSplitQuery()`, or `UseQuerySplittingBehavior(QuerySplittingBehavior.SplitQuery)` on the context.
 
 **Availability.** The result says which source was read and how many days it covers, and for each
 source that was missing what would enable it: `pg_stat_statements` in `shared_preload_libraries`
-and created in the database, Query Store on, `VIEW SERVER STATE` for the plan cache. With none an
+and created in the database (a login outside `pg_read_all_settings` cannot see the first: the view is
+read, and its error is the reason), Query Store on, `VIEW SERVER STATE` for the plan cache. With none an
 empty list means nothing was measured. A SQL Server backup carries its Query Store; a PostgreSQL
 dump does not carry `pg_stat_statements`, which is read on the server itself.
 

@@ -35,12 +35,13 @@ public static class JoinFanOut
             var joins = JoinPredicateExtractor.Extract(
                 [new SqlSource(SqlSourceKind.Workload, "statistics", stats.Text)], tables, defaultSchema, dialect);
 
-            // A chain A ← B ← C does not multiply: only two children of the same parent do.
+            // A chain A ← B ← C does not multiply, nor one child joined through two keys (billing and
+            // shipping address): only two child tables of the same parent do.
             foreach (var byParent in joins.GroupBy(j => (j.Parent.Schema, j.Parent.Name)))
             {
                 var children = byParent
                     .Where(j => !ReferenceEquals(j.Child, j.Parent))
-                    .DistinctBy(j => (j.Child.Schema, j.Child.Name, j.ChildColumn))
+                    .DistinctBy(j => (j.Child.Schema, j.Child.Name))
                     .ToList();
                 if (children.Count < 2) continue;
 
@@ -82,7 +83,7 @@ public static class JoinFanOut
     /// </summary>
     public static VerificationProbe Probe(Shape shape, IReadOnlyDictionary<(string, string), long?> rowCounts, DatabaseDialect dialect)
     {
-        var count = dialect == DatabaseDialect.SqlServer ? "COUNT_BIG(*)" : "COUNT(*)";
+        var count = SqlCount.Of(dialect);
         string Table(TableDetail t) => SqlIdentifier.Qualify(t.Schema, t.Name, dialect);
         string Column(string c) => SqlIdentifier.Quote(c, dialect);
 
@@ -137,8 +138,8 @@ public static class JoinFanOut
                 Title = $"{signal.Table}: the join returns no more rows than two queries ({Num.N0(joined)} against {Num.N0(separate)})",
                 Description =
                     $"MEASURED: over the whole tables the join returns {Num.N0(joined)} rows and the two children read " +
-                    $"separately are {Num.N0(separate)}: the data has at most one child of one kind per parent, so the " +
-                    "join does not multiply.\n\nWHAT WAS SUSPECTED: " + signal.Description,
+                    $"separately are {Num.N0(separate)}: in total the join does not multiply. A total can still hide a few " +
+                    "parents with many children of both kinds.\n\nWHAT WAS SUSPECTED: " + signal.Description,
                 Metadata = VerificationOutcome.Attach(signal.Metadata, m, ratio),
             };
     }

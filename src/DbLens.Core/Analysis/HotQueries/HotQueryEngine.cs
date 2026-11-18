@@ -1,5 +1,6 @@
 using DbLens.Core.Analysis.Verification;
 using DbLens.Core.Models;
+using static DbLens.Core.Analysis.Names;
 
 namespace DbLens.Core.Analysis.HotQueries;
 
@@ -225,5 +226,4 @@ public static class HotQueryEngine
     private static string CollapseSpaces(string text) =>
         string.Join(' ', text.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries));
 
-    private static bool Same(string a, string b) => string.Equals(a, b, StringComparison.OrdinalIgnoreCase);
 }

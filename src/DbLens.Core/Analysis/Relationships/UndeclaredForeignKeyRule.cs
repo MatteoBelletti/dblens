@@ -157,11 +157,10 @@ public static class UndeclaredForeignKeyRule
         var parent = SqlIdentifier.Qualify(c.Parent.Schema, c.Parent.Name, dialect);
         var col = SqlIdentifier.Quote(c.Column.Name, dialect);
         var key = SqlIdentifier.Quote(c.ParentKey, dialect);
-        var count = dialect == DatabaseDialect.PostgreSql ? "COUNT" : "COUNT_BIG";
 
         return $"""
-                SELECT {count}(c.{col}) AS compared_rows,
-                       {count}(c.{col}) - {count}(p.{key}) AS divergent_rows
+                SELECT {SqlCount.Of(dialect, $"c.{col}")} AS compared_rows,
+                       {SqlCount.Of(dialect, $"c.{col}")} - {SqlCount.Of(dialect, $"p.{key}")} AS divergent_rows
                 FROM {child} c
                 LEFT JOIN {parent} p ON p.{key} = c.{col}
                 """;

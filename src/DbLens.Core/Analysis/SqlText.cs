@@ -114,15 +114,22 @@ public static partial class SqlText
     public static string Redact(string sql, DatabaseDialect dialect) =>
         string.Concat(Segments(sql, dialect).Select(s => s.Kind switch
         {
-            SqlSegmentKind.Code => NumberLiteral().Replace(s.Text, "?"),
+            SqlSegmentKind.Code => (dialect == DatabaseDialect.SqlServer ? SqlServerNumberLiteral() : PostgresNumberLiteral()).Replace(s.Text, "?"),
             SqlSegmentKind.Comment => " ",
             SqlSegmentKind.StringLiteral => "?",
             _ => s.Source,
         }));
 
-    // A number standing alone: not part of a name (t1, x.2), a parameter ($1, @p1) or a temp table (#t1).
-    [GeneratedRegex(@"(?<![\w$@#.])(?:0[xX][0-9A-Fa-f]+|\d+(?:\.\d*)?(?:[eE][+-]?\d+)?|\.\d+(?:[eE][+-]?\d+)?)(?![\w$])")]
-    private static partial System.Text.RegularExpressions.Regex NumberLiteral();
+    // A number standing alone: not part of a name (t1, x.2), a parameter (@p1, PostgreSQL's $1) or a
+    // temp table (#t1). PostgreSQL 16 also writes 1_000, 0o17 and 0b101; T-SQL writes money as $12.50.
+    private const string Number =
+        @"(?:0[xX][0-9A-Fa-f_]+|0[oO][0-7_]+|0[bB][01_]+|\d(?:_?\d)*(?:\.(?:\d(?:_?\d)*)?)?(?:[eE][+-]?\d+)?|\.\d(?:_?\d)*(?:[eE][+-]?\d+)?)(?![\w$])";
+
+    [GeneratedRegex(@"(?<![\w$@#.])" + Number)]
+    private static partial System.Text.RegularExpressions.Regex PostgresNumberLiteral();
+
+    [GeneratedRegex(@"(?<![\w@#.])" + Number)]
+    private static partial System.Text.RegularExpressions.Regex SqlServerNumberLiteral();
 
     /// <summary>
     /// The code alone: the contents of comments, literals and quoted identifiers can never be

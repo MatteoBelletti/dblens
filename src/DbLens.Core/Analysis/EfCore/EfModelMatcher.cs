@@ -50,7 +50,7 @@ public static class EfModelMatcher
 
         var groups = model.Entities.GroupBy(
             e => (e.Schema ?? model.DefaultSchema ?? databaseDefaultSchema, e.Table),
-            PairComparer.Instance);
+            CaseInsensitivePairComparer.Instance);
 
         foreach (var group in groups)
         {
@@ -104,7 +104,7 @@ public static class EfModelMatcher
         var exact = list.Where(c => key(c) == wanted).ToList();
         if (exact.Count == 1) return (exact[0], []);
 
-        var byCase = list.Where(c => PairComparer.Instance.Equals(key(c), wanted)).ToList();
+        var byCase = list.Where(c => CaseInsensitivePairComparer.Instance.Equals(key(c), wanted)).ToList();
         if (byCase.Count == 1) return (byCase[0], []);
         if (byCase.Count == 0) return (null, []);
 
@@ -112,17 +112,5 @@ public static class EfModelMatcher
             $"The model's {what} matches {byCase.Count} objects that differ only in case, so it was not compared: " +
             "nothing is reported missing or unmapped for it.");
         return (null, byCase);
-    }
-
-    private sealed class PairComparer : IEqualityComparer<(string, string)>
-    {
-        public static readonly PairComparer Instance = new();
-
-        public bool Equals((string, string) x, (string, string) y) =>
-            string.Equals(x.Item1, y.Item1, StringComparison.OrdinalIgnoreCase)
-            && string.Equals(x.Item2, y.Item2, StringComparison.OrdinalIgnoreCase);
-
-        public int GetHashCode((string, string) obj) =>
-            HashCode.Combine(obj.Item1.ToUpperInvariant(), obj.Item2.ToUpperInvariant());
     }
 }

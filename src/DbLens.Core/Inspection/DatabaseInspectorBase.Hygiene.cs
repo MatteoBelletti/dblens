@@ -32,30 +32,17 @@ public abstract partial class DatabaseInspectorBase
             List<string> caveats = [];
 
             await using var conn = await OpenAsync(ct);
-            var statistics = (await ReadAllAsync(ColumnStatisticsCommand(conn, scope.Tables), r => new ColumnStatistics(
-                    r.Text("schema_name"), r.Text("table_name"), r.Text("column_name"), r.Flag("all_null"), r.Flag("single_value")), ct))
-                .DistinctBy(s => (s.Schema, s.Table, s.Column))
-                .ToList();
-
-            // A zero only means "never updated" when the counters have been counting long enough.
-            var window = await ReadStatsWindowAsync(conn, ct);
-            IReadOnlyDictionary<(string, string), long>? updates = null;
-            if (window.Days >= request.UpdateCountersMinDays && window.AnyIndexScanned)
-                updates = (await ReadAllAsync(TableUpdatesCommand(conn, scope.Tables), r => (
-                        Key: (r.Text("schema_name"), r.Text("table_name")), Updates: r.Number("updates")), ct))
-                    .ToDictionary(x => x.Key, x => x.Updates);
-            else
-                caveats.Add(
-                    $"The update counters cover {Num.F0(window.Days)} day(s), {window.SinceText}: fewer than " +
-                    $"{request.UpdateCountersMinDays}, or no workload has run, so whether a table is ever updated is not known. " +
-                    "No table was taken as insert-only, and audit-updated-not-maintained was not checked.");
+            var statistics = await ReadAllAsync(ColumnStatisticsCommand(conn, scope.Tables), r => new ColumnStatistics(
+                r.Text("schema_name"), r.Text("table_name"), r.Text("column_name"), r.Flag("all_null"), r.Flag("single_value")), ct);
+            var updates = await ReadTableUpdatesAsync(conn, scope.Tables, request, caveats, ct);
 
             var models = (request.Models ?? []).Select(m => EfModelMatcher.Match(m, details.Tables, DefaultSchema)).ToList();
-            caveats.AddRange(models.SelectMany(m => m.Ambiguities));
+            var unsupported = (request.Models ?? []).SelectMany(m => m.Unsupported).Distinct().ToList();
+            caveats.AddRange(models.SelectMany(m => m.Ambiguities).Concat(unsupported));
 
             var rowCounts = scope.Tables.ToDictionary(t => (t.Schema, t.Name), t => t.ApproximateRowCount);
             var plan = HygieneEngine.Analyze(
-                new HygieneEngine.Input(details.Tables, rowCounts, statistics, updates, models, Dialect), request);
+                new HygieneEngine.Input(details.Tables, rowCounts, statistics, updates, models, Dialect, unsupported), request);
             caveats.AddRange(plan.Caveats);
 
             List<Finding> findings = [.. plan.Findings];
@@ -65,21 +52,43 @@ public abstract partial class DatabaseInspectorBase
                 findings.AddRange(plan.Checks.Where(c => c.IsSignal).Select(c => c.Finding));
             else
             {
-                // Smaller tables first: the budget then covers as many checks as it can.
-                var checks = plan.Checks.OrderBy(c => c.Probe.ApproximateRowCount ?? long.MaxValue).ToList();
-                var measurements = await RunVerificationProbesAsync([.. checks.Select(c => c.Probe)], request.Budget, ct);
-                var byTarget = measurements.ToDictionary(m => m.Target.Key, StringComparer.Ordinal);
-
-                findings.AddRange(checks
-                    .Select(c => byTarget.TryGetValue(c.Probe.Target.Key, out var m) ? HygieneEngine.Apply(c, m) : null)
-                    .OfType<Finding>());
-                caveats.AddRange(request.Budget.NotRunCaveats(measurements));
-                if (measurements.Any(m => m.Status == VerificationStatus.Inconclusive))
-                    caveats.Add("Checks with too few rows to compare are reported as not measured, never as refuted.");
-                verification = VerificationSummary.From(measurements, attempted: true);
+                var (measured, summary) = await VerifyEachAsync(plan.Checks, c => c.Probe, HygieneEngine.Apply, request.Budget,
+                    "Checks with too few rows to compare are reported as not measured, never as refuted.", caveats, ct);
+                findings.AddRange(measured.OfType<Finding>());
+                verification = summary;
             }
 
             return HygieneEngine.Build(details.Tables.Count, findings,
                 WithCaveats(caveats, [scope.Caveat, NotFoundCaveat(details), request.ModelCaveat]), verification);
         });
+
+    /// <summary>
+    /// Rows updated per table, or null when that is not known: the counters have not been counting
+    /// long enough, or this login cannot read them. A zero means "never updated" only otherwise.
+    /// </summary>
+    private async Task<IReadOnlyDictionary<(string, string), long>?> ReadTableUpdatesAsync(
+        DbConnection conn, IReadOnlyList<ScopedTable> tables, AnalyzeTableHygieneRequest request, List<string> caveats, CancellationToken ct)
+    {
+        const string Consequence = "so whether a table is ever updated is not known: no table was taken as insert-only, and " +
+                                   "audit-updated-not-maintained was not checked.";
+        try
+        {
+            var window = await ReadStatsWindowAsync(conn, ct);
+            if (window.Days < request.UpdateCountersMinDays || !window.AnyIndexScanned)
+            {
+                caveats.Add($"The update counters cover {Num.F0(window.Days)} day(s), {window.SinceText}: fewer than " +
+                            $"{request.UpdateCountersMinDays}, or no workload has run, {Consequence}");
+                return null;
+            }
+
+            return (await ReadAllAsync(TableUpdatesCommand(conn, tables), r => (
+                    Key: (r.Text("schema_name"), r.Text("table_name")), Updates: r.Number("updates")), ct))
+                .ToDictionary(x => x.Key, x => x.Updates);
+        }
+        catch (DbException ex)
+        {
+            caveats.Add($"The update counters could not be read ({ex.Message.ReplaceLineEndings(" ").Trim()}), {Consequence}");
+            return null;
+        }
+    }
 }

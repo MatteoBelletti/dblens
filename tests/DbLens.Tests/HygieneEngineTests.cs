@@ -1,4 +1,5 @@
 using DbLens.Core.Analysis;
+using DbLens.Core.Analysis.EfCore;
 using DbLens.Core.Analysis.Hygiene;
 using DbLens.Core.Analysis.Verification;
 using DbLens.Core.Models;
@@ -153,5 +154,52 @@ public sealed class HygieneEngineTests
         measured.Status.Should().Be(VerificationStatus.Inconclusive);
         ((VerificationOutcome)HygieneEngine.Apply(check, measured)!.Metadata!["verification"]).NotVerifiedReason
             .Should().Be("TooFewRowsCompared");
+    }
+
+    [Fact]
+    public void ColumnsThatDifferOnlyInCase_AreTwoColumns()
+    {
+        var table = Table("t", [Col("id", "int"), Col("Twin", nullable: true), Col("twin", nullable: true)]);
+
+        Analyze(table, stats: [Null("Twin"), Null("twin")]).Checks.Select(c => c.Finding.Columns!.Single())
+            .Should().Equal("Twin", "twin");
+    }
+
+    [Fact]
+    public void ATableTheCountersHoldNothingFor_IsNotKnownToBeInsertOnly()
+    {
+        var table = Table("t", [Col("id", "int"), Ts("created_at")]);
+        var plan = HygieneEngine.Analyze(
+            new HygieneEngine.Input([table], new Dictionary<(string, string), long?> { [("public", "t")] = 5_000 }, [],
+                new Dictionary<(string, string), long>(), [], DatabaseDialect.PostgreSql),
+            new AnalyzeTableHygieneRequest());
+
+        plan.Findings.Single(f => f.RuleId == HygieneRuleIds.MissingUpdated).Severity.Should().Be(Severity.Low);
+    }
+
+    private static EfModel Model(string context, params EfProperty[] properties) =>
+        new(context, "10.0.0", null, [new EfEntity("App.T", null, "t", properties, ["Id"], [], [])], [], []);
+
+    private static EfProperty Prop(string name, string column) => new(name, "long", column, "bigint", false);
+
+    private static IEnumerable<string?> NotInModel(string[] unsupported, params EfModel[] models)
+    {
+        var table = Table("t", [Col("id", "int"), Col("a"), Col("b"), Col("extra")]);
+        var plan = HygieneEngine.Analyze(
+            new HygieneEngine.Input([table], new Dictionary<(string, string), long?> { [("public", "t")] = 10 }, [], null,
+                [.. models.Select(m => EfModelMatcher.Match(m, [table], "public"))], DatabaseDialect.PostgreSql, unsupported),
+            new AnalyzeTableHygieneRequest());
+        return plan.Findings.Where(f => f.RuleId == HygieneRuleIds.ColumnNotInModel).Select(f => f.Columns!.Single());
+    }
+
+    [Fact]
+    public void AColumnNotInTheModel_IsOneNoModelMaps_InATableEveryModelReadsWhole()
+    {
+        var first = Model("FirstContext", Prop("Id", "id"), Prop("A", "a"));
+        var second = Model("SecondContext", Prop("Id", "id"), Prop("B", "b"));
+
+        NotInModel([], first, second).Should().Equal("extra");
+        NotInModel(["App.Address, owned by App.T, is stored as JSON (ToJson), which dblens does not compare."], first, second)
+            .Should().BeEmpty("a JSON column holds what no property names");
     }
 }

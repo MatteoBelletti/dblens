@@ -2,6 +2,7 @@ using DbLens.Core.Analysis.EfCore;
 using DbLens.Core.Analysis.Gdpr;
 using DbLens.Core.Analysis.Verification;
 using DbLens.Core.Models;
+using static DbLens.Core.Analysis.Names;
 
 namespace DbLens.Core.Analysis.Hygiene;
 
@@ -19,7 +20,9 @@ public static class HygieneEngine
         /// <summary>Updates per table; null when the counters do not cover enough time to be read.</summary>
         IReadOnlyDictionary<(string Schema, string Name), long>? Updates,
         IReadOnlyList<EfModelMatch> Models,
-        DatabaseDialect Dialect);
+        DatabaseDialect Dialect,
+        /// <summary>The models' mappings dblens does not compare (EfModel.Unsupported).</summary>
+        IReadOnlyList<string>? Unsupported = null);
 
     /// <summary>
     /// A measurable check. A signal stands on its own; a check that is only a question (is this
@@ -32,7 +35,7 @@ public static class HygieneEngine
     public static Plan Analyze(Input input, AnalyzeTableHygieneRequest request)
     {
         var vocabulary = AuditVocabulary.Default;
-        var statistics = input.Statistics.ToDictionary(s => (s.Schema, s.Table, s.Column), Key3.Comparer);
+        var statistics = input.Statistics.DistinctBy(s => (s.Schema, s.Table, s.Column)).ToDictionary(s => (s.Schema, s.Table, s.Column));
         var mapped = MappedColumns(input.Models);
         var owners = TableOwners(input.Models);
         List<Finding> findings = [];
@@ -47,7 +50,7 @@ public static class HygieneEngine
             var created = AuditColumns(table, vocabulary.Created);
             var updated = AuditColumns(table, vocabulary.Updated);
             var excluded = ExcludedColumns(table);
-            var audit = created.Concat(updated).Select(c => c.Name).ToHashSet(StringComparer.OrdinalIgnoreCase);
+            var audit = created.Concat(updated).Select(c => c.Name).ToHashSet(StringComparer.Ordinal);
 
             foreach (var column in table.Columns)
             {
@@ -95,7 +98,7 @@ public static class HygieneEngine
             "feature that was never finished. Statistics are a sample: verifySignals counts the rows.",
             ef, DropColumnFix(ef, c)),
         Probe(HygieneRuleIds.ColumnAlwaysNull, VerificationProbeKind.NoValue, t, [c.Name], rows, dialect,
-            $"SELECT {Count(dialect)} AS compared_rows, {Count(dialect, Q(c.Name, dialect))} AS divergent_rows FROM {Table(t, dialect)}",
+            $"SELECT {SqlCount.Of(dialect)} AS compared_rows, {SqlCount.Of(dialect, Q(c.Name, dialect))} AS divergent_rows FROM {Table(t, dialect)}",
             "rows that hold a value"),
         IsSignal: true);
 
@@ -106,7 +109,7 @@ public static class HygieneEngine
             "in code or configuration, or the column is no longer written. The value itself is not reported.",
             ef, DropColumnFix(ef, c)),
         Probe(HygieneRuleIds.ColumnSingleValue, VerificationProbeKind.SingleValue, t, [c.Name], rows, dialect,
-            $"SELECT {Count(dialect, Q(c.Name, dialect))} AS compared_rows, {Count(dialect, "DISTINCT " + Q(c.Name, dialect))} AS divergent_rows FROM {Table(t, dialect)}",
+            $"SELECT {SqlCount.Of(dialect, Q(c.Name, dialect))} AS compared_rows, {SqlCount.Of(dialect, "DISTINCT " + Q(c.Name, dialect))} AS divergent_rows FROM {Table(t, dialect)}",
             "distinct values among the filled rows", request.MinSingleValueRows),
         IsSignal: true);
 
@@ -124,7 +127,7 @@ public static class HygieneEngine
                 "hold and new rows do not was abandoned by the code that writes the table.",
                 ef, DropColumnFix(ef, c)),
             Probe(HygieneRuleIds.ColumnAbandoned, VerificationProbeKind.NoValue, t, [c.Name], rows, dialect,
-                $"SELECT {Count(dialect)} AS compared_rows, {Count(dialect, Q(c.Name, dialect))} AS divergent_rows " +
+                $"SELECT {SqlCount.Of(dialect)} AS compared_rows, {SqlCount.Of(dialect, Q(c.Name, dialect))} AS divergent_rows " +
                 $"FROM {Table(t, dialect)} WHERE {Q(created.Name, dialect)} >= {since}",
                 $"rows created in the last {request.RecentDays} days that hold a value", request.MinRecentRows),
             IsSignal: false);
@@ -137,28 +140,41 @@ public static class HygieneEngine
             "before removing it.",
             ef, DropColumnFix(ef, c));
 
+    /// <summary>
+    /// Columns of a mapped table no property of any model maps. A table holding an entity whose mapping
+    /// dblens does not compare (JSON, table splitting, TPT…) is skipped: its columns are not all known.
+    /// </summary>
     private static IEnumerable<Finding> NotInModel(Input input)
     {
-        foreach (var match in input.Models)
-            foreach (var table in match.Tables.Where(m => m.Table is not null))
-            {
-                var modeled = table.Columns.Where(c => c.Column is not null).Select(c => c.Column!.Name)
-                    .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var unsupported = input.Unsupported ?? [];
+        var tables = input.Models.SelectMany(m => m.Tables).Where(t => t.Table is not null)
+            .GroupBy(t => (t.Table!.Schema, t.Table.Name));
 
-                foreach (var column in table.Table!.Columns.Where(c => !modeled.Contains(c.Name)))
-                    yield return new Finding(
-                        HygieneRuleIds.ColumnNotInModel, Severity.Medium, FindingCategory.Structure, 1.0, Evidence.Derived,
-                        Name(table.Table), [column.Name],
-                        $"{Name(table.Table)}.{column.Name} is not in the EF model",
-                        $"The snapshot maps {Name(table.Table)} to {Short(table.Owner.Name)} and no property to {column.Name}. In a " +
-                        "code-first database removing a property drops its column, so this one was added or kept by hand: " +
-                        "another application may write it, or it was left behind. Map it, or drop it with a migration.",
-                        null,
-                        Ef(new EfRef(table.Owner.Name, null),
-                            $"Map it: a property on {Short(table.Owner.Name)} with .HasColumnName(\"{column.Name}\"). Or drop it: " +
-                            $"migrationBuilder.DropColumn(name: \"{column.Name}\", table: \"{table.Table.Name}\", schema: \"{table.Table.Schema}\")."));
-            }
+        foreach (var group in tables)
+        {
+            if (group.SelectMany(t => t.Entities).Any(e => NamedIn(unsupported, e.Name))) continue;
+
+            var table = group.First().Table!;
+            var owner = group.First().Owner.Name;
+            var modeled = group.SelectMany(t => t.Columns).Select(c => c.Property.Column).ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+            foreach (var column in table.Columns.Where(c => !modeled.Contains(c.Name)))
+                yield return new Finding(
+                    HygieneRuleIds.ColumnNotInModel, Severity.Medium, FindingCategory.Structure, 1.0, Evidence.Derived,
+                    Name(table), [column.Name],
+                    $"{Name(table)}.{column.Name} is not in the EF model",
+                    $"The snapshot maps {Name(table)} to {Short(owner)} and no property to {column.Name}. In a " +
+                    "code-first database removing a property drops its column, so this one was added or kept by hand: " +
+                    "another application may write it, or it was left behind. Map it, or drop it with a migration.",
+                    null,
+                    Ef(new EfRef(owner, null),
+                        $"Map it: a property on {Short(owner)} with .HasColumnName(\"{column.Name}\"). Or drop it: " +
+                        $"migrationBuilder.DropColumn(name: \"{column.Name}\", table: \"{table.Name}\", schema: \"{table.Schema}\")."));
+        }
     }
+
+    private static bool NamedIn(IEnumerable<string> sentences, string entity) =>
+        sentences.Any(s => s.Split(' ').Any(word => word.TrimEnd(',', '.') == entity));
 
     // ── Creation and update dates ──────────────────────────────────────────────
 
@@ -166,7 +182,7 @@ public static class HygieneEngine
         TableDetail t, long? rows, IReadOnlyList<ColumnDetail> created, IReadOnlyList<ColumnDetail> updated, Input input,
         AnalyzeTableHygieneRequest request, EfRef? owner, List<Finding> findings, List<Check> checks)
     {
-        long? updates = input.Updates is null ? null : input.Updates.GetValueOrDefault((t.Schema, t.Name));
+        long? updates = input.Updates?.TryGetValue((t.Schema, t.Name), out var n) == true ? n : null;
         var big = rows >= request.MinTableRows;
 
         if (big && created.Count == 0)
@@ -182,8 +198,8 @@ public static class HygieneEngine
                 $"{Name(t)} has no update date",
                 updates > 0
                     ? $"Its rows were updated {Num.N0(updates.Value)} times since the counters started, and nothing records when."
-                    : "Nothing records when a row last changed. Whether the table is ever updated is not known: the engine's " +
-                      "counters do not cover enough time.",
+                    : "Nothing records when a row last changed. Whether the table is ever updated is not known: the " +
+                      "engine's counters do not cover enough time, cannot be read, or hold nothing for it.",
                 owner, AuditFix));
 
         foreach (var c in created.Where(c => c.IsNullable))
@@ -229,8 +245,8 @@ public static class HygieneEngine
     }
 
     private static string TimestampPairSql(TableDetail t, ColumnDetail created, ColumnDetail updated, string op, DatabaseDialect dialect) =>
-        $"SELECT {Count(dialect)} AS compared_rows, " +
-        $"{Count(dialect, $"CASE WHEN {Q(updated.Name, dialect)} {op} {Q(created.Name, dialect)} THEN 1 END")} AS divergent_rows " +
+        $"SELECT {SqlCount.Of(dialect)} AS compared_rows, " +
+        $"{SqlCount.Of(dialect, $"CASE WHEN {Q(updated.Name, dialect)} {op} {Q(created.Name, dialect)} THEN 1 END")} AS divergent_rows " +
         $"FROM {Table(t, dialect)} WHERE {Q(created.Name, dialect)} IS NOT NULL AND {Q(updated.Name, dialect)} IS NOT NULL";
 
     private const string AuditFix =
@@ -312,8 +328,8 @@ public static class HygieneEngine
             .Where(t => t.Table is not null)
             .SelectMany(t => t.Columns.Where(c => c.Column is not null)
                 .Select(c => (Key: (t.Table!.Schema, t.Table.Name, c.Column!.Name), Ref: new EfRef(c.Entity.Name, c.Property.Name))))
-            .DistinctBy(x => x.Key, Key3.Comparer)
-            .ToDictionary(x => x.Key, x => x.Ref, Key3.Comparer);
+            .DistinctBy(x => x.Key)
+            .ToDictionary(x => x.Key, x => x.Ref);
 
     /// <summary>The entity each mapped table belongs to.</summary>
     private static Dictionary<(string Schema, string Name), EfRef> TableOwners(IReadOnlyList<EfModelMatch> models) =>
@@ -375,7 +391,7 @@ public static class HygieneEngine
     /// <summary>Keys, indexed, constrained, referencing, generated and identity columns: in use by construction.</summary>
     private static HashSet<string> ExcludedColumns(TableDetail t)
     {
-        HashSet<string> excluded = new(StringComparer.OrdinalIgnoreCase);
+        HashSet<string> excluded = new(StringComparer.Ordinal);
         excluded.UnionWith(t.PrimaryKey?.Columns ?? []);
         foreach (var index in t.Indexes) { excluded.UnionWith(index.Columns); excluded.UnionWith(index.IncludedColumns ?? []); }
         foreach (var fk in t.ForeignKeysOutgoing) excluded.UnionWith(fk.FromColumns);
@@ -384,27 +400,9 @@ public static class HygieneEngine
         return excluded;
     }
 
-    private static string Count(DatabaseDialect dialect, string? of = null) =>
-        $"{(dialect == DatabaseDialect.SqlServer ? "COUNT_BIG" : "COUNT")}({of ?? "*"})";
-
     private static string Q(string name, DatabaseDialect dialect) => SqlIdentifier.Quote(name, dialect);
 
     private static string Table(TableDetail t, DatabaseDialect dialect) => SqlIdentifier.Qualify(t.Schema, t.Name, dialect);
 
     private static string Name(TableDetail t) => $"{t.Schema}.{t.Name}";
-
-    private static string Short(string typeName) => typeName[(typeName.LastIndexOf('.') + 1)..];
-
-    private static bool Same(string a, string b) => string.Equals(a, b, StringComparison.OrdinalIgnoreCase);
-
-    private sealed class Key3 : IEqualityComparer<(string, string, string)>
-    {
-        public static readonly Key3 Comparer = new();
-
-        public bool Equals((string, string, string) x, (string, string, string) y) =>
-            Same(x.Item1, y.Item1) && Same(x.Item2, y.Item2) && Same(x.Item3, y.Item3);
-
-        public int GetHashCode((string, string, string) obj) =>
-            HashCode.Combine(obj.Item1.ToUpperInvariant(), obj.Item2.ToUpperInvariant(), obj.Item3.ToUpperInvariant());
-    }
 }

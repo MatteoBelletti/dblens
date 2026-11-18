@@ -3,6 +3,7 @@ using System.Text.Json;
 using System.Text.RegularExpressions;
 using DbLens.Core.Analysis.Glossary;
 using DbLens.Core.Models;
+using static DbLens.Core.Analysis.Names;
 
 namespace DbLens.Mcp.Infrastructure;
 
@@ -63,7 +64,6 @@ public sealed class CertifiedQueryStore(string path)
     private List<Entry> Load() =>
         File.Exists(Path) ? JsonSerializer.Deserialize<List<Entry>>(File.ReadAllText(Path)) ?? [] : [];
 
-    private static bool Same(string a, string b) => string.Equals(a, b, StringComparison.OrdinalIgnoreCase);
 
     private static string Normalize(string sql) =>
         Regex.Replace(sql.Trim().TrimEnd(';'), @"\s+", " ").ToLowerInvariant();

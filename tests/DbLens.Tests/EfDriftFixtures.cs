@@ -1,10 +1,7 @@
-using System.Text.RegularExpressions;
 using DbLens.Core.Abstractions;
 using DbLens.Postgres;
 using DbLens.SqlServer;
-using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Logging.Abstractions;
-using Npgsql;
 
 namespace DbLens.Tests;
 
@@ -41,12 +38,7 @@ public sealed class PostgresEfFixture : IAsyncLifetime, IEfFixture
         INSERT INTO "__EFMigrationsHistory" VALUES ('{EfDriftTestsBase.Hotfix}', '10.0.15');
         """;
 
-    private static string AdminConnectionString =>
-        Environment.GetEnvironmentVariable("DBLENS_TEST_PG_ADMIN_CONNECTION")
-        ?? "Host=localhost;Port=5433;Database=dblens_demo;Username=postgres;Password=devpassword";
-
-    private static string On(string database) =>
-        new NpgsqlConnectionStringBuilder(AdminConnectionString) { Database = database, Pooling = false }.ToString();
+    private static string On(string database) => PostgresAdmin.On(database);
 
     public bool IsReachable { get; private set; }
 
@@ -58,22 +50,15 @@ public sealed class PostgresEfFixture : IAsyncLifetime, IEfFixture
 
     public async Task InitializeAsync()
     {
-        try
-        {
-            await ExecuteAsync(AdminConnectionString, "SELECT 1");
-        }
-        catch
-        {
-            return;
-        }
+        if (!await PostgresAdmin.IsReachableAsync()) return;
 
-        await Recreate(DriftedDb);
-        await ExecuteAsync(On(DriftedDb), EfScripts.Read(Provider, "Init"));
-        await ExecuteAsync(On(DriftedDb), DriftSql);
+        await PostgresAdmin.RecreateAsync(DriftedDb);
+        await PostgresAdmin.ExecuteAsync(On(DriftedDb), EfScripts.Read(Provider, "Init"));
+        await PostgresAdmin.ExecuteAsync(On(DriftedDb), DriftSql);
 
-        await Recreate(CleanDb);
-        await ExecuteAsync(On(CleanDb), EfScripts.Read(Provider, "Init"));
-        await ExecuteAsync(On(CleanDb), EfScripts.Read(Provider, "AddPayments"));
+        await PostgresAdmin.RecreateAsync(CleanDb);
+        await PostgresAdmin.ExecuteAsync(On(CleanDb), EfScripts.Read(Provider, "Init"));
+        await PostgresAdmin.ExecuteAsync(On(CleanDb), EfScripts.Read(Provider, "AddPayments"));
 
         Drifted = new PostgresInspector(On(DriftedDb), NullLogger<PostgresInspector>.Instance);
         Clean = new PostgresInspector(On(CleanDb), NullLogger<PostgresInspector>.Instance);
@@ -83,28 +68,13 @@ public sealed class PostgresEfFixture : IAsyncLifetime, IEfFixture
     public async Task DisposeAsync()
     {
         if (!IsReachable) return;
-        await ExecuteAsync(AdminConnectionString, $"DROP DATABASE IF EXISTS {DriftedDb} WITH (FORCE)");
-        await ExecuteAsync(AdminConnectionString, $"DROP DATABASE IF EXISTS {CleanDb} WITH (FORCE)");
+        await PostgresAdmin.DropAsync(DriftedDb);
+        await PostgresAdmin.DropAsync(CleanDb);
     }
 
-    private static async Task Recreate(string database)
-    {
-        await ExecuteAsync(AdminConnectionString, $"DROP DATABASE IF EXISTS {database} WITH (FORCE)");
-        await ExecuteAsync(AdminConnectionString, $"CREATE DATABASE {database}");
-    }
-
-    private static async Task ExecuteAsync(string connectionString, string sql)
-    {
-        await using var conn = new NpgsqlConnection(new NpgsqlConnectionStringBuilder(connectionString) { Timeout = 5 }.ToString());
-        await conn.OpenAsync();
-        await using var cmd = conn.CreateCommand();
-        cmd.CommandText = sql;
-        cmd.CommandTimeout = 60;
-        await cmd.ExecuteNonQueryAsync();
-    }
 }
 
-public sealed partial class SqlServerEfFixture : IAsyncLifetime, IEfFixture
+public sealed class SqlServerEfFixture : IAsyncLifetime, IEfFixture
 {
     private const string DriftedDb = "dblens_ef";
     private const string CleanDb = "dblens_ef_clean";
@@ -117,12 +87,7 @@ public sealed partial class SqlServerEfFixture : IAsyncLifetime, IEfFixture
         INSERT INTO [__EFMigrationsHistory] VALUES ('{EfDriftTestsBase.Hotfix}', '10.0.15');
         """;
 
-    private static string AdminConnectionString =>
-        Environment.GetEnvironmentVariable("DBLENS_TEST_SS_ADMIN_CONNECTION")
-        ?? "Server=localhost,1434;Database=dblens_demo;User Id=sa;Password=DevPassword123!;TrustServerCertificate=true";
-
-    private static string On(string database) =>
-        new SqlConnectionStringBuilder(AdminConnectionString) { InitialCatalog = database, Pooling = false }.ToString();
+    private static string On(string database) => SqlServerAdmin.On(database);
 
     public bool IsReachable { get; private set; }
 
@@ -134,22 +99,15 @@ public sealed partial class SqlServerEfFixture : IAsyncLifetime, IEfFixture
 
     public async Task InitializeAsync()
     {
-        try
-        {
-            await ExecuteAsync(AdminConnectionString, "SELECT 1");
-        }
-        catch
-        {
-            return;
-        }
+        if (!await SqlServerAdmin.IsReachableAsync()) return;
 
-        await Recreate(DriftedDb);
-        await ExecuteScriptAsync(On(DriftedDb), EfScripts.Read(Provider, "Init"));
-        await ExecuteAsync(On(DriftedDb), DriftSql);
+        await SqlServerAdmin.RecreateAsync(DriftedDb);
+        await SqlServerAdmin.ExecuteScriptAsync(On(DriftedDb), EfScripts.Read(Provider, "Init"));
+        await SqlServerAdmin.ExecuteAsync(On(DriftedDb), DriftSql);
 
-        await Recreate(CleanDb);
-        await ExecuteScriptAsync(On(CleanDb), EfScripts.Read(Provider, "Init"));
-        await ExecuteScriptAsync(On(CleanDb), EfScripts.Read(Provider, "AddPayments"));
+        await SqlServerAdmin.RecreateAsync(CleanDb);
+        await SqlServerAdmin.ExecuteScriptAsync(On(CleanDb), EfScripts.Read(Provider, "Init"));
+        await SqlServerAdmin.ExecuteScriptAsync(On(CleanDb), EfScripts.Read(Provider, "AddPayments"));
 
         Drifted = new SqlServerInspector(On(DriftedDb), NullLogger<SqlServerInspector>.Instance);
         Clean = new SqlServerInspector(On(CleanDb), NullLogger<SqlServerInspector>.Instance);
@@ -159,36 +117,10 @@ public sealed partial class SqlServerEfFixture : IAsyncLifetime, IEfFixture
     public async Task DisposeAsync()
     {
         if (!IsReachable) return;
-        await ExecuteAsync(AdminConnectionString, Drop(DriftedDb));
-        await ExecuteAsync(AdminConnectionString, Drop(CleanDb));
+        await SqlServerAdmin.DropAsync(DriftedDb);
+        await SqlServerAdmin.DropAsync(CleanDb);
     }
 
-    private static string Drop(string database) =>
-        $"IF DB_ID('{database}') IS NOT NULL BEGIN ALTER DATABASE {database} SET SINGLE_USER WITH ROLLBACK IMMEDIATE; DROP DATABASE {database}; END";
 
-    private static async Task Recreate(string database)
-    {
-        await ExecuteAsync(AdminConnectionString, Drop(database));
-        await ExecuteAsync(AdminConnectionString, $"CREATE DATABASE {database}");
-    }
 
-    /// <summary>An EF script for SQL Server is a series of batches separated by GO lines.</summary>
-    private static async Task ExecuteScriptAsync(string connectionString, string script)
-    {
-        foreach (var batch in GoLine().Split(script).Where(b => !string.IsNullOrWhiteSpace(b)))
-            await ExecuteAsync(connectionString, batch);
-    }
-
-    [GeneratedRegex(@"^\s*GO\s*$", RegexOptions.Multiline | RegexOptions.IgnoreCase)]
-    private static partial Regex GoLine();
-
-    private static async Task ExecuteAsync(string connectionString, string sql)
-    {
-        await using var conn = new SqlConnection(connectionString);
-        await conn.OpenAsync();
-        await using var cmd = conn.CreateCommand();
-        cmd.CommandText = sql;
-        cmd.CommandTimeout = 60;
-        await cmd.ExecuteNonQueryAsync();
-    }
 }

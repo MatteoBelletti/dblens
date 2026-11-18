@@ -102,12 +102,8 @@ public sealed class SqlServerEdgeFixture : IAsyncLifetime, IEdgeFixture
 
     private const string LimitedLogin = "dblens_edge_limited";
 
-    private static string AdminConnectionString =>
-        Environment.GetEnvironmentVariable("DBLENS_TEST_SS_ADMIN_CONNECTION")
-        ?? "Server=localhost,1434;Database=dblens_demo;User Id=sa;Password=DevPassword123!;TrustServerCertificate=true";
-
     private static string EdgeConnectionString =>
-        new SqlConnectionStringBuilder(AdminConnectionString) { InitialCatalog = Database, Pooling = false }.ToString();
+        SqlServerAdmin.On(Database);
 
     private const string DropSql =
         $"IF DB_ID('{Database}') IS NOT NULL BEGIN " +
@@ -124,20 +120,13 @@ public sealed class SqlServerEdgeFixture : IAsyncLifetime, IEdgeFixture
 
     public async Task InitializeAsync()
     {
-        try
-        {
-            await ExecuteAsync(AdminConnectionString, "SELECT 1");
-        }
-        catch
-        {
-            return;
-        }
+        if (!await SqlServerAdmin.IsReachableAsync()) return;
 
         // From here a failure is a broken fixture, not an unreachable database: it must fail, not skip.
-        await ExecuteAsync(AdminConnectionString, DropSql);
-        await ExecuteAsync(AdminConnectionString, $"CREATE DATABASE {Database} COLLATE Latin1_General_100_CS_AS");
+        await SqlServerAdmin.ExecuteAsync(SqlServerAdmin.ConnectionString, DropSql);
+        await SqlServerAdmin.ExecuteAsync(SqlServerAdmin.ConnectionString, $"CREATE DATABASE {Database} COLLATE Latin1_General_100_CS_AS");
         foreach (var statement in SetupSql)
-            await ExecuteAsync(EdgeConnectionString, statement);
+            await SqlServerAdmin.ExecuteAsync(EdgeConnectionString, statement);
 
         Inspector = new SqlServerInspector(EdgeConnectionString, NullLogger<SqlServerInspector>.Instance);
         LimitedInspector = new SqlServerInspector(
@@ -149,17 +138,7 @@ public sealed class SqlServerEdgeFixture : IAsyncLifetime, IEdgeFixture
     public async Task DisposeAsync()
     {
         if (IsReachable)
-            await ExecuteAsync(AdminConnectionString, DropSql);
+            await SqlServerAdmin.ExecuteAsync(SqlServerAdmin.ConnectionString, DropSql);
     }
 
-    private static async Task ExecuteAsync(string connectionString, string sql)
-    {
-        await using var conn = new SqlConnection(
-            new SqlConnectionStringBuilder(connectionString) { ConnectTimeout = 5 }.ToString());
-        await conn.OpenAsync();
-        await using var cmd = conn.CreateCommand();
-        cmd.CommandText = sql;
-        cmd.CommandTimeout = 60;
-        await cmd.ExecuteNonQueryAsync();
-    }
 }

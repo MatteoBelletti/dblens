@@ -179,12 +179,8 @@ public sealed class PostgresEdgeFixture : IAsyncLifetime, IEdgeFixture
     private const string DropSql =
         $"DROP DATABASE IF EXISTS {Database} WITH (FORCE); DROP ROLE IF EXISTS dblens_edge_limited";
 
-    private static string AdminConnectionString =>
-        Environment.GetEnvironmentVariable("DBLENS_TEST_PG_ADMIN_CONNECTION")
-        ?? "Host=localhost;Port=5433;Database=dblens_demo;Username=postgres;Password=devpassword";
-
     private static string EdgeConnectionString =>
-        new NpgsqlConnectionStringBuilder(AdminConnectionString) { Database = Database, Pooling = false }.ToString();
+        PostgresAdmin.On(Database);
 
     public bool IsReachable { get; private set; }
 
@@ -196,20 +192,13 @@ public sealed class PostgresEdgeFixture : IAsyncLifetime, IEdgeFixture
 
     public async Task InitializeAsync()
     {
-        try
-        {
-            await ExecuteAsync(AdminConnectionString, "SELECT 1");
-        }
-        catch
-        {
-            return;
-        }
+        if (!await PostgresAdmin.IsReachableAsync()) return;
 
         // From here a failure is a broken fixture, not an unreachable database: it must fail, not skip.
         foreach (var statement in DropSql.Split(';'))
-            await ExecuteAsync(AdminConnectionString, statement);
-        await ExecuteAsync(AdminConnectionString, $"CREATE DATABASE {Database}");
-        await ExecuteAsync(EdgeConnectionString, SetupSql);
+            await PostgresAdmin.ExecuteAsync(PostgresAdmin.ConnectionString, statement);
+        await PostgresAdmin.ExecuteAsync(PostgresAdmin.ConnectionString, $"CREATE DATABASE {Database}");
+        await PostgresAdmin.ExecuteAsync(EdgeConnectionString, SetupSql);
 
         Inspector = new PostgresInspector(EdgeConnectionString, NullLogger<PostgresInspector>.Instance);
         LimitedInspector = new PostgresInspector(
@@ -224,17 +213,7 @@ public sealed class PostgresEdgeFixture : IAsyncLifetime, IEdgeFixture
 
         // DROP DATABASE cannot share a statement batch with anything else.
         foreach (var statement in DropSql.Split(';'))
-            await ExecuteAsync(AdminConnectionString, statement);
+            await PostgresAdmin.ExecuteAsync(PostgresAdmin.ConnectionString, statement);
     }
 
-    private static async Task ExecuteAsync(string connectionString, string sql)
-    {
-        await using var conn = new NpgsqlConnection(
-            new NpgsqlConnectionStringBuilder(connectionString) { Timeout = 5 }.ToString());
-        await conn.OpenAsync();
-        await using var cmd = conn.CreateCommand();
-        cmd.CommandText = sql;
-        cmd.CommandTimeout = 60;
-        await cmd.ExecuteNonQueryAsync();
-    }
 }

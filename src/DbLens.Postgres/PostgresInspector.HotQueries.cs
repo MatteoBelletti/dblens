@@ -1,3 +1,4 @@
+using System.Data.Common;
 using DbLens.Core.Analysis.HotQueries;
 using DbLens.Core.Analysis;
 using DbLens.Core.Analysis.QueryPlan;
@@ -7,11 +8,15 @@ namespace DbLens.Postgres;
 
 public sealed partial class PostgresInspector
 {
+    // pg_settings hides shared_preload_libraries from a login outside pg_read_all_settings: unknown is
+    // taken as loaded, and reading the view says the rest. pg_stat_statements_info came with 1.9.
     private const string HotQueriesAvailableSql = """
-        SELECT current_setting('shared_preload_libraries') LIKE '%pg_stat_statements%' AS preloaded,
+        SELECT COALESCE((SELECT setting LIKE '%pg_stat_statements%' FROM pg_settings
+                         WHERE name = 'shared_preload_libraries'), true) AS preloaded,
                EXISTS (SELECT 1 FROM pg_extension WHERE extname = 'pg_stat_statements') AS created,
                pg_has_role(current_user, 'pg_read_all_stats', 'member') AS sees_all,
-               current_setting('server_version_num')::int >= 140000 AS has_info
+               COALESCE((SELECT string_to_array(extversion, '.')::int[] >= ARRAY[1, 9] FROM pg_extension
+                         WHERE extname = 'pg_stat_statements'), false) AS has_info
         """;
 
     // Statistics accumulate per database since the last pg_stat_statements_reset() (or since a crash).
@@ -56,9 +61,18 @@ public sealed partial class PostgresInspector
         fetchParameter.Value = fetch;
         command.Parameters.Add(fetchParameter);
 
-        var queries = await ReadAllAsync(command, r => new HotQueryStats(
-            r.Text("query_id"), r.Text("query_text"), r.Number("calls"), r.RealOrNull("total_time_ms") ?? 0,
-            r.Number("rows_returned"), r.Number("pages_read"), r.Number("pages_from_disk"), r.NumberOrNull("temp_pages")), ct);
+        IReadOnlyList<HotQueryStats> queries;
+        try
+        {
+            queries = await ReadAllAsync(command, r => new HotQueryStats(
+                r.Text("query_id"), r.Text("query_text"), r.Number("calls"), r.RealOrNull("total_time_ms") ?? 0,
+                r.Number("rows_returned"), r.Number("pages_read"), r.Number("pages_from_disk"), r.NumberOrNull("temp_pages")), ct);
+        }
+        catch (DbException ex)
+        {
+            return new HotQuerySource(null, null, [],
+                [$"pg_stat_statements could not be read ({ex.Message.ReplaceLineEndings(" ").Trim()})."]);
+        }
 
         double? window = null;
         if (hasInfo)

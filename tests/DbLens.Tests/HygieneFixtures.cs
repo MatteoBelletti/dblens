@@ -1,10 +1,7 @@
-using System.Text.RegularExpressions;
 using DbLens.Core.Abstractions;
 using DbLens.Postgres;
 using DbLens.SqlServer;
-using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Logging.Abstractions;
-using Npgsql;
 
 namespace DbLens.Tests;
 
@@ -68,12 +65,7 @@ public sealed class PostgresHygieneFixture : IAsyncLifetime, IHygieneFixture
         ANALYZE;
         """;
 
-    private static string AdminConnectionString =>
-        Environment.GetEnvironmentVariable("DBLENS_TEST_PG_ADMIN_CONNECTION")
-        ?? "Host=localhost;Port=5433;Database=dblens_demo;Username=postgres;Password=devpassword";
-
-    private static string On =>
-        new NpgsqlConnectionStringBuilder(AdminConnectionString) { Database = HygieneData.Database, Pooling = false }.ToString();
+    private static string On => PostgresAdmin.On(HygieneData.Database);
 
     public bool IsReachable { get; private set; }
 
@@ -83,20 +75,12 @@ public sealed class PostgresHygieneFixture : IAsyncLifetime, IHygieneFixture
 
     public async Task InitializeAsync()
     {
-        try
-        {
-            await ExecuteAsync(AdminConnectionString, "SELECT 1");
-        }
-        catch
-        {
-            return;
-        }
+        if (!await PostgresAdmin.IsReachableAsync()) return;
 
-        await ExecuteAsync(AdminConnectionString, $"DROP DATABASE IF EXISTS {HygieneData.Database} WITH (FORCE)");
-        await ExecuteAsync(AdminConnectionString, $"CREATE DATABASE {HygieneData.Database}");
-        await ExecuteAsync(On, EfScripts.Read(Provider, "Init"));
-        await ExecuteAsync(On, EfScripts.Read(Provider, "AddPayments"));
-        await ExecuteAsync(On, SetupSql);
+        await PostgresAdmin.RecreateAsync(HygieneData.Database);
+        await PostgresAdmin.ExecuteAsync(On, EfScripts.Read(Provider, "Init"));
+        await PostgresAdmin.ExecuteAsync(On, EfScripts.Read(Provider, "AddPayments"));
+        await PostgresAdmin.ExecuteAsync(On, SetupSql);
         await IndexWorkload.OnPostgresAsync(On, "hygiene.stock_levels");
 
         Inspector = new PostgresInspector(On, NullLogger<PostgresInspector>.Instance);
@@ -105,21 +89,12 @@ public sealed class PostgresHygieneFixture : IAsyncLifetime, IHygieneFixture
 
     public async Task DisposeAsync()
     {
-        if (IsReachable) await ExecuteAsync(AdminConnectionString, $"DROP DATABASE IF EXISTS {HygieneData.Database} WITH (FORCE)");
+        if (IsReachable) await PostgresAdmin.DropAsync(HygieneData.Database);
     }
 
-    private static async Task ExecuteAsync(string connectionString, string sql)
-    {
-        await using var conn = new NpgsqlConnection(new NpgsqlConnectionStringBuilder(connectionString) { Timeout = 5 }.ToString());
-        await conn.OpenAsync();
-        await using var cmd = conn.CreateCommand();
-        cmd.CommandText = sql;
-        cmd.CommandTimeout = 60;
-        await cmd.ExecuteNonQueryAsync();
-    }
 }
 
-public sealed partial class SqlServerHygieneFixture : IAsyncLifetime, IHygieneFixture
+public sealed class SqlServerHygieneFixture : IAsyncLifetime, IHygieneFixture
 {
     private static readonly string[] SetupSql =
     [
@@ -151,15 +126,7 @@ public sealed partial class SqlServerHygieneFixture : IAsyncLifetime, IHygieneFi
         "UPDATE STATISTICS hygiene.stock_levels WITH FULLSCAN",
     ];
 
-    private static string AdminConnectionString =>
-        Environment.GetEnvironmentVariable("DBLENS_TEST_SS_ADMIN_CONNECTION")
-        ?? "Server=localhost,1434;Database=dblens_demo;User Id=sa;Password=DevPassword123!;TrustServerCertificate=true";
-
-    private static string On =>
-        new SqlConnectionStringBuilder(AdminConnectionString) { InitialCatalog = HygieneData.Database, Pooling = false }.ToString();
-
-    private static string Drop =>
-        $"IF DB_ID('{HygieneData.Database}') IS NOT NULL BEGIN ALTER DATABASE {HygieneData.Database} SET SINGLE_USER WITH ROLLBACK IMMEDIATE; DROP DATABASE {HygieneData.Database}; END";
+    private static string On => SqlServerAdmin.On(HygieneData.Database);
 
     public bool IsReachable { get; private set; }
 
@@ -169,22 +136,13 @@ public sealed partial class SqlServerHygieneFixture : IAsyncLifetime, IHygieneFi
 
     public async Task InitializeAsync()
     {
-        try
-        {
-            await ExecuteAsync(AdminConnectionString, "SELECT 1");
-        }
-        catch
-        {
-            return;
-        }
+        if (!await SqlServerAdmin.IsReachableAsync()) return;
 
-        await ExecuteAsync(AdminConnectionString, Drop);
-        await ExecuteAsync(AdminConnectionString, $"CREATE DATABASE {HygieneData.Database}");
+        await SqlServerAdmin.RecreateAsync(HygieneData.Database);
         foreach (var script in new[] { "Init", "AddPayments" })
-            foreach (var batch in GoLine().Split(EfScripts.Read(Provider, script)).Where(b => !string.IsNullOrWhiteSpace(b)))
-                await ExecuteAsync(On, batch);
+            await SqlServerAdmin.ExecuteScriptAsync(On, EfScripts.Read(Provider, script));
         foreach (var statement in SetupSql)
-            await ExecuteAsync(On, statement);
+            await SqlServerAdmin.ExecuteAsync(On, statement);
         await IndexWorkload.OnSqlServerAsync(On, "hygiene.stock_levels");
 
         Inspector = new SqlServerInspector(On, NullLogger<SqlServerInspector>.Instance);
@@ -193,19 +151,8 @@ public sealed partial class SqlServerHygieneFixture : IAsyncLifetime, IHygieneFi
 
     public async Task DisposeAsync()
     {
-        if (IsReachable) await ExecuteAsync(AdminConnectionString, Drop);
+        if (IsReachable) await SqlServerAdmin.DropAsync(HygieneData.Database);
     }
 
-    [GeneratedRegex(@"^\s*GO\s*$", RegexOptions.Multiline | RegexOptions.IgnoreCase)]
-    private static partial Regex GoLine();
 
-    private static async Task ExecuteAsync(string connectionString, string sql)
-    {
-        await using var conn = new SqlConnection(connectionString);
-        await conn.OpenAsync();
-        await using var cmd = conn.CreateCommand();
-        cmd.CommandText = sql;
-        cmd.CommandTimeout = 60;
-        await cmd.ExecuteNonQueryAsync();
-    }
 }

@@ -3,9 +3,7 @@ using DbLens.Core.Analysis.HotQueries;
 using DbLens.Postgres;
 using DbLens.SqlServer;
 using FluentAssertions;
-using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Logging.Abstractions;
-using Npgsql;
 
 namespace DbLens.Tests;
 
@@ -84,12 +82,8 @@ public sealed class PostgresHotFixture : IAsyncLifetime, IHotFixture
         ANALYZE;
         """;
 
-    private static string AdminConnectionString =>
-        Environment.GetEnvironmentVariable("DBLENS_TEST_PG_ADMIN_CONNECTION")
-        ?? "Host=localhost;Port=5433;Database=dblens_demo;Username=postgres;Password=devpassword";
-
     private static string HotConnectionString =>
-        new NpgsqlConnectionStringBuilder(AdminConnectionString) { Database = Database, Pooling = false }.ToString();
+        PostgresAdmin.On(Database);
 
     public bool IsReachable { get; private set; }
 
@@ -99,24 +93,16 @@ public sealed class PostgresHotFixture : IAsyncLifetime, IHotFixture
 
     public async Task InitializeAsync()
     {
-        try
-        {
-            await ExecuteAsync(AdminConnectionString, "SELECT 1");
-        }
-        catch
-        {
-            return;
-        }
+        if (!await PostgresAdmin.IsReachableAsync()) return;
 
-        await ExecuteAsync(AdminConnectionString, $"DROP DATABASE IF EXISTS {Database} WITH (FORCE)");
-        await ExecuteAsync(AdminConnectionString, $"CREATE DATABASE {Database}");
-        await ExecuteAsync(HotConnectionString, SetupSql);
+        await PostgresAdmin.RecreateAsync(Database);
+        await PostgresAdmin.ExecuteAsync(HotConnectionString, SetupSql);
 
         for (var i = 0; i < HotWorkload.Repeats; i++)
         {
-            await ExecuteAsync(HotConnectionString, HotWorkload.FanOut("count(*)"));
-            await ExecuteAsync(HotConnectionString, HotWorkload.Selective);
-            await ExecuteAsync(HotConnectionString, HotWorkload.WithSecrets);
+            await PostgresAdmin.ExecuteAsync(HotConnectionString, HotWorkload.FanOut("count(*)"));
+            await PostgresAdmin.ExecuteAsync(HotConnectionString, HotWorkload.Selective);
+            await PostgresAdmin.ExecuteAsync(HotConnectionString, HotWorkload.WithSecrets);
         }
 
         Inspector = new PostgresInspector(HotConnectionString, NullLogger<PostgresInspector>.Instance);
@@ -125,18 +111,9 @@ public sealed class PostgresHotFixture : IAsyncLifetime, IHotFixture
 
     public async Task DisposeAsync()
     {
-        if (IsReachable) await ExecuteAsync(AdminConnectionString, $"DROP DATABASE IF EXISTS {Database} WITH (FORCE)");
+        if (IsReachable) await PostgresAdmin.DropAsync(Database);
     }
 
-    private static async Task ExecuteAsync(string connectionString, string sql)
-    {
-        await using var conn = new NpgsqlConnection(new NpgsqlConnectionStringBuilder(connectionString) { Timeout = 5 }.ToString());
-        await conn.OpenAsync();
-        await using var cmd = conn.CreateCommand();
-        cmd.CommandText = sql;
-        cmd.CommandTimeout = 60;
-        await cmd.ExecuteNonQueryAsync();
-    }
 }
 
 public sealed class SqlServerHotFixture : IAsyncLifetime, IHotFixture
@@ -170,15 +147,8 @@ public sealed class SqlServerHotFixture : IAsyncLifetime, IHotFixture
         "UPDATE STATISTICS hot.events",
     ];
 
-    private static string AdminConnectionString =>
-        Environment.GetEnvironmentVariable("DBLENS_TEST_SS_ADMIN_CONNECTION")
-        ?? "Server=localhost,1434;Database=dblens_demo;User Id=sa;Password=DevPassword123!;TrustServerCertificate=true";
-
     private static string HotConnectionString =>
-        new SqlConnectionStringBuilder(AdminConnectionString) { InitialCatalog = Database, Pooling = false }.ToString();
-
-    private static string Drop =>
-        $"IF DB_ID('{Database}') IS NOT NULL BEGIN ALTER DATABASE {Database} SET SINGLE_USER WITH ROLLBACK IMMEDIATE; DROP DATABASE {Database}; END";
+        SqlServerAdmin.On(Database);
 
     public bool IsReachable { get; private set; }
 
@@ -188,51 +158,34 @@ public sealed class SqlServerHotFixture : IAsyncLifetime, IHotFixture
 
     public async Task InitializeAsync()
     {
-        try
-        {
-            await ExecuteAsync(AdminConnectionString, "SELECT 1");
-        }
-        catch
-        {
-            return;
-        }
+        if (!await SqlServerAdmin.IsReachableAsync()) return;
 
-        await ExecuteAsync(AdminConnectionString, Drop);
-        await ExecuteAsync(AdminConnectionString, $"CREATE DATABASE {Database}");
+        await SqlServerAdmin.RecreateAsync(Database);
         // AUTO, the default, records only queries that run often or cost much: a test workload is neither.
         await SetQueryStoreAsync(on: true);
         foreach (var statement in SetupSql)
-            await ExecuteAsync(HotConnectionString, statement);
+            await SqlServerAdmin.ExecuteAsync(HotConnectionString, statement);
 
         for (var i = 0; i < HotWorkload.Repeats; i++)
         {
-            await ExecuteAsync(HotConnectionString, HotWorkload.FanOut("COUNT_BIG(*)"));
-            await ExecuteAsync(HotConnectionString, HotWorkload.Selective);
-            await ExecuteAsync(HotConnectionString, HotWorkload.WithSecrets);
+            await SqlServerAdmin.ExecuteAsync(HotConnectionString, HotWorkload.FanOut("COUNT_BIG(*)"));
+            await SqlServerAdmin.ExecuteAsync(HotConnectionString, HotWorkload.Selective);
+            await SqlServerAdmin.ExecuteAsync(HotConnectionString, HotWorkload.WithSecrets);
         }
 
         Inspector = new SqlServerInspector(HotConnectionString, NullLogger<SqlServerInspector>.Instance);
         IsReachable = true;
     }
 
-    public Task RunAsync(string sql) => ExecuteAsync(HotConnectionString, sql);
+    public Task RunAsync(string sql) => SqlServerAdmin.ExecuteAsync(HotConnectionString, sql);
 
-    public Task SetQueryStoreAsync(bool on) => ExecuteAsync(AdminConnectionString, on
+    public Task SetQueryStoreAsync(bool on) => SqlServerAdmin.ExecuteAsync(SqlServerAdmin.ConnectionString, on
         ? $"ALTER DATABASE {Database} SET QUERY_STORE = ON (OPERATION_MODE = READ_WRITE, QUERY_CAPTURE_MODE = ALL)"
         : $"ALTER DATABASE {Database} SET QUERY_STORE = OFF");
 
     public async Task DisposeAsync()
     {
-        if (IsReachable) await ExecuteAsync(AdminConnectionString, Drop);
+        if (IsReachable) await SqlServerAdmin.DropAsync(Database);
     }
 
-    private static async Task ExecuteAsync(string connectionString, string sql)
-    {
-        await using var conn = new SqlConnection(connectionString);
-        await conn.OpenAsync();
-        await using var cmd = conn.CreateCommand();
-        cmd.CommandText = sql;
-        cmd.CommandTimeout = 60;
-        await cmd.ExecuteNonQueryAsync();
-    }
 }

@@ -17,12 +17,14 @@ public sealed class HotQueryEngineTests
     [InlineData("SELECT * FROM t WHERE n = N'Rossi' -- mario@x.it", "SELECT * FROM t WHERE n = N?  ")]
     [InlineData("SELECT * FROM t /* card 4242 */ WHERE x > 1.5e3 AND y = .25", "SELECT * FROM t   WHERE x > ? AND y = ?")]
     [InlineData("SELECT t1.c2, @p0, #tmp1 FROM t1 WHERE b = 0x1F", "SELECT t1.c2, @p0, #tmp1 FROM t1 WHERE b = ?")]
+    [InlineData("SELECT * FROM t WHERE balance > $12.50 AND fee < -$3", "SELECT * FROM t WHERE balance > $? AND fee < -$?")]
     public void Redact_OnSqlServer_RemovesEveryValue(string sql, string expected) =>
         SqlText.Redact(sql, DatabaseDialect.SqlServer).Should().Be(expected);
 
     [Theory]
     [InlineData("SELECT * FROM t WHERE a = $1 AND b = 'x' AND c = $$dollar 42$$", "SELECT * FROM t WHERE a = $1 AND b = ? AND c = ?")]
     [InlineData("SELECT \"Col 1\" FROM t WHERE e = E'it\\'s' AND n = 7", "SELECT \"Col 1\" FROM t WHERE e = E? AND n = ?")]
+    [InlineData("SELECT * FROM t WHERE a = 1_000_000 AND b = 0o17 AND c = 0b101 AND d = 1_000.5", "SELECT * FROM t WHERE a = ? AND b = ? AND c = ? AND d = ?")]
     public void Redact_OnPostgres_KeepsParametersAndNames(string sql, string expected) =>
         SqlText.Redact(sql, DatabaseDialect.PostgreSql).Should().Be(expected);
 
@@ -111,7 +113,8 @@ public sealed class HotQueryEngineTests
 
     private static readonly TableDetail[] Shop =
     [
-        Table("orders", [Col("id", "int")]),
+        Table("orders", [Col("id", "int"), Col("billing_id", "int"), Col("shipping_id", "int")]),
+        Table("addresses", [Col("id", "int")]),
         Table("items", [Col("id", "int"), Col("order_id", "int")]),
         Table("payments", [Col("id", "int"), Col("order_id", "int")]),
         Table("notes", [Col("id", "int"), Col("item_id", "int")]),
@@ -141,6 +144,7 @@ public sealed class HotQueryEngineTests
     [InlineData("SELECT * FROM orders o JOIN items i ON i.order_id = o.id JOIN notes n ON n.item_id = i.id")]
     [InlineData("SELECT * FROM orders o JOIN items i ON i.order_id = o.id JOIN invoices v ON v.order_id = o.id")]
     [InlineData("SELECT * FROM orders o JOIN items i ON i.order_id = o.id")]
+    [InlineData("SELECT * FROM orders o JOIN addresses b ON b.id = o.billing_id JOIN addresses s ON s.id = o.shipping_id")]
     public void AChainAOneToOneOrASingleChild_DoesNotMultiply(string sql) =>
         Detect(sql).Should().BeEmpty();
 

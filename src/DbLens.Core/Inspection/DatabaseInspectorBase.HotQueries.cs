@@ -109,15 +109,9 @@ public abstract partial class DatabaseInspectorBase
         if (!request.VerifyJoins) return (signals, null);
 
         var rowCounts = scope.ToDictionary(t => (t.Schema, t.Name), t => t.ApproximateRowCount);
-        var probes = shapes.Select(s => JoinFanOut.Probe(s, rowCounts, Dialect)).ToList();
-        var measurements = await RunVerificationProbesAsync(probes, request.Budget, ct);
-        var byTarget = measurements.ToDictionary(m => m.Target.Key, StringComparer.Ordinal);
-
-        caveats.AddRange(request.Budget.NotRunCaveats(measurements));
-        if (measurements.Any(m => m.Status == VerificationStatus.Inconclusive))
-            caveats.Add("A join whose children have no rows in common compared nothing, so it is reported as not measured, not as refuted.");
-
-        return ([.. shapes.Select((shape, i) => byTarget.TryGetValue(shape.Target.Key, out var m) ? JoinFanOut.Apply(signals[i], m) : signals[i])],
-            VerificationSummary.From(measurements, attempted: true));
+        return await VerifyEachAsync(
+            [.. shapes.Zip(signals)], p => JoinFanOut.Probe(p.First, rowCounts, Dialect), (p, m) => JoinFanOut.Apply(p.Second, m),
+            request.Budget, "A join whose two child tables are both empty compared nothing, so it is reported as not measured, not as refuted.",
+            caveats, ct);
     }
 }

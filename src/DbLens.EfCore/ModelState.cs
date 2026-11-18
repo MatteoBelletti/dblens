@@ -1,3 +1,4 @@
+using DbLens.Core.Analysis;
 using DbLens.Core.Analysis.EfCore;
 
 namespace DbLens.EfCore;
@@ -39,12 +40,12 @@ internal sealed class ModelState
         // Table splitting: two independent entities in one table. Not compared, never half-compared.
         foreach (var shared in placements.Values
                      .Where(p => p.SharesTableWith is null)
-                     .GroupBy(p => (Schema: p.Schema ?? DefaultSchema ?? "", p.Table), TableKeyComparer.Instance)
+                     .GroupBy(p => (p.Schema ?? DefaultSchema ?? "", p.Table), CaseInsensitivePairComparer.Instance)
                      .Where(g => g.Count() > 1)
                      .ToList())
         {
             var names = shared.Select(p => p.Entity.Name).ToList();
-            unsupported.Add($"{string.Join(" and ", names)} share the table {shared.Key.Table} (table splitting), which dblens does not compare.");
+            unsupported.Add($"{string.Join(" and ", names)} share the table {shared.Key.Item2} (table splitting), which dblens does not compare.");
             foreach (var name in names) placements.Remove(name);
         }
 
@@ -108,7 +109,7 @@ internal sealed class ModelState
             return null;
         }
 
-        return new Placement(entity, entity.Schema, entity.Table ?? SimpleName(entity.Name), entity.Key, null, ColumnsNullable: false);
+        return new Placement(entity, entity.Schema, entity.Table ?? Names.Short(entity.Name), entity.Key, null, ColumnsNullable: false);
     }
 
     private Placement? PlaceOwned(EntityState owned, string ownerName, Dictionary<string, Placement> placed, List<string> unsupported)
@@ -126,7 +127,7 @@ internal sealed class ModelState
         }
 
         var sameTable = owned.Table is null
-            || (TableKeyComparer.Instance.Equals((owned.Schema ?? "", owned.Table), (owner.Schema ?? "", owner.Table)) && !owned.OwnsMany);
+            || (CaseInsensitivePairComparer.Instance.Equals((owned.Schema ?? "", owned.Table), (owner.Schema ?? "", owner.Table)) && !owned.OwnsMany);
 
         if (!sameTable)
             return new Placement(owned, owned.Schema, owned.Table!, owned.Key, null, ColumnsNullable: false);
@@ -154,7 +155,7 @@ internal sealed class ModelState
         }
 
         // Table-per-hierarchy: a subtype's columns are NULL in the rows of every other subtype.
-        return new Placement(derived, root.Schema, root.Table ?? SimpleName(root.Name), root.Key, root.Name, ColumnsNullable: true);
+        return new Placement(derived, root.Schema, root.Table ?? Names.Short(root.Name), root.Key, root.Name, ColumnsNullable: true);
     }
 
     private (string Dependent, EfForeignKey Key)? ForeignKeyOf(RelationshipState r)
@@ -191,20 +192,6 @@ internal sealed class ModelState
         return new EfEntity(
             entity.Name, placement.Schema, placement.Table, properties, placement.Key,
             entity.Indexes, [.. foreignKeys], placement.SharesTableWith);
-    }
-
-    private static string SimpleName(string typeName) => typeName[(typeName.LastIndexOf('.') + 1)..];
-
-    private sealed class TableKeyComparer : IEqualityComparer<(string Schema, string Table)>
-    {
-        public static readonly TableKeyComparer Instance = new();
-
-        public bool Equals((string Schema, string Table) x, (string Schema, string Table) y) =>
-            string.Equals(x.Schema, y.Schema, StringComparison.OrdinalIgnoreCase)
-            && string.Equals(x.Table, y.Table, StringComparison.OrdinalIgnoreCase);
-
-        public int GetHashCode((string Schema, string Table) obj) =>
-            HashCode.Combine(obj.Schema.ToUpperInvariant(), obj.Table.ToUpperInvariant());
     }
 }
 

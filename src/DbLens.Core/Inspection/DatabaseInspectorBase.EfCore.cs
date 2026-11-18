@@ -1,5 +1,6 @@
 using DbLens.Core.Analysis;
 using DbLens.Core.Analysis.EfCore;
+using static DbLens.Core.Analysis.Names;
 
 namespace DbLens.Core.Inspection;
 
@@ -75,5 +76,4 @@ public abstract partial class DatabaseInspectorBase
         return ((chosen.Schema, chosen.Name), applied, caveat);
     }
 
-    private static bool Same(string a, string b) => string.Equals(a, b, StringComparison.OrdinalIgnoreCase);
 }

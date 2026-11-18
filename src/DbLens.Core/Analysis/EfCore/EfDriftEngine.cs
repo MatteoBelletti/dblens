@@ -1,4 +1,5 @@
 using DbLens.Core.Models;
+using static DbLens.Core.Analysis.Names;
 
 namespace DbLens.Core.Analysis.EfCore;
 
@@ -283,9 +284,7 @@ public static class EfDriftEngine
     private static string Lambda(IReadOnlyList<string> properties) =>
         properties.Count == 1 ? $"e => e.{properties[0]}" : $"e => new {{ {string.Join(", ", properties.Select(p => "e." + p))} }}";
 
-    private static string Short(string typeName) => typeName[(typeName.LastIndexOf('.') + 1)..];
 
-    private static bool Same(string a, string b) => string.Equals(a, b, StringComparison.OrdinalIgnoreCase);
 
     private static bool SameColumns(IReadOnlyList<string> a, IReadOnlyList<string> b) =>
         a.Count == b.Count && a.Zip(b).All(p => Same(p.First, p.Second));
