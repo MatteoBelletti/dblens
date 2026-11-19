@@ -69,7 +69,9 @@ public sealed class MyTool(IServiceProvider services, IDatabaseInspectorFactory 
 }
 ```
 
-Tools are discovered automatically. Throw `ArgumentException` for bad input and
+Tools are discovered automatically. Their names and input schemas are a contract with every client:
+`ToolSurfaceSnapshotTests` fails on a tool or parameter removed, retyped or newly required, and an
+addition is recorded by running the tests once with `DBLENS_UPDATE_TOOL_SURFACE=1`. Throw `ArgumentException` for bad input and
 `ExecutionRefusedException` for a deliberate refusal: `ToolErrors` shows those messages to the model,
 while the SDK hides every other exception's text. Keep descriptions short: what the tool finds, then `IMPORTANT:`
 lines for what is **not** returned and what executes. Expose only parameters a model has a reason to
