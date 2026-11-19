@@ -13,6 +13,23 @@ env:
   DOTNET_SKIP_FIRST_TIME_EXPERIENCE: "true"
 
 jobs:
+  plugin:
+    name: Validate the Claude Code plugin
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Install Claude Code
+        run: npm install -g @anthropic-ai/claude-code
+      # The marketplace at the root and the plugin under it; no model is called.
+      - name: Validate
+        run: |
+          claude plugin validate --strict .
+          claude plugin validate --strict ./plugins/dblens
+
   build:
     name: Build and test
     runs-on: ubuntu-latest

@@ -34,6 +34,7 @@ Demo volumes hold demo data only; after editing `db/*/0*.sql` recreate them with
 | `DbLens.Postgres` / `DbLens.SqlServer` (partial classes) | catalog SQL and dialect hooks only |
 | `DbLens.EfCore` | reading EF Core snapshots as text (Roslyn); referenced by `DbLens.Mcp` only |
 | `DbLens.Mcp/Tools/` | thin tools deriving from `InspectorTool` |
+| `plugins/dblens/` | the optional Claude Code plugin: agents, the `audit` workflow, skills, evals ([decisions](docs/roadmap/decisions.md)) — prompts only, no logic the server lacks |
 
 Logic goes in the base whenever it can be written without dialect SQL: a rule enforced there cannot
 be forgotten by one dialect, and the dialects cannot drift apart.
@@ -202,8 +203,9 @@ Non-standard ports avoid clashing with local installs.
 
 ## Releasing
 
-Bump `<Version>` in `src/DbLens.Mcp/DbLens.Mcp.csproj` and both versions in
-`src/DbLens.Mcp/.mcp/server.json`, then push a `v<version>` tag (or run the Release workflow by hand
+Bump `<Version>` in `src/DbLens.Mcp/DbLens.Mcp.csproj`, both versions in
+`src/DbLens.Mcp/.mcp/server.json`, the plugin's `version` and its `DbLens.Mcp@<version>` pin
+(`ReleaseVersionTests` checks all five), then push a `v<version>` tag (or run the Release workflow by hand
 with the version, which creates the tag); the release workflow builds binaries,
 `.mcpb` extensions and the NuGet package, and publishes it via Trusted Publishing (OIDC, no stored
 key). Never add a long-lived NuGet API key. See docs/architecture.md#releases.

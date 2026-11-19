@@ -9,20 +9,23 @@ Work through these steps in order and stop at the first one that fails, saying w
 
 1. **.NET 10.** Run `dotnet --version`. The plugin starts the server with `dnx DbLens.Mcp`, which needs
    the .NET 10 SDK or later. Older or missing: point to https://dotnet.microsoft.com/download.
-2. **One registration.** Run `claude mcp list`. If a `dblens` server is listed besides this plugin's
+2. **Workflows.** The audit is a dynamic workflow. If the Workflow tool is not available in this
+   session, say that dynamic workflows must be enabled (`/config`, "Dynamic workflows") and stop: run
+   by hand, the audit loses its schema and its verifier.
+3. **One registration.** Run `claude mcp list`. If a `dblens` server is listed besides this plugin's
    (`plugin:dblens:dblens`), say that the two are the same server and suggest keeping one. Remove
    nothing yourself.
-3. **Connection.** The plugin reads the connection strings from its settings (`pg_connection`,
+4. **Connection.** The plugin reads the connection strings from its settings (`pg_connection`,
    `ss_connection`); empty means the local demo database of the dblens repository. Recommend a
    read-only login, and never ask the user to paste a connection string into the chat: they set it in
    the plugin's settings. Call the dblens `ping` tool, then `get_schema` for the dialect they use, and
    report the database name and the number of tables.
-4. **First audit.** Ask which dialect and, optionally, which schema; whether there is an EF Core
+5. **First audit.** Ask which dialect and, optionally, which schema; whether there is an EF Core
    migrations snapshot to compare (an absolute path) and whether to include the personal-data scan.
    Then run the dblens `audit` workflow with args `{dialect, schema?, efSnapshot?, privacy?, outDir,
    runLabel}`: `outDir` an absolute folder in the current project (default `<project>/dblens-audit`),
    `runLabel` today's date as `YYYY-MM-DD`.
-5. **Hand-off.** Give the report's path and its two-sentence summary. Say that every finding in it
+6. **Hand-off.** Give the report's path and its two-sentence summary. Say that every finding in it
    was re-run by the verifier, and that "To verify" and "Not covered" list what the audit could not
    establish.
 

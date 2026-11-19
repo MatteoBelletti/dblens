@@ -183,7 +183,7 @@ from `db/<dialect>/01-schema.sql` and `02-seed.sql`.
 
 | Schema | Content |
 |---|---|
-| `public` / `dbo` | An e-commerce schema with deliberate flaws: unindexed FKs, duplicate indexes, plaintext PII, cascade chains, cached aggregates, undeclared references on `shipments` — `ship_to` visible only through the `shipment_destinations` view — and comments on `orders` for the glossary |
+| `public` / `dbo` | An e-commerce schema with deliberate flaws: unindexed FKs, plaintext PII, cascade chains, cached aggregates, undeclared references on `shipments` — `ship_to` visible only through the `shipment_destinations` view — and comments on `orders` for the glossary |
 | `demo_good` | A clean design every tool should pass |
 
 Seed row counts are deterministic: `users` 20, `products` 30, `orders` 40, `order_items` 80,

@@ -40,3 +40,20 @@ against dblens 0.4.0 and Claude Code 2.1.328.
   output folder arrive through `args`.
 - The plugin directory wants a square PNG icon (`.claude-plugin/icon.png`, 512–2048 px); validation
   only warns without it.
+
+## Phase 1 measurements
+
+The plugin lives in `plugins/dblens` and the marketplace at the repository root. Its eval suite
+(`plugins/dblens/evals`) runs the real server against the demo databases:
+
+| Case | What must hold | Result | Cost |
+|---|---|---|---|
+| `demo-golden` (PostgreSQL `public`, with `privacy`) | unindexed FKs, a cascade blocked by NO ACTION, the undeclared `shipments.ship_to`, a cached aggregate; PII only as signals | pass, 8 of 8 graders | $0.93, 4 min |
+| `demo-good` (PostgreSQL `demo_good`) | `Confirmed findings: 0` | pass | $0.17, 43 s |
+
+Run them with `claude plugin eval plugins/dblens --mocks off --runs 1 --allow-tools Workflow Write <the
+dblens tools>`: `Workflow` must be granted, or the model runs the phases by hand and loses the schema
+and the verifier. That is also why `/dblens:setup` stops when dynamic workflows are off.
+
+The demo has no duplicate indexes, although `docs/architecture.md` listed them: the audit found that,
+and the documentation was corrected rather than the demo.

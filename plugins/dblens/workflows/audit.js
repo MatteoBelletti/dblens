@@ -80,7 +80,10 @@ if (!a.dialect || !a.outDir || !a.runLabel) throw new Error('args needs dialect,
 const target = a.schema ? `dialect ${a.dialect}, schema ${a.schema}` : `dialect ${a.dialect}, every user schema`
 
 phase('Orient')
-const scope = await agent(`Scope of the audit: ${target}.`, { agentType: 'dblens:orient', schema: SCOPE, label: 'orient' })
+// The plugin's server may still be starting on the first call: up to three attempts.
+let scope = null
+for (let attempt = 1; attempt <= 3 && (!scope || scope.error); attempt++)
+  scope = await agent(`Scope of the audit: ${target}.`, { agentType: 'dblens:orient', schema: SCOPE, label: `orient ${attempt}` })
 if (!scope || scope.error) throw new Error(`dblens could not read the database: ${scope ? scope.error : 'no answer'}`)
 
 const analysts = [

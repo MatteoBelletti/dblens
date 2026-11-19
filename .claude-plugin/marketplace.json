@@ -1,0 +1,12 @@
+{
+  "name": "dblens",
+  "owner": { "name": "Matteo Belletti" },
+  "description": "dblens: read-only diagnostics for PostgreSQL and SQL Server, with a multi-agent audit for Claude Code.",
+  "plugins": [
+    {
+      "name": "dblens",
+      "source": "./plugins/dblens",
+      "description": "Multi-agent audit of a PostgreSQL or SQL Server database, backed by the dblens MCP server."
+    }
+  ]
+}
