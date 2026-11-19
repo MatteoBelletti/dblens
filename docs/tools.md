@@ -564,9 +564,9 @@ unmapped for it.
 their owner's table, complex properties, alternate keys. **Not compared**, each named in a caveat:
 table-per-type and table-per-concrete-type mappings, JSON columns (`ToJson`), table splitting, entity
 splitting (`SplitToTable`; an owned type split leaves its owner's table uncompared too), views
-(`ToView`) and keyless entities. Temporal tables are compared, their
-history table set aside. The same type owned through two navigations is two entities. **Not considered here:** column types, lengths and nullability. A
-project without migrations has no snapshot to read.
+(`ToView`) and keyless entities. Temporal tables are compared, their history table set aside. The same
+type owned through two navigations is two entities. **Not considered here:** column types, lengths and
+nullability. A project without migrations has no snapshot to read.
 
 ## `certify_query`
 
