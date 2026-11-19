@@ -13,10 +13,12 @@ public static class IndexAnalysisEngine
         IReadOnlyList<TableDetail> tables,
         IndexUsageStats? stats,
         AnalyzeIndexesRequest request,
-        DatabaseDialect dialect)
+        DatabaseDialect dialect,
+        IReadOnlyList<TableDetail>? referenced = null)
     {
         List<Finding> findings = [];
         findings.AddRange(FkWithoutIndexRule.Apply(tables, dialect));
+        findings.AddRange(FkTypeMismatchRule.Apply(tables, referenced ?? [], dialect));
         findings.AddRange(DuplicateIndexRule.Apply(tables, dialect));
         findings.AddRange(RedundantIndexRule.Apply(tables, dialect));
 

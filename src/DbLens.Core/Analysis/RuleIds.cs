@@ -6,8 +6,9 @@ public static class IndexRuleIds
     public const string DuplicateIndex = "duplicate-index";
     public const string RedundantIndex = "redundant-index";
     public const string UnusedIndex    = "unused-index";
+    public const string FkTypeMismatch = "fk-type-mismatch";
 
-    public static readonly string[] All = [FkWithoutIndex, DuplicateIndex, RedundantIndex, UnusedIndex];
+    public static readonly string[] All = [FkWithoutIndex, DuplicateIndex, RedundantIndex, UnusedIndex, FkTypeMismatch];
 }
 
 public static class GdprRuleIds

@@ -107,6 +107,7 @@ computed by the database (generated, computed, system-period) has `IsGenerated`.
 | `duplicate-index` | Medium | Derived | Two indexes with the same key and key order, uniqueness, access method and `INCLUDE` columns |
 | `redundant-index` | Low | Derived | A non-unique index whose work another does: its key is a prefix of the other's, or the same key under a unique or wider-covering index |
 | `unused-index` | Low | Measured | A non-unique index with zero scans |
+| `fk-type-mismatch` | Medium / Low | Derived | A foreign key column whose type is not the referenced key's: Medium when it is narrower (`integer` referencing `bigint`, a shorter `varchar`), so a later parent key cannot be referenced. PostgreSQL only: SQL Server refuses such a key |
 
 Only an index that can do the job counts. A partial (filtered) index never covers a foreign key or
 makes another index redundant; a hash index covers a foreign key only on exactly its columns; GIN,

@@ -101,7 +101,14 @@ public abstract partial class DatabaseInspectorBase
                 }
             }
 
-            var result = IndexAnalysisEngine.Analyze(details.Tables, stats, request, Dialect);
+            // fk-type-mismatch compares with the referenced key, which may be outside the scope.
+            var outside = details.Tables.SelectMany(t => t.ForeignKeysOutgoing)
+                .Select(fk => (fk.ToSchema, fk.ToTable)).Distinct()
+                .Where(r => !details.Tables.Any(t => (t.Schema, t.Name) == r))
+                .Select(r => new ParsedName(r.ToSchema, r.ToTable, $"{r.ToSchema}.{r.ToTable}")).ToList();
+            var referenced = outside.Count == 0 ? [] : (await GetTableDetailsAsync(outside, ct)).Tables;
+
+            var result = IndexAnalysisEngine.Analyze(details.Tables, stats, request, Dialect, referenced);
             result = result with { Caveats = WithCaveats(result.Caveats, statsCaveat, scopeCaveat, NotFoundCaveat(details)) };
 
             Log.LogInformation(
