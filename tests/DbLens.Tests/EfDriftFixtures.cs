@@ -48,6 +48,8 @@ public sealed class PostgresEfFixture : IAsyncLifetime, IEfFixture
 
     public string Provider => "PostgreSql";
 
+    public Task ExecuteOnCleanAsync(string sql) => PostgresAdmin.ExecuteAsync(On(CleanDb), sql);
+
     public async Task InitializeAsync()
     {
         if (!await PostgresAdmin.IsReachableAsync()) return;
@@ -96,6 +98,8 @@ public sealed class SqlServerEfFixture : IAsyncLifetime, IEfFixture
     public IDatabaseInspector? Clean { get; private set; }
 
     public string Provider => "SqlServer";
+
+    public Task ExecuteOnCleanAsync(string sql) => SqlServerAdmin.ExecuteAsync(On(CleanDb), sql);
 
     public async Task InitializeAsync()
     {

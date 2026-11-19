@@ -122,6 +122,8 @@ public sealed class SqlServerHygieneFixture : IAsyncLifetime, IHygieneFixture
         "UPDATE hygiene.stock_levels SET quantity = quantity + 1 WHERE id % 2 = 0",
         // Statistics exist only on columns something filtered on: the application's queries create them.
         "SELECT COUNT(*) FROM hygiene.subscriptions WHERE fax_number IS NOT NULL OR channel = 'x' OR coupon_code = 'x' OR notes_old = 'x'",
+        // A second statistic of a filled column that sees only its NULLs: it must not make it look empty.
+        "CREATE STATISTICS st_coupon_missing ON hygiene.subscriptions (coupon_code) WHERE coupon_code IS NULL",
         "UPDATE STATISTICS hygiene.subscriptions WITH FULLSCAN",
         "UPDATE STATISTICS hygiene.stock_levels WITH FULLSCAN",
     ];

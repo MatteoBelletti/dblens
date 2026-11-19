@@ -17,7 +17,7 @@ public static class HygieneEngine
         IReadOnlyList<TableDetail> Tables,
         IReadOnlyDictionary<(string Schema, string Name), long?> RowCounts,
         IReadOnlyList<ColumnStatistics> Statistics,
-        /// <summary>Updates per table; null when the counters do not cover enough time to be read.</summary>
+        /// <summary>Updates per table, null when unknown; a table absent from it is not known either.</summary>
         IReadOnlyDictionary<(string Schema, string Name), long>? Updates,
         IReadOnlyList<EfModelMatch> Models,
         DatabaseDialect Dialect,
@@ -35,7 +35,7 @@ public static class HygieneEngine
     public static Plan Analyze(Input input, AnalyzeTableHygieneRequest request)
     {
         var vocabulary = AuditVocabulary.Default;
-        var statistics = input.Statistics.DistinctBy(s => (s.Schema, s.Table, s.Column)).ToDictionary(s => (s.Schema, s.Table, s.Column));
+        var statistics = input.Statistics.ToDictionary(s => (s.Schema, s.Table, s.Column));
         var mapped = MappedColumns(input.Models);
         var owners = TableOwners(input.Models);
         List<Finding> findings = [];
@@ -214,7 +214,7 @@ public static class HygieneEngine
                 "DateTime.UtcNow into it only if every writer agrees to.", null,
                 Ef(owner, input.Dialect == DatabaseDialect.PostgreSql
                     ? "Remove HasColumnType(\"timestamp without time zone\") and Npgsql.EnableLegacyTimestampBehavior, then add a migration (timestamptz)."
-                    : "Map it to datetimeoffset (DateTimeOffset) or datetime2 with HasColumnType, then add a migration.")));
+                    : "Map it to datetimeoffset (DateTimeOffset) with HasColumnType, then add a migration.")));
 
         if (created.Count == 0 || updated.Count == 0) return;
         var (first, last) = (created[0], updated[0]);

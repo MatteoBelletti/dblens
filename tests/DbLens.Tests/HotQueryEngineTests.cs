@@ -45,15 +45,31 @@ public sealed class HotQueryEngineTests
     private static readonly (string, string)[] Tables = [("app", "orders"), ("app", "payments"), ("audit", "orders")];
 
     [Fact]
-    public void ANameInTwoSchemas_IsMatchedOnlyWhenQualified()
+    public void ANameInTwoSchemas_IsTheDefaultSchemasUnlessQualified()
     {
-        HotQueryEngine.TablesNamed("SELECT * FROM app.orders o JOIN payments p ON p.order_id = o.id", Tables, DatabaseDialect.PostgreSql)
+        HotQueryEngine.TablesNamed("SELECT * FROM app.orders o JOIN payments p ON p.order_id = o.id", Tables, DatabaseDialect.PostgreSql, "public")
             .Should().Equal(("app", "orders"), ("app", "payments"));
-        HotQueryEngine.TablesNamed("SELECT * FROM orders", Tables, DatabaseDialect.PostgreSql)
-            .Should().BeEmpty("orders exists in two schemas");
-        HotQueryEngine.TablesNamed("SELECT * FROM [audit].[orders]", Tables, DatabaseDialect.SqlServer)
+        HotQueryEngine.TablesNamed("SELECT * FROM orders", Tables, DatabaseDialect.PostgreSql, "public")
+            .Should().BeEmpty("orders exists in two schemas, neither the default");
+        HotQueryEngine.TablesNamed("SELECT * FROM orders", Tables, DatabaseDialect.PostgreSql, "audit")
+            .Should().Equal(("audit", "orders"));
+        HotQueryEngine.TablesNamed("SELECT * FROM [audit].[orders]", Tables, DatabaseDialect.SqlServer, "dbo")
             .Should().Equal(("audit", "orders"));
     }
+
+    [Theory]
+    [InlineData("SELECT payments, orders FROM app.orders WHERE payments > $1")]
+    [InlineData("INSERT INTO app.orders (payments, id) SELECT payments(1), 2")]
+    [InlineData("SELECT x.payments FROM app.orders x")]
+    public void AColumnOrFunctionNamedLikeATable_IsNotATable(string sql) =>
+        HotQueryEngine.TablesNamed(sql, Tables, DatabaseDialect.PostgreSql, "app").Should().Equal(("app", "orders"));
+
+    [Fact]
+    public void EveryTableOfAFromList_AndOfASubquery_IsNamed() =>
+        HotQueryEngine.TablesNamed(
+                "SELECT * FROM (SELECT id FROM ONLY app.payments) p, app.orders o WHERE o.id IN (SELECT 1 FROM audit.orders)",
+                Tables, DatabaseDialect.PostgreSql, "public")
+            .Should().Equal(("app", "payments"), ("app", "orders"), ("audit", "orders"));
 
     // ── Ranking and rules ──────────────────────────────────────────────────────
 
@@ -71,7 +87,7 @@ public sealed class HotQueryEngineTests
             Stats("3", "SELECT COUNT(*) AS compared_rows, 0 AS divergent_rows FROM app.orders", 900),
             Stats("4", "SELECT * FROM pg_class", 800),
             Stats("5", "CREATE INDEX ix ON app.orders (id)", 700),
-        ], Tables, DatabaseDialect.PostgreSql, new FindHotQueriesRequest());
+        ], Tables, DatabaseDialect.PostgreSql, "public", new FindHotQueriesRequest());
 
         ranked.Select(r => r.Query.QueryId).Should().Equal("2", "1");
     }
@@ -86,9 +102,9 @@ public sealed class HotQueryEngineTests
             Stats("disk", "SELECT * FROM app.payments", 90, rows: 10_000, pagesRead: 10_000, fromDisk: 4_000),
             Stats("spill", "SELECT * FROM app.orders ORDER BY 1", 80, rows: 10_000, pagesRead: 100, temp: 50),
             Stats("once", "SELECT * FROM app.orders o", 70, calls: 1, rows: 1, pagesRead: 9_000),
-        ], Tables, DatabaseDialect.PostgreSql, request);
+        ], Tables, DatabaseDialect.PostgreSql, "public", request);
 
-        var findings = HotQueryEngine.StatisticsFindings(ranked, request).ToList();
+        var findings = HotQueryEngine.StatisticsFindings(ranked, request, DatabaseDialect.PostgreSql).ToList();
 
         findings.Select(f => (f.RuleId, (string)f.Metadata!["queryId"])).Should().BeEquivalentTo(
         [
@@ -127,7 +143,7 @@ public sealed class HotQueryEngineTests
     private static IReadOnlyList<JoinFanOut.Shape> Detect(string sql)
     {
         var tables = Shop.Select(t => (t.Schema, t.Name)).ToList();
-        var ranked = HotQueryEngine.Rank([Stats("q", sql, 10)], tables, DatabaseDialect.PostgreSql, new FindHotQueriesRequest());
+        var ranked = HotQueryEngine.Rank([Stats("q", sql, 10)], tables, DatabaseDialect.PostgreSql, "public", new FindHotQueriesRequest());
         return JoinFanOut.Detect(ranked, Shop, "public", DatabaseDialect.PostgreSql);
     }
 

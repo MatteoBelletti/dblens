@@ -1,4 +1,3 @@
-using System.Data.Common;
 using DbLens.Core.Analysis.HotQueries;
 using DbLens.Core.Analysis;
 using DbLens.Core.Analysis.QueryPlan;
@@ -61,18 +60,9 @@ public sealed partial class PostgresInspector
         fetchParameter.Value = fetch;
         command.Parameters.Add(fetchParameter);
 
-        IReadOnlyList<HotQueryStats> queries;
-        try
-        {
-            queries = await ReadAllAsync(command, r => new HotQueryStats(
-                r.Text("query_id"), r.Text("query_text"), r.Number("calls"), r.RealOrNull("total_time_ms") ?? 0,
-                r.Number("rows_returned"), r.Number("pages_read"), r.Number("pages_from_disk"), r.NumberOrNull("temp_pages")), ct);
-        }
-        catch (DbException ex)
-        {
-            return new HotQuerySource(null, null, [],
-                [$"pg_stat_statements could not be read ({ex.Message.ReplaceLineEndings(" ").Trim()})."]);
-        }
+        var queries = await ReadAllAsync(command, r => new HotQueryStats(
+            r.Text("query_id"), r.Text("query_text"), r.Number("calls"), r.RealOrNull("total_time_ms") ?? 0,
+            r.Number("rows_returned"), r.Number("pages_read"), r.Number("pages_from_disk"), r.NumberOrNull("temp_pages")), ct);
 
         double? window = null;
         if (hasInfo)

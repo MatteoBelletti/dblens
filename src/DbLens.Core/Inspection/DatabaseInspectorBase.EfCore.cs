@@ -55,10 +55,10 @@ public abstract partial class DatabaseInspectorBase
 
         // EF writes the history table unqualified, so it lands in the login's default schema; the
         // model's own default schema is the other place it is configured to.
-        string[] preferred = [.. new[] { request.Model.DefaultSchema, DefaultSchema }.OfType<string>()];
+        string[] preferred = [.. new[] { DefaultSchema, request.Model.DefaultSchema }.OfType<string>()];
         var chosen = candidates.Count == 1
             ? candidates[0]
-            : candidates.FirstOrDefault(c => preferred.Any(p => Same(p, c.Schema)));
+            : preferred.Select(p => candidates.FirstOrDefault(c => Same(p, c.Schema))).FirstOrDefault(c => c is not null);
 
         if (chosen is null)
             return (null, null,

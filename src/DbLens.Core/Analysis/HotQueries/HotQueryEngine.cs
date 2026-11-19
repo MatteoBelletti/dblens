@@ -25,12 +25,13 @@ public static class HotQueryEngine
         IReadOnlyList<HotQueryStats> stats,
         IReadOnlyList<(string Schema, string Name)> userTables,
         DatabaseDialect dialect,
+        string defaultSchema,
         FindHotQueriesRequest request) =>
         [.. stats
             .Where(s => !s.Text.Contains("divergent_rows", StringComparison.OrdinalIgnoreCase))
             .Select(s => (Stats: s, Redacted: SqlText.Redact(s.Text, dialect)))
             .Where(x => IsDataStatement(x.Redacted))
-            .Select(x => (x.Stats, x.Redacted, Tables: TablesNamed(x.Stats.Text, userTables, dialect)))
+            .Select(x => (x.Stats, x.Redacted, Tables: TablesNamed(x.Stats.Text, userTables, dialect, defaultSchema)))
             .Where(x => x.Tables.Count > 0)
             .OrderByDescending(x => x.Stats.TotalTimeMs)
             .Take(request.Top)
@@ -83,7 +84,7 @@ public static class HotQueryEngine
     }
 
     /// <summary>What the statistics alone establish about each listed query.</summary>
-    public static IEnumerable<Finding> StatisticsFindings(IReadOnlyList<Ranked> ranked, FindHotQueriesRequest request)
+    public static IEnumerable<Finding> StatisticsFindings(IReadOnlyList<Ranked> ranked, FindHotQueriesRequest request, DatabaseDialect dialect)
     {
         foreach (var (stats, query, tables) in ranked)
         {
@@ -108,9 +109,12 @@ public static class HotQueryEngine
             if (stats.TempPages is > 0)
                 yield return Fact(HotQueryRuleIds.TempSpill, Severity.Medium, table, query,
                     $"Query {query.QueryId} wrote {Num.N0(stats.TempPages.Value)} pages to temporary storage",
-                    "A sort, hash or aggregate did not fit in its memory grant and spilled to disk " +
-                    "(temporary files on PostgreSQL, tempdb on SQL Server), which is slower by orders of magnitude. " +
-                    "An index that returns rows already ordered, or fewer rows to sort, avoids it.");
+                    (dialect == DatabaseDialect.SqlServer
+                        ? "On SQL Server this is tempdb space: temporary tables and table variables count too. A sort, " +
+                          "hash or aggregate that does not fit in its memory grant also spills there, "
+                        : "A sort, hash or aggregate did not fit in work_mem and spilled to temporary files, ") +
+                    "which is slower by orders of magnitude. An index that returns rows already ordered, or fewer " +
+                    "rows to sort, avoids a spill.");
         }
     }
 
@@ -162,31 +166,59 @@ public static class HotQueryEngine
     // ── Tables named in a query ────────────────────────────────────────────────
 
     /// <summary>
-    /// The user tables a query's text names. A schema-qualified name matches exactly; a bare name
-    /// matches the one table of that name, and nothing when several schemas have one.
+    /// The user tables a query reads or writes: names in a table position (after FROM, JOIN, UPDATE,
+    /// INTO, USING, or a comma of a FROM list), never a column or function that shares a table's name.
+    /// A bare name resolves to the one table of that name, else to the one in the default schema.
     /// </summary>
     public static IReadOnlyList<(string Schema, string Name)> TablesNamed(
-        string sql, IReadOnlyList<(string Schema, string Name)> userTables, DatabaseDialect dialect)
+        string sql, IReadOnlyList<(string Schema, string Name)> userTables, DatabaseDialect dialect, string defaultSchema)
     {
-        var identifiers = Identifiers(sql, dialect);
+        var tokens = Identifiers(sql, dialect);
         List<(string, string)> found = [];
+        Stack<bool> outer = [];
+        var inFromList = false;
 
-        for (var i = 0; i < identifiers.Count; i++)
+        for (var i = 0; i < tokens.Count; i++)
         {
-            var name = identifiers[i];
-            var candidates = userTables.Where(t => Same(t.Name, name)).ToList();
-            if (candidates.Count == 0) continue;
+            var token = tokens[i];
+            if (token == "(") { outer.Push(inFromList); inFromList = false; continue; }
+            if (token == ")") { inFromList = outer.Count > 0 && outer.Pop(); continue; }
+            if (ListEnds.Contains(token)) { inFromList = false; continue; }
 
-            var qualified = i >= 2 && identifiers[i - 1] == "." ? identifiers[i - 2] : null;
-            var match = qualified is not null
-                ? candidates.FirstOrDefault(t => Same(t.Schema, qualified))
-                : candidates.Count == 1 ? candidates[0] : default;
+            var opens = TableKeywords.Contains(token);
+            if (!opens && !(token == "," && inFromList)) continue;
+            if (opens) inFromList = true;
+
+            // schema.table, or db.schema.table on SQL Server: the last two parts.
+            List<string> parts = [];
+            var j = i + 1;
+            if (j < tokens.Count && tokens[j] is var modifier && (Same(modifier, "ONLY") || Same(modifier, "LATERAL"))) j++;
+            while (j < tokens.Count && tokens[j] is not ("." or "," or "(" or ")"))
+            {
+                parts.Add(tokens[j]);
+                if (j + 1 < tokens.Count && tokens[j + 1] == ".") j += 2;
+                else break;
+            }
+
+            if (parts.Count == 0) continue;
+            var name = parts[^1];
+            var schema = parts.Count > 1 ? parts[^2] : null;
+            var candidates = userTables.Where(t => Same(t.Name, name)).ToList();
+            var match = schema is not null
+                ? candidates.FirstOrDefault(t => Same(t.Schema, schema))
+                : candidates.Count == 1 ? candidates[0] : candidates.FirstOrDefault(t => Same(t.Schema, defaultSchema));
 
             if (match != default && !found.Contains(match)) found.Add(match);
         }
 
         return found;
     }
+
+    private static readonly HashSet<string> TableKeywords = new(["FROM", "JOIN", "UPDATE", "INTO", "USING"], StringComparer.OrdinalIgnoreCase);
+
+    private static readonly HashSet<string> ListEnds = new(
+        ["WHERE", "ON", "GROUP", "ORDER", "HAVING", "SET", "SELECT", "VALUES", "LIMIT", "OFFSET", "UNION", "EXCEPT",
+         "INTERSECT", "RETURNING", "OUTPUT", "WINDOW", "FETCH", "WHEN", ";"], StringComparer.OrdinalIgnoreCase);
 
     /// <summary>Names in order, quoted ones unquoted, with "." kept so a qualified name can be read.</summary>
     private static List<string> Identifiers(string sql, DatabaseDialect dialect)
@@ -225,5 +257,4 @@ public static class HotQueryEngine
 
     private static string CollapseSpaces(string text) =>
         string.Join(' ', text.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries));
-
 }

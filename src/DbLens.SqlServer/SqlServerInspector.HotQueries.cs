@@ -45,26 +45,35 @@ public sealed partial class SqlServerInspector
         """;
 
     // The plan cache holds what ran since the plan was compiled: a restart or memory pressure empties it.
+    // One query run with different literals has one entry per plan, all with its query_hash: they are
+    // summed, and the text and plan are those of its costliest entry.
     private const string PlanCacheSql = """
+        WITH s AS (
+            SELECT qs.query_hash, qs.sql_handle, qs.plan_handle, qs.statement_start_offset, qs.statement_end_offset,
+                   SUM(qs.execution_count)              OVER (PARTITION BY qs.query_hash) AS calls,
+                   SUM(qs.total_elapsed_time) OVER (PARTITION BY qs.query_hash) / 1000.0 AS total_time_ms,
+                   SUM(qs.total_rows)                   OVER (PARTITION BY qs.query_hash) AS rows_returned,
+                   SUM(qs.total_logical_reads)          OVER (PARTITION BY qs.query_hash) AS pages_read,
+                   SUM(qs.total_physical_reads)         OVER (PARTITION BY qs.query_hash) AS pages_from_disk,
+                   ROW_NUMBER() OVER (PARTITION BY qs.query_hash ORDER BY qs.total_elapsed_time DESC) AS costliest
+            FROM sys.dm_exec_query_stats qs
+            CROSS APPLY (SELECT CONVERT(int, value) AS dbid FROM sys.dm_exec_plan_attributes(qs.plan_handle)
+                         WHERE attribute = 'dbid') a
+            WHERE a.dbid = DB_ID()
+        )
         SELECT TOP (@fetch)
-               CONVERT(varchar(18), qs.query_hash, 1) AS query_id,
-               SUBSTRING(st.text, qs.statement_start_offset / 2 + 1,
-                   (CASE qs.statement_end_offset WHEN -1 THEN DATALENGTH(st.text) ELSE qs.statement_end_offset END
-                    - qs.statement_start_offset) / 2 + 1) AS query_text,
-               qs.execution_count                    AS calls,
-               qs.total_elapsed_time / 1000.0        AS total_time_ms,
-               qs.total_rows                         AS rows_returned,
-               qs.total_logical_reads                AS pages_read,
-               qs.total_physical_reads               AS pages_from_disk,
+               CONVERT(varchar(18), s.query_hash, 1) AS query_id,
+               SUBSTRING(st.text, s.statement_start_offset / 2 + 1,
+                   (CASE s.statement_end_offset WHEN -1 THEN DATALENGTH(st.text) ELSE s.statement_end_offset END
+                    - s.statement_start_offset) / 2 + 1) AS query_text,
+               s.calls, s.total_time_ms, s.rows_returned, s.pages_read, s.pages_from_disk,
                CAST(NULL AS bigint)                  AS temp_pages,
                qp.query_plan                         AS stored_plan
-        FROM sys.dm_exec_query_stats qs
-        CROSS APPLY sys.dm_exec_sql_text(qs.sql_handle) st
-        CROSS APPLY sys.dm_exec_text_query_plan(qs.plan_handle, qs.statement_start_offset, qs.statement_end_offset) qp
-        CROSS APPLY (SELECT CONVERT(int, value) AS dbid FROM sys.dm_exec_plan_attributes(qs.plan_handle)
-                     WHERE attribute = 'dbid') a
-        WHERE a.dbid = DB_ID()
-        ORDER BY qs.total_elapsed_time DESC
+        FROM s
+        CROSS APPLY sys.dm_exec_sql_text(s.sql_handle) st
+        CROSS APPLY sys.dm_exec_text_query_plan(s.plan_handle, s.statement_start_offset, s.statement_end_offset) qp
+        WHERE s.costliest = 1
+        ORDER BY s.total_time_ms DESC
         """;
 
     private const string PlanCacheWindowSql = """

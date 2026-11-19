@@ -414,7 +414,7 @@ in a code-first database: each finding carries the EF Core change in `Metadata["
 | `audit-updated-not-maintained` | Medium | Inferred → Measured | Both dates on an updated table → the update date equals the creation date on more than 95% of rows |
 | `audit-update-before-create` | Low | Measured only | With `verifySignals` → any row updated before it was created |
 | `audit-created-nullable` | Low | Derived | The creation date accepts NULL |
-| `audit-timestamp-without-timezone` | Low | Derived | `timestamp without time zone`; SQL Server `datetime`, `smalldatetime` |
+| `audit-timestamp-without-timezone` | Low | Derived | `timestamp without time zone`; SQL Server `datetime`, `smalldatetime` (`datetime2`, EF Core's mapping of `DateTime`, is not reported) |
 | `hygiene-summary` | Info | Derived | Always one |
 
 Creation and update columns are recognized by name (English and Italian, in
@@ -425,13 +425,15 @@ audit dates are not checked for a single value.
 **Statistics, never values.** On PostgreSQL `pg_stats.null_frac` and `n_distinct`, after `ANALYZE`.
 On SQL Server the histogram of a statistics object led by the column: only the number of its steps
 and whether their keys are NULL are read — a column of NULLs has a histogram of no steps. SQL Server
-keeps statistics only on columns that were indexed or filtered on; a caveat counts the columns
-neither engine has statistics for.
+keeps statistics only on columns that were indexed or filtered on; a filtered statistic is not read,
+and a column with several is empty or constant only if all of them say so. A caveat counts the
+columns neither engine has statistics for.
 
 **Updates.** `pg_stat_user_tables.n_tup_upd` / `sys.dm_db_index_operational_stats`, read only when the
 counting window of [`unused-index`](#analyze_indexes) covers 7 days and the workload has run: a zero
 otherwise means nothing, so no table is taken as insert-only and a caveat says so; likewise when the
-login cannot read the counters, or they hold nothing for a table.
+login cannot read the counters, or they hold nothing for a table. SQL Server's counter restarts when
+a table's metadata leaves the cache, so there a zero is never read as insert-only.
 
 **Measured checks.** Probes are ordered smallest table first within the shared
 [budget](safety.md#signal-verification). A check with too few rows (fewer than 100 filled rows, or
@@ -456,10 +458,12 @@ being given one: then reads their plans and measures the joins that multiply row
 | Engine | Source, in order | Read |
 |---|---|---|
 | PostgreSQL | `pg_stat_statements` of the current database | calls, total time, rows, pages from cache and from outside it, temp pages |
-| SQL Server | Query Store, then the plan cache (`sys.dm_exec_query_stats`) | executions, duration, logical and physical reads, rows, tempdb (Query Store only) |
+| SQL Server | Query Store, then the plan cache (`sys.dm_exec_query_stats`, summed per `query_hash`) | executions, duration, logical and physical reads, rows, tempdb (Query Store only) |
 
 The 20 heaviest by total time are listed: only statements that read or write rows (`SELECT`, `WITH`,
-`INSERT`, `UPDATE`, `DELETE`, `MERGE`) and name at least one user table. DDL, utility statements,
+`INSERT`, `UPDATE`, `DELETE`, `MERGE`) and name at least one user table in a table position (after
+`FROM`, `JOIN`, `UPDATE`, `INTO`, `USING`): a column sharing a table's name does not count, and a bare
+name in several schemas is the default schema's. DDL, utility statements,
 catalog queries and dblens's own probes are set aside. Each listed query carries its id, its text
 **redacted** — every string and number literal replaced by `?`, every comment removed, at most 2,000
 characters — its calls, total and mean time, rows per call, pages per row, share read outside the
@@ -469,7 +473,7 @@ cache, temp pages, and the tables it names.
 |---|---|---|---|
 | `hot-query-reads-per-row` | Medium | Measured | More than 100 pages read per row returned, over at least 2 calls |
 | `hot-query-disk-reads` | Low | Measured | 20% or more of 1,000+ pages read outside the database's cache (on PostgreSQL, possibly from the OS cache) |
-| `hot-query-temp-spill` | Medium | Measured | Pages written to temporary files or tempdb |
+| `hot-query-temp-spill` | Medium | Measured | Pages written to temporary files; on SQL Server tempdb space, temp tables included |
 | `plan-*` of [`explain_query`](#explain_query) | as there | Derived | On the plan of the first 10, each with `Metadata["queryId"]` |
 | `join-fanout` | Medium | Inferred → Measured | A parent joined to two 1:N children in one query |
 | `hot-query-summary` | Info | Derived | Always one: source, window covered, plans read |
@@ -494,7 +498,7 @@ The query's own filters are not applied: it is the shape of the data. `Metadata[
 **Availability.** The result says which source was read and how many days it covers, and for each
 source that was missing what would enable it: `pg_stat_statements` in `shared_preload_libraries`
 and created in the database (a login outside `pg_read_all_settings` cannot see the first: the view is
-read, and its error is the reason), Query Store on, `VIEW SERVER STATE` for the plan cache. With none an
+read, and its error is the reason; any view the login is refused is reported the same way), Query Store on, `VIEW SERVER STATE` for the plan cache. With none an
 empty list means nothing was measured. A SQL Server backup carries its Query Store; a PostgreSQL
 dump does not carry `pg_stat_statements`, which is read on the server itself.
 
@@ -543,7 +547,7 @@ with a caveat rather than reported as unknown; a context whose migrations live e
 up as unknown, and the finding says so.
 
 The history table is found by name in any schema (EF writes it unqualified, so it lands in the
-login's default schema, not the model's); `historyTable` and `historySchema` name another. None
+login's default schema, not the model's; with one in each, the login's is read); `historyTable` and `historySchema` name another. None
 found is a caveat, and the schema comparison still runs. Its rows' `MigrationId` is the one value
 from a table the tool reads ([safety](safety.md#ef-cores-history-table)).
 

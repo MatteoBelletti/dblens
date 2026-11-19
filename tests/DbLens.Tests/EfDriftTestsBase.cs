@@ -25,6 +25,9 @@ public interface IEfFixture
 
     /// <summary>The provider's folder under Fixtures/EfSnapshots/ef10.</summary>
     string Provider { get; }
+
+    /// <summary>Runs setup SQL on the clean database, as the admin login.</summary>
+    Task ExecuteOnCleanAsync(string sql);
 }
 
 public abstract class EfDriftTestsBase(IEfFixture fixture)
@@ -110,6 +113,28 @@ public abstract class EfDriftTestsBase(IEfFixture fixture)
         result.Migrations.Pending.Should().BeEmpty();
         result.Migrations.Unknown.Should().BeEmpty();
         result.Migrations.ScriptCommands.Should().BeEmpty();
+    }
+
+    [SkippableFact]
+    [Trait("Category", "Integration")]
+    public async Task TwoHistoryTables_TheLoginsDefaultSchemaIsRead()
+    {
+        Skip.If(ShouldSkip, TestSkip.Reason);
+
+        // dotnet ef writes the history table unqualified even under HasDefaultSchema("shop").
+        var shopHistory = Fixture.Provider == "PostgreSql" ? "shop.\"__EFMigrationsHistory\"" : "shop.[__EFMigrationsHistory]";
+        await Fixture.ExecuteOnCleanAsync($"CREATE TABLE {shopHistory} (\"MigrationId\" varchar(150) PRIMARY KEY)");
+        try
+        {
+            var result = await Fixture.Clean!.CompareEfModelAsync(new CompareEfModelRequest(Model));
+
+            HistoryTable(result).Should().Be((Fixture.Provider == "PostgreSql" ? "public" : "dbo") + ".__EFMigrationsHistory");
+            result.Migrations.Pending.Should().BeEmpty();
+        }
+        finally
+        {
+            await Fixture.ExecuteOnCleanAsync($"DROP TABLE {shopHistory}");
+        }
     }
 
     private static string HistoryTable(CompareEfModelResult result) => result.Migrations.HistoryTable!;

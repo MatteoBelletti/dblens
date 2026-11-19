@@ -13,12 +13,15 @@ namespace DbLens.Core.Inspection;
 public abstract partial class DatabaseInspectorBase
 {
     /// <summary>
-    /// A command returning schema_name, table_name, column_name, all_null and single_value: the
-    /// planner's view of each column, read from statistics only, never a value.
+    /// A command returning schema_name, table_name, column_name, all_null and single_value, one row per
+    /// column: the planner's view of it, read from statistics only, never a value.
     /// </summary>
     protected abstract DbCommand ColumnStatisticsCommand(DbConnection conn, IReadOnlyList<ScopedTable> tables);
 
-    /// <summary>A command returning schema_name, table_name and updates: rows updated since the counters started.</summary>
+    /// <summary>
+    /// A command returning schema_name, table_name and updates: rows updated since the counters started,
+    /// NULL when the engine's count is not reliable enough to read a zero as "never updated".
+    /// </summary>
     protected abstract DbCommand TableUpdatesCommand(DbConnection conn, IReadOnlyList<ScopedTable> tables);
 
     public Task<AnalyzeTableHygieneResult> AnalyzeTableHygieneAsync(AnalyzeTableHygieneRequest request, CancellationToken ct = default) =>
@@ -82,8 +85,9 @@ public abstract partial class DatabaseInspectorBase
             }
 
             return (await ReadAllAsync(TableUpdatesCommand(conn, tables), r => (
-                    Key: (r.Text("schema_name"), r.Text("table_name")), Updates: r.Number("updates")), ct))
-                .ToDictionary(x => x.Key, x => x.Updates);
+                    Key: (r.Text("schema_name"), r.Text("table_name")), Updates: r.NumberOrNull("updates")), ct))
+                .Where(x => x.Updates is not null)
+                .ToDictionary(x => x.Key, x => x.Updates!.Value);
         }
         catch (DbException ex)
         {

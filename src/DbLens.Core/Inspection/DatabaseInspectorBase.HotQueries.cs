@@ -14,8 +14,8 @@ public abstract partial class DatabaseInspectorBase
 {
     /// <summary>
     /// Up to <paramref name="fetch"/> queries from the engine's statistics, heaviest by total time
-    /// first, with the source's name and window, or no source and why. Must not fail for a missing
-    /// source: say what it needs instead.
+    /// first, with the source's name and window, or no source and why: a source that is off is an
+    /// answer, not an error. A read the login is refused is caught by the base.
     /// </summary>
     protected abstract Task<HotQuerySource> QueryHotQueriesAsync(int fetch, CancellationToken ct);
 
@@ -28,14 +28,25 @@ public abstract partial class DatabaseInspectorBase
     public Task<FindHotQueriesResult> FindHotQueriesAsync(FindHotQueriesRequest request, CancellationToken ct = default) =>
         RunAsync("hot queries", async () =>
         {
-            var source = await QueryHotQueriesAsync(request.Fetch, ct);
+            HotQuerySource source;
+            try
+            {
+                source = await QueryHotQueriesAsync(request.Fetch, ct);
+            }
+            catch (DbException ex)
+            {
+                // A view the login cannot read is a missing source, the same on both engines.
+                source = new HotQuerySource(null, null, [],
+                    [$"The query statistics could not be read ({ex.Message.ReplaceLineEndings(" ").Trim()})."]);
+            }
+
             var availability = new HotQuerySourceInfo(source.Name, source.WindowDays, source.Missing);
             if (source.Name is null) return HotQueryEngine.Build([], [], availability, 0, []);
 
             var tables = (await ResolveTableScopeAsync(null, null, ct, includePartitions: true)).Tables;
-            var ranked = HotQueryEngine.Rank(source.Queries, [.. tables.Select(t => (t.Schema, t.Name))], Dialect, request);
+            var ranked = HotQueryEngine.Rank(source.Queries, [.. tables.Select(t => (t.Schema, t.Name))], Dialect, DefaultSchema, request);
 
-            List<Finding> findings = [.. HotQueryEngine.StatisticsFindings(ranked, request)];
+            List<Finding> findings = [.. HotQueryEngine.StatisticsFindings(ranked, request, Dialect)];
             List<string> caveats = [];
 
             var plansRead = 0;

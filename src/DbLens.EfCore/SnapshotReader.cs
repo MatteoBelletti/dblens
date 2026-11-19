@@ -77,6 +77,9 @@ public static class SnapshotReader
         return Parse(ReadLimited(snapshot), migrations);
     }
 
+    // A folder this process cannot open (a database's bind mount) holds no migration of the project.
+    private static readonly EnumerationOptions Readable = new() { IgnoreInaccessible = true, AttributesToSkip = FileAttributes.ReparsePoint };
+
     private static readonly string[] SkippedFolders = ["bin", "obj", "node_modules", ".git"];
 
     private static List<string> Designers(string root)
@@ -87,11 +90,11 @@ public static class SnapshotReader
         while (folders.Count > 0)
         {
             var folder = folders.Pop();
-            found.AddRange(Directory.EnumerateFiles(folder, "*" + DesignerSuffix));
+            found.AddRange(Directory.EnumerateFiles(folder, "*" + DesignerSuffix, Readable));
             if (found.Count > MaxDesignerFiles)
                 throw new ArgumentException($"More than {MaxDesignerFiles} *.Designer.cs files under {root}: point snapshotPath at the Migrations folder itself.");
 
-            foreach (var sub in Directory.EnumerateDirectories(folder))
+            foreach (var sub in Directory.EnumerateDirectories(folder, "*", Readable))
                 if (!SkippedFolders.Contains(Path.GetFileName(sub), StringComparer.OrdinalIgnoreCase))
                     folders.Push(sub);
         }
