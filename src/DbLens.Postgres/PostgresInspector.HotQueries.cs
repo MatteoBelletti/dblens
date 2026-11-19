@@ -1,5 +1,4 @@
 using System.Data.Common;
-using System.Globalization;
 using DbLens.Core.Analysis;
 using DbLens.Core.Analysis.HotQueries;
 using DbLens.Core.Analysis.QueryPlan;
@@ -9,25 +8,18 @@ namespace DbLens.Postgres;
 
 public sealed partial class PostgresInspector
 {
-    /// <summary>The schema pg_stat_statements was created in; NULL when it was not.</summary>
-    private const string StatementsSchemaSql =
-        "SELECT n.nspname FROM pg_extension e JOIN pg_namespace n ON n.oid = e.extnamespace WHERE e.extname = 'pg_stat_statements'";
-
     // pg_settings hides shared_preload_libraries from a login outside pg_read_all_settings: unknown is
     // taken as loaded, and reading the view says the rest. pg_stat_statements_info came with 1.9.
-    private const string HotQueriesAvailableSql = $"""
+    private const string HotQueriesAvailableSql = """
         SELECT COALESCE((SELECT setting LIKE '%pg_stat_statements%' FROM pg_settings
                          WHERE name = 'shared_preload_libraries'), true) AS preloaded,
-               EXISTS (SELECT 1 FROM pg_extension WHERE extname = 'pg_stat_statements') AS created,
                pg_has_role(current_user, 'pg_read_all_stats', 'member') AS sees_all,
                COALESCE((SELECT string_to_array(extversion, '.')::int[] >= ARRAY[1, 9] FROM pg_extension
-                         WHERE extname = 'pg_stat_statements'), false) AS has_info,
-               ({StatementsSchemaSql}) AS extension_schema
+                         WHERE extname = 'pg_stat_statements'), false) AS has_info
         """;
 
     // Statistics accumulate per database since the last pg_stat_statements_reset() (or since a crash).
-    // A query has one row per user and nesting level: summed per queryid. {0} is the extension's
-    // schema, which need not be on the search_path (CREATE EXTENSION … SCHEMA extensions).
+    // A query has one row per user and nesting level: summed per queryid. {0}: the extension's schema.
     private const string HotQueriesSql = """
         SELECT s.queryid::text                              AS query_id,
                min(s.query)                                 AS query_text,
@@ -51,10 +43,11 @@ public sealed partial class PostgresInspector
 
     protected override async Task<HotQueryCommands> HotQueryCommandsAsync(DbConnection conn, CancellationToken ct)
     {
-        var (preloaded, created, seesAll, hasInfo, schema) = (await ReadAllAsync(Command(conn, HotQueriesAvailableSql), r => (
-            r.Flag("preloaded"), r.Flag("created"), r.Flag("sees_all"), r.Flag("has_info"), r.TextOrNull("extension_schema")), ct)).Single();
+        var (preloaded, seesAll, hasInfo) = (await ReadAllAsync(Command(conn, HotQueriesAvailableSql), r => (
+            r.Flag("preloaded"), r.Flag("sees_all"), r.Flag("has_info")), ct)).Single();
+        var schema = await StatementsSchemaAsync(conn, ct);
 
-        if (!preloaded || !created)
+        if (!preloaded || schema is null)
             return new HotQueryCommands(null, null, null,
             [
                 "pg_stat_statements is " + (preloaded ? "loaded but not created in this database" : "not loaded") +
@@ -63,9 +56,8 @@ public sealed partial class PostgresInspector
                 "A dump does not carry these statistics; read them on the production server or a replica.",
             ]);
 
-        var quoted = SqlIdentifier.Quote(schema!, DbLens.Core.Models.DatabaseDialect.PostgreSql);
-        return new HotQueryCommands("pg_stat_statements", Command(conn, string.Format(CultureInfo.InvariantCulture, HotQueriesSql, quoted)),
-            hasInfo ? Command(conn, string.Format(CultureInfo.InvariantCulture, HotQueriesWindowSql, quoted)) : null,
+        return new HotQueryCommands("pg_stat_statements", StatementsCommand(conn, HotQueriesSql, schema),
+            hasInfo ? StatementsCommand(conn, HotQueriesWindowSql, schema) : null,
             seesAll ? [] : ["This login is not in pg_read_all_stats (part of pg_monitor), so only its own queries are visible."]);
     }
 

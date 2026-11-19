@@ -13,6 +13,8 @@ public sealed record FindHotQueriesRequest(
     int Fetch = 500,
     double ReadsPerRowThreshold = 100,
     double DiskReadShareThreshold = 0.2,
+    /// <summary>Below this many pages read a share outside the cache is noise.</summary>
+    long DiskReadMinPages = 1_000,
     /// <summary>A query must have run this often for its averages to mean anything.</summary>
     long MinCalls = 2,
     int MaxVerificationQueries = 20,

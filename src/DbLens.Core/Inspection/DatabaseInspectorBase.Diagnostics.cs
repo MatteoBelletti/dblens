@@ -96,7 +96,7 @@ public abstract partial class DatabaseInspectorBase
                 }
                 catch (DbException ex)
                 {
-                    statsCaveat = $"Scan statistics could not be read ({ex.Message.ReplaceLineEndings(" ").Trim()}), " +
+                    statsCaveat = $"Scan statistics could not be read ({Brief(ex)}), " +
                                   "so the 'unused-index' rule did not run.";
                 }
             }

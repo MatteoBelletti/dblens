@@ -462,8 +462,9 @@ being given one: then reads their plans and measures the joins that multiply row
 
 The 20 heaviest by total time are listed: only statements that read or write rows (`SELECT`, `WITH`,
 `INSERT`, `UPDATE`, `DELETE`, `MERGE`) and name at least one user table in a table position (after
-`FROM`, `JOIN`, `UPDATE`, `INTO`, `USING`): a column sharing a table's name does not count, and a bare
-name in several schemas is the default schema's. DDL, utility statements,
+`FROM`, `JOIN`, `UPDATE`, `INTO`, `USING`, `MERGE`, or a comma of a `FROM` list): a column sharing a
+table's name does not count, a bare name in several schemas is the default schema's, and names that
+differ only in case are told apart by it (unquoted, PostgreSQL folds to lower case). DDL, utility statements,
 catalog queries and dblens's own probes are set aside. Each listed query carries its id, its text
 **redacted** — every string and number literal replaced by `?`, every comment removed, at most 2,000
 characters — its calls, total and mean time, rows per call, pages per row, share read outside the
@@ -488,8 +489,8 @@ plan, with a caveat. Plan filters are redacted like the text: a stored plan keep
 **Joins that multiply rows.** A query that joins one parent to two children through their foreign
 keys returns, per parent, the product of its child rows — what EF Core writes for two `Include` on
 collections. Recognized from the text and the keys (a chain `A ← B ← C`, a 1:1 child, a single
-child, one child joined through two keys, or a join inside `EXISTS`, `IN` or another `UNION` branch
-does not count; a parent paged in a derived table, EF Core's `Take` before `Include`, is not recognized), it is a signal. With `verifyJoins: true` one probe per shape counts, over the
+child, one child joined through two keys, children of two different parent keys, or a join inside
+`EXISTS`, `IN` or another `UNION` branch does not count; a parent paged in a derived table, EF Core's `Take` before `Include`, is not recognized), it is a signal. With `verifyJoins: true` one probe per shape counts, over the
 whole tables, the rows the join returns against the children read separately, within the shared
 [budget](safety.md#signal-verification); when the join returns more the title states both counts. No more is a fact at `Info` about the
 total only: a few parents with many children of both kinds can hide in it.

@@ -57,6 +57,16 @@ public sealed class HotQueryEngineTests
             .Should().Equal(("audit", "orders"));
     }
 
+    [Fact]
+    public void TablesThatDifferOnlyInCase_AreToldApartByIt()
+    {
+        (string, string)[] tables = [("public", "Orders"), ("public", "orders")];
+
+        HotQueryEngine.TablesNamed("SELECT * FROM \"Orders\"", tables, DatabaseDialect.PostgreSql, "public").Should().Equal(("public", "Orders"));
+        HotQueryEngine.TablesNamed("SELECT * FROM Orders", tables, DatabaseDialect.PostgreSql, "public")
+            .Should().Equal([("public", "orders")], "PostgreSQL folds an unquoted name");
+    }
+
     [Theory]
     [InlineData("SELECT payments, orders FROM app.orders WHERE payments > $1")]
     [InlineData("INSERT INTO app.orders (payments, id) SELECT payments(1), 2")]
@@ -129,7 +139,11 @@ public sealed class HotQueryEngineTests
 
     private static readonly TableDetail[] Shop =
     [
-        Table("orders", [Col("id", "int"), Col("billing_id", "int"), Col("shipping_id", "int")]),
+        Table("orders", [Col("id", "int"), Col("number", "int"), Col("billing_id", "int"), Col("shipping_id", "int")]) with
+        {
+            UniqueConstraints = [new UniqueConstraintDetail("uq_orders_number", ["number"])],
+        },
+        Table("shipments", [Col("id", "int"), Col("order_number", "int")]),
         Table("addresses", [Col("id", "int")]),
         Table("items", [Col("id", "int"), Col("order_id", "int")]),
         Table("payments", [Col("id", "int"), Col("order_id", "int")]),
@@ -163,8 +177,15 @@ public sealed class HotQueryEngineTests
     [InlineData("SELECT * FROM orders o JOIN addresses b ON b.id = o.billing_id JOIN addresses s ON s.id = o.shipping_id")]
     [InlineData("SELECT * FROM orders o JOIN items i ON i.order_id = o.id WHERE EXISTS (SELECT 1 FROM payments p WHERE p.order_id = o.id)")]
     [InlineData("SELECT o.id FROM orders o JOIN items i ON i.order_id = o.id UNION SELECT o.id FROM orders o JOIN payments p ON p.order_id = o.id")]
+    [InlineData("SELECT * FROM orders o JOIN items i ON i.order_id = o.id JOIN shipments s ON s.order_number = o.number")]
     public void AChainAOneToOneOrASingleChild_DoesNotMultiply(string sql) =>
         Detect(sql).Should().BeEmpty();
+
+    [Theory]
+    [InlineData("(SELECT o.id FROM orders o JOIN items i ON i.order_id = o.id JOIN payments p ON p.order_id = o.id) UNION ALL (SELECT 1)")]
+    [InlineData("WITH x AS (SELECT o.id FROM orders o JOIN items i ON i.order_id = o.id JOIN payments p ON p.order_id = o.id) SELECT * FROM x")]
+    public void ABranchInParentheses_OrACteBody_StillMultiplies(string sql) =>
+        Detect(sql).Should().ContainSingle();
 
     [Fact]
     public void TheSameShapeJoinedTheOtherWayRound_IsOne() =>

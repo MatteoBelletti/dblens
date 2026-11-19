@@ -31,14 +31,14 @@ public static class JoinFanOut
         List<Shape> shapes = [];
 
         foreach (var (stats, query, _) in ranked)
-        foreach (var branch in OuterBranches(stats.Text, dialect))
         {
-            var joins = JoinPredicateExtractor.Extract(
-                [new SqlSource(SqlSourceKind.Workload, "statistics", branch)], tables, defaultSchema, dialect);
+            List<SqlSource> branches = [.. OuterBranches(stats.Text, dialect).Select((text, i) =>
+                new SqlSource(SqlSourceKind.Workload, $"branch {i}", text))];
+            var joins = JoinPredicateExtractor.Extract(branches, tables, defaultSchema, dialect);
 
             // A chain A ← B ← C does not multiply, nor one child joined through two keys (billing and
-            // shipping address): only two child tables of the same parent do.
-            foreach (var byParent in joins.GroupBy(j => (j.Parent.Schema, j.Parent.Name)))
+            // shipping address): only two child tables of the same parent key, in one branch, do.
+            foreach (var byParent in joins.GroupBy(j => (j.Source.Name, j.Parent.Schema, j.Parent.Name, j.ParentKey)))
             {
                 var children = byParent
                     .DistinctBy(j => (j.Child.Schema, j.Child.Name))
@@ -57,12 +57,15 @@ public static class JoinFanOut
 
     private static readonly HashSet<string> SetOperators = new(["UNION", "EXCEPT", "INTERSECT"], StringComparer.OrdinalIgnoreCase);
 
-    private static readonly HashSet<string> TableSources = new(["FROM", "JOIN", "APPLY", "LATERAL"], StringComparer.OrdinalIgnoreCase);
+    // A subquery after these is a source of the query's rows: a derived table, a CTE body, a branch.
+    private static readonly HashSet<string> RowSources = new(
+        ["", "(", "FROM", "JOIN", "APPLY", "LATERAL", "AS", "MATERIALIZED", "UNION", "EXCEPT", "INTERSECT"],
+        StringComparer.OrdinalIgnoreCase);
 
     /// <summary>
     /// The joins that shape the rows a query returns: each branch of a UNION, EXCEPT or INTERSECT on
     /// its own, without the subqueries of its conditions (EXISTS, IN, a scalar subquery), which never
-    /// multiply them. A derived table after FROM or JOIN stays: its rows are the query's.
+    /// multiply them. A derived table, a CTE body and a parenthesized branch stay: their rows are the query's.
     /// </summary>
     public static IReadOnlyList<string> OuterBranches(string sql, DatabaseDialect dialect)
     {
@@ -94,14 +97,15 @@ public static class JoinFanOut
                         current.Clear();
                     }
                     else current.Append(word);
-                    previous = word;
+                    // UNION ALL (SELECT …): the operand follows ALL, still a branch.
+                    if (!(SetOperators.Contains(previous) && word.Equals("ALL", StringComparison.OrdinalIgnoreCase))) previous = word;
                     continue;
                 }
 
                 if (c == '(')
                 {
                     depth++;
-                    if (skipFrom < 0 && !TableSources.Contains(previous) && StartsSubquery(text, i + 1)) skipFrom = depth;
+                    if (skipFrom < 0 && !RowSources.Contains(previous) && StartsSubquery(text, i + 1)) skipFrom = depth;
                 }
                 else if (c == ')' && depth > 0)
                 {

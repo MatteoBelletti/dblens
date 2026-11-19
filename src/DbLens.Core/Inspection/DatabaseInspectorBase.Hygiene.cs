@@ -56,7 +56,8 @@ public abstract partial class DatabaseInspectorBase
             else
             {
                 var (measured, summary) = await VerifyEachAsync(plan.Checks, c => c.Probe, HygieneEngine.Apply, request.Budget,
-                    "Checks with too few rows to compare are reported as not measured, never as refuted.", caveats, ct,
+                    "Signals with too few rows to compare are reported as not measured, never as refuted; a check that is " +
+                    "not a signal (column-abandoned, audit-update-before-create) is then left out.", caveats, ct,
                     // A signal stands without its probe; a question is lost without it, so signals come first.
                     priority: c => c.IsSignal ? 0 : 1);
                 findings.AddRange(measured.OfType<Finding>());
@@ -93,7 +94,7 @@ public abstract partial class DatabaseInspectorBase
         }
         catch (DbException ex)
         {
-            caveats.Add($"The update counters could not be read ({ex.Message.ReplaceLineEndings(" ").Trim()}), {Consequence}");
+            caveats.Add($"The update counters could not be read ({Brief(ex)}), {Consequence}");
             return null;
         }
     }

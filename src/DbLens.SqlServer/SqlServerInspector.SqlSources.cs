@@ -56,7 +56,7 @@ public sealed partial class SqlServerInspector
         }
         catch (DbException ex)
         {
-            caveats.Add($"Query Store could not be read ({ex.Message.Trim()}); query history was not used.");
+            caveats.Add($"Query Store could not be read ({Brief(ex)}); query history was not used.");
         }
 
         return new SqlSourceSet(sources, caveats);

@@ -99,7 +99,7 @@ public static class HotQueryEngine
                     "row; this one reads through far more data than it returns. Its plan, when listed, says where. An " +
                     "aggregate (COUNT, SUM) returns one row from many by design: look first at queries that return rows.");
 
-            if (stats.PagesRead >= 1_000 && query.DiskReadShare >= request.DiskReadShareThreshold)
+            if (stats.PagesRead >= request.DiskReadMinPages && query.DiskReadShare >= request.DiskReadShareThreshold)
                 yield return Fact(HotQueryRuleIds.DiskReads, Severity.Low, table, query,
                     $"Query {query.QueryId} reads {Num.P0(query.DiskReadShare)} of its pages from outside the cache",
                     $"{Num.N0(stats.PagesFromDisk)} of the {Num.N0(stats.PagesRead)} pages it read were not in the database's " +
@@ -205,13 +205,22 @@ public static class HotQueryEngine
             var schema = parts.Count > 1 ? parts[^2] : null;
             var candidates = userTables.Where(t => Same(t.Name, name)).ToList();
             var match = schema is not null
-                ? candidates.FirstOrDefault(t => Same(t.Schema, schema))
-                : candidates.Count == 1 ? candidates[0] : candidates.FirstOrDefault(t => Same(t.Schema, defaultSchema));
+                ? Single(candidates.Where(t => Same(t.Schema, schema)), schema, name)
+                : candidates.Count == 1 ? candidates[0] : Single(candidates.Where(t => Same(t.Schema, defaultSchema)), null, name);
 
             if (match != default && !found.Contains(match)) found.Add(match);
         }
 
         return found;
+    }
+
+    /// <summary>The one table that matches, by case when several differ only in it; none otherwise.</summary>
+    private static (string Schema, string Name) Single(IEnumerable<(string Schema, string Name)> candidates, string? schema, string name)
+    {
+        var list = candidates.ToList();
+        if (list.Count <= 1) return list.FirstOrDefault();
+        var exact = list.Where(t => t.Name == name && (schema is null || t.Schema == schema)).ToList();
+        return exact.Count == 1 ? exact[0] : default;
     }
 
     private static readonly HashSet<string> TableKeywords = new(["FROM", "JOIN", "UPDATE", "INTO", "USING", "MERGE"], StringComparer.OrdinalIgnoreCase);
@@ -220,7 +229,10 @@ public static class HotQueryEngine
         ["WHERE", "ON", "GROUP", "ORDER", "HAVING", "SET", "SELECT", "VALUES", "LIMIT", "OFFSET", "UNION", "EXCEPT",
          "INTERSECT", "RETURNING", "OUTPUT", "WINDOW", "FETCH", "WHEN", ";"], StringComparer.OrdinalIgnoreCase);
 
-    /// <summary>Names in order, quoted ones unquoted, with "." kept so a qualified name can be read.</summary>
+    /// <summary>
+    /// Names in order, quoted ones unquoted, with "." kept so a qualified name can be read. PostgreSQL
+    /// folds an unquoted name to lower case, so it is read that way.
+    /// </summary>
     private static List<string> Identifiers(string sql, DatabaseDialect dialect)
     {
         List<string> names = [];
@@ -241,7 +253,7 @@ public static class HotQueryEngine
                 {
                     var start = i;
                     while (i < text.Length && (char.IsLetterOrDigit(text[i]) || text[i] is '_' or '$')) i++;
-                    names.Add(text[start..i]);
+                    names.Add(dialect == DatabaseDialect.PostgreSql ? text[start..i].ToLowerInvariant() : text[start..i]);
                 }
                 else
                 {

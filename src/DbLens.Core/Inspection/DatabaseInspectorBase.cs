@@ -75,6 +75,9 @@ public abstract partial class DatabaseInspectorBase(ILogger logger) : IDatabaseI
         return cmd;
     }
 
+    /// <summary>A driver's error on one line, as a caveat quotes it.</summary>
+    protected static string Brief(DbException ex) => ex.Message.ReplaceLineEndings(" ").Trim();
+
     protected static void AddParameter(DbCommand command, string name, object value)
     {
         var parameter = command.CreateParameter();

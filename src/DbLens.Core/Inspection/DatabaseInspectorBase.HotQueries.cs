@@ -63,9 +63,10 @@ public abstract partial class DatabaseInspectorBase
     {
         // Opened outside the catch: a login that fails is an error, not a missing source.
         await using var conn = await OpenAsync(ct);
+        HotQueryCommands? source = null;
         try
         {
-            var source = await HotQueryCommandsAsync(conn, ct);
+            source = await HotQueryCommandsAsync(conn, ct);
             if (source is not { Name: { } name, Queries: { } command }) return (null, null, [], source.Notes);
 
             AddParameter(command, "fetch", fetch);
@@ -87,7 +88,7 @@ public abstract partial class DatabaseInspectorBase
         }
         catch (DbException ex)
         {
-            return (null, null, [], [$"The query statistics could not be read ({ex.Message.ReplaceLineEndings(" ").Trim()})."]);
+            return (null, null, [], [.. source?.Notes ?? [], $"{source?.Name ?? "The query statistics"} could not be read ({Brief(ex)})."]);
         }
     }
 
@@ -106,7 +107,7 @@ public abstract partial class DatabaseInspectorBase
         catch (DbException ex)
         {
             // One query the planner cannot take (a $1 whose type it cannot infer) costs its plan, not the list.
-            caveats.Add($"The plan of query {query.QueryId} could not be read: {ex.Message.ReplaceLineEndings(" ").Trim()}");
+            caveats.Add($"The plan of query {query.QueryId} could not be read: {Brief(ex)}");
             return null;
         }
 

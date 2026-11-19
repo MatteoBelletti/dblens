@@ -1,5 +1,4 @@
 using System.Data.Common;
-using DbLens.Core.Analysis;
 using DbLens.Core.Analysis.Relationships;
 using DbLens.Core.Inspection;
 
@@ -25,7 +24,7 @@ public sealed partial class PostgresInspector
           AND n.nspname NOT LIKE 'pg\_%'
         """;
 
-    // {0}: the extension's schema, which need not be on the search_path.
+    // {0}: the extension's schema.
     private const string WorkloadSql = """
         SELECT query, calls
         FROM {0}.pg_stat_statements
@@ -42,28 +41,22 @@ public sealed partial class PostgresInspector
             r.Text("kind") == "view" ? SqlSourceKind.View : SqlSourceKind.Routine, r.Text("name"), r.Text("definition")), ct);
         List<string> caveats = [];
 
-        string schema;
-        await using (var check = Command(conn, StatementsSchemaSql))
+        if (await StatementsSchemaAsync(conn, ct) is not { } schema)
         {
-            if (await check.ExecuteScalarAsync(ct) is not string found)
-            {
-                caveats.Add(
-                    "pg_stat_statements is not installed, so query history was not used as join evidence — " +
-                    "only view and routine definitions were.");
-                return new SqlSourceSet(sources, caveats);
-            }
-
-            schema = SqlIdentifier.Quote(found, DbLens.Core.Models.DatabaseDialect.PostgreSql);
+            caveats.Add(
+                "pg_stat_statements is not installed, so query history was not used as join evidence — " +
+                "only view and routine definitions were.");
+            return new SqlSourceSet(sources, caveats);
         }
 
         try
         {
-            sources.AddRange(await ReadAllAsync(Command(conn, string.Format(System.Globalization.CultureInfo.InvariantCulture, WorkloadSql, schema)), r => new SqlSource(
+            sources.AddRange(await ReadAllAsync(StatementsCommand(conn, WorkloadSql, schema), r => new SqlSource(
                 SqlSourceKind.Workload, "pg_stat_statements", r.Text("query"), r.Number("calls")), ct));
         }
         catch (DbException ex)
         {
-            caveats.Add($"pg_stat_statements could not be read ({ex.Message.Trim()}); query history was not used.");
+            caveats.Add($"pg_stat_statements could not be read ({Brief(ex)}); query history was not used.");
         }
 
         return new SqlSourceSet(sources, caveats);
