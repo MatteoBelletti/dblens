@@ -16,6 +16,14 @@ public enum VerificationProbeKind
     /// kind, the hypothesis here ("this column references that table") is confirmed by ZERO.
     /// </summary>
     InclusionDependency,
+    /// <summary>Rows a join to two children returns, against the children's rows read separately.</summary>
+    JoinFanOut,
+    /// <summary>Rows that hold a value. The hypothesis ("never filled") is confirmed by ZERO.</summary>
+    NoValue,
+    /// <summary>Distinct values among the filled rows. Confirmed by exactly ONE.</summary>
+    SingleValue,
+    /// <summary>Rows matching a condition that should match none. Confirmed by any.</summary>
+    RowsMatching,
 }
 
 /// <summary>
@@ -86,7 +94,15 @@ public sealed record VerificationProbe(
     /// <summary>One sentence stating exactly what the numerator counts.</summary>
     string MeasurementDescription,
     /// <summary>Approximate rows in the scanned table, for ordering and skipping. Null = unknown.</summary>
-    long? ApproximateRowCount);
+    long? ApproximateRowCount,
+    /// <summary>Fewer rows compared than this settle nothing: Inconclusive, never Refuted.</summary>
+    long MinimumCompared = 1);
+
+/// <summary>Every probe names its second count divergent_rows: how dblens tells its own probes in a workload.</summary>
+public static class ProbeColumns
+{
+    public static bool IsProbe(string sql) => sql.Contains("divergent_rows", StringComparison.OrdinalIgnoreCase);
+}
 
 public enum VerificationStatus
 {
@@ -146,20 +162,28 @@ public sealed record VerificationMeasurement(
 {
     public static VerificationMeasurement Measured(
         VerificationProbe probe, long denominator, long numerator, double elapsedMs) =>
-        new(probe.Target, probe.Kind, StatusOf(probe.Kind, denominator, numerator),
+        new(probe.Target, probe.Kind, StatusOf(probe, denominator, numerator),
             denominator, numerator, probe.MeasurementDescription, probe.Sql,
             VerificationSkipReason.None, VerificationFailureKind.Unknown, null, elapsedMs);
 
     /// <summary>
     /// Confirmed means the hypothesis held. For most kinds the hypothesis is "something diverges",
-    /// confirmed by a non-zero count; for an inclusion dependency it is "every value resolves",
-    /// confirmed by zero orphans. Zero compared rows settles nothing either way.
+    /// confirmed by a non-zero count; for an inclusion dependency it is "every value resolves" and
+    /// for a never-filled column "no row holds a value", both confirmed by zero. Fewer compared rows
+    /// than the probe needs settle nothing either way.
     /// </summary>
-    private static VerificationStatus StatusOf(VerificationProbeKind kind, long denominator, long numerator)
+    private static VerificationStatus StatusOf(VerificationProbe probe, long denominator, long numerator)
     {
-        if (denominator == 0) return VerificationStatus.Inconclusive;
+        if (denominator < Math.Max(probe.MinimumCompared, 1)) return VerificationStatus.Inconclusive;
 
-        var hypothesisHolds = kind == VerificationProbeKind.InclusionDependency ? numerator == 0 : numerator > 0;
+        var hypothesisHolds = probe.Kind switch
+        {
+            VerificationProbeKind.InclusionDependency or VerificationProbeKind.NoValue => numerator == 0,
+            VerificationProbeKind.SingleValue => numerator == 1,
+            // The join multiplies when it returns more rows than the separate reads.
+            VerificationProbeKind.JoinFanOut => numerator > denominator,
+            _ => numerator > 0,
+        };
         return hypothesisHolds ? VerificationStatus.Confirmed : VerificationStatus.Refuted;
     }
 
@@ -186,6 +210,12 @@ public sealed record VerificationMeasurement(
 }
 
 /// <summary>The verification block attached to a finding's metadata.</summary>
+/// <summary>How every promoted finding says it was measured.</summary>
+public static class ProbeText
+{
+    public const string HowRead = "Read with a read-only aggregate query; no row values were returned.";
+}
+
 public sealed record VerificationOutcome(
     string Status,
     string Measurement,
@@ -212,7 +242,7 @@ public sealed record VerificationOutcome(
             {
                 VerificationStatus.Confirmed or VerificationStatus.Refuted => null,
                 VerificationStatus.Failed => m.FailureKind.ToString(),
-                VerificationStatus.Inconclusive => "NoRowsCompared",
+                VerificationStatus.Inconclusive => m.Denominator is > 0 ? "TooFewRowsCompared" : "NoRowsCompared",
                 _ => m.SkipReason.ToString(),
             },
             Query: m.Sql);
@@ -234,6 +264,9 @@ public sealed record VerificationSummary(
     IReadOnlyDictionary<string, int> ByOutcome,
     double TotalQueryTimeMs)
 {
+    /// <summary>Nothing to measure: attempted when it was asked for, absent when it was not.</summary>
+    public static VerificationSummary? None(bool requested) => requested ? From([], attempted: true) : null;
+
     public static VerificationSummary From(
         IReadOnlyList<VerificationMeasurement> measurements, bool attempted)
     {

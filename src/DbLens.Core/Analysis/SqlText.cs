@@ -12,12 +12,21 @@ public enum SqlSegmentKind { Code, Comment, StringLiteral, QuotedIdentifier }
 /// </summary>
 public readonly record struct SqlSegment(SqlSegmentKind Kind, string Text, string Source);
 
+public enum SqlTokenKind { Word, Parameter, Symbol, Space, QuotedIdentifier, StringLiteral, Comment }
+
+/// <summary>
+/// A token of SQL text: a word (a name or keyword), a positional parameter ($1), one symbol, a run
+/// of spaces, or a whole quoted identifier, literal or comment. <see cref="Text"/> is as in
+/// <see cref="SqlSegment"/>; <see cref="Source"/> rebuilds the text.
+/// </summary>
+public readonly record struct SqlToken(SqlTokenKind Kind, string Text, string Source);
+
 /// <summary>
 /// Lexical helpers for the rules that read SQL text. Not a SQL parser: they separate code from
 /// comments, string literals and quoted identifiers the way each engine does, far enough for shape
 /// matching and for the statement guard to see exactly the code the engine will see.
 /// </summary>
-public static class SqlText
+public static partial class SqlText
 {
     private static readonly Regex DollarTagRx =
         new(@"\G\$(?:[A-Za-z_\u0080-￿][A-Za-z0-9_\u0080-￿]*)?\$", RegexOptions.Compiled);
@@ -105,6 +114,80 @@ public static class SqlText
             SqlSegmentKind.Comment => " ",
             _ => replace(s),
         }));
+
+    /// <summary>The text as tokens, over <see cref="Segments"/>: names and keywords are never read inside literals or comments.</summary>
+    public static IEnumerable<SqlToken> Tokens(string sql, DatabaseDialect dialect)
+    {
+        foreach (var segment in Segments(sql, dialect))
+        {
+            if (segment.Kind != SqlSegmentKind.Code)
+            {
+                yield return new SqlToken(segment.Kind switch
+                {
+                    SqlSegmentKind.QuotedIdentifier => SqlTokenKind.QuotedIdentifier,
+                    SqlSegmentKind.StringLiteral => SqlTokenKind.StringLiteral,
+                    _ => SqlTokenKind.Comment,
+                }, segment.Text, segment.Source);
+                continue;
+            }
+
+            var text = segment.Text;
+            for (var i = 0; i < text.Length;)
+            {
+                var start = i;
+                SqlTokenKind kind;
+                if (char.IsWhiteSpace(text[i]))
+                {
+                    while (i < text.Length && char.IsWhiteSpace(text[i])) i++;
+                    kind = SqlTokenKind.Space;
+                }
+                else if (char.IsLetter(text[i]) || text[i] == '_')
+                {
+                    while (i < text.Length && (char.IsLetterOrDigit(text[i]) || text[i] is '_' or '$')) i++;
+                    kind = SqlTokenKind.Word;
+                }
+                else if (text[i] == '$' && i + 1 < text.Length && char.IsAsciiDigit(text[i + 1]))
+                {
+                    i++;
+                    while (i < text.Length && char.IsAsciiDigit(text[i])) i++;
+                    kind = SqlTokenKind.Parameter;
+                }
+                else
+                {
+                    i++;
+                    kind = SqlTokenKind.Symbol;
+                }
+
+                var token = text[start..i];
+                yield return new SqlToken(kind, token, token);
+            }
+        }
+    }
+
+    /// <summary>
+    /// What a query does, without what it was called with: every string and number literal becomes
+    /// "?", every comment goes. Workload text can hold personal data in a WHERE clause or a comment,
+    /// so this is the only form in which dblens returns it. Parameters ($1, @p0) stay as they are.
+    /// </summary>
+    public static string Redact(string sql, DatabaseDialect dialect) =>
+        string.Concat(Segments(sql, dialect).Select(s => s.Kind switch
+        {
+            SqlSegmentKind.Code => (dialect == DatabaseDialect.SqlServer ? SqlServerNumberLiteral() : PostgresNumberLiteral()).Replace(s.Text, "?"),
+            SqlSegmentKind.Comment => " ",
+            SqlSegmentKind.StringLiteral => "?",
+            _ => s.Source,
+        }));
+
+    // A number standing alone: not part of a name (t1, x.2), a parameter (@p1, PostgreSQL's $1) or a
+    // temp table (#t1). PostgreSQL 16 also writes 1_000, 0o17 and 0b101; T-SQL writes money as $12.50.
+    private const string Number =
+        @"(?:0[xX][0-9A-Fa-f_]+|0[oO][0-7_]+|0[bB][01_]+|\d(?:_?\d)*(?:\.(?:\d(?:_?\d)*)?)?(?:[eE][+-]?\d+)?|\.\d(?:_?\d)*(?:[eE][+-]?\d+)?)(?![\w$])";
+
+    [GeneratedRegex(@"(?<![\w$@#.])" + Number)]
+    private static partial System.Text.RegularExpressions.Regex PostgresNumberLiteral();
+
+    [GeneratedRegex(@"(?<![\w@#.])" + Number)]
+    private static partial System.Text.RegularExpressions.Regex SqlServerNumberLiteral();
 
     /// <summary>
     /// The code alone: the contents of comments, literals and quoted identifiers can never be

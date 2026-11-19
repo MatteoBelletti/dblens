@@ -11,17 +11,13 @@ public sealed class AnalyzeDenormalizationTool(IServiceProvider services, IDatab
     : InspectorTool(services, factory)
 {
     [McpServerTool, Description(
-        "Looks for redundancy in table structure: repeating groups (phone1/phone2), cached derived values " +
-        "(order_count, total, full_name), columns copied across FK-linked tables, list-valued text columns " +
-        "(tags) and very wide tables. " +
-        "IMPORTANT: the analysis reads names and types only. With verifySignals = false every result is in " +
-        "SIGNALS and Findings is empty — present them as candidates to review, not problems found. " +
-        "With verifySignals = true dblens runs one generated, read-only, rolled-back aggregate query per " +
-        "checkable signal and moves the measured ones into FINDINGS. Those queries return COUNTS ONLY: you " +
-        "cannot know which rows differ or what they contain. A divergence means the values differ, not that " +
-        "the column is wrong — a deliberate snapshot looks identical to a stale cache. " +
-        "SqlFix.kind 'ReadOnlyProbe' is a safe aggregate SELECT; 'Ddl' changes the database and needs review. " +
-        "Do NOT infer results, columns or values beyond what this tool returns.")]
+        "Finds structural redundancy: repeating groups (phone1/phone2), cached derived values (order_count, total, " +
+        "full_name), columns copied across FK-linked tables, list-valued text (tags) and very wide tables. IMPORTANT: " +
+        "reads names and types only. Without verifySignals every result is a SIGNAL: a candidate to review, not a " +
+        "problem found. verifySignals runs one read-only, rolled-back aggregate per checkable signal and moves the " +
+        "measured ones to FINDINGS: counts only, never which rows or what they hold. A divergence means the values " +
+        "differ, not that the column is wrong: a deliberate snapshot looks like a stale cache. SqlFix 'ReadOnlyProbe' " +
+        "is a safe aggregate SELECT; 'Ddl' changes the database. Do NOT infer beyond the response.")]
     public Task<AnalyzeDenormalizationResult> AnalyzeDenormalization(
         [Description(DialectHelp)]
         DatabaseDialect dialect = DatabaseDialect.PostgreSql,
@@ -29,9 +25,7 @@ public sealed class AnalyzeDenormalizationTool(IServiceProvider services, IDatab
         string? schema = null,
         [Description(TablesHelp)]
         string[]? tables = null,
-        [Description(
-            "When true, EXECUTES read-only aggregate queries to measure the signals. Counts only, never row values. " +
-            "Default false: nothing is executed.")]
+        [Description("When true, EXECUTES read-only aggregate queries to measure the signals: counts only, never row values.")]
         bool verifySignals = false,
         [Description(ConnectionStringHelp)]
         string? connectionString = null,

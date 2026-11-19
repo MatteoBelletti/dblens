@@ -6,6 +6,7 @@
 DbLens.Core        interfaces, models, pure analysis engines, DatabaseInspectorBase   (no DB driver)
 DbLens.Postgres    PostgresInspector  : DatabaseInspectorBase                          (Npgsql)
 DbLens.SqlServer   SqlServerInspector : DatabaseInspectorBase                          (Microsoft.Data.SqlClient)
+DbLens.EfCore      SnapshotReader: an EF Core snapshot read as C# text with Roslyn         (no build)
 DbLens.Mcp         MCP server: Program.cs, tools, DI wiring
 DbLens.Tests       xUnit: pure engine tests + integration tests against both demo databases
 ```
@@ -45,6 +46,9 @@ no driver. It owns everything that does not depend on SQL dialect:
 | reading a requested name (`ParseTableNames`), assembling table details | `ReadTableCatalogAsync`: the catalog rows |
 | the `explain_query` statement guard | `FetchQueryPlanAsync` (after the guard has run) |
 | orchestration of every diagnostic tool; the cascade graph, built from the table details | `IndexUsageCommand`, `QueryFragmentationStatsAsync` |
+| unused columns and audit dates: rules, EF fixes, verification | `ColumnStatisticsCommand` (planner statistics, no values), `TableUpdatesCommand` |
+| the heaviest queries: ranking, redaction, rules, join fan-out | `HotQueryCommandsAsync` (the source's commands, or why there is none), `PlanHotQueryAsync` (a stored or generic plan) |
+| when the scan counters started (`StatsWindow`: the latest of server start, creation, restore, reset) | `StatsWindowCommandAsync`: days since each event |
 | connections, commands, row mapping, rolled-back transactions (`OpenAsync`, `Command`, `ReadAllAsync`, `InRolledBackTransactionAsync`) and reading a column by name (`DbReading`) | SQL text and typed parameters |
 | the signal verification loop | `VerificationSetupSql`, `ClassifyVerificationError`, `VerificationCaveats` |
 | join evidence: parsing, filtering own probes | `QuerySqlSourcesAsync` — views, routines, pg_stat_statements / Query Store |
@@ -52,7 +56,7 @@ no driver. It owns everything that does not depend on SQL dialect:
 | the read-only-login refusal, and whether a server is local (`LocalServer`) | `DescribeWriteCapabilityAsync`, `ServerHosts` |
 
 `scan_gdpr`, `analyze_denormalization`, `check_migration_safety`, `check_cascade_paths`,
-`infer_relationships` and `build_glossary` need no catalog SQL of their own: they run on `TableDetail` metadata the base already
+`infer_relationships`, `build_glossary` and `compare_ef_model` need no catalog SQL of their own: they run on `TableDetail` metadata the base already
 reads, plus the SQL sources.
 
 ## Analysis layout
@@ -73,6 +77,10 @@ DbLens.Core/Analysis/
   Relationships/         undeclared-FK rule, JoinPredicateExtractor (joins in SQL text), engine
   Receipts/              receipt models, ResultComparer (cross-checks), ResultValue
   Glossary/              GlossaryEngine: the SKILL.md data map
+  Hygiene/               HygieneEngine (column and audit rules, checks, reclassification), audit_columns.json
+  HotQueries/            HotQueryEngine (ranking, figures, rules), JoinFanOut (shape, probe, reclassification)
+  EfCore/                EfModel (a snapshot's model), EfModelMatcher (entity ↔ table, property ↔ column),
+                         EfDriftEngine (compare_ef_model)
   Indexes/ Gdpr/ Cascade/ Denormalization/ Fragmentation/ QueryPlan/ Migration/
 ```
 
@@ -88,7 +96,8 @@ flowchart LR
     V --> R[Findings: Measured<br/>Signals: still inferred]
 ```
 
-- `DenormalizationAnalysisEngine` / `RelationshipAnalysisEngine` produce signals — pure.
+- `DenormalizationAnalysisEngine` / `RelationshipAnalysisEngine` / `JoinFanOut` / `HygieneEngine` produce
+  signals — pure. A probe carries the rows it needs and, for a share, the share that confirms it.
 - The plan builder turns verifiable signals into `VerificationProbe`s; `VerificationBudget.Evaluate`
   decides which may run (query cap, table size, unknown row count) — pure.
 - `DatabaseInspectorBase.RunVerificationProbesAsync` executes them, one rolled-back transaction each.
@@ -98,6 +107,27 @@ flowchart LR
   The wording of a confirmation or refutation is the tool's own.
 
 See [safety.md](safety.md#signal-verification) for the guarantees.
+
+## EF Core models
+
+`compare_ef_model` takes an EF Core model the tool reads from disk before the inspector sees it:
+
+1. `SnapshotReader` (`DbLens.EfCore`) parses `*ModelSnapshot.cs` with Roslyn — syntax only, nothing
+   compiled or loaded — into an `EfModel`: entities with their resolved tables, properties → columns,
+   keys, indexes, relationships, and the migration ids of the `*.Designer.cs` files of the same
+   DbContext. Owned types and TPH subtypes are folded into the table they share, with the nullable
+   columns EF gives them; mappings it does not compare go into `Unsupported`.
+2. `DatabaseInspectorBase.CompareEfModelAsync` reads the tables of the schemas the model maps and the
+   history table, found by name in the schema overview and read with quoted identifiers.
+3. `EfModelMatcher` pairs entities with tables and properties with columns; `EfDriftEngine` turns the
+   pairs into findings — both pure.
+
+Roslyn stays out of Core: only `DbLens.Mcp` references `DbLens.EfCore`. The test snapshots under
+`tests/DbLens.Tests/Fixtures/EfSnapshots/ef{8,9,10}` are written by the real `dotnet ef` of each major
+from `samples/DemoShop.EfCore` (`scripts/generate-ef-fixtures.sh`), because the snapshot format may
+change between versions; the fixtures are copied to the test output and never compiled. The EF
+integration tests build `dblens_ef` (first migration, then a deliberate drift) and `dblens_ef_clean`
+(every migration, no drift) from the SQL those same tools wrote.
 
 ## Server layer
 
@@ -166,8 +196,9 @@ Volumes hold demo data only; `docker compose down -v && docker compose up -d` re
 
 ## Releases
 
-Pushing a `v*` tag runs `.github/workflows/release.yml`. The version comes from the tag
-(`v0.1.4` → `0.1.4`) and is stamped into the package and `.mcp/server.json`; keep `<Version>` in
+Pushing a `v*` tag runs `.github/workflows/release.yml`, and so does running it by hand with a
+`version` input, which tags the commit it built. The version comes from the tag or the input
+(`v0.4.0` → `0.4.0`) and is stamped into the package and `.mcp/server.json`; keep `<Version>` in
 `DbLens.Mcp.csproj` and `server.json` in step anyway, so a local build reports the same number. The
 workflow runs engine tests, then builds self-contained single-file
 binaries for `win-x64`, `linux-x64` and `osx-arm64`, one Claude Desktop extension per platform

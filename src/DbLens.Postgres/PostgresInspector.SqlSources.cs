@@ -24,9 +24,10 @@ public sealed partial class PostgresInspector
           AND n.nspname NOT LIKE 'pg\_%'
         """;
 
+    // {0}: the extension's schema.
     private const string WorkloadSql = """
         SELECT query, calls
-        FROM pg_stat_statements
+        FROM {0}.pg_stat_statements
         WHERE dbid = (SELECT oid FROM pg_database WHERE datname = current_database())
         ORDER BY calls DESC
         LIMIT 1000
@@ -40,25 +41,22 @@ public sealed partial class PostgresInspector
             r.Text("kind") == "view" ? SqlSourceKind.View : SqlSourceKind.Routine, r.Text("name"), r.Text("definition")), ct);
         List<string> caveats = [];
 
-        await using (var check = Command(conn, "SELECT EXISTS (SELECT 1 FROM pg_extension WHERE extname = 'pg_stat_statements')"))
+        if (await StatementsSchemaAsync(conn, ct) is not { } schema)
         {
-            if (await check.ExecuteScalarAsync(ct) is not true)
-            {
-                caveats.Add(
-                    "pg_stat_statements is not installed, so query history was not used as join evidence — " +
-                    "only view and routine definitions were.");
-                return new SqlSourceSet(sources, caveats);
-            }
+            caveats.Add(
+                "pg_stat_statements is not installed, so query history was not used as join evidence — " +
+                "only view and routine definitions were.");
+            return new SqlSourceSet(sources, caveats);
         }
 
         try
         {
-            sources.AddRange(await ReadAllAsync(Command(conn, WorkloadSql), r => new SqlSource(
+            sources.AddRange(await ReadAllAsync(StatementsCommand(conn, WorkloadSql, schema), r => new SqlSource(
                 SqlSourceKind.Workload, "pg_stat_statements", r.Text("query"), r.Number("calls")), ct));
         }
         catch (DbException ex)
         {
-            caveats.Add($"pg_stat_statements could not be read ({ex.Message.Trim()}); query history was not used.");
+            caveats.Add($"pg_stat_statements could not be read ({Brief(ex)}); query history was not used.");
         }
 
         return new SqlSourceSet(sources, caveats);

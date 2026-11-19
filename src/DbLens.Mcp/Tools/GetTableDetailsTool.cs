@@ -11,10 +11,9 @@ public sealed class GetTableDetailsTool(IServiceProvider services, IDatabaseInsp
     : InspectorTool(services, factory)
 {
     [McpServerTool, Description(
-        "Returns columns, indexes, foreign keys (both directions), check and unique constraints for one or more " +
-        "tables or views. Pass several tables in one call. " +
-        "IMPORTANT: NOT included — do NOT infer them: view SQL bodies, row data or sample values, and anything " +
-        "about objects listed in NotFound, which do not exist.")]
+        "Returns columns, indexes, foreign keys (both directions), check and unique constraints of one or more tables " +
+        "or views: pass several in one call. IMPORTANT: NOT included, do NOT infer: view bodies, row data or sample " +
+        "values, and anything about objects in NotFound, which do not exist.")]
     public Task<TableDetailsResult> GetTableDetails(
         [Description("Tables as \"schema.name\" or \"name\" (default schema). Up to 20 per call.")]
         string[] tables,

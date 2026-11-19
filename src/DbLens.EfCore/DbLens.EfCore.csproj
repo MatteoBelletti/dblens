@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Reads EF Core migration snapshots as C# text with Roslyn. Nothing here compiles or loads the
+       user's code; only DbLens.Mcp references it, so Core stays free of Roslyn. -->
+  <ItemGroup>
+    <ProjectReference Include="..\DbLens.Core\DbLens.Core.csproj" />
+    <PackageReference Include="Microsoft.CodeAnalysis.CSharp" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="DbLens.Tests" />
+  </ItemGroup>
+
+</Project>

@@ -1,8 +1,19 @@
 # dblens
 
-An MCP server, written in .NET 10, that lets Claude (or any MCP client) understand and diagnose
-PostgreSQL and SQL Server databases. It runs locally, never writes to the database, and by default
-never returns row data. Published on NuGet as **`DbLens.Mcp`**.
+**Before an EF Core migration reaches production, dblens checks it against a copy of the database:
+what it locks or rewrites at the tables' real size, what it destroys, and what production holds that
+your model does not know about.**
+
+```
+compare_ef_model         → 2 migrations pending, 1 applied by hand that the code lacks,
+                           users.phone missing, an index nobody modeled
+dotnet ef migrations script …   (the command it gives you)
+check_migration_safety   → CREATE INDEX on a 12 M-row table without CONCURRENTLY: blocks writes
+```
+
+It is an MCP server for Claude or any MCP client, on PostgreSQL and SQL Server, written in .NET 10.
+It runs locally, never writes to the database and, by default, returns no row data. Published on
+NuGet as **`DbLens.Mcp`**.
 
 ## Install
 
@@ -34,10 +45,28 @@ that can write when the server is on another machine, so create one first — tw
 [docs/safety.md](https://github.com/MatteoBelletti/dblens/blob/master/docs/safety.md#creating-the-login). A database on your own machine (localhost,
 loopback, socket, `(local)`, LocalDB) is exempt: the admin login works there.
 
+## Checking a migration
+
+1. Restore a recent dump locally and point dblens at it (or use a read-only login on a copy).
+2. **`compare_ef_model`** with the path of your `Migrations` folder: pending migrations, migrations
+   applied in the database that the code does not have, and tables, columns, indexes and foreign keys
+   on one side only, each with the entity and the fluent call to change. It gives the
+   `dotnet ef migrations script` command for what is pending.
+3. **`check_migration_safety`** on that script: table rewrites, blocking locks, index builds without
+   `CONCURRENTLY` / `ONLINE`, constraints validated against every row, and destructive statements —
+   weighted by the real size of each table. Use the non-idempotent script; the history-table insert
+   is listed as a statement it does not recognize.
+
+Neither step executes the migration: the snapshot is read as text and the script is never run.
+
 ## Tools
+
+The two above, and the rest of what dblens can tell about a database:
 
 | Tool | Answers |
 |---|---|
+| `compare_ef_model` | What does production have that the EF Core model does not know — and which migrations are pending? |
+| `check_migration_safety` | Will this migration lock, rewrite or destroy anything, given real table sizes? |
 | `ping` | Is the server up? |
 | `get_schema` | What tables and views are there, how big? |
 | `get_table_details` | Columns, indexes, keys and constraints of these tables |
@@ -48,7 +77,8 @@ loopback, socket, `(local)`, LocalDB) is exempt: the admin login works there.
 | `analyze_denormalization` | Where is data repeated, cached or packed into one column — and has it drifted? |
 | `scan_gdpr` | Which columns look like personal data? |
 | `check_cascade_paths` | What does a DELETE on this table actually remove? |
-| `check_migration_safety` | Will this migration lock, rewrite or destroy anything, given real table sizes? |
+| `analyze_table_hygiene` | Which columns does nobody fill, and which tables lack or neglect their creation and update dates? |
+| `find_hot_queries` | Which queries weigh most — and which joins multiply rows? Found from the engine's own statistics |
 | `explain_query` | Why is this query slow? |
 | `query_with_receipt` | What is the figure, and what is the proof? *(off unless the operator enables it)* |
 | `certify_query`, `list_certified_queries` | Remember the queries the user confirmed as right |

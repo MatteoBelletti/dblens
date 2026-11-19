@@ -232,14 +232,12 @@ public sealed class SqlServerFixture : IAsyncLifetime, IDatabaseFixture
         "Server=localhost,1434;Database=dblens_demo;User Id=dblens_reader;Password=ReaderPassword123!;TrustServerCertificate=true";
 
     // sa, for asserting that a write-capable login is refused.
-    private const string DefaultAdminConnectionString =
-        "Server=localhost,1434;Database=dblens_demo;User Id=sa;Password=DevPassword123!;TrustServerCertificate=true";
-
     private static string ConnectionString =>
         Environment.GetEnvironmentVariable("DBLENS_TEST_SS_CONNECTION") ?? DefaultConnectionString;
 
-    private static string AdminConnectionString =>
-        Environment.GetEnvironmentVariable("DBLENS_TEST_SS_ADMIN_CONNECTION") ?? DefaultAdminConnectionString;
+    private static string AdminConnectionString => SqlServerAdmin.ConnectionString;
+
+    public Task RunWorkloadAsync() => IndexWorkload.OnSqlServerAsync(ConnectionString, "users");
 
     public DbLens.Core.Abstractions.IDatabaseInspector CreateAdminInspector(bool readOnlyLoginOnLocalhost = false) =>
         new SqlServerInspector(AdminConnectionString, NullLogger<SqlServerInspector>.Instance)

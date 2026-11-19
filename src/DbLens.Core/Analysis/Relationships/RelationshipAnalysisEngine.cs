@@ -121,7 +121,7 @@ public static class RelationshipAnalysisEngine
                     Title = $"{source}: all {Num.N0(compared)} non-null values exist in {target}",
                     Description =
                         $"MEASURED: every one of {Num.N0(compared)} non-null values of {source} matches a row of " +
-                        $"{target}. Read with a read-only aggregate query; no row values were returned.\n\n" +
+                        $"{target}. {ProbeText.HowRead}\n\n" +
                         "WHAT THIS MAY MEAN: this behaves as a foreign key the schema does not declare, so the " +
                         "database is not enforcing it. Values matching is strong evidence of a reference, not " +
                         "proof of intent — confirm with whoever owns the schema before declaring the constraint.",

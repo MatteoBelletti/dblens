@@ -17,6 +17,19 @@ public class ObservedJoinTests
         JoinPredicateExtractor.Extract([new SqlSource(kind, "public.v", sql)], [Shipments, Addresses], "public", DatabaseDialect.PostgreSql);
 
     [Fact]
+    public void AOneToOneChildWithAUniqueIndex_IsStillAJoin()
+    {
+        var profiles = Table("profiles", [Col("id", "bigint"), Col("owner_id", "bigint")]) with
+        {
+            Indexes = [new IndexDetail("ix_profiles_owner", ["owner_id"], true, false, "btree", "", false, null)],
+        };
+
+        JoinPredicateExtractor.Extract([new SqlSource(SqlSourceKind.View, "v", "SELECT 1 FROM addresses a JOIN profiles p ON a.id = p.owner_id")],
+                [Addresses, profiles], "public", DatabaseDialect.PostgreSql)
+            .Should().ContainSingle(j => j.Child.Name == "profiles" && j.ChildColumn == "owner_id", "infer_relationships reads it as evidence");
+    }
+
+    [Fact]
     public void AnsiJoinWithAliases_IsResolvedAndOrientedTowardTheKey()
     {
         var join = Extract("SELECT a.city FROM shipments s JOIN addresses a ON a.id = s.ship_to").Single();

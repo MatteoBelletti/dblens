@@ -11,11 +11,10 @@ public sealed class CheckCascadePathsTool(IServiceProvider services, IDatabaseIn
     : InspectorTool(services, factory)
 {
     [McpServerTool, Description(
-        "Traces ON DELETE CASCADE chains: what a DELETE on a table removes, and where the chain hits a cycle, " +
-        "grows deep, switches to SET NULL or would be blocked by a NO ACTION/RESTRICT key. Useful for " +
-        "right-to-erasure questions. " +
-        "IMPORTANT: only declared foreign keys are analyzed; ORM cascades and triggers are invisible here. " +
-        "Surface the Disclaimer. Do NOT infer cascade effects beyond what this tool returns.")]
+        "Traces ON DELETE CASCADE chains: what a DELETE on a table removes, and where a chain cycles, grows deep, turns " +
+        "to SET NULL or is blocked by a NO ACTION/RESTRICT key. Useful for right-to-erasure questions. IMPORTANT: " +
+        "declared foreign keys only; ORM cascades and triggers are invisible. Surface the Disclaimer. Do NOT infer " +
+        "beyond the response.")]
     public Task<CheckCascadePathsResult> CheckCascadePaths(
         [Description(DialectHelp)]
         DatabaseDialect dialect = DatabaseDialect.PostgreSql,
@@ -23,7 +22,7 @@ public sealed class CheckCascadePathsTool(IServiceProvider services, IDatabaseIn
         string? startingTable = null,
         [Description(SchemaHelp)]
         string? schema = null,
-        [Description("Maximum cascade depth to explore. Default 10, hard cap 50.")]
+        [Description("Maximum cascade depth to explore; hard cap 50.")]
         int maxDepth = 10,
         [Description(ConnectionStringHelp)]
         string? connectionString = null,

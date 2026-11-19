@@ -24,6 +24,9 @@ public interface IEdgeFixture
 
     /// <summary>A login that can read the edge schema's tables and nothing about the server.</summary>
     IDatabaseInspector? LimitedInspector { get; }
+
+    /// <summary>Scans edge.account's primary key, so the database has seen a workload (<see cref="IndexWorkload"/>).</summary>
+    Task RunWorkloadAsync();
 }
 
 /// <summary>
@@ -51,6 +54,30 @@ public abstract class EdgeCatalogTestsBase(IEdgeFixture fixture)
         result.Caveats.Should().NotContain(c => c.Contains("could not be inspected"));
         result.Findings.Should().ContainSingle(f => f.RuleId == IndexRuleIds.FkWithoutIndex)
             .Which.Table.Should().Be($"{DottedSchema}.child");
+    }
+
+    [SkippableFact]
+    [Trait("Category", "Integration")]
+    public async Task UnusedIndex_CountsFromTheDatabaseCreation_NotTheServerStart()
+    {
+        Skip.If(ShouldSkip, TestSkip.Reason);
+
+        // The fixture creates this database after the server started, as a restore of a dump would.
+        await Fixture.RunWorkloadAsync();
+        var result = await Inspector.AnalyzeIndexesAsync(
+            new AnalyzeIndexesRequest(Schema, ["covered"], IncludeUnusedIndexes: true, UnusedIndexMinDays: 0));
+
+        var unused = result.Findings.Where(f => f.RuleId == IndexRuleIds.UnusedIndex).ToList();
+        unused.Should().NotBeEmpty();
+        unused.Should().OnlyContain(f =>
+            (string)f.Metadata!["stats_since"] == nameof(StatsWindowStart.DatabaseCreated)
+            && (double)f.Metadata["stats_window_days"] < 1);
+        result.Caveats.Should().Contain(c => c.Contains("since the database was created"));
+        result.Caveats.Should().NotContain(c => c.Contains("cannot see when the database"));
+
+        var skipped = await Inspector.AnalyzeIndexesAsync(new AnalyzeIndexesRequest(Schema, ["covered"]));
+        skipped.Findings.Should().NotContain(f => f.RuleId == IndexRuleIds.UnusedIndex,
+            "a database created minutes ago has far fewer than the 7 days of counts the rule needs");
     }
 
     [SkippableFact]

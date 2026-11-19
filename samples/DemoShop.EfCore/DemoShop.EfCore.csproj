@@ -1,0 +1,34 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    The EF Core model dblens reads back from its snapshots. It builds against any supported EF Core
+    major: scripts/generate-ef-fixtures.sh builds it with -p:EfMajor=8, 9 and 10 and copies each
+    version's migrations into the test fixtures, because the snapshot format changes between them.
+    Versions are pinned here, outside central package management, since each major needs its own.
+  -->
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <ManagePackageVersionsCentrally>false</ManagePackageVersionsCentrally>
+    <IsPackable>false</IsPackable>
+    <EfMajor Condition="'$(EfMajor)' == ''">10</EfMajor>
+    <EfVersion Condition="'$(EfMajor)' == '8'">8.0.34</EfVersion>
+    <EfVersion Condition="'$(EfMajor)' == '9'">9.0.23</EfVersion>
+    <EfVersion Condition="'$(EfMajor)' == '10'">10.0.15</EfVersion>
+    <NpgsqlEfVersion Condition="'$(EfMajor)' == '8'">8.0.11</NpgsqlEfVersion>
+    <NpgsqlEfVersion Condition="'$(EfMajor)' == '9'">9.0.4</NpgsqlEfVersion>
+    <NpgsqlEfVersion Condition="'$(EfMajor)' == '10'">10.0.3</NpgsqlEfVersion>
+    <!-- Migrations are generated code; they are compiled only to keep them honest. -->
+    <NoWarn>$(NoWarn);CS1591</NoWarn>
+    <!-- ShopStage=1 builds the model of the first migration, so the fixtures hold two. -->
+    <DefineConstants Condition="'$(ShopStage)' == '1'">$(DefineConstants);SHOP_STAGE1</DefineConstants>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="$(EfVersion)" PrivateAssets="all" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" Version="$(EfVersion)" />
+    <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="$(NpgsqlEfVersion)" />
+  </ItemGroup>
+
+</Project>

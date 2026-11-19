@@ -102,17 +102,9 @@ public sealed class SqlServerEdgeFixture : IAsyncLifetime, IEdgeFixture
 
     private const string LimitedLogin = "dblens_edge_limited";
 
-    private static string AdminConnectionString =>
-        Environment.GetEnvironmentVariable("DBLENS_TEST_SS_ADMIN_CONNECTION")
-        ?? "Server=localhost,1434;Database=dblens_demo;User Id=sa;Password=DevPassword123!;TrustServerCertificate=true";
+    private static string EdgeConnectionString => SqlServerAdmin.On(Database);
 
-    private static string EdgeConnectionString =>
-        new SqlConnectionStringBuilder(AdminConnectionString) { InitialCatalog = Database, Pooling = false }.ToString();
-
-    private const string DropSql =
-        $"IF DB_ID('{Database}') IS NOT NULL BEGIN " +
-        $"ALTER DATABASE {Database} SET SINGLE_USER WITH ROLLBACK IMMEDIATE; DROP DATABASE {Database}; END; " +
-        $"IF SUSER_ID('{LimitedLogin}') IS NOT NULL DROP LOGIN {LimitedLogin}";
+    private const string DropLoginSql = $"IF SUSER_ID('{LimitedLogin}') IS NOT NULL DROP LOGIN {LimitedLogin}";
 
     public bool IsReachable { get; private set; }
 
@@ -120,22 +112,17 @@ public sealed class SqlServerEdgeFixture : IAsyncLifetime, IEdgeFixture
 
     public IDatabaseInspector? LimitedInspector { get; private set; }
 
+    public Task RunWorkloadAsync() => IndexWorkload.OnSqlServerAsync(EdgeConnectionString, "edge.account");
+
     public async Task InitializeAsync()
     {
-        try
-        {
-            await ExecuteAsync(AdminConnectionString, "SELECT 1");
-        }
-        catch
-        {
-            return;
-        }
+        if (!await SqlServerAdmin.IsReachableAsync()) return;
 
         // From here a failure is a broken fixture, not an unreachable database: it must fail, not skip.
-        await ExecuteAsync(AdminConnectionString, DropSql);
-        await ExecuteAsync(AdminConnectionString, $"CREATE DATABASE {Database} COLLATE Latin1_General_100_CS_AS");
+        await SqlServerAdmin.ExecuteAsync(SqlServerAdmin.ConnectionString, DropLoginSql);
+        await SqlServerAdmin.RecreateAsync(Database, "Latin1_General_100_CS_AS");
         foreach (var statement in SetupSql)
-            await ExecuteAsync(EdgeConnectionString, statement);
+            await SqlServerAdmin.ExecuteAsync(EdgeConnectionString, statement);
 
         Inspector = new SqlServerInspector(EdgeConnectionString, NullLogger<SqlServerInspector>.Instance);
         LimitedInspector = new SqlServerInspector(
@@ -146,18 +133,9 @@ public sealed class SqlServerEdgeFixture : IAsyncLifetime, IEdgeFixture
 
     public async Task DisposeAsync()
     {
-        if (IsReachable)
-            await ExecuteAsync(AdminConnectionString, DropSql);
+        if (!IsReachable) return;
+        await SqlServerAdmin.DropAsync(Database);
+        await SqlServerAdmin.ExecuteAsync(SqlServerAdmin.ConnectionString, DropLoginSql);
     }
 
-    private static async Task ExecuteAsync(string connectionString, string sql)
-    {
-        await using var conn = new SqlConnection(
-            new SqlConnectionStringBuilder(connectionString) { ConnectTimeout = 5 }.ToString());
-        await conn.OpenAsync();
-        await using var cmd = conn.CreateCommand();
-        cmd.CommandText = sql;
-        cmd.CommandTimeout = 60;
-        await cmd.ExecuteNonQueryAsync();
-    }
 }

@@ -27,6 +27,9 @@ and the result states the ones that applied.
 | [`analyze_indexes`](#analyze_indexes) | catalog + scan counters | no | Findings |
 | [`analyze_fragmentation`](#analyze_fragmentation) | physical stats | no | Findings |
 | [`check_cascade_paths`](#check_cascade_paths) | catalog | no | Findings |
+| [`compare_ef_model`](#compare_ef_model) | an EF Core snapshot (as text) + catalog | no | Findings |
+| [`analyze_table_hygiene`](#analyze_table_hygiene) | planner statistics, catalog, update counters (+ an EF snapshot as text) | only with `verifySignals: true`, counts only | Findings + Signals |
+| [`find_hot_queries`](#find_hot_queries) | the engine's query statistics + estimated or stored plans | only with `verifyJoins: true`, counts only | Findings + Signals |
 | [`check_migration_safety`](#check_migration_safety) | catalog (table sizes) | **never** the script | Findings |
 | [`explain_query`](#explain_query) | plan | only with `analyze: true`, pure `SELECT`, rolled back | Findings |
 | [`scan_gdpr`](#scan_gdpr) | column names | no | Signals only |
@@ -114,9 +117,24 @@ nor a prefix of `(a, b)`, while `(a DESC, b DESC)` is the same index read backwa
 Every finding has a `SqlFix` with the `CREATE INDEX` / `DROP INDEX` statement (kind `Ddl`), written
 not to block writes: `CONCURRENTLY` on PostgreSQL, `ONLINE = ON` on SQL Server (Enterprise or Developer
 edition; on Standard drop the option and schedule a window).
-`unused-index` needs at least 7 days of uptime: scan counters reset on restart, so read the `Caveats`
-before dropping anything. A login that cannot read the counters (`VIEW SERVER STATE` on SQL Server)
-gets the other three rules and a caveat.
+`unused-index` needs at least 7 days of scan counts. The counting window starts at the latest of: the
+server start, the database's creation, its last restore, and a statistics reset — so a dump restored
+yesterday on a server up for a month has one day, and the rule is skipped. Each finding carries the
+window in `Metadata` (`stats_window_days`, `stats_since`), and a caveat states it.
+
+| Engine | Creation | Restore | Reset |
+|---|---|---|---|
+| SQL Server | `sys.databases.create_date` | `msdb.dbo.restorehistory`, which also sees `RESTORE … WITH REPLACE` | — |
+| PostgreSQL | the `PG_VERSION` file, read only with `EXECUTE` on `pg_stat_file` | a restore is a new database: its creation | `pg_stat_database.stats_reset` |
+
+Without `pg_stat_file` a PostgreSQL restore made after the server start cannot be seen: the window is
+dated from the start, findings drop to confidence 0.6, and a caveat says so. A `pg_restore --clean`
+into an existing database changes none of these dates; for that, and any restore the dates miss,
+the rule is skipped with a caveat when no index of the database has recorded a single scan — the
+workload has not run there, so every index would look unused. PostgreSQL 15+ keeps
+statistics across a clean restart, so dating from the start only ever shortens the window. A login
+that cannot read the counters (`VIEW SERVER STATE` on SQL Server) gets the other three rules and a
+caveat.
 
 ## `analyze_fragmentation`
 
@@ -183,6 +201,11 @@ every `RESTRICT` key, which is checked at once.
 | `migration-validated-constraint-scan` | High / Low | FK and check constraints validated against every existing row |
 | `migration-destructive` | Critical | `DROP TABLE`, `DROP COLUMN`, `TRUNCATE`, `DROP SCHEMA` / `DROP DATABASE` |
 | `migration-summary` | Info | Always exactly one |
+
+For an EF Core migration, pass the script `dotnet ef migrations script` writes — the command
+`compare_ef_model` gives — without `--idempotent`: the idempotent script wraps every statement in a
+`DO` block (PostgreSQL) or `IF NOT EXISTS` (SQL Server), which this tool does not see into. In the
+plain script, `START TRANSACTION` and the `INSERT` into the history table are listed as `Unknown`.
 
 `ALTER TABLE … VALIDATE CONSTRAINT` (the second half of PostgreSQL's `NOT VALID` pattern) is recognized
 and raises nothing: it scans without blocking reads or writes.
@@ -368,6 +391,182 @@ A cross-check compares the two results as sets of rows, so row order does not ma
 equals `120.5`. Without one, a caveat says the figure is unconfirmed; with a disagreement, the caveat
 says to report both figures rather than pick one. Useful pairs: two join paths to the same total, or
 line items summed against the stored header total.
+
+## `analyze_table_hygiene`
+
+Columns nobody fills and tables whose creation and update dates are missing or not kept up to date,
+in a code-first database: each finding carries the EF Core change in `Metadata["ef"]`.
+
+| Parameter | Default | Meaning |
+|---|---|---|
+| `verifySignals` | `false` | Confirm signals with probes: two counts each, never a value |
+| `modelSnapshotPath` | — | A `*ModelSnapshot.cs`, or a folder with one per DbContext: names the entity and property in each fix, and enables `column-not-in-model`. Unreadable = a caveat, the rest runs |
+
+| Rule | Severity | Evidence | Candidate → fact |
+|---|---|---|---|
+| `column-always-null` | Low | Inferred → Measured | Statistics see only NULLs → no row holds a value |
+| `column-single-value` | Low | Inferred → Measured | Statistics see one distinct value → one value on at least 100 filled rows. The value is never reported |
+| `column-abandoned` | Medium | Measured only | With `verifySignals`, a nullable column of a table with one creation date → no value on at least 1,000 rows of the last 90 days, while an older row holds one |
+| `column-not-in-model` | Medium | Derived | A column of a table the EF model maps, mapped by no property of any context; tables holding a mapping dblens does not compare (JSON, TPT…) are skipped |
+| `column-legacy-name` | Info | Inferred | A last name word such as `old`, `bak`, `tmp`, `vecchio` (`notes_old`), a first one such as `legacy`, `deprecated`, `tmp` (`legacy_code`; not `backup_codes`), or a comment saying deprecated / obsolete; `old_value` and `water_temp` are not |
+| `audit-missing-created` | Low | Inferred | No creation date on a table of 1,000+ rows |
+| `audit-missing-updated` | Medium if updated, else Low | Inferred | No update date; not reported on a table known to be insert-only |
+| `audit-updated-not-maintained` | Medium | Inferred → Measured | Both dates on an updated table → no row's update date differs from its creation date by more than a second (at least 1,000 rows compared) |
+| `audit-update-before-create` | Low | Measured only | With `verifySignals` → any row updated more than a second before it was created |
+| `audit-created-nullable` | Low | Derived | The creation date accepts NULL |
+| `audit-timestamp-without-timezone` | Low | Derived | `timestamp without time zone`; SQL Server `datetime`, `smalldatetime` (`datetime2`, EF Core's mapping of `DateTime`, is not reported) |
+| `hygiene-summary` | Info | Derived | Always one |
+
+Creation and update columns are recognized by name (English and Italian, in
+`Analysis/Hygiene/audit_columns.json`), compared in lower snake case without a `_utc` suffix (`CreatedOnUtc` is `created_on`), and must be dates (SQL Server's
+`timestamp` is `rowversion`, not one). Keys,
+indexed, constrained and referencing columns, generated and identity columns are never candidates;
+audit dates are not checked for a single value.
+
+**Statistics, never values.** On PostgreSQL `pg_stats.null_frac` and `n_distinct`, after `ANALYZE`.
+On SQL Server the histogram of a statistics object led by the column: only the number of its steps
+and whether their keys are NULL are read — a column of NULLs has a histogram of no steps. SQL Server
+keeps statistics only on columns that were indexed or filtered on; a filtered statistic is not read,
+and a column with several is empty or constant only if all of them say so. A caveat counts the
+columns neither engine has statistics for.
+
+**Updates.** `pg_stat_user_tables.n_tup_upd` / `sys.dm_db_index_operational_stats`, read only when the
+counting window of [`unused-index`](#analyze_indexes) covers 7 days and the workload has run: a zero
+otherwise means nothing, so no table is taken as insert-only and a caveat says so; likewise when the
+login cannot read the counters, or they hold nothing for a table. SQL Server's counter restarts when
+a table's metadata leaves the cache, so there a zero is never read as insert-only.
+
+**Measured checks.** Signals are measured before the checks that have none, each smallest table
+first, within the shared [budget](safety.md#signal-verification). A check with too few rows (fewer than 100 filled rows, or
+1,000 recent ones) is not measured, never refuted. `column-abandoned` and `audit-update-before-create`
+have no signal: they appear only when a probe finds the defect.
+
+**EF Core changes** in `Metadata["ef"]`: the entity and property when the snapshot maps the column,
+and a one-line change; the full recipes are one caveat each, once per result: removing a column in two releases (drop the property and the generated `DropColumn` first, drop the
+column once no running version reads it); `IAuditable` with a `SaveChangesInterceptor` and a
+`.SetProperty` in every `ExecuteUpdate`; on a table with rows, a nullable `CreatedAt` — a
+non-nullable `DateTime` or `HasDefaultValueSql("now()")` gives every existing row a false creation date.
+
+## `find_hot_queries`
+
+Finds the queries that weigh most on the database, from the statistics the engine keeps, without
+being given one: then reads their plans and measures the joins that multiply rows.
+
+| Parameter | Default | Meaning |
+|---|---|---|
+| `verifyJoins` | `false` | Measure each join of one parent to two children with an aggregate probe |
+
+| Engine | Source, in order | Read |
+|---|---|---|
+| PostgreSQL | `pg_stat_statements` of the current database, summed per `queryid` over users | calls, total time, rows, pages from cache and from outside it, temp pages |
+| SQL Server | Query Store, then the plan cache (`sys.dm_exec_query_stats`); either summed per `query_hash` | executions, duration, logical and physical reads, rows, tempdb (Query Store only) |
+
+The 20 heaviest by total time are listed: only statements that read or write rows (`SELECT`, `WITH`,
+`INSERT`, `UPDATE`, `DELETE`, `MERGE`) and name at least one user table in a table position (after
+`FROM`, `JOIN`, `UPDATE`, `INTO`, `USING`, `MERGE`, or a comma of a `FROM` list): a column sharing a
+table's name does not count, a bare name in several schemas is the default schema's, and names that
+differ only in case are told apart by it (unquoted, PostgreSQL folds to lower case). DDL, utility statements,
+catalog queries and dblens's own probes are set aside. Each listed query carries its id, its text
+**redacted** — every string and number literal replaced by `?`, every comment removed, at most 2,000
+characters — its calls, total and mean time, rows per call, pages per row, share read outside the
+cache, temp pages, and the tables it names.
+
+| Rule | Severity | Evidence | Detects |
+|---|---|---|---|
+| `hot-query-reads-per-row` | Medium | Measured | More than 100 pages read per row returned, over at least 2 calls |
+| `hot-query-disk-reads` | Low | Measured | 20% or more of 1,000+ pages read outside the database's cache (on PostgreSQL, possibly from the OS cache) |
+| `hot-query-temp-spill` | Medium | Measured | Pages written to temporary files; on SQL Server tempdb space, temp tables included |
+| `plan-*` of [`explain_query`](#explain_query) | as there | Derived | On the plan of the first 10, each with `Metadata["queryId"]` |
+| `join-fanout` | Medium | Inferred → Measured | A parent joined to two 1:N children in one query |
+| `hot-query-summary` | Info | Derived | Always one: source, window covered, plans read |
+
+**Plans, never executions.** On SQL Server the plan is the one Query Store or the plan cache stored
+with the query, read only for the queries whose plan is analyzed. On PostgreSQL `pg_stat_statements` keeps the query normalized (`$1` for each value),
+so the text is `PREPARE`d and explained with `EXPLAIN EXECUTE` under `plan_cache_mode =
+force_generic_plan` — the plan for any value — in a read-only, rolled-back transaction, then
+deallocated (PostgreSQL 12+). A query the planner cannot take (a `$n` of ambiguous type) loses its
+plan, with a caveat. Plan filters are redacted like the text: a stored plan keeps its literals.
+
+**Joins that multiply rows.** A query that joins one parent to two children through their foreign
+keys returns, per parent, the product of its child rows — what EF Core writes for two `Include` on
+collections. Recognized from the text and the keys (a chain `A ← B ← C`, a 1:1 child — a key, a
+unique constraint or EF Core's unique index —, a single
+child, one child joined through two keys, children of two different parent keys, or a join inside
+`EXISTS`, `IN` or another `UNION` branch does not count; a parent paged in a derived table, EF Core's `Take` before `Include`, is not recognized), it is a signal. With `verifyJoins: true` one probe per shape counts, over the
+whole tables, the rows the join returns against the children read separately, within the shared
+[budget](safety.md#signal-verification); when the join returns more the title states both counts. No more is a fact at `Info` about the
+total only: a few parents with many children of both kinds can hide in it.
+The query's own filters are not applied: it is the shape of the data. `Metadata["ef"]` proposes
+`.AsSplitQuery()`, or `UseQuerySplittingBehavior(QuerySplittingBehavior.SplitQuery)` on the context.
+
+**Availability.** The result says which source was read and how many days it covers, and for each
+source that was missing what would enable it: `pg_stat_statements` in `shared_preload_libraries`
+and created in the database (a login outside `pg_read_all_settings` cannot see the first: the view is
+read, and its error is the reason; any view the login is refused is reported the same way), Query Store on, `VIEW SERVER STATE` for the plan cache. With none an
+empty list means nothing was measured. A SQL Server backup carries its Query Store; a PostgreSQL
+dump does not carry `pg_stat_statements`, which is read on the server itself.
+
+## `compare_ef_model`
+
+Compares an EF Core model with the database: what production has that the code does not know, and the
+reverse. The model is read from the migrations snapshot (`*ModelSnapshot.cs`) and the migration ids
+from the `[Migration("…")]` attributes of the `*.Designer.cs` files beside it — **parsed as C#
+text, never compiled**: no project is built and none of the user's code runs.
+
+| Parameter | Default | Meaning |
+|---|---|---|
+| `snapshotPath` | required | Absolute path of the snapshot file, or of the folder holding exactly one |
+| `schema` | — | Compare one schema only. Default: every schema the model maps |
+| `historyTable` | `__EFMigrationsHistory` | The history table, when the DbContext sets `MigrationsHistoryTable` |
+| `historySchema` | — | Its schema. Default: wherever a table of that name is found |
+
+| Rule | Severity | Detects |
+|---|---|---|
+| `ef-migration-unknown` | High | A migration applied in the database that the code lacks: another branch, or a hotfix |
+| `ef-table-missing` | High | A table the model maps that the database lacks |
+| `ef-column-missing` | High | A column the model maps that its table lacks |
+| `ef-index-missing` | High | A `HasIndex` with no index on those columns |
+| `ef-migration-pending` | Medium / High | Migrations in the code not yet applied (one finding listing them); High when one is older than the last applied |
+| `ef-index-unmodeled` | Medium | An index in the database the model does not declare — added by hand |
+| `ef-fk-missing` | Medium | A relationship in the model with no foreign key in the database |
+| `ef-unmapped-table` | Info | A table in a compared schema that no entity maps (the migrations history, temporal history tables and the tables of mappings not compared excluded) |
+| `ef-drift-summary` | Info | Always exactly one |
+
+Every finding is `Derived`. `Metadata["ef"]` names the `entity` and `property` to touch and, where it
+can be written, the `fluent` call: for an unmodeled index
+`b.HasIndex(e => e.CreatedAt).HasDatabaseName("ix_orders_created_manual")`. Declaring such an index
+later makes the next migration contain a `CreateIndex` that fails where the index already exists;
+the finding says to remove that call or make it conditional with `migrationBuilder.Sql`.
+
+`Migrations` in the result gives the history table read, the last migration both sides know, the
+pending ones, the `OutOfOrder` ones among them, the `Unknown` ones, the `OtherContexts` ones set
+aside, and `ScriptCommands`: one `dotnet ef migrations script <from> <to> --context <Context>` per
+run of consecutive pending migrations, whose output `check_migration_safety` reads. A pending
+migration older than the last applied one — usually from a merge — is one `database update` applies
+and a script from the last applied one leaves out, so it is flagged (High) and scripted on its own.
+
+Every DbContext writes to the same history table by default. The migration ids of the other
+contexts, read from the `*.Designer.cs` files under the folder above the snapshot's, are set aside
+with a caveat rather than reported as unknown; a context whose migrations live elsewhere still shows
+up as unknown, and the finding says so.
+
+The history table is found by name in any schema (EF writes it unqualified, so it lands in the
+login's default schema, not the model's; with one in each, the login's is read); `historyTable` and `historySchema` name another. None
+found is a caveat, and the schema comparison still runs. Its rows' `MigrationId` is the one value
+from a table the tool reads ([safety](safety.md#ef-cores-history-table)).
+
+Indexes and foreign keys are matched by their columns, since a snapshot names them only when
+`HasDatabaseName` does. Names are matched exactly first, then ignoring case; a name that matches
+several objects by case alone is a caveat, never a guess, and nothing is reported missing or
+unmapped for it.
+
+**Compared:** plain entities, table-per-hierarchy subtypes (their columns nullable), owned types in
+their owner's table, complex properties, alternate keys. **Not compared**, each named in a caveat:
+table-per-type and table-per-concrete-type mappings, JSON columns (`ToJson`), table splitting, entity
+splitting (`SplitToTable`; an owned type split leaves its owner's table uncompared too), views
+(`ToView`) and keyless entities. Temporal tables are compared, their history table set aside. The same
+type owned through two navigations is two entities. **Not considered here:** column types, lengths and
+nullability. A project without migrations has no snapshot to read.
 
 ## `certify_query`
 

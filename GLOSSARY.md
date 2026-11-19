@@ -165,6 +165,41 @@ The words dblens uses in its results and its code, and what each one commits to.
 : Personal data; GDPR Article 9 categories (health, biometrics, religion, politics, ethnicity,
   orientation) get the highest severity.
 
+**Audit dates**
+: The columns recording when a row was created and last updated (`created_at`, `updated_at`,
+  `data_creazione`…). `analyze_table_hygiene` checks they exist, are dates with a time zone, and are kept.
+
+**Abandoned column**
+: A column older rows hold and recent rows do not: the code that writes the table stopped filling it.
+
+**Planner statistics**
+: What the engine keeps about a column's distribution to plan queries (`pg_stats`, a SQL Server
+  histogram): read for signals, never for its values.
+
+**Hot query**
+: One of the queries that weigh most on the database by total time, as the engine's own statistics
+  count them (pg_stat_statements, Query Store, the plan cache). Returned only redacted.
+
+**Redacted text**
+: SQL with every literal replaced by `?` and every comment removed (`SqlText.Redact`): what a query
+  does, not what it was called with.
+
+**Join fan-out**
+: A parent joined to two 1:N children in one query: each parent row comes back once per pair of
+  child rows. EF Core's split query avoids it.
+
+**EF snapshot**
+: The `*ModelSnapshot.cs` file EF Core keeps beside its migrations: the model as the last migration
+  left it. `compare_ef_model` reads it as text, never compiling it.
+
+**Drift**
+: A difference between the EF model and the database: a table, column, index or foreign key one side
+  has and the other lacks, or a migration applied on one side only.
+
+**Counting window**
+: How long an index's scan counters have been counting: since the latest of the server start, the
+  database's creation or restore, and a statistics reset. `unused-index` needs 7 days of it.
+
 **Fragmentation / page density**
 : How out of order an index's pages are / how full they are. Only measured, never inferred.
 

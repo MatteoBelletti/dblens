@@ -89,3 +89,56 @@ public static class RelationshipRuleIds
 
     public static readonly string[] All = [UndeclaredForeignKey];
 }
+
+public static class EfRuleIds
+{
+    public const string MigrationUnknown = "ef-migration-unknown";
+    public const string TableMissing     = "ef-table-missing";
+    public const string ColumnMissing    = "ef-column-missing";
+    public const string IndexMissing     = "ef-index-missing";
+    public const string MigrationPending = "ef-migration-pending";
+    public const string IndexUnmodeled   = "ef-index-unmodeled";
+    public const string ForeignKeyMissing = "ef-fk-missing";
+    public const string UnmappedTable    = "ef-unmapped-table";
+    public const string DriftSummary     = "ef-drift-summary";
+
+    public static readonly string[] All =
+    [
+        MigrationUnknown, TableMissing, ColumnMissing, IndexMissing, MigrationPending,
+        IndexUnmodeled, ForeignKeyMissing, UnmappedTable, DriftSummary,
+    ];
+}
+
+public static class HotQueryRuleIds
+{
+    public const string ReadsPerRow = "hot-query-reads-per-row";
+    public const string DiskReads   = "hot-query-disk-reads";
+    public const string TempSpill   = "hot-query-temp-spill";
+    public const string JoinFanOut  = "join-fanout";
+    public const string Summary     = "hot-query-summary";
+
+    public static readonly string[] All = [ReadsPerRow, DiskReads, TempSpill, JoinFanOut, Summary];
+}
+
+public static class HygieneRuleIds
+{
+    public const string ColumnAlwaysNull   = "column-always-null";
+    public const string ColumnSingleValue  = "column-single-value";
+    public const string ColumnAbandoned    = "column-abandoned";
+    public const string ColumnNotInModel   = "column-not-in-model";
+    public const string ColumnLegacyName   = "column-legacy-name";
+    public const string MissingCreated     = "audit-missing-created";
+    public const string MissingUpdated     = "audit-missing-updated";
+    public const string UpdatedNotMaintained = "audit-updated-not-maintained";
+    public const string UpdateBeforeCreate = "audit-update-before-create";
+    public const string CreatedNullable    = "audit-created-nullable";
+    public const string WithoutTimeZone    = "audit-timestamp-without-timezone";
+    public const string Summary            = "hygiene-summary";
+
+    public static readonly string[] All =
+    [
+        ColumnAlwaysNull, ColumnSingleValue, ColumnAbandoned, ColumnNotInModel, ColumnLegacyName,
+        MissingCreated, MissingUpdated, UpdatedNotMaintained, UpdateBeforeCreate, CreatedNullable,
+        WithoutTimeZone, Summary,
+    ];
+}

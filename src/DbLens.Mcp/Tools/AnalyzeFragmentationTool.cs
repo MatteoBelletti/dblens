@@ -11,14 +11,11 @@ public sealed class AnalyzeFragmentationTool(IServiceProvider services, IDatabas
     : InspectorTool(services, factory)
 {
     [McpServerTool, Description(
-        "Reports index fragmentation (rebuild at 30%, reorganize at 10%) and, optionally, low page density, " +
-        "with the REINDEX / ALTER INDEX statement for each. " +
-        "IMPORTANT: PostgreSQL needs the pgstattuple extension and covers btree indexes only; SQL Server needs " +
-        "VIEW DATABASE STATE. When StatsAvailable is false, say fragmentation could not be measured — NOT that " +
-        "the indexes are healthy. Indexes under 1000 pages are skipped. " +
-        "This is one input to a maintenance decision, not a plan: fill factor, split history and access " +
-        "patterns are not considered. " +
-        "Do NOT infer figures for indexes not in the response.")]
+        "Reports index fragmentation (rebuild from 30%, reorganize from 10%) and optionally page density, with the " +
+        "REINDEX / ALTER INDEX statement for each. IMPORTANT: PostgreSQL needs pgstattuple and covers btree only; SQL " +
+        "Server needs VIEW DATABASE STATE. StatsAvailable false means not measured, NOT healthy. Indexes under 1,000 " +
+        "pages are skipped. One input to a maintenance decision, not a plan: fill factor, split history and access " +
+        "patterns are not considered. Do NOT infer beyond the response.")]
     public Task<AnalyzeFragmentationResult> AnalyzeFragmentation(
         [Description(DialectHelp)]
         DatabaseDialect dialect = DatabaseDialect.PostgreSql,
@@ -27,7 +24,7 @@ public sealed class AnalyzeFragmentationTool(IServiceProvider services, IDatabas
         [Description(TablesHelp)]
         string[]? tables = null,
         [Description(
-            "Also collect page density. On SQL Server this reads leaf pages (SAMPLED) and costs more. Default false.")]
+            "Also collect page density; on SQL Server it reads leaf pages (SAMPLED) and costs more.")]
         bool includePageDensity = false,
         [Description(ConnectionStringHelp)]
         string? connectionString = null,

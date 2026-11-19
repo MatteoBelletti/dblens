@@ -3,7 +3,7 @@
   <PropertyGroup>
     <OutputType>Exe</OutputType>
     <AssemblyName>DbLens.Mcp</AssemblyName>
-    <Version>0.1.4</Version>
+    <Version>0.4.0</Version>
 
     <!-- dotnet tool install -g DbLens.Mcp, then run as `dblens`; also listed as an MCP server package. -->
     <IsPackable>true</IsPackable>
@@ -12,7 +12,7 @@
     <PackageType>McpServer</PackageType>
     <PackageId>DbLens.Mcp</PackageId>
     <Authors>Matteo Belletti</Authors>
-    <Description>Local MCP server that lets Claude inspect and diagnose PostgreSQL and SQL Server databases: schema, undeclared foreign keys, indexes, GDPR exposure, cascades, migration safety and query plans. Read-only; returns no row data by default.</Description>
+    <Description>Checks EF Core migrations against a copy of your database before they reach production: what they lock or rewrite at real table sizes, what they destroy, and what production holds that your model does not know. An MCP server for PostgreSQL and SQL Server that also diagnoses indexes, foreign keys, GDPR exposure, cascades and query plans. Read-only; returns no row data by default.</Description>
     <PackageTags>mcp;mcp-server;model-context-protocol;postgresql;postgres;sqlserver;mssql;database;schema;gdpr;migrations;claude</PackageTags>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <PackageReadmeFile>README.md</PackageReadmeFile>
@@ -31,6 +31,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\DbLens.Core\DbLens.Core.csproj" />
+    <ProjectReference Include="..\DbLens.EfCore\DbLens.EfCore.csproj" />
     <ProjectReference Include="..\DbLens.Postgres\DbLens.Postgres.csproj" />
     <ProjectReference Include="..\DbLens.SqlServer\DbLens.SqlServer.csproj" />
     <PackageReference Include="ModelContextProtocol" />

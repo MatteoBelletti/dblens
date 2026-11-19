@@ -1,0 +1,63 @@
+{
+  "comment": "Names of creation and update timestamp columns, compared with the column name in lower snake case, and the first or last words that mark a column as left behind (old_value, temp_celsius are not). English and Italian; extend here, not in code.",
+  "created": [
+    "created_at",
+    "created_on",
+    "created_date",
+    "created",
+    "creation_date",
+    "creation_time",
+    "date_created",
+    "inserted_at",
+    "inserted_on",
+    "insert_date",
+    "insert_time",
+    "data_creazione",
+    "data_inserimento",
+    "creato_il",
+    "dt_ins",
+    "dt_creazione"
+  ],
+  "updated": [
+    "updated_at",
+    "updated_on",
+    "updated_date",
+    "modified_at",
+    "modified_on",
+    "modified_date",
+    "date_modified",
+    "last_modified",
+    "last_modified_at",
+    "last_updated",
+    "last_update",
+    "update_date",
+    "update_time",
+    "data_modifica",
+    "data_aggiornamento",
+    "modificato_il",
+    "aggiornato_il",
+    "dt_mod",
+    "dt_agg",
+    "last_modification_time"
+  ],
+  "legacyLast": [
+    "old",
+    "bak",
+    "backup",
+    "tmp",
+    "legacy",
+    "deprecated",
+    "unused",
+    "obsolete",
+    "v1",
+    "vecchio",
+    "obsoleto"
+  ],
+  "legacyFirst": [
+    "legacy",
+    "deprecated",
+    "unused",
+    "obsolete",
+    "tmp"
+  ]
+}

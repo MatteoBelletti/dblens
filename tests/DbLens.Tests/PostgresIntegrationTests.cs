@@ -216,15 +216,13 @@ public sealed class PostgresFixture : IAsyncLifetime, IDatabaseFixture
     private const string DefaultConnectionString =
         "Host=localhost;Port=5433;Database=dblens_demo;Username=dblens_reader;Password=readerpassword";
 
-    // The superuser, for setup and for asserting that a write-capable login is refused.
-    private const string DefaultAdminConnectionString =
-        "Host=localhost;Port=5433;Database=dblens_demo;Username=postgres;Password=devpassword";
-
     private static string ConnectionString =>
         Environment.GetEnvironmentVariable("DBLENS_TEST_PG_CONNECTION") ?? DefaultConnectionString;
 
-    private static string AdminConnectionString =>
-        Environment.GetEnvironmentVariable("DBLENS_TEST_PG_ADMIN_CONNECTION") ?? DefaultAdminConnectionString;
+    // The superuser, for setup and for asserting that a write-capable login is refused.
+    private static string AdminConnectionString => PostgresAdmin.ConnectionString;
+
+    public Task RunWorkloadAsync() => IndexWorkload.OnPostgresAsync(ConnectionString, "users");
 
     public DbLens.Core.Abstractions.IDatabaseInspector CreateAdminInspector(bool readOnlyLoginOnLocalhost = false) =>
         new PostgresInspector(AdminConnectionString, NullLogger<PostgresInspector>.Instance)

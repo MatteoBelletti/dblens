@@ -1,8 +1,8 @@
 {
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-10-17/server.schema.json",
   "name": "io.github.MatteoBelletti/dblens",
-  "description": "Inspect and diagnose PostgreSQL and SQL Server databases. Read-only; no row data by default.",
-  "version": "0.1.4",
+  "description": "Checks EF Core migrations against a copy of your database before they reach production.",
+  "version": "0.4.0",
   "repository": {
     "url": "https://github.com/MatteoBelletti/dblens",
     "source": "github"
@@ -11,7 +11,7 @@
     {
       "registryType": "nuget",
       "identifier": "DbLens.Mcp",
-      "version": "0.1.4",
+      "version": "0.4.0",
       "transport": { "type": "stdio" },
       "environmentVariables": [
         {

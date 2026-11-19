@@ -1,5 +1,6 @@
 using System.Text.RegularExpressions;
 using DbLens.Core.Models;
+using static DbLens.Core.Analysis.Names;
 
 namespace DbLens.Core.Analysis.Relationships;
 
@@ -117,6 +118,6 @@ public static class JoinPredicateExtractor
         table.Columns.FirstOrDefault(c => string.Equals(c.Name, name, StringComparison.OrdinalIgnoreCase))?.Name;
 
     private static bool IsSingleKey(TableDetail table, string column) =>
-        (table.PrimaryKey is { Columns.Count: 1 } pk && string.Equals(pk.Columns[0], column, StringComparison.OrdinalIgnoreCase))
-        || table.UniqueConstraints.Any(u => u.Columns.Count == 1 && string.Equals(u.Columns[0], column, StringComparison.OrdinalIgnoreCase));
+        (table.PrimaryKey is { Columns.Count: 1 } pk && Same(pk.Columns[0], column))
+        || table.UniqueConstraints.Any(u => u.Columns.Count == 1 && Same(u.Columns[0], column));
 }

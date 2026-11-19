@@ -25,24 +25,28 @@ public static class UnusedIndexRule
 
                 var sqlFix = IndexSql.DropIndex(table.Schema, table.Name, idx.Name, dialect);
 
+                var days = Num.F0(stats.Window.Days);
+
                 yield return new Finding(
                     RuleId:      IndexRuleIds.UnusedIndex,
                     Severity:    Severity.Low,
                     Category:    FindingCategory.Performance,
-                    Confidence:  0.9,
+                    // A restore the engine could not report may have emptied the counters later.
+                    Confidence:  stats.Window.RestoreVisible ? 0.9 : 0.6,
                     Evidence:  Evidence.Measured,
                     Table:       tableQualified,
                     Columns:     idx.Columns,
-                    Title:       $"Index '{idx.Name}' has not been used since the last DB restart",
+                    Title:       $"Index '{idx.Name}' has not been used in {days} day(s) of statistics",
                     Description: $"Index '{idx.Name}' on {tableQualified} " +
                                  $"({string.Join(", ", idx.Columns)}) recorded 0 scans " +
-                                 $"since the last DB restart (uptime: {Num.F0(stats.UptimeDays)} day(s)). " +
-                                 "Verify manually before dropping — stats reset on every restart.",
+                                 $"{stats.Window.SinceText}, {days} day(s) ago. " +
+                                 "Verify manually before dropping — a workload that runs monthly or yearly may not have run yet.",
                     SqlFix:      SqlProposal.Ddl(sqlFix, "Drops the unused index."),
                     Metadata:    new Dictionary<string, object>
                     {
-                        ["idx_scan"]     = 0L,
-                        ["uptime_days"]  = stats.UptimeDays
+                        ["idx_scan"]          = 0L,
+                        ["stats_window_days"] = Math.Round(stats.Window.Days, 2),
+                        ["stats_since"]       = stats.Window.Since.ToString(),
                     });
             }
         }

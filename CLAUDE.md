@@ -2,8 +2,9 @@
 
 dblens is a local MCP server in .NET 10 that inspects and diagnoses PostgreSQL and SQL Server
 databases. It never writes to a database and returns no row data — except `query_with_receipt`, which
-is disabled unless the operator sets `DbLens:AllowQueryResults`. Do not add another path that returns
-values from the data.
+is disabled unless the operator sets `DbLens:AllowQueryResults`, and the migration ids
+`compare_ef_model` reads from EF Core's history table (docs/safety.md). Do not add another path that
+returns values from the data. Workload SQL leaves only through `SqlText.Redact` (`find_hot_queries`).
 
 Read first: [docs/architecture.md](docs/architecture.md) (layout, data flow, verification pipeline),
 [docs/safety.md](docs/safety.md) (what may execute), [docs/tools.md](docs/tools.md) (every tool and
@@ -31,6 +32,7 @@ Demo volumes hold demo data only; after editing `db/*/0*.sql` recreate them with
 | `DbLens.Core/Analysis/<Feature>/` | request/result records and a **pure static engine** — no DB access |
 | `DbLens.Core/Inspection/DatabaseInspectorBase*.cs` | orchestration, anything writable without dialect SQL |
 | `DbLens.Postgres` / `DbLens.SqlServer` (partial classes) | catalog SQL and dialect hooks only |
+| `DbLens.EfCore` | reading EF Core snapshots as text (Roslyn); referenced by `DbLens.Mcp` only |
 | `DbLens.Mcp/Tools/` | thin tools deriving from `InspectorTool` |
 
 Logic goes in the base whenever it can be written without dialect SQL: a rule enforced there cannot
@@ -45,8 +47,8 @@ be forgotten by one dialect, and the dialects cannot drift apart.
    command or rows, with the same column aliases on both, so the reading stays in the base.
 4. Tests: engine tests with `TestSchema`; integration tests once in an abstract
    `<Feature>TestsBase(IDatabaseFixture)` derived per dialect; a `<Feature>ParityTests.cs`.
-5. Add `throw new NotSupportedException()` to the stub inspectors in `GetSchemaToolTests` and
-   `GetTableDetailsToolTests`.
+5. Add its `throw new NotSupportedException()` default to `StubInspector` (tests), the one stub
+   the tool tests share.
 6. Document it in `docs/tools.md`.
 
 ### Adding a tool
@@ -181,6 +183,9 @@ Probes are dblens's own SQL and skip layer 3, never layers 1 and 2.
 - A catalog shape the demo schema lacks (partitions, odd names, index kinds) gets a table in the
   `dblens_edge` fixtures and a test in `EdgeCatalogTestsBase`, not a new demo table.
 - Summary findings (`*-summary`) are exactly one, `Info`, never deduplicated.
+- EF Core snapshots are never compiled or loaded: `SnapshotReader` reads syntax only. Test snapshots
+  come from the real `dotnet ef` of each major (`scripts/generate-ef-fixtures.sh`); after changing
+  `samples/DemoShop.EfCore`, regenerate them rather than editing them by hand.
 
 ## Defaults
 
@@ -196,6 +201,7 @@ Non-standard ports avoid clashing with local installs.
 ## Releasing
 
 Bump `<Version>` in `src/DbLens.Mcp/DbLens.Mcp.csproj` and both versions in
-`src/DbLens.Mcp/.mcp/server.json`, then push a `v<version>` tag; the release workflow builds binaries,
+`src/DbLens.Mcp/.mcp/server.json`, then push a `v<version>` tag (or run the Release workflow by hand
+with the version, which creates the tag); the release workflow builds binaries,
 `.mcpb` extensions and the NuGet package, and publishes it via Trusted Publishing (OIDC, no stored
 key). Never add a long-lived NuGet API key. See docs/architecture.md#releases.

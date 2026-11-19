@@ -11,14 +11,13 @@ public sealed class CheckMigrationSafetyTool(IServiceProvider services, IDatabas
     : InspectorTool(services, factory)
 {
     [McpServerTool, Description(
-        "Checks a migration script BEFORE it runs for table rewrites, blocking locks, non-concurrent index " +
-        "builds, constraint validation scans and destructive drops, weighted by the real size of each table. " +
-        "IMPORTANT: the script is NEVER executed. Statements are matched by shape, not parsed: kind 'Unknown' " +
-        "means NOT recognized, not safe — report it as needing manual review, and never call a migration safe " +
-        "from an empty findings list alone. Lock behaviour varies by engine version; read the Caveats. " +
-        "Do NOT infer statements, sizes or findings beyond the response.")]
+        "Checks a migration script BEFORE it runs for table rewrites, blocking locks, non-concurrent index builds, " +
+        "validation scans and destructive drops, weighted by each table's real size. IMPORTANT: the script is NEVER " +
+        "executed. Statements are matched by shape: kind 'Unknown' means NOT recognized, not safe; report it for manual " +
+        "review, and never call a migration safe from an empty list alone. Lock behaviour varies by engine version: " +
+        "read the Caveats. Do NOT infer beyond the response.")]
     public Task<CheckMigrationSafetyResult> CheckMigrationSafety(
-        [Description("The migration script; several statements allowed. Never executed.")]
+        [Description("The migration script; several statements allowed.")]
         string ddl,
         [Description(DialectHelp)]
         DatabaseDialect dialect = DatabaseDialect.PostgreSql,

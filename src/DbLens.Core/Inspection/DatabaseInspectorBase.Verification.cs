@@ -50,6 +50,30 @@ public abstract partial class DatabaseInspectorBase
     }
 
     /// <summary>
+    /// Measures one probe per item, in <paramref name="priority"/> order then smaller tables first so
+    /// the budget covers as many as it can, and applies each measurement to its item. Skipped and
+    /// failed probes are measured too, as such.
+    /// </summary>
+    protected async Task<(IReadOnlyList<TResult> Results, VerificationSummary Summary)> VerifyEachAsync<T, TResult>(
+        IReadOnlyList<T> items, Func<T, VerificationProbe> probeOf, Func<T, VerificationMeasurement, TResult> apply,
+        VerificationBudget budget, string inconclusiveCaveat, List<string> caveats, CancellationToken ct,
+        Func<T, int>? priority = null)
+    {
+        if (items.Count == 0) return ([], VerificationSummary.From([], attempted: true));
+
+        var ordered = items.Select(i => (Item: i, Probe: probeOf(i)))
+            .OrderBy(p => priority?.Invoke(p.Item) ?? 0)
+            .ThenBy(p => p.Probe.ApproximateRowCount ?? long.MaxValue)
+            .ToList();
+        var measurements = await RunVerificationProbesAsync([.. ordered.Select(p => p.Probe)], budget, ct);
+
+        caveats.AddRange(budget.NotRunCaveats(measurements));
+        if (measurements.Any(m => m.Status == VerificationStatus.Inconclusive)) caveats.Add(inconclusiveCaveat);
+
+        return ([.. ordered.Select((p, i) => apply(p.Item, measurements[i]))], VerificationSummary.From(measurements, attempted: true));
+    }
+
+    /// <summary>
     /// Runs each probe in its own transaction. Never throws for a probe failure: an analysis that
     /// could not verify itself is still a valid analysis, and losing it because one table was
     /// unreadable would be a poor trade.

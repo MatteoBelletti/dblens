@@ -75,6 +75,20 @@ public abstract partial class DatabaseInspectorBase(ILogger logger) : IDatabaseI
         return cmd;
     }
 
+    protected static string NoTablesCaveat(string where) =>
+        $"No tables were found{where}: nothing was analyzed, which is not the same as nothing to report.";
+
+    /// <summary>A driver's error on one line, as a caveat quotes it.</summary>
+    protected static string Brief(DbException ex) => ex.Message.ReplaceLineEndings(" ").Trim();
+
+    protected static void AddParameter(DbCommand command, string name, object value)
+    {
+        var parameter = command.CreateParameter();
+        parameter.ParameterName = name;
+        parameter.Value = value;
+        command.Parameters.Add(parameter);
+    }
+
     /// <summary>Maps every row of the command's result, then disposes the command.</summary>
     protected static async Task<List<T>> ReadAllAsync<T>(DbCommand cmd, Func<DbDataReader, T> map, CancellationToken ct)
     {
@@ -440,7 +454,7 @@ public abstract partial class DatabaseInspectorBase(ILogger logger) : IDatabaseI
             if (!includePartitions) scope = [.. scope.Where(t => !t.IsPartition)];
 
             if (scope.Count == 0)
-                caveat = $"No tables were found{where}: nothing was analyzed, which is not the same as nothing to report.";
+                caveat = NoTablesCaveat(where);
         }
 
         if (excludeTables is { Length: > 0 })
