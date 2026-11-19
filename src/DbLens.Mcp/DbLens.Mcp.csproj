@@ -3,7 +3,7 @@
   <PropertyGroup>
     <OutputType>Exe</OutputType>
     <AssemblyName>DbLens.Mcp</AssemblyName>
-    <Version>0.3.0</Version>
+    <Version>0.4.0</Version>
 
     <!-- dotnet tool install -g DbLens.Mcp, then run as `dblens`; also listed as an MCP server package. -->
     <IsPackable>true</IsPackable>
