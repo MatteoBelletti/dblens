@@ -1,0 +1,38 @@
+{
+  "name": "dblens",
+  "displayName": "dblens",
+  "version": "0.4.0",
+  "description": "Multi-agent audit of a PostgreSQL or SQL Server database: specialised agents run the dblens tools, a verifier re-runs every finding, and a report keeps the evidence. Read-only; no row data.",
+  "author": {
+    "name": "Matteo Belletti"
+  },
+  "repository": "https://github.com/MatteoBelletti/dblens",
+  "license": "MIT",
+  "keywords": [
+    "postgresql",
+    "sqlserver",
+    "ef-core",
+    "dotnet",
+    "database",
+    "audit"
+  ],
+  "network": {
+    "hosts": [
+      "api.nuget.org"
+    ]
+  },
+  "userConfig": {
+    "pg_connection": {
+      "type": "string",
+      "title": "PostgreSQL connection string",
+      "description": "A read-only login is recommended. Leave empty to use dblens's default (the local demo).",
+      "sensitive": true
+    },
+    "ss_connection": {
+      "type": "string",
+      "title": "SQL Server connection string",
+      "description": "A read-only login is recommended. Leave empty to use dblens's default (the local demo).",
+      "sensitive": true
+    }
+  }
+}
