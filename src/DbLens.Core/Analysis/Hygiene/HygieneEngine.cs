@@ -97,7 +97,7 @@ public static class HygieneEngine
             $"The planner's statistics sample no value in {c.Name}. A column nothing writes is dead weight, or a " +
             "feature that was never finished. Statistics are a sample: verifySignals counts the rows.",
             ef, DropColumnFix(ef, c)),
-        Probe(HygieneRuleIds.ColumnAlwaysNull, VerificationProbeKind.NoValue, t, [c.Name], rows, dialect,
+        Probe(HygieneRuleIds.ColumnAlwaysNull, VerificationProbeKind.NoValue, t, [c.Name], rows,
             $"SELECT {SqlCount.Of(dialect)} AS compared_rows, {SqlCount.Of(dialect, Q(c.Name, dialect))} AS divergent_rows FROM {Table(t, dialect)}",
             "rows that hold a value"),
         IsSignal: true);
@@ -108,7 +108,7 @@ public static class HygieneEngine
             $"The planner's statistics see a single distinct value in {c.Name}. A constant is not information: it belongs " +
             "in code or configuration, or the column is no longer written. The value itself is not reported.",
             ef, DropColumnFix(ef, c)),
-        Probe(HygieneRuleIds.ColumnSingleValue, VerificationProbeKind.SingleValue, t, [c.Name], rows, dialect,
+        Probe(HygieneRuleIds.ColumnSingleValue, VerificationProbeKind.SingleValue, t, [c.Name], rows,
             $"SELECT {SqlCount.Of(dialect, Q(c.Name, dialect))} AS compared_rows, {SqlCount.Of(dialect, "DISTINCT " + Q(c.Name, dialect))} AS divergent_rows FROM {Table(t, dialect)}",
             "distinct values among the filled rows", request.MinSingleValueRows),
         IsSignal: true);
@@ -127,7 +127,7 @@ public static class HygieneEngine
                 "hold and new rows do not was abandoned by the code that writes the table.",
                 ef, DropColumnFix(ef, c)),
             // Compared only when an older row holds a value: a column never filled is not abandoned.
-            Probe(HygieneRuleIds.ColumnAbandoned, VerificationProbeKind.NoValue, t, [c.Name], rows, dialect,
+            Probe(HygieneRuleIds.ColumnAbandoned, VerificationProbeKind.NoValue, t, [c.Name], rows,
                 $"SELECT CASE WHEN EXISTS (SELECT 1 FROM {Table(t, dialect)} WHERE {Q(created.Name, dialect)} < {since} " +
                 $"AND {Q(c.Name, dialect)} IS NOT NULL) THEN {SqlCount.Of(dialect)} ELSE 0 END AS compared_rows, " +
                 $"{SqlCount.Of(dialect, Q(c.Name, dialect))} AS divergent_rows " +
@@ -228,7 +228,7 @@ public static class HygieneEngine
                     "interceptor sets it, or the updates go through ExecuteUpdate, ExecuteDelete or plain SQL, which skip the " +
                     "SaveChanges interceptors.",
                     owner, AuditFix, [last.Name]),
-                Probe(HygieneRuleIds.UpdatedNotMaintained, VerificationProbeKind.NoValue, t, [last.Name], rows, input.Dialect,
+                Probe(HygieneRuleIds.UpdatedNotMaintained, VerificationProbeKind.NoValue, t, [last.Name], rows,
                     TimestampPairSql(t, first, last, "<>", input.Dialect), $"rows where {last.Name} differs from {first.Name}",
                     request.MinTableRows),
                 IsSignal: true));
@@ -239,7 +239,7 @@ public static class HygieneEngine
                     $"{t.Qualified()}.{last.Name} may precede {first.Name}",
                     "A row changed before it was created means one of the two dates is written from another clock or time zone.",
                     owner, AuditFix, [last.Name]),
-                Probe(HygieneRuleIds.UpdateBeforeCreate, VerificationProbeKind.RowsMatching, t, [last.Name], rows, input.Dialect,
+                Probe(HygieneRuleIds.UpdateBeforeCreate, VerificationProbeKind.RowsMatching, t, [last.Name], rows,
                     TimestampPairSql(t, first, last, "<", input.Dialect), $"rows where {last.Name} is earlier than {first.Name}"),
                 IsSignal: false));
     }
@@ -369,7 +369,7 @@ public static class HygieneEngine
             Ef(owner, fix));
 
     private static VerificationProbe Probe(
-        string ruleId, VerificationProbeKind kind, TableDetail t, IReadOnlyList<string> columns, long? rows, DatabaseDialect dialect,
+        string ruleId, VerificationProbeKind kind, TableDetail t, IReadOnlyList<string> columns, long? rows,
         string sql, string measures, long minimumCompared = 1) =>
         new(new VerificationTarget(ruleId, t.Qualified(), columns), kind, sql, measures, rows, minimumCompared);
 

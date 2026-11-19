@@ -99,22 +99,10 @@ public sealed partial class PostgresInspector
     }
 
     /// <summary>The highest $n in the code, so literals and names that hold "$1" are not counted.</summary>
-    private static int PlaceholderCount(string sql)
-    {
-        var highest = 0;
-        foreach (var segment in SqlText.Segments(sql, DbLens.Core.Models.DatabaseDialect.PostgreSql))
-        {
-            if (segment.Kind != SqlSegmentKind.Code) continue;
-            var text = segment.Text;
-            for (var i = 0; i < text.Length - 1; i++)
-            {
-                if (text[i] != '$' || !char.IsAsciiDigit(text[i + 1]) || (i > 0 && (char.IsLetterOrDigit(text[i - 1]) || text[i - 1] == '_'))) continue;
-                var end = i + 1;
-                while (end < text.Length && char.IsAsciiDigit(text[end])) end++;
-                highest = Math.Max(highest, int.Parse(text[(i + 1)..end], System.Globalization.CultureInfo.InvariantCulture));
-            }
-        }
-
-        return highest;
-    }
+    private static int PlaceholderCount(string sql) =>
+        SqlText.Tokens(sql, DbLens.Core.Models.DatabaseDialect.PostgreSql)
+            .Where(t => t.Kind == SqlTokenKind.Parameter)
+            .Select(t => int.Parse(t.Text[1..], System.Globalization.CultureInfo.InvariantCulture))
+            .DefaultIfEmpty(0)
+            .Max();
 }

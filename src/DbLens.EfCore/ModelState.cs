@@ -28,6 +28,21 @@ internal sealed class ModelState
         return entity;
     }
 
+    /// <summary>
+    /// The type <paramref name="owner"/> owns through <paramref name="navigation"/>. The same CLR type
+    /// owned twice (BillingAddress and ShippingAddress) is two entity types: the second takes EF's
+    /// shared-type name, Owner.Navigation#Type, so neither overwrites the other's columns.
+    /// </summary>
+    public EntityState Owned(string type, string owner, string? navigation)
+    {
+        if (!_entities.TryGetValue(type, out var existing)
+            || existing.Owner is null
+            || (existing.Owner == owner && existing.OwnedNavigation == navigation))
+            return Entity(type);
+
+        return Entity($"{owner}.{navigation}#{Names.Short(type)}");
+    }
+
     public EfModel Resolve(string context, IReadOnlyList<string> migrations)
     {
         List<EfUnsupported> unsupported = [];

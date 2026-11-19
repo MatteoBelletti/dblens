@@ -29,7 +29,8 @@ public abstract partial class DatabaseInspectorBase
         {
             var scope = await ResolveTableScopeAsync(request.Schema, request.Tables, ct);
             if (scope.Tables.Count == 0)
-                return HygieneEngine.Build(0, [], WithCaveats([], scope.Caveat, request.ModelCaveat), null);
+                return HygieneEngine.Build(0, [], WithCaveats([], scope.Caveat, request.ModelCaveat),
+                    request.VerifySignals ? VerificationSummary.From([], attempted: true) : null);
 
             var details = await GetTableDetailsAsync(scope.Tables, ct);
             List<string> caveats = [];

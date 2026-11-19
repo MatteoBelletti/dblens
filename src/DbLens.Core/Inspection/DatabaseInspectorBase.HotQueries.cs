@@ -36,7 +36,8 @@ public abstract partial class DatabaseInspectorBase
         {
             var (name, days, statistics, notes) = await ReadHotQueriesAsync(request.Fetch, ct);
             var availability = new HotQuerySourceInfo(name, days, notes);
-            if (name is null) return HotQueryEngine.Build([], [], availability, 0, []);
+            if (name is null)
+                return HotQueryEngine.Build([], [], availability, 0, [], request.VerifyJoins ? VerificationSummary.From([], attempted: true) : null);
 
             var (tables, scopeCaveat) = await ResolveTableScopeAsync(null, null, ct, includePartitions: true);
             var ranked = HotQueryEngine.Rank(statistics, [.. tables.Select(t => (t.Schema, t.Name))], Dialect, DefaultSchema, request);

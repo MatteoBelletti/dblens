@@ -12,6 +12,15 @@ public enum SqlSegmentKind { Code, Comment, StringLiteral, QuotedIdentifier }
 /// </summary>
 public readonly record struct SqlSegment(SqlSegmentKind Kind, string Text, string Source);
 
+public enum SqlTokenKind { Word, Parameter, Symbol, Space, QuotedIdentifier, StringLiteral, Comment }
+
+/// <summary>
+/// A token of SQL text: a word (a name or keyword), a positional parameter ($1), one symbol, a run
+/// of spaces, or a whole quoted identifier, literal or comment. <see cref="Text"/> is as in
+/// <see cref="SqlSegment"/>; <see cref="Source"/> rebuilds the text.
+/// </summary>
+public readonly record struct SqlToken(SqlTokenKind Kind, string Text, string Source);
+
 /// <summary>
 /// Lexical helpers for the rules that read SQL text. Not a SQL parser: they separate code from
 /// comments, string literals and quoted identifiers the way each engine does, far enough for shape
@@ -105,6 +114,54 @@ public static partial class SqlText
             SqlSegmentKind.Comment => " ",
             _ => replace(s),
         }));
+
+    /// <summary>The text as tokens, over <see cref="Segments"/>: names and keywords are never read inside literals or comments.</summary>
+    public static IEnumerable<SqlToken> Tokens(string sql, DatabaseDialect dialect)
+    {
+        foreach (var segment in Segments(sql, dialect))
+        {
+            if (segment.Kind != SqlSegmentKind.Code)
+            {
+                yield return new SqlToken(segment.Kind switch
+                {
+                    SqlSegmentKind.QuotedIdentifier => SqlTokenKind.QuotedIdentifier,
+                    SqlSegmentKind.StringLiteral => SqlTokenKind.StringLiteral,
+                    _ => SqlTokenKind.Comment,
+                }, segment.Text, segment.Source);
+                continue;
+            }
+
+            var text = segment.Text;
+            for (var i = 0; i < text.Length;)
+            {
+                var start = i;
+                SqlTokenKind kind;
+                if (char.IsWhiteSpace(text[i]))
+                {
+                    while (i < text.Length && char.IsWhiteSpace(text[i])) i++;
+                    kind = SqlTokenKind.Space;
+                }
+                else if (char.IsLetter(text[i]) || text[i] == '_')
+                {
+                    while (i < text.Length && (char.IsLetterOrDigit(text[i]) || text[i] is '_' or '$')) i++;
+                    kind = SqlTokenKind.Word;
+                }
+                else if (text[i] == '$' && i + 1 < text.Length && char.IsAsciiDigit(text[i + 1]))
+                {
+                    i++;
+                    while (i < text.Length && char.IsAsciiDigit(text[i])) i++;
+                    kind = SqlTokenKind.Parameter;
+                }
+                else
+                {
+                    i++;
+                    kind = SqlTokenKind.Symbol;
+                }
+
+                yield return new SqlToken(kind, text[start..i], text[start..i]);
+            }
+        }
+    }
 
     /// <summary>
     /// What a query does, without what it was called with: every string and number literal becomes

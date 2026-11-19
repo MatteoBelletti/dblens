@@ -157,6 +157,28 @@ public sealed class EfSnapshotReaderTests
     }
 
     [Fact]
+    public void OneTypeOwnedTwice_IsTwoEntities_EachWithItsColumns()
+    {
+        var model = ParseBody("""
+            modelBuilder.Entity("N.Order", b =>
+            {
+                b.Property<int>("Id"); b.HasKey("Id"); b.ToTable("orders");
+                b.OwnsOne("N.Address", "BillingAddress", b1 => { b1.Property<int>("OrderId"); b1.Property<string>("City").HasColumnName("BillingAddress_City"); b1.HasKey("OrderId"); b1.ToTable("orders"); });
+                b.OwnsOne("N.Address", "ShippingAddress", b1 => { b1.Property<int>("OrderId"); b1.Property<string>("City").HasColumnName("ShippingAddress_City"); b1.HasKey("OrderId"); b1.ToTable("orders"); });
+            });
+            modelBuilder.Entity("N.Order", b =>
+            {
+                b.OwnsOne("N.Address", "BillingAddress", b1 => { b1.WithOwner().HasForeignKey("OrderId"); });
+                b.OwnsOne("N.Address", "ShippingAddress", b1 => { b1.WithOwner().HasForeignKey("OrderId"); });
+            });
+            """);
+
+        model.Entities.Where(e => e.SharesTableWith == "N.Order")
+            .Select(e => (e.Name, e.Properties.Single(p => p.Name == "City").Column))
+            .Should().BeEquivalentTo([("N.Address", "BillingAddress_City"), ("N.Order.ShippingAddress#Address", "ShippingAddress_City")]);
+    }
+
+    [Fact]
     public void ReadsOlderIndexAndOneToOneForms()
     {
         var model = ParseBody("""

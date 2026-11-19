@@ -155,7 +155,8 @@ public static class HotQueryEngine
             ? "No query statistics could be read"
             : $"{Num.N0(ranked.Count)} heaviest queries from {source.Source}",
         source.Source is null
-            ? "Neither source of query statistics is available on this database: see Availability for what each needs. " +
+            ? "No source of query statistics could be read on this database: see Availability for why, and what would " +
+              "enable one. " +
               "Nothing was measured, which is not the same as no slow query."
             : $"Listed by total time, from {source.Source}" +
               (source.WindowDays is { } w ? $", which covers the last {Num.F1(w)} day(s)" : "") +
@@ -233,39 +234,15 @@ public static class HotQueryEngine
     /// Names in order, quoted ones unquoted, with "." kept so a qualified name can be read. PostgreSQL
     /// folds an unquoted name to lower case, so it is read that way.
     /// </summary>
-    private static List<string> Identifiers(string sql, DatabaseDialect dialect)
-    {
-        List<string> names = [];
-        foreach (var segment in SqlText.Segments(sql, dialect))
+    private static List<string> Identifiers(string sql, DatabaseDialect dialect) =>
+    [
+        .. SqlText.Tokens(sql, dialect).Select(t => t.Kind switch
         {
-            if (segment.Kind == SqlSegmentKind.QuotedIdentifier)
-            {
-                names.Add(segment.Text);
-                continue;
-            }
-
-            if (segment.Kind != SqlSegmentKind.Code) continue;
-
-            var text = segment.Text;
-            for (var i = 0; i < text.Length;)
-            {
-                if (char.IsLetter(text[i]) || text[i] == '_')
-                {
-                    var start = i;
-                    while (i < text.Length && (char.IsLetterOrDigit(text[i]) || text[i] is '_' or '$')) i++;
-                    names.Add(dialect == DatabaseDialect.PostgreSql ? text[start..i].ToLowerInvariant() : text[start..i]);
-                }
-                else
-                {
-                    if (text[i] == '.') names.Add(".");
-                    else if (!char.IsWhiteSpace(text[i])) names.Add(text[i].ToString());
-                    i++;
-                }
-            }
-        }
-
-        return names;
-    }
+            SqlTokenKind.QuotedIdentifier or SqlTokenKind.Symbol or SqlTokenKind.Parameter => t.Text,
+            SqlTokenKind.Word => dialect == DatabaseDialect.PostgreSql ? t.Text.ToLowerInvariant() : t.Text,
+            _ => null,
+        }).OfType<string>(),
+    ];
 
     private static string CollapseSpaces(string text) =>
         string.Join(' ', text.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries));

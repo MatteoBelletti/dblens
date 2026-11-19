@@ -59,75 +59,71 @@ public static class JoinFanOut
 
     // A subquery after these is a source of the query's rows: a derived table, a CTE body, a branch.
     private static readonly HashSet<string> RowSources = new(
-        ["", "(", "FROM", "JOIN", "APPLY", "LATERAL", "AS", "MATERIALIZED", "UNION", "EXCEPT", "INTERSECT"],
+        ["FROM", "JOIN", "APPLY", "LATERAL", "AS", "MATERIALIZED", "UNION", "EXCEPT", "INTERSECT"],
         StringComparer.OrdinalIgnoreCase);
 
     /// <summary>
     /// The joins that shape the rows a query returns: each branch of a UNION, EXCEPT or INTERSECT on
-    /// its own, without the subqueries of its conditions (EXISTS, IN, a scalar subquery), which never
-    /// multiply them. A derived table, a CTE body and a parenthesized branch stay: their rows are the query's.
+    /// its own, at any depth, without the subqueries of its conditions (EXISTS, IN, a scalar subquery,
+    /// however parenthesized), which never multiply them. A derived table, a CTE body and a
+    /// parenthesized branch stay: their rows are the query's.
     /// </summary>
     public static IReadOnlyList<string> OuterBranches(string sql, DatabaseDialect dialect)
     {
+        var tokens = SqlText.Tokens(sql, dialect).ToList();
         List<string> branches = [];
         var current = new System.Text.StringBuilder();
-        var (depth, skipFrom, previous) = (0, -1, "");
+        // For each open parenthesis, whether what it holds is rows of the query; the text is a row source.
+        Stack<bool> rows = [];
+        var (skipFrom, previous) = (-1, "");
 
-        foreach (var segment in SqlText.Segments(sql, dialect))
+        for (var i = 0; i < tokens.Count; i++)
         {
-            if (segment.Kind != SqlSegmentKind.Code)
-            {
-                if (skipFrom < 0) current.Append(segment.Source);
-                continue;
-            }
+            var token = tokens[i];
+            var inRows = rows.Count == 0 || rows.Peek();
 
-            var text = segment.Text;
-            for (var i = 0; i < text.Length; i++)
+            if (token.Kind == SqlTokenKind.Symbol && token.Text == "(")
             {
-                var c = text[i];
-                if (char.IsLetter(c) || c == '_')
+                var holdsRows = previous == "" || RowSources.Contains(previous) || (previous == "(" && inRows);
+                rows.Push(holdsRows);
+                if (skipFrom < 0 && !holdsRows && StartsSubquery(tokens, i + 1)) skipFrom = rows.Count;
+            }
+            else if (token.Kind == SqlTokenKind.Symbol && token.Text == ")" && rows.Count > 0)
+            {
+                var closing = rows.Count;
+                rows.Pop();
+                if (skipFrom == closing)
                 {
-                    var start = i;
-                    while (i + 1 < text.Length && (char.IsLetterOrDigit(text[i + 1]) || text[i + 1] is '_' or '$')) i++;
-                    var word = text[start..(i + 1)];
-                    if (skipFrom >= 0) continue;
-                    if (depth == 0 && SetOperators.Contains(word))
-                    {
-                        branches.Add(current.ToString());
-                        current.Clear();
-                    }
-                    else current.Append(word);
-                    // UNION ALL (SELECT …): the operand follows ALL, still a branch.
-                    if (!(SetOperators.Contains(previous) && word.Equals("ALL", StringComparison.OrdinalIgnoreCase))) previous = word;
+                    skipFrom = -1;
+                    current.Append(' ');
                     continue;
                 }
-
-                if (c == '(')
-                {
-                    depth++;
-                    if (skipFrom < 0 && !RowSources.Contains(previous) && StartsSubquery(text, i + 1)) skipFrom = depth;
-                }
-                else if (c == ')' && depth > 0)
-                {
-                    if (skipFrom == depth) { skipFrom = -1; depth--; current.Append(' '); continue; }
-                    depth--;
-                }
-
-                if (skipFrom >= 0) continue;
-                current.Append(c);
-                if (!char.IsWhiteSpace(c)) previous = c.ToString();
             }
+
+            if (skipFrom >= 0) continue;
+
+            if (token.Kind == SqlTokenKind.Word && SetOperators.Contains(token.Text))
+            {
+                branches.Add(current.ToString());
+                current.Clear();
+            }
+            else current.Append(token.Source);
+
+            // UNION ALL (SELECT …): the operand follows ALL and is still a branch; x > ALL (SELECT …) is not.
+            var afterSetOperator = SetOperators.Contains(previous) && token.Text.Equals("ALL", StringComparison.OrdinalIgnoreCase);
+            if (token.Kind is SqlTokenKind.Word or SqlTokenKind.Symbol && !afterSetOperator) previous = token.Text;
         }
 
         branches.Add(current.ToString());
         return branches;
     }
 
-    private static bool StartsSubquery(string text, int from)
+    private static bool StartsSubquery(List<SqlToken> tokens, int from)
     {
-        while (from < text.Length && char.IsWhiteSpace(text[from])) from++;
-        return text.AsSpan(from).StartsWith("SELECT", StringComparison.OrdinalIgnoreCase)
-               || text.AsSpan(from).StartsWith("WITH", StringComparison.OrdinalIgnoreCase);
+        while (from < tokens.Count && tokens[from].Kind is SqlTokenKind.Space or SqlTokenKind.Comment) from++;
+        return from < tokens.Count && tokens[from].Kind == SqlTokenKind.Word
+               && (tokens[from].Text.Equals("SELECT", StringComparison.OrdinalIgnoreCase)
+                   || tokens[from].Text.Equals("WITH", StringComparison.OrdinalIgnoreCase));
     }
 
     public static Finding ToSignal(Shape shape)
@@ -172,15 +168,16 @@ public static class JoinFanOut
             $"JOIN (SELECT {Column(shape.SecondColumn)} AS p, {count} AS n FROM {Table(shape.SecondChild)} " +
             $"WHERE {Column(shape.SecondColumn)} IS NOT NULL GROUP BY {Column(shape.SecondColumn)}) b ON a.p = b.p";
 
-        var size = Math.Max(
-            rowCounts.GetValueOrDefault((shape.FirstChild.Schema, shape.FirstChild.Name)) ?? -1,
-            rowCounts.GetValueOrDefault((shape.SecondChild.Schema, shape.SecondChild.Name)) ?? -1);
+        // Unknown when either child is: the budget's size limits must hold for both tables scanned.
+        var (first, second) = (rowCounts.GetValueOrDefault((shape.FirstChild.Schema, shape.FirstChild.Name)),
+            rowCounts.GetValueOrDefault((shape.SecondChild.Schema, shape.SecondChild.Name)));
+        long? size = first is { } a && second is { } b ? Math.Max(a, b) : null;
 
         return new VerificationProbe(
             shape.Target, VerificationProbeKind.JoinFanOut, sql,
             $"rows the join returns for {shape.Parent.Qualified()} rows that have both {shape.FirstChild.Qualified()} and " +
             $"{shape.SecondChild.Qualified()}, against the rows of the two children read separately",
-            size < 0 ? null : size);
+            size);
     }
 
     /// <summary>The signal, measured: the counts promote it, the diagnosis stays a hypothesis.</summary>

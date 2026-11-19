@@ -255,7 +255,7 @@ public static class SnapshotReader
                     model.Relationships.Add(ReadRelationship(entity.Name, target, rest));
                     break;
                 case "OwnsOne" or "OwnsMany" when Str(head.Arg(0)) is { } ownedType && head.Arguments.LastOrDefault()?.Expression is LambdaExpressionSyntax ownedLambda:
-                    var owned = model.Entity(ownedType);
+                    var owned = model.Owned(ownedType, entity.Name, Str(head.Arg(1)));
                     owned.Owner = entity.Name;
                     owned.OwnedNavigation = Str(head.Arg(1));
                     owned.OwnsMany = head.Name == "OwnsMany";

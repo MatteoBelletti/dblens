@@ -178,6 +178,9 @@ public sealed class HotQueryEngineTests
     [InlineData("SELECT * FROM orders o JOIN items i ON i.order_id = o.id WHERE EXISTS (SELECT 1 FROM payments p WHERE p.order_id = o.id)")]
     [InlineData("SELECT o.id FROM orders o JOIN items i ON i.order_id = o.id UNION SELECT o.id FROM orders o JOIN payments p ON p.order_id = o.id")]
     [InlineData("SELECT * FROM orders o JOIN items i ON i.order_id = o.id JOIN shipments s ON s.order_number = o.number")]
+    [InlineData("SELECT o.id, COALESCE((SELECT SUM(i.qty) FROM items i WHERE i.order_id = o.id), 0) FROM orders o JOIN payments p ON p.order_id = o.id")]
+    [InlineData("WITH x AS (SELECT o.id FROM orders o JOIN items i ON i.order_id = o.id UNION ALL SELECT o.id FROM orders o JOIN payments p ON p.order_id = o.id) SELECT * FROM x")]
+    [InlineData("SELECT * FROM orders o JOIN items i ON i.order_id = o.id WHERE o.id > ALL (SELECT p.order_id FROM payments p WHERE p.order_id = o.id)")]
     public void AChainAOneToOneOrASingleChild_DoesNotMultiply(string sql) =>
         Detect(sql).Should().BeEmpty();
 
