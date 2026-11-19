@@ -38,6 +38,10 @@ public sealed class PostgresEfFixture : IAsyncLifetime, IEfFixture
         ALTER TABLE shop.order_items DROP CONSTRAINT "FK_order_items_products_product_id";
         CREATE INDEX ix_orders_created_manual ON shop.orders (created_at);
         CREATE TABLE shop.legacy_notes (id int PRIMARY KEY);
+        ALTER TABLE shop.users ALTER COLUMN first_name TYPE varchar(60);
+        ALTER TABLE shop.orders ALTER COLUMN total DROP NOT NULL;
+        DROP INDEX shop."IX_users_email";
+        CREATE INDEX "IX_users_email" ON shop.users (email);
         INSERT INTO "__EFMigrationsHistory" VALUES ('{EfDriftTestsBase.Hotfix}', '10.0.15');
         """;
 
@@ -89,6 +93,10 @@ public sealed class SqlServerEfFixture : IAsyncLifetime, IEfFixture
         ALTER TABLE shop.order_items DROP CONSTRAINT [FK_order_items_products_product_id];
         CREATE INDEX ix_orders_created_manual ON shop.orders (created_at);
         CREATE TABLE shop.legacy_notes (id int PRIMARY KEY);
+        ALTER TABLE shop.users ALTER COLUMN first_name nvarchar(60) NOT NULL;
+        ALTER TABLE shop.orders ALTER COLUMN total decimal(10,2) NULL;
+        DROP INDEX [IX_users_email] ON shop.users;
+        CREATE INDEX [IX_users_email] ON shop.users (email);
         INSERT INTO [__EFMigrationsHistory] VALUES ('{EfDriftTestsBase.Hotfix}', '10.0.15');
         """;
 

@@ -69,6 +69,24 @@ public sealed class EfDriftEngineTests
 
     // ── Names ──────────────────────────────────────────────────────────────────
 
+    [Theory]
+    [InlineData("int4", "integer", false)]
+    [InlineData("datetime2", "datetime2(7)", false)]
+    [InlineData("character varying(100)", "varchar(100)", false)]
+    [InlineData("nvarchar(100)", "nvarchar(60)", true)]
+    [InlineData("numeric(10,2)", "decimal(12,2)", true)]
+    [InlineData("rowversion", "timestamp", false)]
+    public void StoreTypes_DifferOnlyInWhatTheyHold_NotInHowTheyAreSpelt(string model, string database, bool drift)
+    {
+        var entity = new EfEntity("Order", "public", "orders",
+            [new EfProperty("Id", "long", "id", null, false), new EfProperty("Value", "string", "value", model, false)], ["Id"], [], []);
+        var efModel = new EfModel("ShopContext", null, "public", [entity], [], []);
+        var table = Table("orders", [Col("id", "bigint"), Col("value", database)]);
+
+        Analyze(efModel, [], EfModelMatcher.Match(efModel, [table], "public")).Findings.Any(f => f.RuleId == EfRuleIds.ColumnType)
+            .Should().Be(drift);
+    }
+
     [Fact]
     public void ATableTheModelCreates_IsNotUnmapped()
     {

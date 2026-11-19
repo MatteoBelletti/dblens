@@ -529,6 +529,9 @@ text, never compiled**: no project is built and none of the user's code runs.
 | `ef-migration-pending` | Medium / High | Migrations in the code not yet applied (one finding listing them); High when one is older than the last applied |
 | `ef-index-unmodeled` | Medium | An index in the database the model does not declare — added by hand |
 | `ef-fk-missing` | Medium | A relationship in the model with no foreign key in the database |
+| `ef-index-uniqueness` | High / Low | A `HasIndex` whose index is unique on one side only: High when the model declares it unique and the database does not enforce it |
+| `ef-column-type` | Medium | A column whose store type differs from the model's `HasColumnType` (length, precision, kind); spellings of one type (`int4` and `integer`, `datetime2` and `datetime2(7)`) are not differences |
+| `ef-column-nullability` | Medium | A column nullable on one side and required on the other |
 | `ef-unmapped-table` | Info | A table in a compared schema that no entity maps (the migrations history, temporal history tables and the tables of mappings not compared excluded) |
 | `ef-drift-summary` | Info | Always exactly one |
 
@@ -565,8 +568,8 @@ their owner's table, complex properties, alternate keys. **Not compared**, each 
 table-per-type and table-per-concrete-type mappings, JSON columns (`ToJson`), table splitting, entity
 splitting (`SplitToTable`; an owned type split leaves its owner's table uncompared too), views
 (`ToView`) and keyless entities. Temporal tables are compared, their history table set aside. The same
-type owned through two navigations is two entities. **Not considered here:** column types, lengths and
-nullability. A project without migrations has no snapshot to read.
+type owned through two navigations is two entities. **Not considered here:** index filters, whose text EF and
+the catalog write differently, and defaults. A project without migrations has no snapshot to read.
 
 ## `certify_query`
 

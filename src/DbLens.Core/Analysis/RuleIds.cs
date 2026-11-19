@@ -100,12 +100,15 @@ public static class EfRuleIds
     public const string IndexUnmodeled   = "ef-index-unmodeled";
     public const string ForeignKeyMissing = "ef-fk-missing";
     public const string UnmappedTable    = "ef-unmapped-table";
+    public const string ColumnType       = "ef-column-type";
+    public const string ColumnNullability = "ef-column-nullability";
+    public const string IndexUniqueness  = "ef-index-uniqueness";
     public const string DriftSummary     = "ef-drift-summary";
 
     public static readonly string[] All =
     [
         MigrationUnknown, TableMissing, ColumnMissing, IndexMissing, MigrationPending,
-        IndexUnmodeled, ForeignKeyMissing, UnmappedTable, DriftSummary,
+        IndexUnmodeled, ForeignKeyMissing, UnmappedTable, ColumnType, ColumnNullability, IndexUniqueness, DriftSummary,
     ];
 }
 
