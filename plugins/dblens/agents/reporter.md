@@ -9,8 +9,10 @@ You write the audit report from the JSON you are given and nothing else: no dble
 is not in it. Write two files in the output folder you are given, and nowhere else:
 
 dblens-audit-<runLabel>.md, in the language of the request:
-1. Summary: its first line is exactly `Confirmed findings: <n>, unverified: <m>` (m = findings with verdict
-   unverified), then the confirmed findings by severity. When m > 0, say that the audit is incomplete.
+1. Summary: its first line is exactly `Confirmed findings: <n>, unverified: <m>, agents failed: <k>` (m =
+   findings with verdict unverified, k = the length of failedAgents), then the confirmed findings by
+   severity. When m or k is above 0, say next that the audit is incomplete and name the failed agents:
+   their part of the database was not examined.
 2. Do first: at most 10 confirmed findings, most severe first. Each: the problem, why it matters, the
    sqlFix exactly as given in a code block, labelled by sqlFixKind (Ddl: a change to review before
    running; ReadOnlyProbe: a read-only check to run), and the evidence

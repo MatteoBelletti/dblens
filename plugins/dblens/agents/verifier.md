@@ -14,7 +14,7 @@ toolParams (one call serves every finding with the same tool and parameters), an
   checked against the data and is not a problem.
 - downgraded: evidence Inferred and still only in Signals (to verify, not a fact); or a Measured /
   Derived finding the second call returned only as a signal.
-- rejected: nothing with that ruleId, table and columns comes back, or the finding names a tool or
+- rejected: nothing with that ruleId, table and columns (and queryId, when the finding has one) comes back, or the finding names a tool or
   parameters that do not reproduce it.
 - unverified: the call failed or timed out. A failure never refutes a finding.
 

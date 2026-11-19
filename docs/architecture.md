@@ -206,6 +206,10 @@ binaries for `win-x64`, `linux-x64` and `osx-arm64`, one Claude Desktop extensio
 DbLens.Mcp`, also typed `McpServer` with `.mcp/server.json`), and the GitHub release. Binaries ship
 without symbols, `web.config` or the IIS module.
 
+The Claude Code plugin (`plugins/dblens`) has no artifact of its own: the marketplace at the
+repository root installs it from `master`, and it starts `DbLens.Mcp@<its version>` with `dnx`. Its
+version moves with the package's (`ReleaseVersionTests`), and the release follows the merge at once.
+
 The package reaches nuget.org through **Trusted Publishing**: the job's GitHub OIDC token is exchanged
 by `NuGet/login@v1` for an API key valid one hour, so no long-lived key is stored. The package page
 shows the README packed into the `.nupkg`, so its links must be absolute and a README change reaches

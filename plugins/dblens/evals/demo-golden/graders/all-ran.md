@@ -1,7 +1,7 @@
 ---
 type: regex
-pattern: 'returned nothing|returned no verdict'
-match: not_contains
+pattern: 'agents failed: 0'
+match: contains
 ---
 
 Every analyst agent returned its findings.

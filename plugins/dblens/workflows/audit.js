@@ -110,7 +110,7 @@ const groups = await pipeline(analysts,
     `Set "agent" to "${analyst.name}".`,
     { agentType: `dblens:${analyst.name}`, schema: FINDINGS, phase: 'Analyze', label: analyst.name }),
   (result, analyst) => {
-    if (!result) return { agent: analyst.name, findings: [], notCovered: [`The ${analyst.name} agent returned nothing.`], verdicts: [] }
+    if (!result) return { agent: analyst.name, failed: true, findings: [], notCovered: [`The ${analyst.name} agent returned nothing.`], verdicts: [] }
     if (result.findings.length === 0) return { ...result, verdicts: [] }
     return agent(
       `Verify these findings of the ${analyst.name} agent (${target}). Set "agent" to "${analyst.name}".\n` +
@@ -125,7 +125,8 @@ const groups = await pipeline(analysts,
   })
 
 phase('Report')
-const audit = { runLabel: a.runLabel, scope, groups: groups.filter(Boolean) }
+const done = groups.filter(Boolean)
+const audit = { runLabel: a.runLabel, scope, failedAgents: done.filter(g => g.failed).map(g => g.agent), groups: done }
 return await agent(
   `Write the report. Output folder: ${a.outDir}. runLabel: ${a.runLabel}.\n${JSON.stringify(audit)}`,
   { agentType: 'dblens:reporter', schema: REPORT, label: 'report' })
