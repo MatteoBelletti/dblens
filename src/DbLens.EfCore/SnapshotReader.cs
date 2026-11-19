@@ -174,7 +174,6 @@ public static class SnapshotReader
     /// <summary>The migration ids of every DbContext among the designer files, oldest first.</summary>
     private static MigrationsByContext ReadMigrations(IEnumerable<string> designers) =>
         designers
-            .Where(text => text.Contains("Migration(", StringComparison.Ordinal))
             .Select(text => CSharpSyntaxTree.ParseText(Header(text)).GetCompilationUnitRoot())
             .SelectMany(r => r.DescendantNodes().OfType<ClassDeclarationSyntax>())
             .Select(c => (Context: ContextOf(c), Id: MigrationIdOf(c)))

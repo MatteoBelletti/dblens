@@ -14,7 +14,8 @@ public sealed class AnalyzeFragmentationTool(IServiceProvider services, IDatabas
         "Reports index fragmentation (rebuild from 30%, reorganize from 10%) and optionally page density, with the " +
         "REINDEX / ALTER INDEX statement for each. IMPORTANT: PostgreSQL needs pgstattuple and covers btree only; SQL " +
         "Server needs VIEW DATABASE STATE. StatsAvailable false means not measured, NOT healthy. Indexes under 1,000 " +
-        "pages are skipped. One input to a maintenance decision, not a plan. Do NOT infer beyond the response.")]
+        "pages are skipped. One input to a maintenance decision, not a plan: fill factor, split history and access " +
+        "patterns are not considered. Do NOT infer beyond the response.")]
     public Task<AnalyzeFragmentationResult> AnalyzeFragmentation(
         [Description(DialectHelp)]
         DatabaseDialect dialect = DatabaseDialect.PostgreSql,

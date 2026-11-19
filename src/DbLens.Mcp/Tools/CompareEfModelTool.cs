@@ -26,7 +26,7 @@ public sealed class CompareEfModelTool(IServiceProvider services, IDatabaseInspe
         DatabaseDialect dialect = DatabaseDialect.PostgreSql,
         [Description("Schema to compare. Null = every schema the model maps.")]
         string? schema = null,
-        [Description("The migrations history table, when the DbContext sets MigrationsHistoryTable.")]
+        [Description("The migrations history table, when the DbContext sets MigrationsHistoryTable. Null = " + CompareEfModelRequest.DefaultHistoryTable + ".")]
         string? historyTable = null,
         [Description("Its schema. Null = wherever one is found.")]
         string? historySchema = null,

@@ -46,6 +46,16 @@ jobs:
           echo "VERSION=$version" >> "$GITHUB_ENV"
           echo "TAG=v$version" >> "$GITHUB_ENV"
 
+      # By hand, only the default branch is released, never twice under one version.
+      - name: Guard a hand-run release
+        if: github.event_name == 'workflow_dispatch'
+        env:
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+        run: |
+          set -euo pipefail
+          [ "$GITHUB_REF" = "refs/heads/$DEFAULT_BRANCH" ] || { echo "Run it from $DEFAULT_BRANCH, not $GITHUB_REF"; exit 1; }
+          if git ls-remote --exit-code --tags origin "refs/tags/$TAG" > /dev/null; then echo "$TAG already exists"; exit 1; fi
+
       - name: Test (engines)
         run: |
           dotnet test -c Release \
@@ -83,6 +93,13 @@ jobs:
           sed -i "s/\"version\": \"[^\"]*\"/\"version\": \"$VERSION\"/g" src/DbLens.Mcp/.mcp/server.json
           dotnet pack src/DbLens.Mcp -c Release -p:Version="$VERSION" -o dist
 
+      # The tag exists before anything irreversible: the NuGet package then always matches a tag.
+      - name: Tag the commit (hand-run)
+        if: github.event_name == 'workflow_dispatch'
+        run: |
+          git tag "$TAG" "$GITHUB_SHA"
+          git push origin "$TAG"
+
       # The temporary key lives one hour and each OIDC token buys one key, so log in right before pushing.
       - name: NuGet login (OIDC -> temporary API key)
         id: nuget-login
@@ -107,5 +124,5 @@ jobs:
           if gh release view "$TAG" > /dev/null 2>&1; then
             gh release upload "$TAG" dist/* --clobber
           else
-            gh release create "$TAG" dist/* --target "$GITHUB_SHA" --title "dblens $VERSION" --generate-notes
+            gh release create "$TAG" dist/* --title "dblens $VERSION" --generate-notes
           fi

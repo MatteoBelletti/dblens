@@ -96,7 +96,8 @@ public static class HotQueryEngine
                 yield return Fact(HotQueryRuleIds.ReadsPerRow, Severity.Medium, table, query,
                     $"Query {query.QueryId} reads {Num.N0(perRow)} pages for every row it returns",
                     $"Over {Num.N0(stats.Calls)} calls it read {Num.N0(stats.PagesRead)} pages of 8 KB and returned " +
-                    $"{Num.N0(stats.Rows)} rows: it reads through far more data than it returns. Its plan, when listed, " +
+                    $"{Num.N0(stats.Rows)} rows. One that goes through an index reads a few pages per row: this one reads " +
+                    "through far more data than it returns. Its plan, when listed, " +
                     "says where. An aggregate (COUNT, SUM) returns one row from many by design: look first at queries that return rows.");
 
             if (stats.PagesRead >= request.DiskReadMinPages && query.DiskReadShare >= request.DiskReadShareThreshold)
@@ -160,7 +161,7 @@ public static class HotQueryEngine
               "Nothing was measured, which is not the same as no slow query."
             : $"Listed by total time, from {source.Source}" +
               (source.WindowDays is { } w ? $", which covers the last {Num.F1(w)} day(s)" : "") +
-              $". Plans read: {Num.N0(plansRead)}. Query text is returned with every literal and comment removed.",
+              $". Plans read: {Num.N0(plansRead)}. Query text is returned with every literal replaced by ? and every comment removed.",
         null,
         null);
 
