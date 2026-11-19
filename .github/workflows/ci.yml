@@ -23,7 +23,8 @@ jobs:
         with:
           node-version: "22"
       - name: Install Claude Code
-        run: npm install -g @anthropic-ai/claude-code
+        # Pinned: a newer validator may turn today's warnings (no icon) into --strict failures.
+        run: npm install -g @anthropic-ai/claude-code@2.1.328
       # The marketplace at the root and the plugin under it; no model is called.
       - name: Validate
         run: |

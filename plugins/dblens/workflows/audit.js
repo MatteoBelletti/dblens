@@ -30,6 +30,8 @@ const FINDINGS = {
           title: { type: 'string' },
           explanation: { type: 'string' },
           sqlFix: { type: ['string', 'null'] },
+          sqlFixKind: { enum: ['Ddl', 'ReadOnlyProbe', null] },
+          verification: { enum: ['Confirmed', 'Refuted', 'Inconclusive', 'NotAttempted', 'Failed', null] },
         },
       },
     },
@@ -49,7 +51,7 @@ const VERDICTS = {
         required: ['id', 'verdict', 'reason'],
         properties: {
           id: { type: 'string' },
-          verdict: { enum: ['confirmed', 'downgraded', 'rejected', 'unverified'] },
+          verdict: { enum: ['confirmed', 'cleared', 'downgraded', 'rejected', 'unverified'] },
           reason: { type: 'string' },
         },
       },
@@ -85,6 +87,8 @@ let scope = null
 for (let attempt = 1; attempt <= 3 && (!scope || scope.error); attempt++)
   scope = await agent(`Scope of the audit: ${target}.`, { agentType: 'dblens:orient', schema: SCOPE, label: `orient ${attempt}` })
 if (!scope || scope.error) throw new Error(`dblens could not read the database: ${scope ? scope.error : 'no answer'}`)
+// An empty scope would read as a clean database: a mistyped schema is an error, not an all-clear.
+if (scope.tableCount === 0) throw new Error(`No tables were found for ${target}: check the schema name, nothing was audited.`)
 
 const analysts = [
   { name: 'indexes', task: '' },
@@ -107,8 +111,12 @@ const groups = await pipeline(analysts,
       `Verify these findings of the ${analyst.name} agent (${target}). Set "agent" to "${analyst.name}".\n` +
       JSON.stringify(result.findings),
       { agentType: 'dblens:verifier', schema: VERDICTS, phase: 'Verify', label: `verify ${analyst.name}` })
-      .then(v => ({ ...result, verdicts: v ? v.verdicts : result.findings.map(f => (
-        { id: f.id, verdict: 'unverified', reason: 'The verifier returned nothing.' })) }))
+      .then(v => {
+        // Every finding gets exactly one verdict: one the verifier skipped is unverified, never lost.
+        const given = new Map((v ? v.verdicts : []).map(x => [x.id, x]))
+        return { ...result, verdicts: result.findings.map(f => given.get(f.id) ||
+          { id: f.id, verdict: 'unverified', reason: 'The verifier returned no verdict for it.' }) }
+      })
   })
 
 phase('Report')

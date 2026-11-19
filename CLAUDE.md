@@ -205,7 +205,8 @@ Non-standard ports avoid clashing with local installs.
 
 Bump `<Version>` in `src/DbLens.Mcp/DbLens.Mcp.csproj`, both versions in
 `src/DbLens.Mcp/.mcp/server.json`, the plugin's `version` and its `DbLens.Mcp@<version>` pin
-(`ReleaseVersionTests` checks all five), then push a `v<version>` tag (or run the Release workflow by hand
+(`ReleaseVersionTests` checks all five), merge, and release at once: the marketplace installs the
+plugin from `master`, which pins a package NuGet lists only after the release. Then push a `v<version>` tag (or run the Release workflow by hand
 with the version, which creates the tag); the release workflow builds binaries,
 `.mcpb` extensions and the NuGet package, and publishes it via Trusted Publishing (OIDC, no stored
 key). Never add a long-lived NuGet API key. See docs/architecture.md#releases.

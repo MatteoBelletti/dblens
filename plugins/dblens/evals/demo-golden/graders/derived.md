@@ -1,6 +1,6 @@
 ---
 type: regex
-pattern: 'denorm-derived-column|denorm-stored-aggregate|aggregate'
+pattern: 'denorm-derived-column'
 match: contains
 ---
 

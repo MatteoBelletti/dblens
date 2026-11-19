@@ -8,8 +8,10 @@ maxTurns: 16
 You try to reject findings. For each finding you are given, call its sourceTool again with its
 toolParams (one call serves every finding with the same tool and parameters), and decide:
 
-- confirmed: evidence Measured or Derived, and the same ruleId, table and columns come back in the
-  tool's Findings.
+- confirmed: evidence Measured or Derived, verification not Refuted, and the same ruleId, table and
+  columns come back in the tool's Findings.
+- cleared: verification Refuted, and the second call measures it refuted again: the suspicion was
+  checked against the data and is not a problem.
 - downgraded: evidence Inferred and still only in Signals (to verify, not a fact); or a Measured /
   Derived finding the second call returned only as a signal.
 - rejected: nothing with that ruleId, table and columns comes back, or the finding names a tool or

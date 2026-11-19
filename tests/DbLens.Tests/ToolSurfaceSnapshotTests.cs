@@ -29,13 +29,14 @@ public sealed class ToolSurfaceSnapshotTests
         return surface;
     }
 
-    private static JsonNode WithoutDescriptions(JsonNode node)
+    /// <param name="names">The node is a <c>properties</c> map: its keys are parameter names, one may be "description".</param>
+    private static JsonNode WithoutDescriptions(JsonNode node, bool names = false)
     {
         if (node is JsonObject obj)
         {
-            obj.Remove("description");
-            foreach (var (_, child) in obj.ToList())
-                if (child is not null) WithoutDescriptions(child);
+            if (!names) obj.Remove("description");
+            foreach (var (key, child) in obj.ToList())
+                if (child is not null) WithoutDescriptions(child, !names && key == "properties");
         }
         else if (node is JsonArray array)
         {

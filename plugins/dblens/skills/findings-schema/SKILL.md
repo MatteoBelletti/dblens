@@ -17,7 +17,11 @@ Only the JSON your schema asks for, no prose around it.
   - `sourceTool`: the tool's name without the `mcp__plugin_dblens_dblens__` prefix.
   - `toolParams`: the arguments of that call exactly as you sent them. Never a connection string.
   - `ruleId`, `severity`, `evidence`, `table`, `columns`, `title`: copied from the tool's finding, word for word.
-  - `sqlFix`: the finding's `SqlFix.Sql` as returned, or null.
+  - `sqlFix`: the finding's `SqlFix.Sql` as returned, or null; `sqlFixKind`: its `SqlFix.Kind` (`Ddl`
+    changes the database, `ReadOnlyProbe` is an aggregate check), or null.
+  - `verification`: the finding's `Metadata["verification"].Status` when it has one (`Confirmed`,
+    `Refuted`, `Inconclusive`, `NotAttempted`, `Failed`), else null. A `Refuted` finding is a suspicion
+    the data disproved, reported at Info: it is not a problem.
   - `explanation`: one to three sentences for a .NET developer, in the language of the request,
     saying why it matters. Only what the finding's own description supports.
 - `notCovered`: every caveat the tools returned, and every block that says what was not seen
