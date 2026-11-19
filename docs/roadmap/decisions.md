@@ -48,8 +48,8 @@ The plugin lives in `plugins/dblens` and the marketplace at the repository root.
 
 | Case | What must hold | Result | Cost |
 |---|---|---|---|
-| `demo-golden` (PostgreSQL `public`, with `privacy`) | unindexed FKs, a cascade blocked by NO ACTION, the undeclared `shipments.ship_to`, a cached aggregate; PII only as signals | pass, 8 of 8 graders | $0.93, 4 min |
-| `demo-good` (PostgreSQL `demo_good`) | `Confirmed findings: 0` | pass | $0.17, 43 s |
+| `demo-golden` (PostgreSQL `public`, with `privacy`) | unindexed FKs, a cascade blocked by NO ACTION, the undeclared `shipments.ship_to`, a cached aggregate; PII only as signals | pass, 9 of 9 graders | $1.06, 4 min |
+| `demo-good` (PostgreSQL `demo_good`) | `Confirmed findings: 0`, every agent ran and every finding re-checked | pass | $0.18, 40 s |
 
 Run them with `claude plugin eval plugins/dblens --mocks off --runs 1 --allow-tools Workflow Write <the
 dblens tools>`: `Workflow` must be granted, or the model runs the phases by hand and loses the schema
