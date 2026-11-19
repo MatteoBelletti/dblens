@@ -70,6 +70,16 @@ public sealed class EfDriftEngineTests
     // ── Names ──────────────────────────────────────────────────────────────────
 
     [Fact]
+    public void ATableTheModelCreates_IsNotUnmapped()
+    {
+        var model = Model([]) with { OwnTables = [(null, "employees_history")] };
+        var match = EfModelMatcher.Match(model, [Table("employees_history", [Col("id", "bigint")]), Table("legacy", [Col("id", "bigint")])], "public");
+
+        Analyze(model, [], match).Findings.Where(f => f.RuleId == EfRuleIds.UnmappedTable).Select(f => f.Table)
+            .Should().Equal("public.legacy");
+    }
+
+    [Fact]
     public void AnAlternateKey_IsMatchedBySqlServersUniqueConstraint()
     {
         var entity = new EfEntity("Order", "public", "orders",

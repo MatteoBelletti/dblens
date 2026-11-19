@@ -87,7 +87,33 @@ internal sealed class ModelState
             .Select(e => Build(e, placements[e.Name], foreignKeys[e.Name]))
             .ToList();
 
-        return new EfModel(context, ProductVersion, DefaultSchema, entities, migrations, unsupported);
+        return new EfModel(context, ProductVersion, DefaultSchema, entities, migrations, unsupported)
+        {
+            OwnTables = OwnTables(placements, unsupported),
+        };
+    }
+
+    /// <summary>
+    /// Tables the model creates that no compared entity maps: a temporal table's history, and the
+    /// tables of the mappings dblens does not compare. None of them is "not mapped by any entity".
+    /// </summary>
+    private List<(string? Schema, string Name)> OwnTables(Dictionary<string, Placement> placements, List<EfUnsupported> unsupported)
+    {
+        var uncompared = unsupported.SelectMany(u => u.Entities).ToHashSet(StringComparer.Ordinal);
+        List<(string? Schema, string Name)> tables = [];
+
+        foreach (var entity in _order)
+        {
+            var schema = entity.Schema ?? DefaultSchema;
+            if (entity.History is { } history && placements.TryGetValue(entity.Name, out var placement))
+                tables.Add((history.Schema ?? placement.Schema ?? DefaultSchema, history.Name ?? placement.Table + "History"));
+
+            if (!uncompared.Contains(entity.Name)) continue;
+            if (entity.Table is { } table) tables.Add((schema, table));
+            tables.AddRange(entity.SplitTables.Select(t => (t.Schema ?? schema, t.Name)));
+        }
+
+        return tables;
     }
 
     private sealed record Placement(EntityState Entity, string? Schema, string Table, IReadOnlyList<string> Key, string? SharesTableWith, bool ColumnsNullable);
@@ -121,6 +147,12 @@ internal sealed class ModelState
         if (entity.Strategy == "TPC")
         {
             unsupported.Add(new($"{entity.Name} uses table-per-concrete-type mapping, which dblens does not compare.", [entity.Name]));
+            return null;
+        }
+
+        if (entity.SplitTables.Count > 0)
+        {
+            unsupported.Add(new($"{entity.Name} is split over several tables (SplitToTable), which dblens does not compare.", [entity.Name]));
             return null;
         }
 
@@ -230,6 +262,12 @@ internal sealed class EntityState(string name)
     public string? OwnedNavigation { get; set; }
     public bool OwnsMany { get; set; }
     public HashSet<string> RequiredNavigations { get; } = new(StringComparer.Ordinal);
+
+    /// <summary>A temporal table's history table, (schema, name): null name = EF's default, Table + "History".</summary>
+    public (string? Schema, string? Name)? History { get; set; }
+
+    /// <summary>Entity splitting: the other tables its properties are moved to.</summary>
+    public List<(string? Schema, string Name)> SplitTables { get; } = [];
 
     /// <summary>The same property is configured again by later statements (identity, comments…).</summary>
     public PropertyState Property(string name, string? clrType, string defaultColumn)

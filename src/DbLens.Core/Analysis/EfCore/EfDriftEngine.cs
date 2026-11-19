@@ -34,7 +34,8 @@ public static class EfDriftEngine
 
         foreach (var table in match.UnmappedTables.Where(t =>
                      schemas.Contains(t.Schema)
-                     && !(historyTable is { } ht && Same(t.Schema, ht.Schema) && Same(t.Name, ht.Name))))
+                     && !(historyTable is { } ht && Same(t.Schema, ht.Schema) && Same(t.Name, ht.Name))
+                     && !model.OwnTables.Any(o => Same(o.Name, t.Name) && (o.Schema is null || Same(o.Schema, t.Schema)))))
             findings.Add(Unmapped(table));
 
         var differences = findings.Count;

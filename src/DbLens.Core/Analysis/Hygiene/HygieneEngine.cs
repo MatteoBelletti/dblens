@@ -224,7 +224,7 @@ public static class HygieneEngine
                 TableSignal(HygieneRuleIds.UpdatedNotMaintained, Severity.Medium, 0.6, t,
                     $"{t.Qualified()}.{last.Name} may not be kept up to date",
                     $"The table is updated ({Num.N0(updates.Value)} since the counters started) and has {first.Name} and " +
-                    $"{last.Name}. If no row has {last.Name} different from {first.Name}, nothing writes it on update: no " +
+                    $"{last.Name}. If no row has {last.Name} more than a second from {first.Name}, nothing writes it on update: no " +
                     "interceptor sets it, or the updates go through ExecuteUpdate, ExecuteDelete or plain SQL, which skip the " +
                     "SaveChanges interceptors.",
                     owner, AuditFix, [last.Name]),
@@ -302,7 +302,7 @@ public static class HygieneEngine
                 HygieneRuleIds.ColumnAlwaysNull => $"{column} is NULL in all {Num.N0(compared)} rows",
                 HygieneRuleIds.ColumnSingleValue => $"{column} holds one value in all {Num.N0(compared)} filled rows",
                 HygieneRuleIds.ColumnAbandoned => $"{column} is empty in all {Num.N0(compared)} recent rows",
-                HygieneRuleIds.UpdatedNotMaintained => $"{column} equals the creation date in all {Num.N0(compared)} rows",
+                HygieneRuleIds.UpdatedNotMaintained => $"{column} is within a second of the creation date in all {Num.N0(compared)} rows",
                 _ => $"{column}: {Num.N0(counted)} {m.MeasurementDescription} of {Num.N0(compared)} ({Num.P0(ratio)})",
             },
             Description = measured + "\n\nWHAT THIS MAY MEAN: " + finding.Description,

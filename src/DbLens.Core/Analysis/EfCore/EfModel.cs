@@ -23,7 +23,14 @@ public sealed record EfModel(
     /// The migrations of the other DbContexts found in the same project, by context. Every context
     /// writes to the same history table by default, so their rows are not this model's unknowns.
     /// </summary>
-    IReadOnlyDictionary<string, IReadOnlyList<string>>? OtherContexts = null);
+    IReadOnlyDictionary<string, IReadOnlyList<string>>? OtherContexts = null)
+{
+    /// <summary>
+    /// Tables the model creates that no compared entity maps: temporal history tables, and the tables
+    /// of <see cref="Unsupported"/> mappings. A null schema is the database's default.
+    /// </summary>
+    public IReadOnlyList<(string? Schema, string Name)> OwnTables { get; init; } = [];
+}
 
 /// <param name="Reason">One sentence naming the entities, as a caveat shows it.</param>
 /// <param name="Entities">The entities involved: an owner's table holds what its JSON owned type maps.</param>

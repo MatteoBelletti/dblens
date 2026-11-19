@@ -529,7 +529,7 @@ text, never compiled**: no project is built and none of the user's code runs.
 | `ef-migration-pending` | Medium / High | Migrations in the code not yet applied (one finding listing them); High when one is older than the last applied |
 | `ef-index-unmodeled` | Medium | An index in the database the model does not declare — added by hand |
 | `ef-fk-missing` | Medium | A relationship in the model with no foreign key in the database |
-| `ef-unmapped-table` | Info | A table in a compared schema that no entity maps (the history table excluded) |
+| `ef-unmapped-table` | Info | A table in a compared schema that no entity maps (the migrations history, temporal history tables and the tables of mappings not compared excluded) |
 | `ef-drift-summary` | Info | Always exactly one |
 
 Every finding is `Derived`. `Metadata["ef"]` names the `entity` and `property` to touch and, where it
@@ -562,8 +562,9 @@ unmapped for it.
 
 **Compared:** plain entities, table-per-hierarchy subtypes (their columns nullable), owned types in
 their owner's table, complex properties, alternate keys. **Not compared**, each named in a caveat:
-table-per-type and table-per-concrete-type mappings, JSON columns (`ToJson`), table splitting, views
-(`ToView`) and keyless entities. **Not considered here:** column types, lengths and nullability. A
+table-per-type and table-per-concrete-type mappings, JSON columns (`ToJson`), table splitting, entity
+splitting (`SplitToTable`), views (`ToView`) and keyless entities. Temporal tables are compared, their
+history table set aside. The same type owned through two navigations is two entities. **Not considered here:** column types, lengths and nullability. A
 project without migrations has no snapshot to read.
 
 ## `certify_query`

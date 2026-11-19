@@ -169,6 +169,24 @@ public sealed class EfSnapshotReaderTests
             """);
 
         model.Entities.Single().Table.Should().Be("Employees");
+        model.OwnTables.Should().Equal([(null, "EmployeesHistory")], "EF's migration creates the history table");
+    }
+
+    [Fact]
+    public void AnEntitySplitOverTables_IsNotCompared_AndItsTablesAreTheModels()
+    {
+        var model = ParseBody("""
+            modelBuilder.Entity("N.Customer", b =>
+            {
+                b.Property<int>("Id"); b.Property<string>("Phone"); b.HasKey("Id");
+                b.ToTable("customers", "app");
+                b.SplitToTable("customer_phones", "app", t => { t.Property("Id"); t.Property("Phone"); });
+            });
+            """);
+
+        model.Entities.Should().BeEmpty();
+        model.Unsupported.Should().ContainSingle(u => u.Reason.Contains("SplitToTable"));
+        model.OwnTables.Should().BeEquivalentTo([("app", "customers"), ("app", "customer_phones")]);
     }
 
     [Fact]

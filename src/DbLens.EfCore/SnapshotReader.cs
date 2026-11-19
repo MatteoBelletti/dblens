@@ -236,6 +236,9 @@ public static class SnapshotReader
                 case "ToTable":
                     ReadToTable(entity, head);
                     break;
+                case "SplitToTable" when Str(head.Arg(0)) is { } splitTable:
+                    entity.SplitTables.Add((head.Arguments.Count > 1 ? Str(head.Arg(1)) : null, splitTable));
+                    break;
                 case "ToView":
                     entity.View = Str(head.Arg(0)) ?? "(unnamed)";
                     break;
@@ -315,6 +318,8 @@ public static class SnapshotReader
     {
         // ToTable("t"), ToTable("t", "schema"), ToTable("t", "schema", t => …), ToTable((string)null). A
         // lambda alone (ToTable(tb => tb.IsTemporal(…)), for a temporal table) configures, it does not name.
+        if (head.Arguments.Select(a => a.Expression).OfType<LambdaExpressionSyntax>().FirstOrDefault() is { } options)
+            ReadTableOptions(entity, options);
         if (head.Arg(0) is LambdaExpressionSyntax) return;
         if (IsNull(head.Arg(0)))
         {
@@ -324,6 +329,21 @@ public static class SnapshotReader
 
         entity.Table = Str(head.Arg(0));
         if (head.Arguments.Count > 1 && Str(head.Arg(1)) is { } schema) entity.Schema = schema;
+    }
+
+    /// <summary>IsTemporal, with UseHistoryTable(name, schema) when the history table is not EF's default.</summary>
+    private static void ReadTableOptions(EntityState entity, LambdaExpressionSyntax options)
+    {
+        var calls = options.DescendantNodes().OfType<InvocationExpressionSyntax>()
+            .Where(i => i.Expression is MemberAccessExpressionSyntax)
+            .Select(i => (Name: ((MemberAccessExpressionSyntax)i.Expression).Name.Identifier.Text, Args: i.ArgumentList.Arguments))
+            .ToList();
+        if (!calls.Any(c => c.Name == "IsTemporal")) return;
+
+        var (_, args) = calls.FirstOrDefault(c => c.Name == "UseHistoryTable");
+        entity.History = args.Count > 0
+            ? (args.Count > 1 ? Str(args[1].Expression) : null, Str(args[0].Expression))
+            : (null, null);
     }
 
     private static RelationshipState ReadRelationship(string declaringEntity, string target, List<Call> calls)
