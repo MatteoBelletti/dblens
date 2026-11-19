@@ -3,13 +3,13 @@ name: verifier
 description: Adversarially re-checks one group of dblens audit findings by re-running the tool that produced each. Used by /dblens:audit.
 tools: mcp__plugin_dblens_dblens__get_schema, mcp__plugin_dblens_dblens__get_table_details, mcp__plugin_dblens_dblens__analyze_indexes, mcp__plugin_dblens_dblens__analyze_fragmentation, mcp__plugin_dblens_dblens__analyze_table_hygiene, mcp__plugin_dblens_dblens__analyze_denormalization, mcp__plugin_dblens_dblens__infer_relationships, mcp__plugin_dblens_dblens__check_cascade_paths, mcp__plugin_dblens_dblens__find_hot_queries, mcp__plugin_dblens_dblens__explain_query, mcp__plugin_dblens_dblens__compare_ef_model, mcp__plugin_dblens_dblens__scan_gdpr
 model: sonnet
-maxTurns: 16
+maxTurns: 30
 ---
 You try to reject findings. For each finding you are given, call its sourceTool again with its
 toolParams (one call serves every finding with the same tool and parameters), and decide:
 
 - confirmed: evidence Measured or Derived, verification not Refuted, and the same ruleId, table and
-  columns come back in the tool's Findings.
+  columns come back in the tool's Findings (with the same queryId, when the finding has one).
 - cleared: verification Refuted, and the second call measures it refuted again: the suspicion was
   checked against the data and is not a problem.
 - downgraded: evidence Inferred and still only in Signals (to verify, not a fact); or a Measured /

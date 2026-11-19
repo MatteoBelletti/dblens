@@ -1,6 +1,6 @@
 export const meta = {
   name: 'audit',
-  description: 'Audits a PostgreSQL or SQL Server database with dblens: agents run the diagnostics in parallel, a verifier re-runs every finding, and a report keeps the evidence',
+  description: 'Audits a PostgreSQL or SQL Server database with dblens: agents run the diagnostics in parallel, a verifier re-runs every finding, and a report keeps the evidence. args: dialect (PostgreSql | SqlServer), outDir (absolute folder for the report), runLabel (e.g. the date); optional schema, efSnapshot (absolute path of an EF Core *ModelSnapshot.cs or its folder), queriesFile (a file of SQL queries to plan), privacy (true to scan column names for personal data)',
   whenToUse: 'The user asks for a dblens audit, health check or review of a database',
   phases: [{ title: 'Orient' }, { title: 'Analyze' }, { title: 'Verify' }, { title: 'Report' }],
 }
@@ -32,6 +32,7 @@ const FINDINGS = {
           sqlFix: { type: ['string', 'null'] },
           sqlFixKind: { enum: ['Ddl', 'ReadOnlyProbe', null] },
           verification: { enum: ['Confirmed', 'Refuted', 'Inconclusive', 'NotAttempted', 'Failed', null] },
+          queryId: { type: ['string', 'null'] },
         },
       },
     },
@@ -78,6 +79,10 @@ const REPORT = {
 }
 
 const a = args || {}
+const KNOWN = ['dialect', 'schema', 'outDir', 'runLabel', 'queriesFile', 'efSnapshot', 'privacy']
+// A misspelt option would silently skip an analyst: refuse it instead.
+const unknown = Object.keys(a).filter(k => !KNOWN.includes(k))
+if (unknown.length) throw new Error(`Unknown args ${unknown.join(', ')}; accepted: ${KNOWN.join(', ')}`)
 if (!a.dialect || !a.outDir || !a.runLabel) throw new Error('args needs dialect, outDir and runLabel')
 const target = a.schema ? `dialect ${a.dialect}, schema ${a.schema}` : `dialect ${a.dialect}, every user schema`
 

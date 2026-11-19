@@ -22,12 +22,12 @@ Work through these steps in order and stop at the first one that fails, saying w
    report the database name and the number of tables.
 5. **First audit.** Ask which dialect and, optionally, which schema; whether there is an EF Core
    migrations snapshot to compare (an absolute path) and whether to include the personal-data scan.
-   Then run the dblens `audit` workflow with args `{dialect, schema?, efSnapshot?, privacy?, outDir,
-   runLabel}`: `outDir` an absolute folder in the current project (default `<project>/dblens-audit`),
+   Then run the dblens `audit` workflow with args `{dialect, schema?, efSnapshot?, queriesFile?,
+   privacy?, outDir, runLabel}` (no other key: the workflow refuses unknown ones): `outDir` an absolute folder in the current project (default `<project>/dblens-audit`),
    `runLabel` today's date as `YYYY-MM-DD`.
-6. **Hand-off.** Give the report's path and its two-sentence summary. Say that every finding in it
-   was re-run by the verifier, and that "To verify" and "Not covered" list what the audit could not
-   establish.
+6. **Hand-off.** Give the report's path and its two-sentence summary. Say that confirmed findings
+   were re-run by the verifier, that "Not re-checked" lists those it could not repeat, and that "To
+   verify" and "Not covered" list what the audit could not establish.
 
 dblens never writes to the database and returns no row data. The audit's verification runs read-only
 aggregate counts in rolled-back transactions.

@@ -22,6 +22,7 @@ Only the JSON your schema asks for, no prose around it.
   - `verification`: the finding's `Metadata["verification"].Status` when it has one (`Confirmed`,
     `Refuted`, `Inconclusive`, `NotAttempted`, `Failed`), else null. A `Refuted` finding is a suspicion
     the data disproved, reported at Info: it is not a problem.
+  - `queryId`: the finding's `Metadata["queryId"]` when it has one (find_hot_queries), else null.
   - `explanation`: one to three sentences for a .NET developer, in the language of the request,
     saying why it matters. Only what the finding's own description supports.
 - `notCovered`: every caveat the tools returned, and every block that says what was not seen
