@@ -201,6 +201,7 @@ Non-standard ports avoid clashing with local installs.
 ## Releasing
 
 Bump `<Version>` in `src/DbLens.Mcp/DbLens.Mcp.csproj` and both versions in
-`src/DbLens.Mcp/.mcp/server.json`, then push a `v<version>` tag; the release workflow builds binaries,
+`src/DbLens.Mcp/.mcp/server.json`, then push a `v<version>` tag (or run the Release workflow by hand
+with the version, which creates the tag); the release workflow builds binaries,
 `.mcpb` extensions and the NuGet package, and publishes it via Trusted Publishing (OIDC, no stored
 key). Never add a long-lived NuGet API key. See docs/architecture.md#releases.

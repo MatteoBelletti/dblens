@@ -196,8 +196,9 @@ Volumes hold demo data only; `docker compose down -v && docker compose up -d` re
 
 ## Releases
 
-Pushing a `v*` tag runs `.github/workflows/release.yml`. The version comes from the tag
-(`v0.1.4` → `0.1.4`) and is stamped into the package and `.mcp/server.json`; keep `<Version>` in
+Pushing a `v*` tag runs `.github/workflows/release.yml`, and so does running it by hand with a
+`version` input, which tags the commit it built. The version comes from the tag or the input
+(`v0.4.0` → `0.4.0`) and is stamped into the package and `.mcp/server.json`; keep `<Version>` in
 `DbLens.Mcp.csproj` and `server.json` in step anyway, so a local build reports the same number. The
 workflow runs engine tests, then builds self-contained single-file
 binaries for `win-x64`, `linux-x64` and `osx-arm64`, one Claude Desktop extension per platform
