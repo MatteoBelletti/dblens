@@ -9,7 +9,7 @@ namespace DbLens.Tests;
 public sealed class EfDriftParityTests(PostgresEfFixture pg, SqlServerEfFixture ss)
 {
     private static EfModel Model(string provider) =>
-        SnapshotReader.Read(Path.Combine(AppContext.BaseDirectory, "Fixtures", "EfSnapshots", "ef10", provider));
+        SnapshotReader.Read(EfScripts.Folder(provider));
 
     [SkippableFact]
     [Trait("Category", "Integration")]

@@ -26,7 +26,7 @@ public abstract partial class DatabaseInspectorBase
             var scope = everything.Where(t => schemas.Contains(t.Schema)).ToList();
             var scopeCaveats = schemas
                 .Where(s => !scope.Any(t => Same(t.Schema, s)))
-                .Select(s => $"No tables were found in schema '{s}': nothing was analyzed, which is not the same as nothing to report.");
+                .Select(s => NoTablesCaveat($" in schema '{s}'"));
 
             var details = await GetTableDetailsAsync(scope, ct);
             var entities = request.Schema is null

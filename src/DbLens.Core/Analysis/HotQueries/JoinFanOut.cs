@@ -21,8 +21,7 @@ public static class JoinFanOut
         string SecondColumn)
     {
         public VerificationTarget Target => new(
-            HotQueryRuleIds.JoinFanOut, $"{Parent.Schema}.{Parent.Name}",
-            [$"{FirstChild.Schema}.{FirstChild.Name}.{FirstColumn}", $"{SecondChild.Schema}.{SecondChild.Name}.{SecondColumn}"]);
+            HotQueryRuleIds.JoinFanOut, Parent.Qualified(), [$"{FirstChild.Qualified()}.{FirstColumn}", $"{SecondChild.Qualified()}.{SecondColumn}"]);
     }
 
     public static IReadOnlyList<Shape> Detect(
@@ -30,9 +29,18 @@ public static class JoinFanOut
     {
         List<Shape> shapes = [];
 
-        // Every branch of every query in one extraction, named "<query>/<branch>": the catalog lookups are built once.
-        List<SqlSource> branches = [.. ranked.SelectMany((r, q) => OuterBranches(r.Stats.Text, dialect)
-            .Select((text, b) => new SqlSource(SqlSourceKind.Workload, $"{q}/{b}", text)))];
+        // Every branch of every query in one extraction, so the catalog lookups are built once.
+        // Each branch is a source of its own, named uniquely, so its joins are never grouped with another's.
+        Dictionary<string, HotQuery> queryOf = [];
+        List<SqlSource> branches = [];
+        foreach (var r in ranked)
+            foreach (var text in OuterBranches(r.Stats.Text, dialect))
+            {
+                var name = $"statistics {branches.Count}";
+                queryOf[name] = r.Query;
+                branches.Add(new SqlSource(SqlSourceKind.Workload, name, text));
+            }
+
         var joins = JoinPredicateExtractor.Extract(branches, tables, defaultSchema, dialect);
 
         // A chain A ← B ← C does not multiply, nor one child joined through two keys (billing and
@@ -47,7 +55,7 @@ public static class JoinFanOut
                 .ToList();
             if (children.Count < 2) continue;
 
-            var query = ranked[int.Parse(byParent.Key.Branch.Split('/')[0], System.Globalization.CultureInfo.InvariantCulture)].Query;
+            var query = queryOf[byParent.Key.Branch];
             shapes.Add(new Shape(query.QueryId, children[0].Parent,
                 children[0].Child, children[0].ChildColumn, children[1].Child, children[1].ChildColumn));
         }
@@ -212,7 +220,7 @@ public static class JoinFanOut
                 Description =
                     $"MEASURED: over the whole tables, the join returns {Num.N0(joined)} rows for the parents that have " +
                     $"both children; the two children read separately are {Num.N0(separate)} rows ({Num.F1(ratio)}×). " +
-                    "Read with a read-only aggregate query; no row values were returned. The query's own filters were " +
+                    ProbeText.HowRead + " The query's own filters were " +
                     "not applied, so this is the shape of the data, not tonight's result.\n\n" +
                     "WHAT THIS MAY MEAN: " + signal.Description,
                 Metadata = VerificationOutcome.Attach(signal.Metadata, m, ratio),

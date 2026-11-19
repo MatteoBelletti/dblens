@@ -200,11 +200,7 @@ public sealed class PostgresEdgeFixture : IAsyncLifetime, IEdgeFixture
         ANALYZE;
         """;
 
-    private const string DropSql =
-        $"DROP DATABASE IF EXISTS {Database} WITH (FORCE); DROP ROLE IF EXISTS dblens_edge_limited";
-
-    private static string EdgeConnectionString =>
-        PostgresAdmin.On(Database);
+    private static string EdgeConnectionString => PostgresAdmin.On(Database);
 
     public bool IsReachable { get; private set; }
 
@@ -219,9 +215,8 @@ public sealed class PostgresEdgeFixture : IAsyncLifetime, IEdgeFixture
         if (!await PostgresAdmin.IsReachableAsync()) return;
 
         // From here a failure is a broken fixture, not an unreachable database: it must fail, not skip.
-        foreach (var statement in DropSql.Split(';'))
-            await PostgresAdmin.ExecuteAsync(PostgresAdmin.ConnectionString, statement);
-        await PostgresAdmin.ExecuteAsync(PostgresAdmin.ConnectionString, $"CREATE DATABASE {Database}");
+        await DropAsync();
+        await PostgresAdmin.RecreateAsync(Database);
         await PostgresAdmin.ExecuteAsync(EdgeConnectionString, SetupSql);
 
         Inspector = new PostgresInspector(EdgeConnectionString, NullLogger<PostgresInspector>.Instance);
@@ -233,11 +228,14 @@ public sealed class PostgresEdgeFixture : IAsyncLifetime, IEdgeFixture
 
     public async Task DisposeAsync()
     {
-        if (!IsReachable) return;
+        if (IsReachable) await DropAsync();
+    }
 
-        // DROP DATABASE cannot share a statement batch with anything else.
-        foreach (var statement in DropSql.Split(';'))
-            await PostgresAdmin.ExecuteAsync(PostgresAdmin.ConnectionString, statement);
+    // DROP DATABASE cannot share a statement batch with anything else.
+    private static async Task DropAsync()
+    {
+        await PostgresAdmin.DropAsync(Database);
+        await PostgresAdmin.ExecuteAsync(PostgresAdmin.ConnectionString, "DROP ROLE IF EXISTS dblens_edge_limited");
     }
 
 }

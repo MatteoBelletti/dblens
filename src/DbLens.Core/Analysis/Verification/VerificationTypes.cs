@@ -210,6 +210,12 @@ public sealed record VerificationMeasurement(
 }
 
 /// <summary>The verification block attached to a finding's metadata.</summary>
+/// <summary>How every promoted finding says it was measured.</summary>
+public static class ProbeText
+{
+    public const string HowRead = "Read with a read-only aggregate query; no row values were returned.";
+}
+
 public sealed record VerificationOutcome(
     string Status,
     string Measurement,

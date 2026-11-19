@@ -33,14 +33,18 @@ internal sealed class ModelState
     /// owned twice (BillingAddress and ShippingAddress) is two entity types: the second takes EF's
     /// shared-type name, Owner.Navigation#Type, so neither overwrites the other's columns.
     /// </summary>
-    public EntityState Owned(string type, string owner, string? navigation)
+    public EntityState Owned(string type, string owner, string? navigation, bool many)
     {
-        if (!_entities.TryGetValue(type, out var existing)
-            || existing.Owner is null
-            || (existing.Owner == owner && existing.OwnedNavigation == navigation))
-            return Entity(type);
+        var owned = !_entities.TryGetValue(type, out var existing)
+                    || existing.Owner is null
+                    || (existing.Owner == owner && existing.OwnedNavigation == navigation)
+            ? Entity(type)
+            : Entity($"{owner}.{navigation}#{Names.Short(type)}");
 
-        return Entity($"{owner}.{navigation}#{Names.Short(type)}");
+        owned.Owner = owner;
+        owned.OwnedNavigation = navigation;
+        owned.OwnsMany = many;
+        return owned;
     }
 
     public EfModel Resolve(string context, IReadOnlyList<string> migrations)
@@ -129,10 +133,7 @@ internal sealed class ModelState
     private Placement? Place(EntityState entity, Dictionary<string, Placement> placed, List<EfUnsupported> unsupported)
     {
         if (entity.SplitTables.Count > 0)
-        {
-            unsupported.Add(new($"{entity.Name} is split over several tables (SplitToTable), which dblens does not compare.", [entity.Name]));
-            return null;
-        }
+            return Skip(unsupported, $"{entity.Name} is split over several tables (SplitToTable), which dblens does not compare.", entity.Name);
 
         if (entity.Owner is { } ownerName)
             return PlaceOwned(entity, ownerName, placed, unsupported);
@@ -141,45 +142,33 @@ internal sealed class ModelState
             return PlaceDerived(entity, unsupported);
 
         if (entity.View is { } view)
-        {
-            unsupported.Add(new($"{entity.Name} is mapped to the view {view}, which dblens does not compare.", [entity.Name]));
-            return null;
-        }
+            return Skip(unsupported, $"{entity.Name} is mapped to the view {view}, which dblens does not compare.", entity.Name);
 
         if (entity.NoTable)
-        {
-            unsupported.Add(new($"{entity.Name} is mapped to no table, so it was not compared.", [entity.Name]));
-            return null;
-        }
+            return Skip(unsupported, $"{entity.Name} is mapped to no table, so it was not compared.", entity.Name);
 
         if (entity.Keyless || entity.Key.Count == 0)
-        {
-            unsupported.Add(new($"{entity.Name} has no key (keyless entity), which dblens does not compare.", [entity.Name]));
-            return null;
-        }
+            return Skip(unsupported, $"{entity.Name} has no key (keyless entity), which dblens does not compare.", entity.Name);
 
         if (entity.Strategy == "TPC")
-        {
-            unsupported.Add(new($"{entity.Name} uses table-per-concrete-type mapping, which dblens does not compare.", [entity.Name]));
-            return null;
-        }
+            return Skip(unsupported, $"{entity.Name} uses table-per-concrete-type mapping, which dblens does not compare.", entity.Name);
 
         return new Placement(entity, entity.Schema, entity.Table ?? Names.Short(entity.Name), entity.Key, null, ColumnsNullable: false);
+    }
+
+    private static Placement? Skip(List<EfUnsupported> unsupported, string reason, params string[] entities)
+    {
+        unsupported.Add(new(reason, entities));
+        return null;
     }
 
     private Placement? PlaceOwned(EntityState owned, string ownerName, Dictionary<string, Placement> placed, List<EfUnsupported> unsupported)
     {
         if (owned.Json)
-        {
-            unsupported.Add(new($"{owned.Name}, owned by {ownerName}, is stored as JSON (ToJson), which dblens does not compare.", [owned.Name, ownerName]));
-            return null;
-        }
+            return Skip(unsupported, $"{owned.Name}, owned by {ownerName}, is stored as JSON (ToJson), which dblens does not compare.", owned.Name, ownerName);
 
         if (!placed.TryGetValue(ownerName, out var owner))
-        {
-            unsupported.Add(new($"{owned.Name} is owned by {ownerName}, which was not compared, so it was not either.", [owned.Name]));
-            return null;
-        }
+            return Skip(unsupported, $"{owned.Name} is owned by {ownerName}, which was not compared, so it was not either.", owned.Name);
 
         var sameTable = owned.Table is null
             || (CaseInsensitivePairComparer.Instance.Equals((owned.Schema ?? "", owned.Table), (owner.Schema ?? "", owner.Table)) && !owned.OwnsMany);
@@ -198,16 +187,10 @@ internal sealed class ModelState
         while (root.BaseType is { } baseName && _entities.TryGetValue(baseName, out var parent)) root = parent;
 
         if (root.Strategy == "TPC")
-        {
-            unsupported.Add(new($"{derived.Name} uses table-per-concrete-type mapping, which dblens does not compare.", [derived.Name]));
-            return null;
-        }
+            return Skip(unsupported, $"{derived.Name} uses table-per-concrete-type mapping, which dblens does not compare.", derived.Name);
 
         if (root.Strategy == "TPT" || (derived.Table is not null && derived.Table != root.Table))
-        {
-            unsupported.Add(new($"{derived.Name} uses table-per-type mapping, which dblens does not compare.", [derived.Name]));
-            return null;
-        }
+            return Skip(unsupported, $"{derived.Name} uses table-per-type mapping, which dblens does not compare.", derived.Name);
 
         // Table-per-hierarchy: a subtype's columns are NULL in the rows of every other subtype.
         return new Placement(derived, root.Schema, root.Table ?? Names.Short(root.Name), root.Key, root.Name, ColumnsNullable: true);

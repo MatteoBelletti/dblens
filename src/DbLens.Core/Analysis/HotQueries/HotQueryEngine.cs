@@ -96,9 +96,8 @@ public static class HotQueryEngine
                 yield return Fact(HotQueryRuleIds.ReadsPerRow, Severity.Medium, table, query,
                     $"Query {query.QueryId} reads {Num.N0(perRow)} pages for every row it returns",
                     $"Over {Num.N0(stats.Calls)} calls it read {Num.N0(stats.PagesRead)} pages of 8 KB and returned " +
-                    $"{Num.N0(stats.Rows)} rows. A query that filters or joins through an index reads a few pages per " +
-                    "row; this one reads through far more data than it returns. Its plan, when listed, says where. An " +
-                    "aggregate (COUNT, SUM) returns one row from many by design: look first at queries that return rows.");
+                    $"{Num.N0(stats.Rows)} rows: it reads through far more data than it returns. Its plan, when listed, " +
+                    "says where. An aggregate (COUNT, SUM) returns one row from many by design: look first at queries that return rows.");
 
             if (stats.PagesRead >= request.DiskReadMinPages && query.DiskReadShare >= request.DiskReadShareThreshold)
                 yield return Fact(HotQueryRuleIds.DiskReads, Severity.Low, table, query,

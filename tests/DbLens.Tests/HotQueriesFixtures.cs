@@ -48,7 +48,7 @@ internal static class HotWorkload
 {
     public const int Repeats = 3;
 
-    public static string FanOut(string count) => $"""
+    public const string FanOut = """
         SELECT o.id, i.qty, p.amount FROM hot.orders o
         JOIN hot.order_items i ON i.order_id = o.id
         JOIN hot.payments p ON p.order_id = o.id
@@ -102,7 +102,7 @@ public sealed class PostgresHotFixture : IAsyncLifetime, IHotFixture
 
         for (var i = 0; i < HotWorkload.Repeats; i++)
         {
-            await PostgresAdmin.ExecuteAsync(HotConnectionString, HotWorkload.FanOut("count(*)"));
+            await PostgresAdmin.ExecuteAsync(HotConnectionString, HotWorkload.FanOut);
             await PostgresAdmin.ExecuteAsync(HotConnectionString, HotWorkload.Selective);
             await PostgresAdmin.ExecuteAsync(HotConnectionString, HotWorkload.WithSecrets);
         }
@@ -170,7 +170,7 @@ public sealed class SqlServerHotFixture : IAsyncLifetime, IHotFixture
 
         for (var i = 0; i < HotWorkload.Repeats; i++)
         {
-            await SqlServerAdmin.ExecuteAsync(HotConnectionString, HotWorkload.FanOut("COUNT_BIG(*)"));
+            await SqlServerAdmin.ExecuteAsync(HotConnectionString, HotWorkload.FanOut);
             await SqlServerAdmin.ExecuteAsync(HotConnectionString, HotWorkload.Selective);
             await SqlServerAdmin.ExecuteAsync(HotConnectionString, HotWorkload.WithSecrets);
         }

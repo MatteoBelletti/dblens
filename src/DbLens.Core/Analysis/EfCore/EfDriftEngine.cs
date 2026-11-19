@@ -218,10 +218,9 @@ public static class EfDriftEngine
                 EfRuleIds.IndexUnmodeled, Severity.Medium, FindingCategory.Structure, 1.0, Evidence.Derived,
                 table.Qualified, index.Columns,
                 $"Index {index.Name} on {table.Qualified} is not in the model",
-                $"{index.Name} ({string.Join(", ", index.Columns)}) exists in the database but not in the model: it was added " +
-                "by hand. If the model later declares it, the generated migration will contain a CreateIndex that fails " +
-                "where the index already exists: remove that call from the migration, or make it conditional with " +
-                "migrationBuilder.Sql. Declaring it now with its database name keeps the two in step.",
+                $"{index.Name} ({string.Join(", ", index.Columns)}) was added by hand. Declare it now with its database name " +
+                "(Metadata.ef); declared later, the generated migration's CreateIndex fails where it already exists: remove " +
+                "that call, or make it conditional with migrationBuilder.Sql.",
                 null,
                 Ef(owner.Name, fluent: fluent)));
         }

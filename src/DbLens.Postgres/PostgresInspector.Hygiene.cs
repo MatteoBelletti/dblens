@@ -22,8 +22,9 @@ public sealed partial class PostgresInspector
     // A partitioned table counts nothing itself: its rows are updated in its partitions.
     private const string TableUpdatesSql = """
         SELECT n.nspname AS schema_name, c.relname AS table_name,
-               (SELECT SUM(st.n_tup_upd) FROM pg_stat_user_tables st
-                WHERE st.relid = c.oid OR st.relid IN (SELECT relid FROM pg_partition_tree(c.oid))) AS updates
+               pg_stat_get_tuples_updated(c.oid)
+               + COALESCE((SELECT SUM(pg_stat_get_tuples_updated(pt.relid)) FROM pg_partition_tree(c.oid) pt
+                           WHERE pt.relid <> c.oid), 0) AS updates
         FROM pg_class c
         JOIN pg_namespace n ON n.oid = c.relnamespace
         WHERE c.relkind IN ('r', 'p')

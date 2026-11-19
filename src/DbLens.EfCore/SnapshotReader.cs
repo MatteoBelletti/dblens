@@ -164,10 +164,18 @@ public static class SnapshotReader
         return model.Resolve(context, migrationsByContext.GetValueOrDefault(context) ?? []) with { OtherContexts = others };
     }
 
+    /// <summary>
+    /// A designer file up to its BuildTargetModel: the attributes that name the migration and its
+    /// context come first, and the rest is a whole copy of the model, not worth parsing.
+    /// </summary>
+    private static string Header(string designer) =>
+        designer.IndexOf("BuildTargetModel", StringComparison.Ordinal) is > 0 and var at ? designer[..at] : designer;
+
     /// <summary>The migration ids of every DbContext among the designer files, oldest first.</summary>
     private static MigrationsByContext ReadMigrations(IEnumerable<string> designers) =>
         designers
-            .Select(text => CSharpSyntaxTree.ParseText(text).GetCompilationUnitRoot())
+            .Where(text => text.Contains("Migration(", StringComparison.Ordinal))
+            .Select(text => CSharpSyntaxTree.ParseText(Header(text)).GetCompilationUnitRoot())
             .SelectMany(r => r.DescendantNodes().OfType<ClassDeclarationSyntax>())
             .Select(c => (Context: ContextOf(c), Id: MigrationIdOf(c)))
             .Where(m => m.Context is not null && m.Id is not null)
@@ -258,10 +266,7 @@ public static class SnapshotReader
                     model.Relationships.Add(ReadRelationship(entity.Name, target, rest));
                     break;
                 case "OwnsOne" or "OwnsMany" when Str(head.Arg(0)) is { } ownedType && head.Arguments.LastOrDefault()?.Expression is LambdaExpressionSyntax ownedLambda:
-                    var owned = model.Owned(ownedType, entity.Name, Str(head.Arg(1)));
-                    owned.Owner = entity.Name;
-                    owned.OwnedNavigation = Str(head.Arg(1));
-                    owned.OwnsMany = head.Name == "OwnsMany";
+                    var owned = model.Owned(ownedType, entity.Name, Str(head.Arg(1)), head.Name == "OwnsMany");
                     ReadEntity(owned, ownedLambda, model);
                     break;
                 case "ComplexProperty" when Str(head.Arg(0)) is { } complexName

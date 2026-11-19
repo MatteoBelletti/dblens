@@ -15,8 +15,8 @@ public abstract partial class DatabaseInspectorBase
     /// <summary>
     /// The engine's query statistics, on an open connection: the source's name, a command returning
     /// up to @fetch rows heaviest by total time first — query_id, query_text, calls, total_time_ms,
-    /// rows_returned, pages_read, pages_from_disk, temp_pages, plan_key — and one returning the days
-    /// they cover; or no source and why. A source that is off is an answer, not an error; a view the
+    /// rows_returned, pages_read, pages_from_disk, temp_pages, plan_key — and one returning window_days,
+    /// the days they cover; or no source and why. A source that is off is an answer, not an error; a view the
     /// login is refused is caught by the base.
     /// </summary>
     protected abstract Task<HotQueryCommands> HotQueryCommandsAsync(DbConnection conn, CancellationToken ct);
@@ -78,12 +78,9 @@ public abstract partial class DatabaseInspectorBase
                 r.Number("rows_returned"), r.Number("pages_read"), r.Number("pages_from_disk"), r.NumberOrNull("temp_pages"),
                 r.TextOrNull("plan_key")), ct);
 
-            double? days = null;
-            if (source.Window is { } window)
-                await using (window)
-                    days = await window.ExecuteScalarAsync(ct) is { } value and not DBNull
-                        ? Convert.ToDouble(value, System.Globalization.CultureInfo.InvariantCulture)
-                        : null;
+            var days = source.Window is { } window
+                ? (await ReadAllAsync(window, r => r.RealOrNull("window_days"), ct)).SingleOrDefault()
+                : null;
 
             return (name, days, queries, source.Notes);
         }

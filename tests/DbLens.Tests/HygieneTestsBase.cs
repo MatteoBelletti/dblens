@@ -20,7 +20,7 @@ public abstract class HygieneTestsBase(IHygieneFixture fixture)
         Fixture.Inspector!.AnalyzeTableHygieneAsync(new AnalyzeTableHygieneRequest(
             VerifySignals: verify,
             Models: withModel
-                ? [SnapshotReader.Read(Path.Combine(AppContext.BaseDirectory, "Fixtures", "EfSnapshots", "ef10", Fixture.Provider))]
+                ? [SnapshotReader.Read(EfScripts.Folder(Fixture.Provider))]
                 : null,
             UpdateCountersMinDays: 0));
 

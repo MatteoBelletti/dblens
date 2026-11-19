@@ -5,9 +5,12 @@ public sealed record CompareEfModelRequest(
     /// <summary>Restrict the comparison to one schema. Null = every schema the model maps.</summary>
     string? Schema = null,
     /// <summary>The migrations history table (MigrationsHistoryTable in the DbContext options).</summary>
-    string HistoryTable = "__EFMigrationsHistory",
+    string HistoryTable = CompareEfModelRequest.DefaultHistoryTable,
     /// <summary>Its schema. Null = wherever a table of that name is found.</summary>
-    string? HistorySchema = null);
+    string? HistorySchema = null)
+{
+    public const string DefaultHistoryTable = "__EFMigrationsHistory";
+}
 
 public sealed record CompareEfModelResult(
     /// <summary>Differences between the model and the catalog, all derived from metadata.</summary>

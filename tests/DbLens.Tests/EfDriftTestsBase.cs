@@ -39,7 +39,7 @@ public abstract class EfDriftTestsBase(IEfFixture fixture)
     protected bool ShouldSkip => !Fixture.IsReachable;
 
     protected EfModel Model => SnapshotReader.Read(
-        Path.Combine(AppContext.BaseDirectory, "Fixtures", "EfSnapshots", "ef10", Fixture.Provider));
+        EfScripts.Folder(Fixture.Provider));
 
     protected Task<CompareEfModelResult> CompareDrifted() => Fixture.Drifted!.CompareEfModelAsync(new CompareEfModelRequest(Model));
 

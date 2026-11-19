@@ -158,7 +158,8 @@ public static partial class SqlText
                     kind = SqlTokenKind.Symbol;
                 }
 
-                yield return new SqlToken(kind, text[start..i], text[start..i]);
+                var token = text[start..i];
+                yield return new SqlToken(kind, token, token);
             }
         }
     }

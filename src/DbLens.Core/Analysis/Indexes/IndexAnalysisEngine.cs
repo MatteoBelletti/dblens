@@ -50,14 +50,13 @@ public static class IndexAnalysisEngine
                         $"The 'unused-index' rule read {days} day(s) of scan counters, {window.SinceText}. " +
                         "Verify manually before dropping any index.");
                     if (!window.RestoreVisible)
-                        caveats.Add(dialect == DatabaseDialect.SqlServer
+                        caveats.Add((dialect == DatabaseDialect.SqlServer
                             ? "This login cannot read msdb.dbo.restorehistory, so a restore over the database (RESTORE … " +
-                              "WITH REPLACE) is not seen and the scan counters are dated from its creation or the server " +
-                              "start. If it was restored later, they cover less time and these findings may be false."
+                              "WITH REPLACE) is not seen and the scan counters are dated from its creation or the server start."
                             : "This login cannot see when the database was created or restored (that needs EXECUTE on " +
                               "pg_stat_file, and the database in the default tablespace), so the scan counters are dated " +
-                              "from the server start. If it was restored later, they cover less time and these findings " +
-                              "may be false.");
+                              "from the server start.") +
+                            " If it was restored later, they cover less time and these findings may be false.");
                 }
             }
         }

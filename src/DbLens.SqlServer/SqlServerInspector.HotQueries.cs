@@ -55,7 +55,7 @@ public sealed partial class SqlServerInspector
         "SELECT TOP (1) query_plan FROM sys.query_store_plan WHERE query_id = @id ORDER BY last_execution_time DESC";
 
     private const string QueryStoreWindowSql = """
-        SELECT CAST(DATEDIFF_BIG(SECOND, MIN(first_execution_time), SYSDATETIMEOFFSET()) AS FLOAT) / 86400.0
+        SELECT CAST(DATEDIFF_BIG(SECOND, MIN(first_execution_time), SYSDATETIMEOFFSET()) AS FLOAT) / 86400.0 AS window_days
         FROM sys.query_store_runtime_stats
         """;
 
@@ -92,7 +92,7 @@ public sealed partial class SqlServerInspector
         """;
 
     private const string PlanCacheWindowSql = """
-        SELECT CAST(DATEDIFF_BIG(SECOND, MIN(qs.creation_time), GETDATE()) AS FLOAT) / 86400.0
+        SELECT CAST(DATEDIFF_BIG(SECOND, MIN(qs.creation_time), GETDATE()) AS FLOAT) / 86400.0 AS window_days
         FROM sys.dm_exec_query_stats qs
         CROSS APPLY (SELECT CONVERT(int, value) AS dbid FROM sys.dm_exec_plan_attributes(qs.plan_handle)
                      WHERE attribute = 'dbid') a

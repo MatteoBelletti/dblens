@@ -441,8 +441,8 @@ first, within the shared [budget](safety.md#signal-verification). A check with t
 1,000 recent ones) is not measured, never refuted. `column-abandoned` and `audit-update-before-create`
 have no signal: they appear only when a probe finds the defect.
 
-**EF Core changes** in `Metadata["ef"]`: the entity and property when the snapshot maps the column;
-removing a column in two releases (drop the property and the generated `DropColumn` first, drop the
+**EF Core changes** in `Metadata["ef"]`: the entity and property when the snapshot maps the column,
+and a one-line change; the full recipes are one caveat each, once per result: removing a column in two releases (drop the property and the generated `DropColumn` first, drop the
 column once no running version reads it); `IAuditable` with a `SaveChangesInterceptor` and a
 `.SetProperty` in every `ExecuteUpdate`; on a table with rows, a nullable `CreatedAt` — a
 non-nullable `DateTime` or `HasDefaultValueSql("now()")` gives every existing row a false creation date.

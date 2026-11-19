@@ -36,7 +36,7 @@ public sealed class CompareEfModelTool(IServiceProvider services, IDatabaseInspe
         ResolveInspector(dialect, connectionString).CompareEfModelAsync(
             new CompareEfModelRequest(
                 SnapshotReader.Read(snapshotPath), schema,
-                string.IsNullOrWhiteSpace(historyTable) ? "__EFMigrationsHistory" : historyTable,
+                string.IsNullOrWhiteSpace(historyTable) ? CompareEfModelRequest.DefaultHistoryTable : historyTable,
                 string.IsNullOrWhiteSpace(historySchema) ? null : historySchema),
             cancellationToken);
 }

@@ -21,8 +21,11 @@ public sealed class SqlServerEfDriftTests(SqlServerEfFixture fixture) : EfDriftT
 /// <summary>The SQL scripts `dotnet ef` wrote for the demo model, as the fixtures apply them.</summary>
 internal static class EfScripts
 {
-    public static string Read(string provider, string migration) =>
-        File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "Fixtures", "EfSnapshots", "ef10", provider, migration + ".sql"));
+    /// <summary>The folder of one EF Core major's fixtures for a provider, as scripts/generate-ef-fixtures.sh writes it.</summary>
+    public static string Folder(string provider, int major = 10) =>
+        Path.Combine(AppContext.BaseDirectory, "Fixtures", "EfSnapshots", $"ef{major}", provider);
+
+    public static string Read(string provider, string migration) => File.ReadAllText(Path.Combine(Folder(provider), migration + ".sql"));
 }
 
 public sealed class PostgresEfFixture : IAsyncLifetime, IEfFixture

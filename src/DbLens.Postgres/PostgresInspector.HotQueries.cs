@@ -40,7 +40,7 @@ public sealed partial class PostgresInspector
         """;
 
     private const string HotQueriesWindowSql =
-        "SELECT EXTRACT(EPOCH FROM (NOW() - stats_reset)) / 86400.0 FROM {0}.pg_stat_statements_info";
+        "SELECT EXTRACT(EPOCH FROM (NOW() - stats_reset)) / 86400.0 AS window_days FROM {0}.pg_stat_statements_info";
 
     protected override async Task<HotQueryCommands> HotQueryCommandsAsync(DbConnection conn, CancellationToken ct)
     {

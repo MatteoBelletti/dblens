@@ -41,15 +41,11 @@ public sealed partial class SqlServerInspector
     // table's metadata leaves the cache, not only with the server: a zero is not "never updated".
     private const string TableUpdatesSql = """
         SELECT sch.name AS schema_name, t.name AS table_name, NULLIF(SUM(os.leaf_update_count), 0) AS updates
-        FROM sys.dm_db_index_operational_stats(DB_ID(), NULL, NULL, NULL) os
-        JOIN sys.tables t ON t.object_id = os.object_id
-        JOIN sys.schemas sch ON sch.schema_id = t.schema_id
+        FROM OPENJSON(@pairs) WITH (s NVARCHAR(128) '$.s', n NVARCHAR(128) '$.n') AS p
+        JOIN sys.schemas sch ON sch.name = p.s
+        JOIN sys.tables t ON t.schema_id = sch.schema_id AND t.name = p.n
+        CROSS APPLY sys.dm_db_index_operational_stats(DB_ID(), t.object_id, NULL, NULL) os
         WHERE os.index_id IN (0, 1)
-          AND EXISTS (
-            SELECT 1 FROM OPENJSON(@pairs)
-            WITH (s NVARCHAR(128) '$.s', n NVARCHAR(128) '$.n') AS p
-            WHERE p.s = sch.name AND p.n = t.name
-        )
         GROUP BY sch.name, t.name
         """;
 

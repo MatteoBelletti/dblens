@@ -75,6 +75,9 @@ public abstract partial class DatabaseInspectorBase(ILogger logger) : IDatabaseI
         return cmd;
     }
 
+    protected static string NoTablesCaveat(string where) =>
+        $"No tables were found{where}: nothing was analyzed, which is not the same as nothing to report.";
+
     /// <summary>A driver's error on one line, as a caveat quotes it.</summary>
     protected static string Brief(DbException ex) => ex.Message.ReplaceLineEndings(" ").Trim();
 
@@ -451,7 +454,7 @@ public abstract partial class DatabaseInspectorBase(ILogger logger) : IDatabaseI
             if (!includePartitions) scope = [.. scope.Where(t => !t.IsPartition)];
 
             if (scope.Count == 0)
-                caveat = $"No tables were found{where}: nothing was analyzed, which is not the same as nothing to report.";
+                caveat = NoTablesCaveat(where);
         }
 
         if (excludeTables is { Length: > 0 })

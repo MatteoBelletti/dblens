@@ -102,13 +102,9 @@ public sealed class SqlServerEdgeFixture : IAsyncLifetime, IEdgeFixture
 
     private const string LimitedLogin = "dblens_edge_limited";
 
-    private static string EdgeConnectionString =>
-        SqlServerAdmin.On(Database);
+    private static string EdgeConnectionString => SqlServerAdmin.On(Database);
 
-    private const string DropSql =
-        $"IF DB_ID('{Database}') IS NOT NULL BEGIN " +
-        $"ALTER DATABASE {Database} SET SINGLE_USER WITH ROLLBACK IMMEDIATE; DROP DATABASE {Database}; END; " +
-        $"IF SUSER_ID('{LimitedLogin}') IS NOT NULL DROP LOGIN {LimitedLogin}";
+    private const string DropLoginSql = $"IF SUSER_ID('{LimitedLogin}') IS NOT NULL DROP LOGIN {LimitedLogin}";
 
     public bool IsReachable { get; private set; }
 
@@ -123,8 +119,8 @@ public sealed class SqlServerEdgeFixture : IAsyncLifetime, IEdgeFixture
         if (!await SqlServerAdmin.IsReachableAsync()) return;
 
         // From here a failure is a broken fixture, not an unreachable database: it must fail, not skip.
-        await SqlServerAdmin.ExecuteAsync(SqlServerAdmin.ConnectionString, DropSql);
-        await SqlServerAdmin.ExecuteAsync(SqlServerAdmin.ConnectionString, $"CREATE DATABASE {Database} COLLATE Latin1_General_100_CS_AS");
+        await SqlServerAdmin.ExecuteAsync(SqlServerAdmin.ConnectionString, DropLoginSql);
+        await SqlServerAdmin.RecreateAsync(Database, "Latin1_General_100_CS_AS");
         foreach (var statement in SetupSql)
             await SqlServerAdmin.ExecuteAsync(EdgeConnectionString, statement);
 
@@ -137,8 +133,9 @@ public sealed class SqlServerEdgeFixture : IAsyncLifetime, IEdgeFixture
 
     public async Task DisposeAsync()
     {
-        if (IsReachable)
-            await SqlServerAdmin.ExecuteAsync(SqlServerAdmin.ConnectionString, DropSql);
+        if (!IsReachable) return;
+        await SqlServerAdmin.DropAsync(Database);
+        await SqlServerAdmin.ExecuteAsync(SqlServerAdmin.ConnectionString, DropLoginSql);
     }
 
 }

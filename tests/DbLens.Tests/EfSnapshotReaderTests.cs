@@ -18,7 +18,7 @@ public sealed class EfSnapshotReaderTests
     };
 
     private static string FixtureDirectory(int major, string provider) =>
-        Path.Combine(AppContext.BaseDirectory, "Fixtures", "EfSnapshots", $"ef{major}", provider);
+        EfScripts.Folder(provider, major);
 
     private static EfModel ReadFixture(int major, string provider) => SnapshotReader.Read(FixtureDirectory(major, provider));
 
@@ -301,7 +301,7 @@ public sealed class EfSnapshotReaderTests
     [Fact]
     public void AFolderWithSeveralSnapshots_AsksForOne()
     {
-        var read = () => SnapshotReader.Read(Path.Combine(AppContext.BaseDirectory, "Fixtures", "EfSnapshots", "ef10"));
+        var read = () => SnapshotReader.Read(Path.GetDirectoryName(EfScripts.Folder("PostgreSql"))!);
         read.Should().Throw<ArgumentException>().WithMessage("*Several snapshots*ShopPostgresContextModelSnapshot.cs*");
     }
 }
