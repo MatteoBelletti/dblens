@@ -52,6 +52,12 @@ internal sealed class ModelState
             if (Place(entity, placements, unsupported) is { } placement)
                 placements[entity.Name] = placement;
 
+        // An owned type split over tables leaves part of itself in its owner's table: that table is not
+        // compared either, or the part left behind would read as columns and indexes added by hand.
+        foreach (var owner in _order.Where(e => e is { Owner: not null, SplitTables.Count: > 0 }).Select(e => e.Owner!).Distinct().ToList())
+            if (placements.Remove(owner))
+                unsupported.Add(new($"{owner} owns a type split over several tables, so its table was not compared.", [owner]));
+
         // Table splitting: two independent entities in one table. Not compared, never half-compared.
         foreach (var shared in placements.Values
                      .Where(p => p.SharesTableWith is null)

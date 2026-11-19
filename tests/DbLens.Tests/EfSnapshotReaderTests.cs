@@ -206,7 +206,9 @@ public sealed class EfSnapshotReaderTests
             modelBuilder.Entity("N.Body", b => { b.Property<int>("Id"); b.HasKey("Id"); b.ToTable("people"); });
             """);
 
-        model.Unsupported.Should().Contain(u => u.Entities.Contains("N.Address") && u.Reason.Contains("SplitToTable"));
+        model.Unsupported.Should().Contain(u => u.Entities.Contains("N.Address") && u.Reason.Contains("SplitToTable"))
+            .And.Contain(u => u.Entities.Contains("N.Customer"), "the part left in customers would read as added by hand");
+        model.Entities.Should().NotContain(e => e.Name == "N.Customer");
         model.OwnTables.Should().Contain((null, "customer_addresses")).And.Contain((null, "peopleHistory"));
     }
 
