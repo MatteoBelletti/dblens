@@ -144,6 +144,11 @@ public sealed class HotQueryEngineTests
             UniqueConstraints = [new UniqueConstraintDetail("uq_orders_number", ["number"])],
         },
         Table("shipments", [Col("id", "int"), Col("order_number", "int")]),
+        // EF Core's 1:1: a unique index, filtered to IS NOT NULL on SQL Server.
+        Table("profiles", [Col("id", "int"), Col("order_id", "int")]) with
+        {
+            Indexes = [new IndexDetail("ix_profiles_order", ["order_id"], true, false, "btree", "", true, "([order_id] IS NOT NULL)")],
+        },
         Table("addresses", [Col("id", "int")]),
         Table("items", [Col("id", "int"), Col("order_id", "int")]),
         Table("payments", [Col("id", "int"), Col("order_id", "int")]),
@@ -178,6 +183,7 @@ public sealed class HotQueryEngineTests
     [InlineData("SELECT * FROM orders o JOIN items i ON i.order_id = o.id WHERE EXISTS (SELECT 1 FROM payments p WHERE p.order_id = o.id)")]
     [InlineData("SELECT o.id FROM orders o JOIN items i ON i.order_id = o.id UNION SELECT o.id FROM orders o JOIN payments p ON p.order_id = o.id")]
     [InlineData("SELECT * FROM orders o JOIN items i ON i.order_id = o.id JOIN shipments s ON s.order_number = o.number")]
+    [InlineData("SELECT * FROM orders o LEFT JOIN profiles f ON f.order_id = o.id LEFT JOIN items i ON i.order_id = o.id")]
     [InlineData("SELECT o.id, COALESCE((SELECT SUM(i.qty) FROM items i WHERE i.order_id = o.id), 0) FROM orders o JOIN payments p ON p.order_id = o.id")]
     [InlineData("WITH x AS (SELECT o.id FROM orders o JOIN items i ON i.order_id = o.id UNION ALL SELECT o.id FROM orders o JOIN payments p ON p.order_id = o.id) SELECT * FROM x")]
     [InlineData("SELECT * FROM orders o JOIN items i ON i.order_id = o.id WHERE o.id > ALL (SELECT p.order_id FROM payments p WHERE p.order_id = o.id)")]
@@ -187,6 +193,7 @@ public sealed class HotQueryEngineTests
     [Theory]
     [InlineData("(SELECT o.id FROM orders o JOIN items i ON i.order_id = o.id JOIN payments p ON p.order_id = o.id) UNION ALL (SELECT 1)")]
     [InlineData("WITH x AS (SELECT o.id FROM orders o JOIN items i ON i.order_id = o.id JOIN payments p ON p.order_id = o.id) SELECT * FROM x")]
+    [InlineData("SELECT * FROM orders o JOIN items i ON i.order_id = o.id LEFT JOIN (SELECT id FROM notes UNION ALL SELECT id FROM notes) u ON u.id = o.id JOIN payments p ON p.order_id = o.id")]
     public void ABranchInParentheses_OrACteBody_StillMultiplies(string sql) =>
         Detect(sql).Should().ContainSingle();
 

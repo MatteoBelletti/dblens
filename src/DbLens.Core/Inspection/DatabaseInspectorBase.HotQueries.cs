@@ -37,13 +37,13 @@ public abstract partial class DatabaseInspectorBase
             var (name, days, statistics, notes) = await ReadHotQueriesAsync(request.Fetch, ct);
             var availability = new HotQuerySourceInfo(name, days, notes);
             if (name is null)
-                return HotQueryEngine.Build([], [], availability, 0, [], request.VerifyJoins ? VerificationSummary.From([], attempted: true) : null);
+                return HotQueryEngine.Build([], [], availability, 0, [], VerificationSummary.None(request.VerifyJoins));
 
             var (tables, scopeCaveat) = await ResolveTableScopeAsync(null, null, ct, includePartitions: true);
             var ranked = HotQueryEngine.Rank(statistics, [.. tables.Select(t => (t.Schema, t.Name))], Dialect, DefaultSchema, request);
 
             List<Finding> findings = [.. HotQueryEngine.StatisticsFindings(ranked, request, Dialect)];
-            List<string> caveats = scopeCaveat is null ? [] : [scopeCaveat];
+            List<string> caveats = [];
 
             var plansRead = 0;
             foreach (var (stats, query, _) in ranked.Take(request.PlanTop))
@@ -56,7 +56,7 @@ public abstract partial class DatabaseInspectorBase
             var (fanOut, verification) = await JoinFanOutAsync(ranked, tables, request, caveats, ct);
             findings.AddRange(fanOut);
 
-            return HotQueryEngine.Build(ranked, findings, availability, plansRead, [.. caveats.Distinct()], verification);
+            return HotQueryEngine.Build(ranked, findings, availability, plansRead, WithCaveats([.. caveats.Distinct()], scopeCaveat), verification);
         });
 
     private async Task<(string? Name, double? Days, IReadOnlyList<HotQueryStats> Queries, IReadOnlyList<string> Notes)> ReadHotQueriesAsync(
@@ -139,10 +139,10 @@ public abstract partial class DatabaseInspectorBase
     {
         var named = ranked.SelectMany(r => r.Tables).ToHashSet();
         var scope = tables.Where(t => named.Contains((t.Schema, t.Name))).ToList();
-        if (scope.Count == 0) return ([], request.VerifyJoins ? VerificationSummary.From([], attempted: true) : null);
+        if (scope.Count == 0) return ([], VerificationSummary.None(request.VerifyJoins));
 
         var details = await GetTableDetailsAsync(scope, ct);
-        if (NotFoundCaveat(details) is { } notFound) caveats.Add(notFound);
+        caveats.AddRange(WithCaveats([], NotFoundCaveat(details)));
         var shapes = JoinFanOut.Detect(ranked, details.Tables, DefaultSchema, Dialect)
             .DistinctBy(s => s.Target.Key)
             .ToList();

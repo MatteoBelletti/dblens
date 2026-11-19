@@ -13,18 +13,21 @@ public static class EfDriftEngine
     /// <param name="applied">The applied migration ids; null when no history table was found.</param>
     /// <param name="historyTable">The history table read, as a catalog pair.</param>
     /// <param name="schemas">The schemas compared: a table there that no entity maps is reported.</param>
+    /// <param name="historyCaveat">What was found of the history table and not read, or which one was read.</param>
     public static CompareEfModelResult Analyze(
         EfModel model,
         EfModelMatch match,
         IReadOnlyList<string>? applied,
         (string Schema, string Name)? historyTable,
-        IReadOnlySet<string> schemas)
+        IReadOnlySet<string> schemas,
+        string? historyCaveat = null)
     {
         List<Finding> findings = [];
         List<string> caveats = [.. model.Unsupported.Select(u => u.Reason), .. match.Ambiguities];
 
         var history = historyTable is { } h ? $"{h.Schema}.{h.Name}" : null;
-        var migrations = Migrations(model, applied, history, findings, caveats);
+        if (historyCaveat is not null) caveats.Add(historyCaveat);
+        var migrations = Migrations(model, applied, history, historyCaveat is not null, findings, caveats);
 
         foreach (var table in match.Tables.Where(t => !t.Ambiguous))
             CompareTable(table, match, findings);
@@ -53,11 +56,12 @@ public static class EfDriftEngine
     // ── Migrations ─────────────────────────────────────────────────────────────
 
     private static EfMigrationState Migrations(
-        EfModel model, IReadOnlyList<string>? applied, string? historyTable, List<Finding> findings, List<string> caveats)
+        EfModel model, IReadOnlyList<string>? applied, string? historyTable, bool explained, List<Finding> findings, List<string> caveats)
     {
         if (applied is null)
         {
-            caveats.Add(
+            if (!explained)
+                caveats.Add(
                 "No migrations history table was found, so which migrations are applied is unknown: the database " +
                 "was created another way (EnsureCreated, a script, another tool) or the history lives under another " +
                 "name (pass historyTable and historySchema). The schema comparison below does not depend on it.");
@@ -267,7 +271,7 @@ public static class EfDriftEngine
         (migrations.HistoryFound
             ? $"Migrations: {Num.N0(model.MigrationIds.Count)} in the code, {Num.N0(migrations.Pending.Count)} pending, " +
               $"{Num.N0(migrations.Unknown.Count)} applied but unknown to the code."
-            : "No migrations history table was found."),
+            : "The migrations history was not read: see the caveats."),
         null,
         new Dictionary<string, object> { ["efVersion"] = model.ProductVersion ?? "", ["context"] = model.ContextName });
 

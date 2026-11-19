@@ -45,19 +45,21 @@ public static class IndexAnalysisEngine
                 var unusedFindings = UnusedIndexRule.Apply(tables, stats, dialect).ToList();
                 findings.AddRange(unusedFindings);
                 if (unusedFindings.Count > 0)
+                {
                     caveats.Add(
                         $"The 'unused-index' rule read {days} day(s) of scan counters, {window.SinceText}. " +
                         "Verify manually before dropping any index.");
+                    if (!window.RestoreVisible)
+                        caveats.Add(dialect == DatabaseDialect.SqlServer
+                            ? "This login cannot read msdb.dbo.restorehistory, so a restore over the database (RESTORE … " +
+                              "WITH REPLACE) is not seen and the scan counters are dated from its creation or the server " +
+                              "start. If it was restored later, they cover less time and these findings may be false."
+                            : "This login cannot see when the database was created or restored (that needs EXECUTE on " +
+                              "pg_stat_file, and the database in the default tablespace), so the scan counters are dated " +
+                              "from the server start. If it was restored later, they cover less time and these findings " +
+                              "may be false.");
+                }
             }
-
-            if (!window.RestoreVisible)
-                caveats.Add(dialect == DatabaseDialect.SqlServer
-                    ? "This login cannot read msdb.dbo.restorehistory, so a restore over the database (RESTORE … WITH " +
-                      "REPLACE) is not seen and the scan counters are dated from its creation or the server start. If it " +
-                      "was restored later, they cover less time and 'unused-index' findings may be false."
-                    : "This login cannot see when the database was created or restored (that needs EXECUTE on " +
-                      "pg_stat_file), so the scan counters are dated from the server start. If the database was " +
-                      "restored later, they cover less time and 'unused-index' findings may be false.");
         }
 
         var split = FindingSplit.Partition(findings);

@@ -258,6 +258,9 @@ public sealed record VerificationSummary(
     IReadOnlyDictionary<string, int> ByOutcome,
     double TotalQueryTimeMs)
 {
+    /// <summary>Nothing to measure: attempted when it was asked for, absent when it was not.</summary>
+    public static VerificationSummary? None(bool requested) => requested ? From([], attempted: true) : null;
+
     public static VerificationSummary From(
         IReadOnlyList<VerificationMeasurement> measurements, bool attempted)
     {

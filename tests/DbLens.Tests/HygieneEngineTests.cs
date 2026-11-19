@@ -120,11 +120,11 @@ public sealed class HygieneEngineTests
     [Fact]
     public void ALeftBehindName_OrComment_IsASignal()
     {
-        var plan = Analyze(Table("t", [Col("id", "int"), Col("notes_old"), Col("temperature"),
-            Col("flag") with { Comment = "DEPRECATED since v3" }]), rows: 10);
+        var plan = Analyze(Table("t", [Col("id", "int"), Col("notes_old"), Col("legacy_code"), Col("temperature"),
+            Col("old_value"), Col("water_temp"), Col("flag") with { Comment = "DEPRECATED since v3" }]), rows: 10);
 
         plan.Findings.Where(f => f.RuleId == HygieneRuleIds.ColumnLegacyName).SelectMany(f => f.Columns!)
-            .Should().BeEquivalentTo(["notes_old", "flag"], "temperature holds 'temp' only inside a word");
+            .Should().BeEquivalentTo(["notes_old", "legacy_code", "flag"], "old_value is an audit log's, water_temp a temperature");
     }
 
     [Fact]
@@ -154,6 +154,15 @@ public sealed class HygieneEngineTests
         measured.Status.Should().Be(VerificationStatus.Inconclusive);
         ((VerificationOutcome)HygieneEngine.Apply(check, measured)!.Metadata!["verification"]).NotVerifiedReason
             .Should().Be("TooFewRowsCompared");
+    }
+
+    [Fact]
+    public void ARowversion_IsNotAnUpdateDate()
+    {
+        var table = Table("t", [Col("id", "int"), Ts("created_at", type: "datetime2"), Col("last_modified", "timestamp")]);
+
+        Rules(Analyze(table, dialect: DatabaseDialect.SqlServer)).Should().Contain(HygieneRuleIds.MissingUpdated,
+            "SQL Server's timestamp is rowversion, a counter");
     }
 
     [Fact]

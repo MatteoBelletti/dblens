@@ -59,6 +59,8 @@ public abstract partial class DatabaseInspectorBase
         VerificationBudget budget, string inconclusiveCaveat, List<string> caveats, CancellationToken ct,
         Func<T, int>? priority = null)
     {
+        if (items.Count == 0) return ([], VerificationSummary.From([], attempted: true));
+
         var ordered = items.Select(i => (Item: i, Probe: probeOf(i)))
             .OrderBy(p => priority?.Invoke(p.Item) ?? 0)
             .ThenBy(p => p.Probe.ApproximateRowCount ?? long.MaxValue)

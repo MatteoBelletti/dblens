@@ -27,13 +27,14 @@ public static class HotQueryEngine
         DatabaseDialect dialect,
         string defaultSchema,
         FindHotQueriesRequest request) =>
+        // Sorted first, then read lazily: only as many texts are redacted and read as the list needs.
         [.. stats
+            .OrderByDescending(s => s.TotalTimeMs)
             .Where(s => !ProbeColumns.IsProbe(s.Text))
             .Select(s => (Stats: s, Redacted: SqlText.Redact(s.Text, dialect)))
             .Where(x => IsDataStatement(x.Redacted))
             .Select(x => (x.Stats, x.Redacted, Tables: TablesNamed(x.Stats.Text, userTables, dialect, defaultSchema)))
             .Where(x => x.Tables.Count > 0)
-            .OrderByDescending(x => x.Stats.TotalTimeMs)
             .Take(request.Top)
             .Select(x => new Ranked(x.Stats, Describe(x.Stats, x.Redacted, x.Tables), x.Tables))];
 

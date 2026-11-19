@@ -36,8 +36,8 @@ public abstract partial class DatabaseInspectorBase
 
             var (historyTable, applied, historyCaveat) = await ReadEfMigrationHistoryAsync(request, everything, ct);
 
-            var result = EfDriftEngine.Analyze(entities, match, applied, historyTable, schemas);
-            return result with { Caveats = WithCaveats(result.Caveats, [.. scopeCaveats, historyCaveat, NotFoundCaveat(details)]) };
+            var result = EfDriftEngine.Analyze(entities, match, applied, historyTable, schemas, historyCaveat);
+            return result with { Caveats = WithCaveats(result.Caveats, [.. scopeCaveats, NotFoundCaveat(details)]) };
         });
 
     /// <summary>

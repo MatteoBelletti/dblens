@@ -408,7 +408,7 @@ in a code-first database: each finding carries the EF Core change in `Metadata["
 | `column-single-value` | Low | Inferred → Measured | Statistics see one distinct value → one value on at least 100 filled rows. The value is never reported |
 | `column-abandoned` | Medium | Measured only | With `verifySignals`, a nullable column of a table with one creation date → no value on at least 1,000 rows of the last 90 days, while an older row holds one |
 | `column-not-in-model` | Medium | Derived | A column of a table the EF model maps, mapped by no property of any context; tables holding a mapping dblens does not compare (JSON, TPT…) are skipped |
-| `column-legacy-name` | Info | Inferred | A name word such as `old`, `bak`, `tmp`, `legacy`, `deprecated`, `vecchio`, or a comment saying deprecated / obsolete |
+| `column-legacy-name` | Info | Inferred | A last name word such as `old`, `bak`, `tmp`, `vecchio` (`notes_old`), a first one such as `legacy`, `deprecated`, `tmp` (`legacy_code`), or a comment saying deprecated / obsolete; `old_value` and `water_temp` are not |
 | `audit-missing-created` | Low | Inferred | No creation date on a table of 1,000+ rows |
 | `audit-missing-updated` | Medium if updated, else Low | Inferred | No update date; not reported on a table known to be insert-only |
 | `audit-updated-not-maintained` | Medium | Inferred → Measured | Both dates on an updated table → no row's update date differs from its creation date (at least 1,000 rows compared) |
@@ -418,7 +418,8 @@ in a code-first database: each finding carries the EF Core change in `Metadata["
 | `hygiene-summary` | Info | Derived | Always one |
 
 Creation and update columns are recognized by name (English and Italian, in
-`Analysis/Hygiene/audit_columns.json`), compared in lower snake case, and must be dates. Keys,
+`Analysis/Hygiene/audit_columns.json`), compared in lower snake case, and must be dates (SQL Server's
+`timestamp` is `rowversion`, not one). Keys,
 indexed, constrained and referencing columns, generated and identity columns are never candidates;
 audit dates are not checked for a single value.
 
@@ -488,7 +489,8 @@ plan, with a caveat. Plan filters are redacted like the text: a stored plan keep
 
 **Joins that multiply rows.** A query that joins one parent to two children through their foreign
 keys returns, per parent, the product of its child rows — what EF Core writes for two `Include` on
-collections. Recognized from the text and the keys (a chain `A ← B ← C`, a 1:1 child, a single
+collections. Recognized from the text and the keys (a chain `A ← B ← C`, a 1:1 child — a key, a
+unique constraint or EF Core's unique index —, a single
 child, one child joined through two keys, children of two different parent keys, or a join inside
 `EXISTS`, `IN` or another `UNION` branch does not count; a parent paged in a derived table, EF Core's `Take` before `Include`, is not recognized), it is a signal. With `verifyJoins: true` one probe per shape counts, over the
 whole tables, the rows the join returns against the children read separately, within the shared

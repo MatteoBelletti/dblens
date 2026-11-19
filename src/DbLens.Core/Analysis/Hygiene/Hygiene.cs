@@ -56,7 +56,10 @@ public sealed class AuditVocabulary
 
     public required IReadOnlyList<string> Created { get; init; }
     public required IReadOnlyList<string> Updated { get; init; }
-    public required IReadOnlySet<string> LegacyTokens { get; init; }
+    /// <summary>Last words of a left-behind column's name (notes_old), and first ones (legacy_code).</summary>
+    public required IReadOnlySet<string> LegacyLast { get; init; }
+
+    public required IReadOnlySet<string> LegacyFirst { get; init; }
 
     private static AuditVocabulary Load()
     {
@@ -71,7 +74,8 @@ public sealed class AuditVocabulary
         {
             Created = Words(root.GetProperty("created")),
             Updated = Words(root.GetProperty("updated")),
-            LegacyTokens = Words(root.GetProperty("legacyTokens")).ToHashSet(StringComparer.Ordinal),
+            LegacyLast = Words(root.GetProperty("legacyLast")).ToHashSet(StringComparer.Ordinal),
+            LegacyFirst = Words(root.GetProperty("legacyFirst")).ToHashSet(StringComparer.Ordinal),
         };
     }
 }

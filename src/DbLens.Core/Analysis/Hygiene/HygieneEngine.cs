@@ -47,8 +47,8 @@ public static class HygieneEngine
         {
             var key = (table.Schema, table.Name);
             var rows = input.RowCounts.GetValueOrDefault(key);
-            var created = AuditColumns(table, vocabulary.Created);
-            var updated = AuditColumns(table, vocabulary.Updated);
+            var created = AuditColumns(table, vocabulary.Created, input.Dialect);
+            var updated = AuditColumns(table, vocabulary.Updated, input.Dialect);
             var excluded = ExcludedColumns(table);
             var audit = created.Concat(updated).Select(c => c.Name).ToHashSet(StringComparer.Ordinal);
 
@@ -373,19 +373,22 @@ public static class HygieneEngine
         string sql, string measures, long minimumCompared = 1) =>
         new(new VerificationTarget(ruleId, t.Qualified(), columns), kind, sql, measures, rows, minimumCompared);
 
-    private static List<ColumnDetail> AuditColumns(TableDetail t, IReadOnlyList<string> names) =>
-        [.. names.SelectMany(n => t.Columns.Where(c => PiiClassifier.Normalize(c.Name) == n && IsDateTime(c)))];
+    private static List<ColumnDetail> AuditColumns(TableDetail t, IReadOnlyList<string> names, DatabaseDialect dialect) =>
+        [.. names.SelectMany(n => t.Columns.Where(c => PiiClassifier.Normalize(c.Name) == n && IsDateTime(c, dialect)))];
 
-    private static bool IsDateTime(ColumnDetail c) =>
-        c.DataType.Contains("timestamp", StringComparison.OrdinalIgnoreCase)
-        || c.DataType.Contains("date", StringComparison.OrdinalIgnoreCase);
+    // SQL Server's "timestamp" is rowversion, a binary(8) counter, not a date.
+    private static bool IsDateTime(ColumnDetail c, DatabaseDialect dialect) =>
+        dialect == DatabaseDialect.SqlServer
+            ? c.DataType.Contains("date", StringComparison.OrdinalIgnoreCase)
+            : c.DataType.Contains("timestamp", StringComparison.OrdinalIgnoreCase) || c.DataType.Contains("date", StringComparison.OrdinalIgnoreCase);
 
     private static bool IsWithoutTimeZone(ColumnDetail c, DatabaseDialect dialect) => dialect == DatabaseDialect.PostgreSql
         ? c.DataType.Equals("timestamp without time zone", StringComparison.OrdinalIgnoreCase)
         : c.DataType is "datetime" or "smalldatetime";
 
     private static bool IsLegacyName(ColumnDetail c, AuditVocabulary vocabulary) =>
-        PiiClassifier.Normalize(c.Name).Split('_').Any(vocabulary.LegacyTokens.Contains)
+        PiiClassifier.Normalize(c.Name).Split('_') is [_, ..] words
+        && (vocabulary.LegacyLast.Contains(words[^1]) || (words.Length > 1 && vocabulary.LegacyFirst.Contains(words[0])))
         || (c.Comment is { } comment && (comment.Contains("deprecated", StringComparison.OrdinalIgnoreCase)
                                          || comment.Contains("obsolet", StringComparison.OrdinalIgnoreCase)));
 

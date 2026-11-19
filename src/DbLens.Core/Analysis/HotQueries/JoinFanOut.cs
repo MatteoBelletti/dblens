@@ -30,26 +30,25 @@ public static class JoinFanOut
     {
         List<Shape> shapes = [];
 
-        foreach (var (stats, query, _) in ranked)
+        // Every branch of every query in one extraction, named "<query>/<branch>": the catalog lookups are built once.
+        List<SqlSource> branches = [.. ranked.SelectMany((r, q) => OuterBranches(r.Stats.Text, dialect)
+            .Select((text, b) => new SqlSource(SqlSourceKind.Workload, $"{q}/{b}", text)))];
+        var joins = JoinPredicateExtractor.Extract(branches, tables, defaultSchema, dialect);
+
+        // A chain A ← B ← C does not multiply, nor one child joined through two keys (billing and
+        // shipping address): only two child tables of the same parent key, in one branch, do.
+        foreach (var byParent in joins.GroupBy(j => (Branch: j.Source.Name, j.Parent.Schema, j.Parent.Name, j.ParentKey)))
         {
-            List<SqlSource> branches = [.. OuterBranches(stats.Text, dialect).Select((text, i) =>
-                new SqlSource(SqlSourceKind.Workload, $"branch {i}", text))];
-            var joins = JoinPredicateExtractor.Extract(branches, tables, defaultSchema, dialect);
+            var children = byParent
+                .DistinctBy(j => (j.Child.Schema, j.Child.Name))
+                // In a fixed order: the same pair joined the other way round is the same shape.
+                .OrderBy(j => j.Child.Schema, StringComparer.Ordinal).ThenBy(j => j.Child.Name, StringComparer.Ordinal)
+                .ToList();
+            if (children.Count < 2) continue;
 
-            // A chain A ← B ← C does not multiply, nor one child joined through two keys (billing and
-            // shipping address): only two child tables of the same parent key, in one branch, do.
-            foreach (var byParent in joins.GroupBy(j => (j.Source.Name, j.Parent.Schema, j.Parent.Name, j.ParentKey)))
-            {
-                var children = byParent
-                    .DistinctBy(j => (j.Child.Schema, j.Child.Name))
-                    // In a fixed order: the same pair joined the other way round is the same shape.
-                    .OrderBy(j => j.Child.Schema, StringComparer.Ordinal).ThenBy(j => j.Child.Name, StringComparer.Ordinal)
-                    .ToList();
-                if (children.Count < 2) continue;
-
-                shapes.Add(new Shape(query.QueryId, children[0].Parent,
-                    children[0].Child, children[0].ChildColumn, children[1].Child, children[1].ChildColumn));
-            }
+            var query = ranked[int.Parse(byParent.Key.Branch.Split('/')[0], System.Globalization.CultureInfo.InvariantCulture)].Query;
+            shapes.Add(new Shape(query.QueryId, children[0].Parent,
+                children[0].Child, children[0].ChildColumn, children[1].Child, children[1].ChildColumn));
         }
 
         return shapes;
@@ -63,10 +62,10 @@ public static class JoinFanOut
         StringComparer.OrdinalIgnoreCase);
 
     /// <summary>
-    /// The joins that shape the rows a query returns: each branch of a UNION, EXCEPT or INTERSECT on
-    /// its own, at any depth, without the subqueries of its conditions (EXISTS, IN, a scalar subquery,
+    /// The joins that shape the rows a query returns: each top-level branch of a UNION, EXCEPT or
+    /// INTERSECT on its own, without the subqueries of its conditions (EXISTS, IN, a scalar subquery,
     /// however parenthesized), which never multiply them. A derived table, a CTE body and a
-    /// parenthesized branch stay: their rows are the query's.
+    /// parenthesized branch stay, with only the first branch of a set operation nested in them.
     /// </summary>
     public static IReadOnlyList<string> OuterBranches(string sql, DatabaseDialect dialect)
     {
@@ -104,6 +103,9 @@ public static class JoinFanOut
 
             if (token.Kind == SqlTokenKind.Word && SetOperators.Contains(token.Text))
             {
+                // Inside a derived table or CTE body only its first branch stays with the outer query,
+                // whose aliases the later joins need; at the top each branch is read on its own.
+                if (rows.Count > 0) { skipFrom = rows.Count; continue; }
                 branches.Add(current.ToString());
                 current.Clear();
             }

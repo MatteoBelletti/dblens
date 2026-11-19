@@ -8,11 +8,12 @@ namespace DbLens.Postgres;
 
 public sealed partial class PostgresInspector
 {
-    // pg_settings hides shared_preload_libraries from a login outside pg_read_all_settings: unknown is
-    // taken as loaded, and reading the view says the rest. pg_stat_statements_info came with 1.9.
+    // pg_settings hides shared_preload_libraries from a login outside pg_read_all_settings: then whether
+    // it is loaded is not known, and reading the view says the rest. pg_stat_statements_info came with 1.9.
     private const string HotQueriesAvailableSql = """
-        SELECT COALESCE((SELECT setting LIKE '%pg_stat_statements%' FROM pg_settings
-                         WHERE name = 'shared_preload_libraries'), true) AS preloaded,
+        SELECT EXISTS (SELECT 1 FROM pg_settings WHERE name = 'shared_preload_libraries') AS settings_visible,
+               COALESCE((SELECT setting LIKE '%pg_stat_statements%' FROM pg_settings
+                         WHERE name = 'shared_preload_libraries'), false) AS preloaded,
                pg_has_role(current_user, 'pg_read_all_stats', 'member') AS sees_all,
                COALESCE((SELECT string_to_array(extversion, '.')::int[] >= ARRAY[1, 9] FROM pg_extension
                          WHERE extname = 'pg_stat_statements'), false) AS has_info
@@ -43,14 +44,15 @@ public sealed partial class PostgresInspector
 
     protected override async Task<HotQueryCommands> HotQueryCommandsAsync(DbConnection conn, CancellationToken ct)
     {
-        var (preloaded, seesAll, hasInfo) = (await ReadAllAsync(Command(conn, HotQueriesAvailableSql), r => (
-            r.Flag("preloaded"), r.Flag("sees_all"), r.Flag("has_info")), ct)).Single();
+        var (visible, preloaded, seesAll, hasInfo) = (await ReadAllAsync(Command(conn, HotQueriesAvailableSql), r => (
+            r.Flag("settings_visible"), r.Flag("preloaded"), r.Flag("sees_all"), r.Flag("has_info")), ct)).Single();
         var schema = await StatementsSchemaAsync(conn, ct);
 
-        if (!preloaded || schema is null)
+        if ((visible && !preloaded) || schema is null)
             return new HotQueryCommands(null, null, null,
             [
-                "pg_stat_statements is " + (preloaded ? "loaded but not created in this database" : "not loaded") +
+                "pg_stat_statements is " + (!visible ? "not created in this database (whether it is loaded, this login cannot see)"
+                    : preloaded ? "loaded but not created in this database" : "not loaded") +
                 ", so PostgreSQL keeps no statistics on queries. It needs shared_preload_libraries = 'pg_stat_statements' " +
                 "and a server restart, then CREATE EXTENSION pg_stat_statements in this database: a decision for the DBA. " +
                 "A dump does not carry these statistics; read them on the production server or a replica.",

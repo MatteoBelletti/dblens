@@ -69,6 +69,17 @@ public sealed class EfDriftEngineTests
     // ── Names ──────────────────────────────────────────────────────────────────
 
     [Fact]
+    public void AHistoryTableNotRead_IsNotCalledMissing()
+    {
+        const string why = "Several __EFMigrationsHistory tables exist (app, audit): pass historySchema.";
+
+        var result = EfDriftEngine.Analyze(Model(["A"]), new EfModelMatch([], [], []), null, null, new HashSet<string> { "public" }, why);
+
+        result.Caveats.Should().Contain(why).And.NotContain(c => c.Contains("No migrations history table was found"));
+        result.Findings.Single().Description.Should().Contain("was not read");
+    }
+
+    [Fact]
     public void ATableMatchingSeveralByCase_IsNeitherMissingNorUnmapped()
     {
         var entity = new EfEntity("Order", "public", "ORDERS", [new EfProperty("Id", "long", "id", "bigint", false)], ["Id"], [], []);
