@@ -46,6 +46,13 @@ jobs:
           echo "VERSION=$version" >> "$GITHUB_ENV"
           echo "TAG=v$version" >> "$GITHUB_ENV"
 
+      # The plugin is installed from the repository and pins the package to its own version:
+      # the commit released must already carry it (ReleaseVersionTests keeps the files in step).
+      - name: The repository carries this version
+        run: |
+          grep -q "<Version>$VERSION</Version>" src/DbLens.Mcp/DbLens.Mcp.csproj \
+            || { echo "Bump <Version>, server.json and the plugin to $VERSION before releasing it"; exit 1; }
+
       # By hand, only the default branch is released, never twice under one version.
       - name: Guard a hand-run release
         if: github.event_name == 'workflow_dispatch'

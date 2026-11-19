@@ -45,6 +45,23 @@ that can write when the server is on another machine, so create one first — tw
 [docs/safety.md](https://github.com/MatteoBelletti/dblens/blob/master/docs/safety.md#creating-the-login). A database on your own machine (localhost,
 loopback, socket, `(local)`, LocalDB) is exempt: the admin login works there.
 
+## Claude Code plugin (optional)
+
+The server works on its own, in any client. In Claude Code the `dblens` plugin adds a repeatable audit:
+agents run the diagnostics in parallel, a verifier re-runs every finding, and a report keeps the
+evidence ([decisions](docs/roadmap/decisions.md)). It needs the .NET 10 SDK (the plugin starts the
+server with `dnx`) and dynamic workflows enabled in `/config`.
+
+```
+/plugin install dblens --marketplace MatteoBelletti/dblens
+```
+
+Then `/dblens:setup` checks the connection and runs a first audit; `/dblens:audit` runs one with
+`dialect`, `outDir` and `runLabel`, and optionally `schema`, `efSnapshot` (an EF Core migrations
+snapshot), `queriesFile` (SQL to plan) and `privacy`. Set the connection strings in the
+plugin's settings, never in the chat. Keep one registration: if `dblens` was also added with
+`claude mcp add`, remove one of the two.
+
 ## Checking a migration
 
 1. Restore a recent dump locally and point dblens at it (or use a read-only login on a copy).
@@ -170,8 +187,8 @@ SQL Server  Server=localhost,1434;Database=dblens_demo;User Id=dblens_reader;Pas
 
 ## Demo databases
 
-`public` / `dbo` is an e-commerce schema with deliberate flaws — unindexed foreign keys, duplicate
-indexes, plaintext PII, cascade chains, cached counts that have drifted, undeclared references (one
+`public` / `dbo` is an e-commerce schema with deliberate flaws — unindexed foreign keys,
+plaintext PII, cascade chains, cached counts that have drifted, undeclared references (one
 visible only through a view). `demo_good` is a clean design on which every tool reports nothing.
 Details in [docs/architecture.md](https://github.com/MatteoBelletti/dblens/blob/master/docs/architecture.md#demo-databases).
 

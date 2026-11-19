@@ -39,3 +39,6 @@ Thumbs.db
 
 # Claude Code
 .claude/
+
+# Claude Code plugin eval runs
+plugins/*/evals/results/

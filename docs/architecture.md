@@ -183,7 +183,7 @@ from `db/<dialect>/01-schema.sql` and `02-seed.sql`.
 
 | Schema | Content |
 |---|---|
-| `public` / `dbo` | An e-commerce schema with deliberate flaws: unindexed FKs, duplicate indexes, plaintext PII, cascade chains, cached aggregates, undeclared references on `shipments` — `ship_to` visible only through the `shipment_destinations` view — and comments on `orders` for the glossary |
+| `public` / `dbo` | An e-commerce schema with deliberate flaws: unindexed FKs, plaintext PII, cascade chains, cached aggregates, undeclared references on `shipments` — `ship_to` visible only through the `shipment_destinations` view — and comments on `orders` for the glossary |
 | `demo_good` | A clean design every tool should pass |
 
 Seed row counts are deterministic: `users` 20, `products` 30, `orders` 40, `order_items` 80,
@@ -205,6 +205,10 @@ binaries for `win-x64`, `linux-x64` and `osx-arm64`, one Claude Desktop extensio
 (`.mcpb`, from `packaging/mcpb/manifest.json`), the NuGet tool package (`dotnet tool install -g
 DbLens.Mcp`, also typed `McpServer` with `.mcp/server.json`), and the GitHub release. Binaries ship
 without symbols, `web.config` or the IIS module.
+
+The Claude Code plugin (`plugins/dblens`) has no artifact of its own: the marketplace at the
+repository root installs it from `master`, and it starts `DbLens.Mcp@<its version>` with `dnx`. Its
+version moves with the package's (`ReleaseVersionTests`), and the release follows the merge at once.
 
 The package reaches nuget.org through **Trusted Publishing**: the job's GitHub OIDC token is exchanged
 by `NuGet/login@v1` for an API key valid one hour, so no long-lived key is stored. The package page

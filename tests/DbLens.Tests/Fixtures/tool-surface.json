@@ -1,0 +1,699 @@
+{
+  "analyze_denormalization": {
+    "type": "object",
+    "properties": {
+      "dialect": {
+        "type": "string",
+        "enum": [
+          "PostgreSql",
+          "SqlServer"
+        ],
+        "default": "PostgreSql"
+      },
+      "schema": {
+        "type": [
+          "string",
+          "null"
+        ],
+        "default": null
+      },
+      "tables": {
+        "type": [
+          "array",
+          "null"
+        ],
+        "items": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "default": null
+      },
+      "verifySignals": {
+        "type": "boolean",
+        "default": false
+      },
+      "connectionString": {
+        "type": [
+          "string",
+          "null"
+        ],
+        "default": null
+      }
+    }
+  },
+  "analyze_fragmentation": {
+    "type": "object",
+    "properties": {
+      "dialect": {
+        "type": "string",
+        "enum": [
+          "PostgreSql",
+          "SqlServer"
+        ],
+        "default": "PostgreSql"
+      },
+      "schema": {
+        "type": [
+          "string",
+          "null"
+        ],
+        "default": null
+      },
+      "tables": {
+        "type": [
+          "array",
+          "null"
+        ],
+        "items": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "default": null
+      },
+      "includePageDensity": {
+        "type": "boolean",
+        "default": false
+      },
+      "connectionString": {
+        "type": [
+          "string",
+          "null"
+        ],
+        "default": null
+      }
+    }
+  },
+  "analyze_indexes": {
+    "type": "object",
+    "properties": {
+      "dialect": {
+        "type": "string",
+        "enum": [
+          "PostgreSql",
+          "SqlServer"
+        ],
+        "default": "PostgreSql"
+      },
+      "schema": {
+        "type": [
+          "string",
+          "null"
+        ],
+        "default": null
+      },
+      "tables": {
+        "type": [
+          "array",
+          "null"
+        ],
+        "items": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "default": null
+      },
+      "includeUnusedIndexes": {
+        "type": "boolean",
+        "default": true
+      },
+      "connectionString": {
+        "type": [
+          "string",
+          "null"
+        ],
+        "default": null
+      }
+    }
+  },
+  "analyze_table_hygiene": {
+    "type": "object",
+    "properties": {
+      "dialect": {
+        "type": "string",
+        "enum": [
+          "PostgreSql",
+          "SqlServer"
+        ],
+        "default": "PostgreSql"
+      },
+      "schema": {
+        "type": [
+          "string",
+          "null"
+        ],
+        "default": null
+      },
+      "tables": {
+        "type": [
+          "array",
+          "null"
+        ],
+        "items": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "default": null
+      },
+      "verifySignals": {
+        "type": "boolean",
+        "default": false
+      },
+      "modelSnapshotPath": {
+        "type": [
+          "string",
+          "null"
+        ],
+        "default": null
+      },
+      "connectionString": {
+        "type": [
+          "string",
+          "null"
+        ],
+        "default": null
+      }
+    }
+  },
+  "build_glossary": {
+    "type": "object",
+    "properties": {
+      "dialect": {
+        "type": "string",
+        "enum": [
+          "PostgreSql",
+          "SqlServer"
+        ],
+        "default": "PostgreSql"
+      },
+      "schema": {
+        "type": [
+          "string",
+          "null"
+        ],
+        "default": null
+      },
+      "tables": {
+        "type": [
+          "array",
+          "null"
+        ],
+        "items": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "default": null
+      },
+      "verifyJoins": {
+        "type": "boolean",
+        "default": false
+      },
+      "writeSkillTo": {
+        "type": [
+          "string",
+          "null"
+        ],
+        "default": null
+      },
+      "overwrite": {
+        "type": "boolean",
+        "default": false
+      },
+      "connectionString": {
+        "type": [
+          "string",
+          "null"
+        ],
+        "default": null
+      }
+    }
+  },
+  "certify_query": {
+    "type": "object",
+    "properties": {
+      "name": {
+        "type": "string"
+      },
+      "question": {
+        "type": "string"
+      },
+      "sql": {
+        "type": "string"
+      },
+      "dialect": {
+        "type": "string",
+        "enum": [
+          "PostgreSql",
+          "SqlServer"
+        ],
+        "default": "PostgreSql"
+      },
+      "connectionString": {
+        "type": [
+          "string",
+          "null"
+        ],
+        "default": null
+      }
+    },
+    "required": [
+      "name",
+      "question",
+      "sql"
+    ]
+  },
+  "check_cascade_paths": {
+    "type": "object",
+    "properties": {
+      "dialect": {
+        "type": "string",
+        "enum": [
+          "PostgreSql",
+          "SqlServer"
+        ],
+        "default": "PostgreSql"
+      },
+      "startingTable": {
+        "type": [
+          "string",
+          "null"
+        ],
+        "default": null
+      },
+      "schema": {
+        "type": [
+          "string",
+          "null"
+        ],
+        "default": null
+      },
+      "maxDepth": {
+        "type": "integer",
+        "default": 10
+      },
+      "connectionString": {
+        "type": [
+          "string",
+          "null"
+        ],
+        "default": null
+      }
+    }
+  },
+  "check_migration_safety": {
+    "type": "object",
+    "properties": {
+      "ddl": {
+        "type": "string"
+      },
+      "dialect": {
+        "type": "string",
+        "enum": [
+          "PostgreSql",
+          "SqlServer"
+        ],
+        "default": "PostgreSql"
+      },
+      "defaultSchema": {
+        "type": [
+          "string",
+          "null"
+        ],
+        "default": null
+      },
+      "connectionString": {
+        "type": [
+          "string",
+          "null"
+        ],
+        "default": null
+      }
+    },
+    "required": [
+      "ddl"
+    ]
+  },
+  "compare_ef_model": {
+    "type": "object",
+    "properties": {
+      "snapshotPath": {
+        "type": "string"
+      },
+      "dialect": {
+        "type": "string",
+        "enum": [
+          "PostgreSql",
+          "SqlServer"
+        ],
+        "default": "PostgreSql"
+      },
+      "schema": {
+        "type": [
+          "string",
+          "null"
+        ],
+        "default": null
+      },
+      "historyTable": {
+        "type": [
+          "string",
+          "null"
+        ],
+        "default": null
+      },
+      "historySchema": {
+        "type": [
+          "string",
+          "null"
+        ],
+        "default": null
+      },
+      "connectionString": {
+        "type": [
+          "string",
+          "null"
+        ],
+        "default": null
+      }
+    },
+    "required": [
+      "snapshotPath"
+    ]
+  },
+  "explain_query": {
+    "type": "object",
+    "properties": {
+      "sql": {
+        "type": "string"
+      },
+      "dialect": {
+        "type": "string",
+        "enum": [
+          "PostgreSql",
+          "SqlServer"
+        ],
+        "default": "PostgreSql"
+      },
+      "analyze": {
+        "type": "boolean",
+        "default": false
+      },
+      "connectionString": {
+        "type": [
+          "string",
+          "null"
+        ],
+        "default": null
+      }
+    },
+    "required": [
+      "sql"
+    ]
+  },
+  "find_hot_queries": {
+    "type": "object",
+    "properties": {
+      "dialect": {
+        "type": "string",
+        "enum": [
+          "PostgreSql",
+          "SqlServer"
+        ],
+        "default": "PostgreSql"
+      },
+      "verifyJoins": {
+        "type": "boolean",
+        "default": false
+      },
+      "connectionString": {
+        "type": [
+          "string",
+          "null"
+        ],
+        "default": null
+      }
+    }
+  },
+  "get_schema": {
+    "type": "object",
+    "properties": {
+      "dialect": {
+        "type": "string",
+        "enum": [
+          "PostgreSql",
+          "SqlServer"
+        ],
+        "default": "PostgreSql"
+      },
+      "connectionString": {
+        "type": [
+          "string",
+          "null"
+        ],
+        "default": null
+      },
+      "schemaFilter": {
+        "type": [
+          "string",
+          "null"
+        ],
+        "default": null
+      },
+      "namePattern": {
+        "type": [
+          "string",
+          "null"
+        ],
+        "default": null
+      },
+      "includeViews": {
+        "type": "boolean",
+        "default": true
+      },
+      "includeSystemSchemas": {
+        "type": "boolean",
+        "default": false
+      }
+    }
+  },
+  "get_table_details": {
+    "type": "object",
+    "properties": {
+      "tables": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        }
+      },
+      "dialect": {
+        "type": "string",
+        "enum": [
+          "PostgreSql",
+          "SqlServer"
+        ],
+        "default": "PostgreSql"
+      },
+      "defaultSchema": {
+        "type": [
+          "string",
+          "null"
+        ],
+        "default": null
+      },
+      "connectionString": {
+        "type": [
+          "string",
+          "null"
+        ],
+        "default": null
+      }
+    },
+    "required": [
+      "tables"
+    ]
+  },
+  "infer_relationships": {
+    "type": "object",
+    "properties": {
+      "dialect": {
+        "type": "string",
+        "enum": [
+          "PostgreSql",
+          "SqlServer"
+        ],
+        "default": "PostgreSql"
+      },
+      "schema": {
+        "type": [
+          "string",
+          "null"
+        ],
+        "default": null
+      },
+      "tables": {
+        "type": [
+          "array",
+          "null"
+        ],
+        "items": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "default": null
+      },
+      "verifyCandidates": {
+        "type": "boolean",
+        "default": false
+      },
+      "connectionString": {
+        "type": [
+          "string",
+          "null"
+        ],
+        "default": null
+      }
+    }
+  },
+  "list_certified_queries": {
+    "type": "object",
+    "properties": {
+      "dialect": {
+        "type": "string",
+        "enum": [
+          "PostgreSql",
+          "SqlServer"
+        ],
+        "default": "PostgreSql"
+      },
+      "connectionString": {
+        "type": [
+          "string",
+          "null"
+        ],
+        "default": null
+      }
+    }
+  },
+  "ping": {
+    "type": "object",
+    "properties": {
+      "message": {
+        "type": "string",
+        "default": "pong"
+      }
+    }
+  },
+  "query_with_receipt": {
+    "type": "object",
+    "properties": {
+      "dialect": {
+        "type": "string",
+        "enum": [
+          "PostgreSql",
+          "SqlServer"
+        ],
+        "default": "PostgreSql"
+      },
+      "sql": {
+        "type": [
+          "string",
+          "null"
+        ],
+        "default": null
+      },
+      "certified": {
+        "type": [
+          "string",
+          "null"
+        ],
+        "default": null
+      },
+      "crossCheckSql": {
+        "type": [
+          "string",
+          "null"
+        ],
+        "default": null
+      },
+      "tolerance": {
+        "type": "number",
+        "default": 0
+      },
+      "connectionString": {
+        "type": [
+          "string",
+          "null"
+        ],
+        "default": null
+      }
+    }
+  },
+  "scan_gdpr": {
+    "type": "object",
+    "properties": {
+      "dialect": {
+        "type": "string",
+        "enum": [
+          "PostgreSql",
+          "SqlServer"
+        ],
+        "default": "PostgreSql"
+      },
+      "schema": {
+        "type": [
+          "string",
+          "null"
+        ],
+        "default": null
+      },
+      "tables": {
+        "type": [
+          "array",
+          "null"
+        ],
+        "items": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "default": null
+      },
+      "excludeTables": {
+        "type": [
+          "array",
+          "null"
+        ],
+        "items": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "default": null
+      },
+      "minConfidence": {
+        "type": "number",
+        "default": 0.5
+      },
+      "connectionString": {
+        "type": [
+          "string",
+          "null"
+        ],
+        "default": null
+      }
+    }
+  }
+}
