@@ -80,13 +80,18 @@ public static class EfModelMatcher
     public static EfTableMatch? TableOf(EfModelMatch match, string entityName) =>
         match.Tables.FirstOrDefault(t => t.Entities.Any(e => e.Name == entityName));
 
-    /// <summary>The columns of <paramref name="properties"/> in <paramref name="table"/>; null when one has no column.</summary>
-    public static IReadOnlyList<string>? ColumnsOf(EfTableMatch table, IReadOnlyList<string> properties)
+    /// <summary>
+    /// The columns of <paramref name="entity"/>'s <paramref name="properties"/> in <paramref name="table"/>;
+    /// null when one has no column. An owned type or a TPH sibling may have a property of the same name:
+    /// the entity's own comes first, then one it shares (its owner's key, its base's property).
+    /// </summary>
+    public static IReadOnlyList<string>? ColumnsOf(EfTableMatch table, string entity, IReadOnlyList<string> properties)
     {
         List<string> columns = [];
         foreach (var property in properties)
         {
-            var column = table.Columns.FirstOrDefault(c => c.Property.Name == property);
+            var column = table.Columns.FirstOrDefault(c => c.Entity.Name == entity && c.Property.Name == property)
+                         ?? table.Columns.FirstOrDefault(c => c.Property.Name == property);
             if (column?.Column is null) return null;
             columns.Add(column.Column.Name);
         }

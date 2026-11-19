@@ -103,7 +103,7 @@ public abstract partial class DatabaseInspectorBase
         // confirm itself.
         return read with
         {
-            Sources = [.. read.Sources.Where(s => s.Kind != SqlSourceKind.Workload || !s.Sql.Contains("divergent_rows", StringComparison.OrdinalIgnoreCase))],
+            Sources = [.. read.Sources.Where(s => s.Kind != SqlSourceKind.Workload || !ProbeColumns.IsProbe(s.Sql))],
         };
     }
 }

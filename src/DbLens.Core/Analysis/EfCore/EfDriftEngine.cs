@@ -180,7 +180,7 @@ public static class EfDriftEngine
         foreach (var entity in table.Entities)
             foreach (var index in entity.Indexes)
             {
-                if (EfModelMatcher.ColumnsOf(table, index.Properties) is not { } columns) continue;
+                if (EfModelMatcher.ColumnsOf(table, entity.Name, index.Properties) is not { } columns) continue;
                 modelIndexes.Add(columns);
 
                 if (detail.Indexes.Any(i => SameColumns(i.Columns, columns))
@@ -228,11 +228,11 @@ public static class EfDriftEngine
     private static void CompareForeignKey(
         EfTableMatch table, TableDetail detail, EfEntity entity, EfForeignKey key, EfModelMatch match, List<Finding> findings)
     {
-        if (EfModelMatcher.ColumnsOf(table, key.Properties) is not { } columns) return;
+        if (EfModelMatcher.ColumnsOf(table, entity.Name, key.Properties) is not { } columns) return;
         if (EfModelMatcher.TableOf(match, key.Principal) is not { Table: { } principalTable } principal) return;
 
         var principalProperties = key.PrincipalKey.Count > 0 ? key.PrincipalKey : principal.Owner.Key;
-        if (EfModelMatcher.ColumnsOf(principal, principalProperties) is not { } principalColumns) return;
+        if (EfModelMatcher.ColumnsOf(principal, key.Principal, principalProperties) is not { } principalColumns) return;
 
         if (detail.ForeignKeysOutgoing.Any(fk =>
                 SameColumns(fk.FromColumns, columns)

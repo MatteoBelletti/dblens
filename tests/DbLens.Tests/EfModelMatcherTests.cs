@@ -76,6 +76,20 @@ public sealed class EfModelMatcherTests
         table.Owner.Name.Should().Be("User");
         table.Columns.Should().HaveCount(2).And.OnlyContain(c => c.Column != null);
         EfModelMatcher.TableOf(match, "Address").Should().BeSameAs(table);
-        EfModelMatcher.ColumnsOf(table, ["City"]).Should().Equal("home_city");
+        EfModelMatcher.ColumnsOf(table, "Address", ["City"]).Should().Equal("home_city");
+    }
+
+    [Fact]
+    public void APropertyNamedLikeTheOwnersOne_IsTheDeclaringEntitys()
+    {
+        var user = Entity("User", "users", "shop", Prop("Id", "id"), Prop("City", "city"));
+        var address = new EfEntity("Address", "shop", "users", [Prop("City", "home_city", nullable: true)], ["Id"], [], [], SharesTableWith: "User");
+
+        var table = EfModelMatcher.Match(Model("shop", user, address),
+            [Table("users", [Col("id", "bigint"), Col("city"), Col("home_city")], schema: "shop")], "public").Tables.Single();
+
+        EfModelMatcher.ColumnsOf(table, "Address", ["City"]).Should().Equal("home_city");
+        EfModelMatcher.ColumnsOf(table, "User", ["City"]).Should().Equal("city");
+        EfModelMatcher.ColumnsOf(table, "Address", ["Id"]).Should().Equal(["id"], "an owned type's key is its owner's");
     }
 }

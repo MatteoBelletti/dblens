@@ -1,6 +1,7 @@
 using DbLens.Core.Abstractions;
 using DbLens.Core.Analysis;
 using DbLens.Core.Analysis.Fragmentation;
+using DbLens.Core.Analysis.Hygiene;
 using DbLens.Core.Analysis.Indexes;
 using DbLens.Core.Models;
 using DbLens.Postgres;
@@ -26,6 +27,22 @@ public sealed class PostgresEdgeCatalogTests(PostgresEdgeFixture fixture)
         result.Caveats.Should().Contain(c => c.Contains("cannot see when the database was created or restored"));
         result.Findings.Where(f => f.RuleId == IndexRuleIds.UnusedIndex).Should().OnlyContain(f =>
             (string)f.Metadata!["stats_since"] == nameof(StatsWindowStart.ServerStart) && f.Confidence < 0.9);
+    }
+
+    [SkippableFact]
+    [Trait("Category", "Integration")]
+    public async Task PartitionedTable_HygieneReadsItsPartitionsUpdates_AndItsInheritedStatistics()
+    {
+        Skip.If(ShouldSkip, TestSkip.Reason);
+
+        await Fixture.RunWorkloadAsync();
+        var result = await Inspector.AnalyzeTableHygieneAsync(
+            new AnalyzeTableHygieneRequest(Schema, ["readings"], MinTableRows: 1, UpdateCountersMinDays: 0));
+
+        result.Signals.Should().Contain(f => f.RuleId == HygieneRuleIds.ColumnAlwaysNull && f.Columns!.Single() == "note");
+        result.Signals.Should().ContainSingle(f => f.RuleId == HygieneRuleIds.MissingUpdated)
+            .Which.Severity.Should().Be(Severity.Medium, "its partitions were updated");
+        result.Caveats.Should().NotContain(c => c.Contains("planner statistics"));
     }
 
     [SkippableFact]
@@ -165,6 +182,13 @@ public sealed class PostgresEdgeFixture : IAsyncLifetime, IEdgeFixture
         CREATE TABLE edge.events_2024 PARTITION OF edge.events FOR VALUES FROM ('2024-01-01') TO ('2025-01-01');
         CREATE TABLE edge.events_2025 PARTITION OF edge.events FOR VALUES FROM ('2025-01-01') TO ('2026-01-01');
         INSERT INTO edge.events VALUES (1, '2024-03-01'), (2, '2024-04-01'), (3, '2025-03-01'), (4, '2025-04-01');
+        -- Hygiene: a partitioned table's updates are counted on its partitions, its statistics as inherited.
+        CREATE TABLE edge.readings (id int, taken_on date NOT NULL, note text, PRIMARY KEY (id, taken_on))
+            PARTITION BY RANGE (taken_on);
+        CREATE TABLE edge.readings_2024 PARTITION OF edge.readings FOR VALUES FROM ('2024-01-01') TO ('2025-01-01');
+        CREATE TABLE edge.readings_2025 PARTITION OF edge.readings FOR VALUES FROM ('2025-01-01') TO ('2026-01-01');
+        INSERT INTO edge.readings SELECT g, DATE '2024-06-01' + (g % 400), NULL FROM generate_series(1, 200) g;
+        UPDATE edge.readings SET taken_on = taken_on WHERE id % 2 = 0;
         CREATE TABLE edge.event_notes (
             id int PRIMARY KEY, event_id int, event_date date,
             FOREIGN KEY (event_id, event_date) REFERENCES edge.events (id, created_at) ON DELETE CASCADE);

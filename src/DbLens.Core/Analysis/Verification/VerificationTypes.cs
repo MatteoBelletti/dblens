@@ -22,8 +22,6 @@ public enum VerificationProbeKind
     NoValue,
     /// <summary>Distinct values among the filled rows. Confirmed by exactly ONE.</summary>
     SingleValue,
-    /// <summary>Rows matching a condition; confirmed when their share exceeds the probe's <see cref="VerificationProbe.ConfirmShare"/>.</summary>
-    ShareAbove,
     /// <summary>Rows matching a condition that should match none. Confirmed by any.</summary>
     RowsMatching,
 }
@@ -98,9 +96,13 @@ public sealed record VerificationProbe(
     /// <summary>Approximate rows in the scanned table, for ordering and skipping. Null = unknown.</summary>
     long? ApproximateRowCount,
     /// <summary>Fewer rows compared than this settle nothing: Inconclusive, never Refuted.</summary>
-    long MinimumCompared = 1,
-    /// <summary>For <see cref="VerificationProbeKind.ShareAbove"/>: the share of compared rows that confirms.</summary>
-    double ConfirmShare = 0);
+    long MinimumCompared = 1);
+
+/// <summary>Every probe names its second count divergent_rows: how dblens tells its own probes in a workload.</summary>
+public static class ProbeColumns
+{
+    public static bool IsProbe(string sql) => sql.Contains("divergent_rows", StringComparison.OrdinalIgnoreCase);
+}
 
 public enum VerificationStatus
 {
@@ -178,7 +180,6 @@ public sealed record VerificationMeasurement(
         {
             VerificationProbeKind.InclusionDependency or VerificationProbeKind.NoValue => numerator == 0,
             VerificationProbeKind.SingleValue => numerator == 1,
-            VerificationProbeKind.ShareAbove => (double)numerator / denominator > probe.ConfirmShare,
             // The join multiplies when it returns more rows than the separate reads.
             VerificationProbeKind.JoinFanOut => numerator > denominator,
             _ => numerator > 0,

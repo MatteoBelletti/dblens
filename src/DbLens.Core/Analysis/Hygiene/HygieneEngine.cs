@@ -224,13 +224,13 @@ public static class HygieneEngine
                 TableSignal(HygieneRuleIds.UpdatedNotMaintained, Severity.Medium, 0.6, t,
                     $"{Name(t)}.{last.Name} may not be kept up to date",
                     $"The table is updated ({Num.N0(updates.Value)} since the counters started) and has {first.Name} and " +
-                    $"{last.Name}. If {last.Name} still equals {first.Name} on almost every row, nothing writes it on update: no " +
+                    $"{last.Name}. If no row has {last.Name} different from {first.Name}, nothing writes it on update: no " +
                     "interceptor sets it, or the updates go through ExecuteUpdate, ExecuteDelete or plain SQL, which skip the " +
                     "SaveChanges interceptors.",
                     owner, AuditFix, [last.Name]),
-                Probe(HygieneRuleIds.UpdatedNotMaintained, VerificationProbeKind.ShareAbove, t, [last.Name], rows, input.Dialect,
-                    TimestampPairSql(t, first, last, "=", input.Dialect), $"rows where {last.Name} equals {first.Name}",
-                    confirmShare: request.UnmaintainedShare),
+                Probe(HygieneRuleIds.UpdatedNotMaintained, VerificationProbeKind.NoValue, t, [last.Name], rows, input.Dialect,
+                    TimestampPairSql(t, first, last, "<>", input.Dialect), $"rows where {last.Name} differs from {first.Name}",
+                    request.MinTableRows),
                 IsSignal: true));
 
         if (request.VerifySignals)
@@ -292,6 +292,7 @@ public static class HygieneEngine
                 HygieneRuleIds.ColumnAlwaysNull => $"{column} is NULL in all {Num.N0(compared)} rows",
                 HygieneRuleIds.ColumnSingleValue => $"{column} holds one value in all {Num.N0(compared)} filled rows",
                 HygieneRuleIds.ColumnAbandoned => $"{column} is empty in all {Num.N0(compared)} recent rows",
+                HygieneRuleIds.UpdatedNotMaintained => $"{column} equals the creation date in all {Num.N0(compared)} rows",
                 _ => $"{column}: {Num.N0(counted)} {m.MeasurementDescription} of {Num.N0(compared)} ({Num.P0(ratio)})",
             },
             Description = measured + "\n\nWHAT THIS MAY MEAN: " + finding.Description,
@@ -369,8 +370,8 @@ public static class HygieneEngine
 
     private static VerificationProbe Probe(
         string ruleId, VerificationProbeKind kind, TableDetail t, IReadOnlyList<string> columns, long? rows, DatabaseDialect dialect,
-        string sql, string measures, long minimumCompared = 1, double confirmShare = 0) =>
-        new(new VerificationTarget(ruleId, Name(t), columns), kind, sql, measures, rows, minimumCompared, confirmShare);
+        string sql, string measures, long minimumCompared = 1) =>
+        new(new VerificationTarget(ruleId, Name(t), columns), kind, sql, measures, rows, minimumCompared);
 
     private static List<ColumnDetail> AuditColumns(TableDetail t, IReadOnlyList<string> names) =>
         [.. names.SelectMany(n => t.Columns.Where(c => PiiClassifier.Normalize(c.Name) == n && IsDateTime(c)))];

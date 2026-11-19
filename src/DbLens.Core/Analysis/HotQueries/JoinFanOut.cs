@@ -40,7 +40,6 @@ public static class JoinFanOut
             foreach (var byParent in joins.GroupBy(j => (j.Parent.Schema, j.Parent.Name)))
             {
                 var children = byParent
-                    .Where(j => !ReferenceEquals(j.Child, j.Parent))
                     .DistinctBy(j => (j.Child.Schema, j.Child.Name))
                     .ToList();
                 if (children.Count < 2) continue;

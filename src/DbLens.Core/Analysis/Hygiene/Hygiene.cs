@@ -16,7 +16,6 @@ public sealed record AnalyzeTableHygieneRequest(
     long MinSingleValueRows = 100,
     long MinRecentRows = 1_000,
     int RecentDays = 90,
-    double UnmaintainedShare = 0.95,
     /// <summary>Days the engine's update counters must cover before a zero means "never updated".</summary>
     int UpdateCountersMinDays = 7,
     int MaxVerificationQueries = 20,
@@ -49,9 +48,6 @@ public sealed record HygieneSummary(
 /// NULL, and whether the filled rows hold one distinct value. Null where the engine keeps no statistics.
 /// </summary>
 public sealed record ColumnStatistics(string Schema, string Table, string Column, bool AllNull, bool SingleValue);
-
-/// <summary>Updates the engine counted on a table since its counters started.</summary>
-public sealed record TableUpdates(string Schema, string Table, long Updates);
 
 /// <summary>Creation and update column names, and the words that mark a column as left behind.</summary>
 public sealed class AuditVocabulary

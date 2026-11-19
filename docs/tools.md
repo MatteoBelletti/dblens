@@ -411,7 +411,7 @@ in a code-first database: each finding carries the EF Core change in `Metadata["
 | `column-legacy-name` | Info | Inferred | A name word such as `old`, `bak`, `tmp`, `legacy`, `deprecated`, `vecchio`, or a comment saying deprecated / obsolete |
 | `audit-missing-created` | Low | Inferred | No creation date on a table of 1,000+ rows |
 | `audit-missing-updated` | Medium if updated, else Low | Inferred | No update date; not reported on a table known to be insert-only |
-| `audit-updated-not-maintained` | Medium | Inferred → Measured | Both dates on an updated table → the update date equals the creation date on more than 95% of rows |
+| `audit-updated-not-maintained` | Medium | Inferred → Measured | Both dates on an updated table → no row's update date differs from its creation date (at least 1,000 rows compared) |
 | `audit-update-before-create` | Low | Measured only | With `verifySignals` → any row updated before it was created |
 | `audit-created-nullable` | Low | Derived | The creation date accepts NULL |
 | `audit-timestamp-without-timezone` | Low | Derived | `timestamp without time zone`; SQL Server `datetime`, `smalldatetime` (`datetime2`, EF Core's mapping of `DateTime`, is not reported) |
@@ -435,8 +435,8 @@ otherwise means nothing, so no table is taken as insert-only and a caveat says s
 login cannot read the counters, or they hold nothing for a table. SQL Server's counter restarts when
 a table's metadata leaves the cache, so there a zero is never read as insert-only.
 
-**Measured checks.** Probes are ordered smallest table first within the shared
-[budget](safety.md#signal-verification). A check with too few rows (fewer than 100 filled rows, or
+**Measured checks.** Signals are measured before the checks that have none, each smallest table
+first, within the shared [budget](safety.md#signal-verification). A check with too few rows (fewer than 100 filled rows, or
 1,000 recent ones) is not measured, never refuted. `column-abandoned` and `audit-update-before-create`
 have no signal: they appear only when a probe finds the defect.
 
@@ -457,8 +457,8 @@ being given one: then reads their plans and measures the joins that multiply row
 
 | Engine | Source, in order | Read |
 |---|---|---|
-| PostgreSQL | `pg_stat_statements` of the current database | calls, total time, rows, pages from cache and from outside it, temp pages |
-| SQL Server | Query Store, then the plan cache (`sys.dm_exec_query_stats`, summed per `query_hash`) | executions, duration, logical and physical reads, rows, tempdb (Query Store only) |
+| PostgreSQL | `pg_stat_statements` of the current database, summed per `queryid` over users | calls, total time, rows, pages from cache and from outside it, temp pages |
+| SQL Server | Query Store, then the plan cache (`sys.dm_exec_query_stats`); either summed per `query_hash` | executions, duration, logical and physical reads, rows, tempdb (Query Store only) |
 
 The 20 heaviest by total time are listed: only statements that read or write rows (`SELECT`, `WITH`,
 `INSERT`, `UPDATE`, `DELETE`, `MERGE`) and name at least one user table in a table position (after
@@ -479,7 +479,7 @@ cache, temp pages, and the tables it names.
 | `hot-query-summary` | Info | Derived | Always one: source, window covered, plans read |
 
 **Plans, never executions.** On SQL Server the plan is the one Query Store or the plan cache stored
-with the query. On PostgreSQL `pg_stat_statements` keeps the query normalized (`$1` for each value),
+with the query, read only for the queries whose plan is analyzed. On PostgreSQL `pg_stat_statements` keeps the query normalized (`$1` for each value),
 so the text is `PREPARE`d and explained with `EXPLAIN EXECUTE` under `plan_cache_mode =
 force_generic_plan` — the plan for any value — in a read-only, rolled-back transaction, then
 deallocated (PostgreSQL 12+). A query the planner cannot take (a `$n` of ambiguous type) loses its

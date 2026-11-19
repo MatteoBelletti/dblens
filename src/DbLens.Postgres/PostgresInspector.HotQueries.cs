@@ -1,5 +1,6 @@
-using DbLens.Core.Analysis.HotQueries;
+using System.Data.Common;
 using DbLens.Core.Analysis;
+using DbLens.Core.Analysis.HotQueries;
 using DbLens.Core.Analysis.QueryPlan;
 using DbLens.Core.Inspection;
 
@@ -19,34 +20,35 @@ public sealed partial class PostgresInspector
         """;
 
     // Statistics accumulate per database since the last pg_stat_statements_reset() (or since a crash).
+    // A query has one row per user and nesting level: summed per queryid.
     private const string HotQueriesSql = """
-        SELECT s.queryid::text                         AS query_id,
-               s.query                                 AS query_text,
-               s.calls                                 AS calls,
-               s.total_exec_time                       AS total_time_ms,
-               s.rows                                  AS rows_returned,
-               s.shared_blks_hit + s.shared_blks_read  AS pages_read,
-               s.shared_blks_read                      AS pages_from_disk,
-               s.temp_blks_written                     AS temp_pages
+        SELECT s.queryid::text                              AS query_id,
+               min(s.query)                                 AS query_text,
+               sum(s.calls)                                 AS calls,
+               sum(s.total_exec_time)                       AS total_time_ms,
+               sum(s.rows)                                  AS rows_returned,
+               sum(s.shared_blks_hit + s.shared_blks_read)  AS pages_read,
+               sum(s.shared_blks_read)                      AS pages_from_disk,
+               sum(s.temp_blks_written)                     AS temp_pages,
+               NULL::text                                   AS plan_key
         FROM pg_stat_statements s
         WHERE s.dbid = (SELECT oid FROM pg_database WHERE datname = current_database())
           AND s.query <> '<insufficient privilege>'
-        ORDER BY s.total_exec_time DESC
+        GROUP BY s.queryid
+        ORDER BY sum(s.total_exec_time) DESC
         LIMIT @fetch
         """;
 
     private const string HotQueriesWindowSql =
         "SELECT EXTRACT(EPOCH FROM (NOW() - stats_reset)) / 86400.0 FROM pg_stat_statements_info";
 
-    protected override async Task<HotQuerySource> QueryHotQueriesAsync(int fetch, CancellationToken ct)
+    protected override async Task<HotQueryCommands> HotQueryCommandsAsync(DbConnection conn, CancellationToken ct)
     {
-        await using var conn = await OpenAsync(ct);
-
         var (preloaded, created, seesAll, hasInfo) = (await ReadAllAsync(Command(conn, HotQueriesAvailableSql), r => (
             r.Flag("preloaded"), r.Flag("created"), r.Flag("sees_all"), r.Flag("has_info")), ct)).Single();
 
         if (!preloaded || !created)
-            return new HotQuerySource(null, null, [],
+            return new HotQueryCommands(null, null, null,
             [
                 "pg_stat_statements is " + (preloaded ? "loaded but not created in this database" : "not loaded") +
                 ", so PostgreSQL keeps no statistics on queries. It needs shared_preload_libraries = 'pg_stat_statements' " +
@@ -54,28 +56,9 @@ public sealed partial class PostgresInspector
                 "A dump does not carry these statistics; read them on the production server or a replica.",
             ]);
 
-        var command = Command(conn, HotQueriesSql);
-        var fetchParameter = command.CreateParameter();
-        fetchParameter.ParameterName = "fetch";
-        fetchParameter.Value = fetch;
-        command.Parameters.Add(fetchParameter);
-
-        var queries = await ReadAllAsync(command, r => new HotQueryStats(
-            r.Text("query_id"), r.Text("query_text"), r.Number("calls"), r.RealOrNull("total_time_ms") ?? 0,
-            r.Number("rows_returned"), r.Number("pages_read"), r.Number("pages_from_disk"), r.NumberOrNull("temp_pages")), ct);
-
-        double? window = null;
-        if (hasInfo)
-        {
-            await using var windowCommand = Command(conn, HotQueriesWindowSql);
-            if (await windowCommand.ExecuteScalarAsync(ct) is { } days and not DBNull)
-                window = Convert.ToDouble(days, System.Globalization.CultureInfo.InvariantCulture);
-        }
-
-        return new HotQuerySource("pg_stat_statements", window, queries,
-            seesAll
-                ? []
-                : ["This login is not in pg_read_all_stats (part of pg_monitor), so only its own queries are visible."]);
+        return new HotQueryCommands("pg_stat_statements", Command(conn, HotQueriesSql),
+            hasInfo ? Command(conn, HotQueriesWindowSql) : null,
+            seesAll ? [] : ["This login is not in pg_read_all_stats (part of pg_monitor), so only its own queries are visible."]);
     }
 
     // pg_stat_statements stores queries normalized, $1 for each constant. Npgsql would bind any $n as a

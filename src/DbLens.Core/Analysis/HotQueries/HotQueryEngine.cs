@@ -28,7 +28,7 @@ public static class HotQueryEngine
         string defaultSchema,
         FindHotQueriesRequest request) =>
         [.. stats
-            .Where(s => !s.Text.Contains("divergent_rows", StringComparison.OrdinalIgnoreCase))
+            .Where(s => !ProbeColumns.IsProbe(s.Text))
             .Select(s => (Stats: s, Redacted: SqlText.Redact(s.Text, dialect)))
             .Where(x => IsDataStatement(x.Redacted))
             .Select(x => (x.Stats, x.Redacted, Tables: TablesNamed(x.Stats.Text, userTables, dialect, defaultSchema)))

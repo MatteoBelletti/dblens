@@ -13,11 +13,17 @@ namespace DbLens.Core.Inspection;
 public abstract partial class DatabaseInspectorBase
 {
     /// <summary>
-    /// Up to <paramref name="fetch"/> queries from the engine's statistics, heaviest by total time
-    /// first, with the source's name and window, or no source and why: a source that is off is an
-    /// answer, not an error. A read the login is refused is caught by the base.
+    /// The engine's query statistics, on an open connection: the source's name, a command returning
+    /// up to @fetch rows heaviest by total time first — query_id, query_text, calls, total_time_ms,
+    /// rows_returned, pages_read, pages_from_disk, temp_pages, plan_key — and one returning the days
+    /// they cover; or no source and why. A source that is off is an answer, not an error; a view the
+    /// login is refused is caught by the base.
     /// </summary>
-    protected abstract Task<HotQuerySource> QueryHotQueriesAsync(int fetch, CancellationToken ct);
+    protected abstract Task<HotQueryCommands> HotQueryCommandsAsync(DbConnection conn, CancellationToken ct);
+
+    /// <param name="Name">"pg_stat_statements", "Query Store", "plan cache"; null when there is none.</param>
+    /// <param name="Notes">One sentence per source missing or partly visible, with what would enable it.</param>
+    protected sealed record HotQueryCommands(string? Name, DbCommand? Queries, DbCommand? Window, IReadOnlyList<string> Notes);
 
     /// <summary>
     /// The estimated plan of a listed query, or why there is none. Never executes it: a stored plan
@@ -28,26 +34,15 @@ public abstract partial class DatabaseInspectorBase
     public Task<FindHotQueriesResult> FindHotQueriesAsync(FindHotQueriesRequest request, CancellationToken ct = default) =>
         RunAsync("hot queries", async () =>
         {
-            HotQuerySource source;
-            try
-            {
-                source = await QueryHotQueriesAsync(request.Fetch, ct);
-            }
-            catch (DbException ex)
-            {
-                // A view the login cannot read is a missing source, the same on both engines.
-                source = new HotQuerySource(null, null, [],
-                    [$"The query statistics could not be read ({ex.Message.ReplaceLineEndings(" ").Trim()})."]);
-            }
+            var (name, days, statistics, notes) = await ReadHotQueriesAsync(request.Fetch, ct);
+            var availability = new HotQuerySourceInfo(name, days, notes);
+            if (name is null) return HotQueryEngine.Build([], [], availability, 0, []);
 
-            var availability = new HotQuerySourceInfo(source.Name, source.WindowDays, source.Missing);
-            if (source.Name is null) return HotQueryEngine.Build([], [], availability, 0, []);
-
-            var tables = (await ResolveTableScopeAsync(null, null, ct, includePartitions: true)).Tables;
-            var ranked = HotQueryEngine.Rank(source.Queries, [.. tables.Select(t => (t.Schema, t.Name))], Dialect, DefaultSchema, request);
+            var (tables, scopeCaveat) = await ResolveTableScopeAsync(null, null, ct, includePartitions: true);
+            var ranked = HotQueryEngine.Rank(statistics, [.. tables.Select(t => (t.Schema, t.Name))], Dialect, DefaultSchema, request);
 
             List<Finding> findings = [.. HotQueryEngine.StatisticsFindings(ranked, request, Dialect)];
-            List<string> caveats = [];
+            List<string> caveats = scopeCaveat is null ? [] : [scopeCaveat];
 
             var plansRead = 0;
             foreach (var (stats, query, _) in ranked.Take(request.PlanTop))
@@ -62,6 +57,42 @@ public abstract partial class DatabaseInspectorBase
 
             return HotQueryEngine.Build(ranked, findings, availability, plansRead, [.. caveats.Distinct()], verification);
         });
+
+    private async Task<(string? Name, double? Days, IReadOnlyList<HotQueryStats> Queries, IReadOnlyList<string> Notes)> ReadHotQueriesAsync(
+        int fetch, CancellationToken ct)
+    {
+        // Opened outside the catch: a login that fails is an error, not a missing source.
+        await using var conn = await OpenAsync(ct);
+        try
+        {
+            var source = await HotQueryCommandsAsync(conn, ct);
+            if (source is not { Name: { } name, Queries: { } command }) return (null, null, [], source.Notes);
+
+            var parameter = command.CreateParameter();
+            parameter.ParameterName = "fetch";
+            parameter.Value = fetch;
+            command.Parameters.Add(parameter);
+
+            var queries = await ReadAllAsync(command, r => new HotQueryStats(
+                // An encrypted SQL Server module's text reads as NULL.
+                r.Text("query_id"), r.TextOrNull("query_text") ?? "", r.Number("calls"), r.RealOrNull("total_time_ms") ?? 0,
+                r.Number("rows_returned"), r.Number("pages_read"), r.Number("pages_from_disk"), r.NumberOrNull("temp_pages"),
+                r.TextOrNull("plan_key")), ct);
+
+            double? days = null;
+            if (source.Window is { } window)
+                await using (window)
+                    days = await window.ExecuteScalarAsync(ct) is { } value and not DBNull
+                        ? Convert.ToDouble(value, System.Globalization.CultureInfo.InvariantCulture)
+                        : null;
+
+            return (name, days, queries, source.Notes);
+        }
+        catch (DbException ex)
+        {
+            return (null, null, [], [$"The query statistics could not be read ({ex.Message.ReplaceLineEndings(" ").Trim()})."]);
+        }
+    }
 
     /// <summary>The plan rules of explain_query on one listed query; null when its plan could not be had.</summary>
     private async Task<IEnumerable<Finding>?> PlanFindingsAsync(
@@ -112,6 +143,7 @@ public abstract partial class DatabaseInspectorBase
         if (scope.Count == 0) return ([], request.VerifyJoins ? VerificationSummary.From([], attempted: true) : null);
 
         var details = await GetTableDetailsAsync(scope, ct);
+        if (NotFoundCaveat(details) is { } notFound) caveats.Add(notFound);
         var shapes = JoinFanOut.Detect(ranked, details.Tables, DefaultSchema, Dialect)
             .DistinctBy(s => s.Target.Key)
             .ToList();

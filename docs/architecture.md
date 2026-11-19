@@ -47,7 +47,7 @@ no driver. It owns everything that does not depend on SQL dialect:
 | the `explain_query` statement guard | `FetchQueryPlanAsync` (after the guard has run) |
 | orchestration of every diagnostic tool; the cascade graph, built from the table details | `IndexUsageCommand`, `QueryFragmentationStatsAsync` |
 | unused columns and audit dates: rules, EF fixes, verification | `ColumnStatisticsCommand` (planner statistics, no values), `TableUpdatesCommand` |
-| the heaviest queries: ranking, redaction, rules, join fan-out | `QueryHotQueriesAsync` (statistics and availability), `PlanHotQueryAsync` (a stored or generic plan) |
+| the heaviest queries: ranking, redaction, rules, join fan-out | `HotQueryCommandsAsync` (the source's commands, or why there is none), `PlanHotQueryAsync` (a stored or generic plan) |
 | when the scan counters started (`StatsWindow`: the latest of server start, creation, restore, reset) | `StatsWindowCommandAsync`: days since each event |
 | connections, commands, row mapping, rolled-back transactions (`OpenAsync`, `Command`, `ReadAllAsync`, `InRolledBackTransactionAsync`) and reading a column by name (`DbReading`) | SQL text and typed parameters |
 | the signal verification loop | `VerificationSetupSql`, `ClassifyVerificationError`, `VerificationCaveats` |

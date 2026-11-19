@@ -38,18 +38,8 @@ public sealed record HotQueryStats(
     long PagesFromDisk,
     /// <summary>Pages written to temporary files or tempdb. Null when the source does not count them.</summary>
     long? TempPages,
-    /// <summary>The plan the engine stored with the query (SQL Server). Null = none stored.</summary>
-    string? StoredPlan = null);
-
-/// <summary>Where the statistics came from, and why other sources were not used.</summary>
-public sealed record HotQuerySource(
-    /// <summary>"pg_stat_statements", "Query Store", "plan cache"; null when none could be read.</summary>
-    string? Name,
-    /// <summary>How many days the statistics cover. Null when the source does not say.</summary>
-    double? WindowDays,
-    IReadOnlyList<HotQueryStats> Queries,
-    /// <summary>One sentence per source that was missing or not readable, with what would enable it.</summary>
-    IReadOnlyList<string> Missing);
+    /// <summary>Where the dialect finds the query's stored plan (SQL Server). Null = none stored.</summary>
+    string? PlanKey = null);
 
 /// <summary>A query as returned: text redacted, figures per call.</summary>
 public sealed record HotQuery(

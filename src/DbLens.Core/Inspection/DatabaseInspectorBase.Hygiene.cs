@@ -56,7 +56,9 @@ public abstract partial class DatabaseInspectorBase
             else
             {
                 var (measured, summary) = await VerifyEachAsync(plan.Checks, c => c.Probe, HygieneEngine.Apply, request.Budget,
-                    "Checks with too few rows to compare are reported as not measured, never as refuted.", caveats, ct);
+                    "Checks with too few rows to compare are reported as not measured, never as refuted.", caveats, ct,
+                    // A signal stands without its probe; a question is lost without it, so signals come first.
+                    priority: c => c.IsSignal ? 0 : 1);
                 findings.AddRange(measured.OfType<Finding>());
                 verification = summary;
             }
