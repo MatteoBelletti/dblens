@@ -190,6 +190,27 @@ public sealed class EfSnapshotReaderTests
     }
 
     [Fact]
+    public void AnOwnedTypeSplitOverTables_IsNotCompared_AndATemporalTableSplitStillKeepsItsHistory()
+    {
+        var model = ParseBody("""
+            modelBuilder.Entity("N.Customer", b =>
+            {
+                b.Property<int>("Id"); b.HasKey("Id"); b.ToTable("customers");
+                b.OwnsOne("N.Address", "Address", b1 =>
+                {
+                    b1.Property<int>("CustomerId"); b1.Property<string>("Street"); b1.HasKey("CustomerId"); b1.ToTable("customers");
+                    b1.SplitToTable("customer_addresses", null, t => { t.Property("Street"); });
+                });
+            });
+            modelBuilder.Entity("N.Head", b => { b.Property<int>("Id"); b.HasKey("Id"); b.ToTable("people"); b.ToTable(tb => tb.IsTemporal()); });
+            modelBuilder.Entity("N.Body", b => { b.Property<int>("Id"); b.HasKey("Id"); b.ToTable("people"); });
+            """);
+
+        model.Unsupported.Should().Contain(u => u.Entities.Contains("N.Address") && u.Reason.Contains("SplitToTable"));
+        model.OwnTables.Should().Contain((null, "customer_addresses")).And.Contain((null, "peopleHistory"));
+    }
+
+    [Fact]
     public void OneTypeOwnedTwice_IsTwoEntities_EachWithItsColumns()
     {
         var model = ParseBody("""

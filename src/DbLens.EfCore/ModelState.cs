@@ -104,9 +104,11 @@ internal sealed class ModelState
 
         foreach (var entity in _order)
         {
-            var schema = entity.Schema ?? DefaultSchema;
-            if (entity.History is { } history && placements.TryGetValue(entity.Name, out var placement))
-                tables.Add((history.Schema ?? placement.Schema ?? DefaultSchema, history.Name ?? placement.Table + "History"));
+            var placement = placements.GetValueOrDefault(entity.Name);
+            var schema = entity.Schema ?? placement?.Schema ?? DefaultSchema;
+            var own = entity.Table ?? placement?.Table ?? Names.Short(entity.Name);
+            if (entity.History is { } history)
+                tables.Add((history.Schema ?? schema, history.Name ?? own + "History"));
 
             if (!uncompared.Contains(entity.Name)) continue;
             if (entity.Table is { } table) tables.Add((schema, table));
@@ -120,6 +122,12 @@ internal sealed class ModelState
 
     private Placement? Place(EntityState entity, Dictionary<string, Placement> placed, List<EfUnsupported> unsupported)
     {
+        if (entity.SplitTables.Count > 0)
+        {
+            unsupported.Add(new($"{entity.Name} is split over several tables (SplitToTable), which dblens does not compare.", [entity.Name]));
+            return null;
+        }
+
         if (entity.Owner is { } ownerName)
             return PlaceOwned(entity, ownerName, placed, unsupported);
 
@@ -147,12 +155,6 @@ internal sealed class ModelState
         if (entity.Strategy == "TPC")
         {
             unsupported.Add(new($"{entity.Name} uses table-per-concrete-type mapping, which dblens does not compare.", [entity.Name]));
-            return null;
-        }
-
-        if (entity.SplitTables.Count > 0)
-        {
-            unsupported.Add(new($"{entity.Name} is split over several tables (SplitToTable), which dblens does not compare.", [entity.Name]));
             return null;
         }
 
