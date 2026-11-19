@@ -182,7 +182,7 @@ public sealed class HygieneEngineTests
 
     private static EfProperty Prop(string name, string column) => new(name, "long", column, "bigint", false);
 
-    private static IEnumerable<string?> NotInModel(string[] unsupported, params EfModel[] models)
+    private static IEnumerable<string?> NotInModel(EfUnsupported[] unsupported, params EfModel[] models)
     {
         var table = Table("t", [Col("id", "int"), Col("a"), Col("b"), Col("extra")]);
         var plan = HygieneEngine.Analyze(
@@ -199,7 +199,7 @@ public sealed class HygieneEngineTests
         var second = Model("SecondContext", Prop("Id", "id"), Prop("B", "b"));
 
         NotInModel([], first, second).Should().Equal("extra");
-        NotInModel(["App.Address, owned by App.T, is stored as JSON (ToJson), which dblens does not compare."], first, second)
+        NotInModel([new EfUnsupported("App.Address, owned by App.T, is stored as JSON.", ["App.Address", "App.T"])], first, second)
             .Should().BeEmpty("a JSON column holds what no property names");
     }
 }

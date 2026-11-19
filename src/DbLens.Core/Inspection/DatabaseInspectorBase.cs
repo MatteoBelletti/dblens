@@ -75,6 +75,14 @@ public abstract partial class DatabaseInspectorBase(ILogger logger) : IDatabaseI
         return cmd;
     }
 
+    protected static void AddParameter(DbCommand command, string name, object value)
+    {
+        var parameter = command.CreateParameter();
+        parameter.ParameterName = name;
+        parameter.Value = value;
+        command.Parameters.Add(parameter);
+    }
+
     /// <summary>Maps every row of the command's result, then disposes the command.</summary>
     protected static async Task<List<T>> ReadAllAsync<T>(DbCommand cmd, Func<DbDataReader, T> map, CancellationToken ct)
     {

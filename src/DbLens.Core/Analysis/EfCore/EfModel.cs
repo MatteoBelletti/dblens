@@ -15,15 +15,19 @@ public sealed record EfModel(
     /// <summary>The migrations found beside the snapshot, oldest first.</summary>
     IReadOnlyList<string> MigrationIds,
     /// <summary>
-    /// Mappings outside what dblens compares (TPT, TPC, JSON columns, views, keyless entities…),
-    /// one sentence each naming the entity: reported, never silently skipped.
+    /// Mappings outside what dblens compares (TPT, TPC, JSON columns, views, keyless entities…):
+    /// reported, never silently skipped.
     /// </summary>
-    IReadOnlyList<string> Unsupported,
+    IReadOnlyList<EfUnsupported> Unsupported,
     /// <summary>
     /// The migrations of the other DbContexts found in the same project, by context. Every context
     /// writes to the same history table by default, so their rows are not this model's unknowns.
     /// </summary>
     IReadOnlyDictionary<string, IReadOnlyList<string>>? OtherContexts = null);
+
+/// <param name="Reason">One sentence naming the entities, as a caveat shows it.</param>
+/// <param name="Entities">The entities involved: an owner's table holds what its JSON owned type maps.</param>
+public sealed record EfUnsupported(string Reason, IReadOnlyList<string> Entities);
 
 /// <summary>An entity type and the table it is stored in.</summary>
 public sealed record EfEntity(

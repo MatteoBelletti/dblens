@@ -52,7 +52,7 @@ public static class SnapshotReader
 
         try
         {
-            var snapshots = Directory.EnumerateFiles(path, "*" + SnapshotSuffix, SearchOption.AllDirectories).Take(20).ToList();
+            var snapshots = Snapshots(path);
             Dictionary<string, MigrationsByContext> byRoot = new(StringComparer.Ordinal);
             return snapshots.Count == 0 ? [Read(path)] : [.. snapshots.Select(s => Load(s, byRoot))];
         }
@@ -84,22 +84,28 @@ public static class SnapshotReader
 
     private static List<string> Designers(string root)
     {
-        List<string> found = [];
-        Stack<string> folders = new([root]);
+        var found = FilesUnder(root, DesignerSuffix).Take(MaxDesignerFiles + 1).ToList();
+        if (found.Count > MaxDesignerFiles)
+            throw new ArgumentException($"More than {MaxDesignerFiles} *.Designer.cs files under {root}: point snapshotPath at the Migrations folder itself.");
+        return found;
+    }
 
+    private static List<string> Snapshots(string root) => [.. FilesUnder(root, SnapshotSuffix).Take(20)];
+
+    /// <summary>Files named *<paramref name="suffix"/> under <paramref name="root"/>, outside build output and folders it cannot open.</summary>
+    private static IEnumerable<string> FilesUnder(string root, string suffix)
+    {
+        Stack<string> folders = new([root]);
         while (folders.Count > 0)
         {
             var folder = folders.Pop();
-            found.AddRange(Directory.EnumerateFiles(folder, "*" + DesignerSuffix, Readable));
-            if (found.Count > MaxDesignerFiles)
-                throw new ArgumentException($"More than {MaxDesignerFiles} *.Designer.cs files under {root}: point snapshotPath at the Migrations folder itself.");
+            foreach (var file in Directory.EnumerateFiles(folder, "*" + suffix, Readable))
+                yield return file;
 
             foreach (var sub in Directory.EnumerateDirectories(folder, "*", Readable))
                 if (!SkippedFolders.Contains(Path.GetFileName(sub), StringComparer.OrdinalIgnoreCase))
                     folders.Push(sub);
         }
-
-        return found;
     }
 
     private static string FindSnapshot(string path)
@@ -114,7 +120,7 @@ public static class SnapshotReader
         if (!Directory.Exists(path))
             throw new ArgumentException($"snapshotPath does not exist: {path}");
 
-        var found = Directory.EnumerateFiles(path, "*" + SnapshotSuffix, SearchOption.AllDirectories).Take(20).ToList();
+        var found = Snapshots(path);
         return found.Count switch
         {
             0 => throw new ArgumentException($"No *{SnapshotSuffix} under {path}. A project without migrations has no snapshot to read."),

@@ -30,7 +30,7 @@ internal sealed class ModelState
 
     public EfModel Resolve(string context, IReadOnlyList<string> migrations)
     {
-        List<string> unsupported = [];
+        List<EfUnsupported> unsupported = [];
         Dictionary<string, Placement> placements = new(StringComparer.Ordinal);
 
         foreach (var entity in _order)
@@ -45,7 +45,7 @@ internal sealed class ModelState
                      .ToList())
         {
             var names = shared.Select(p => p.Entity.Name).ToList();
-            unsupported.Add($"{string.Join(" and ", names)} share the table {shared.Key.Item2} (table splitting), which dblens does not compare.");
+            unsupported.Add(new($"{string.Join(" and ", names)} share the table {shared.Key.Item2} (table splitting), which dblens does not compare.", names));
             foreach (var name in names) placements.Remove(name);
         }
 
@@ -56,7 +56,7 @@ internal sealed class ModelState
             foreach (var orphan in placements.Values
                          .Where(p => p.SharesTableWith is { } host && !placements.ContainsKey(host)).ToList())
             {
-                unsupported.Add($"{orphan.Entity.Name} is stored in the table of {orphan.SharesTableWith}, which was not compared, so it was not either.");
+                unsupported.Add(new($"{orphan.Entity.Name} is stored in the table of {orphan.SharesTableWith}, which was not compared, so it was not either.", [orphan.Entity.Name, orphan.SharesTableWith!]));
                 placements.Remove(orphan.Entity.Name);
                 removed = true;
             }
@@ -77,7 +77,7 @@ internal sealed class ModelState
 
     private sealed record Placement(EntityState Entity, string? Schema, string Table, IReadOnlyList<string> Key, string? SharesTableWith, bool ColumnsNullable);
 
-    private Placement? Place(EntityState entity, Dictionary<string, Placement> placed, List<string> unsupported)
+    private Placement? Place(EntityState entity, Dictionary<string, Placement> placed, List<EfUnsupported> unsupported)
     {
         if (entity.Owner is { } ownerName)
             return PlaceOwned(entity, ownerName, placed, unsupported);
@@ -87,42 +87,42 @@ internal sealed class ModelState
 
         if (entity.View is { } view)
         {
-            unsupported.Add($"{entity.Name} is mapped to the view {view}, which dblens does not compare.");
+            unsupported.Add(new($"{entity.Name} is mapped to the view {view}, which dblens does not compare.", [entity.Name]));
             return null;
         }
 
         if (entity.NoTable)
         {
-            unsupported.Add($"{entity.Name} is mapped to no table, so it was not compared.");
+            unsupported.Add(new($"{entity.Name} is mapped to no table, so it was not compared.", [entity.Name]));
             return null;
         }
 
         if (entity.Keyless || entity.Key.Count == 0)
         {
-            unsupported.Add($"{entity.Name} has no key (keyless entity), which dblens does not compare.");
+            unsupported.Add(new($"{entity.Name} has no key (keyless entity), which dblens does not compare.", [entity.Name]));
             return null;
         }
 
         if (entity.Strategy == "TPC")
         {
-            unsupported.Add($"{entity.Name} uses table-per-concrete-type mapping, which dblens does not compare.");
+            unsupported.Add(new($"{entity.Name} uses table-per-concrete-type mapping, which dblens does not compare.", [entity.Name]));
             return null;
         }
 
         return new Placement(entity, entity.Schema, entity.Table ?? Names.Short(entity.Name), entity.Key, null, ColumnsNullable: false);
     }
 
-    private Placement? PlaceOwned(EntityState owned, string ownerName, Dictionary<string, Placement> placed, List<string> unsupported)
+    private Placement? PlaceOwned(EntityState owned, string ownerName, Dictionary<string, Placement> placed, List<EfUnsupported> unsupported)
     {
         if (owned.Json)
         {
-            unsupported.Add($"{owned.Name}, owned by {ownerName}, is stored as JSON (ToJson), which dblens does not compare.");
+            unsupported.Add(new($"{owned.Name}, owned by {ownerName}, is stored as JSON (ToJson), which dblens does not compare.", [owned.Name, ownerName]));
             return null;
         }
 
         if (!placed.TryGetValue(ownerName, out var owner))
         {
-            unsupported.Add($"{owned.Name} is owned by {ownerName}, which was not compared, so it was not either.");
+            unsupported.Add(new($"{owned.Name} is owned by {ownerName}, which was not compared, so it was not either.", [owned.Name]));
             return null;
         }
 
@@ -137,20 +137,20 @@ internal sealed class ModelState
         return new Placement(owned, owner.Schema, owner.Table, owner.Key, ownerName, ColumnsNullable: !required || owner.ColumnsNullable);
     }
 
-    private Placement? PlaceDerived(EntityState derived, List<string> unsupported)
+    private Placement? PlaceDerived(EntityState derived, List<EfUnsupported> unsupported)
     {
         var root = derived;
         while (root.BaseType is { } baseName && _entities.TryGetValue(baseName, out var parent)) root = parent;
 
         if (root.Strategy == "TPC")
         {
-            unsupported.Add($"{derived.Name} uses table-per-concrete-type mapping, which dblens does not compare.");
+            unsupported.Add(new($"{derived.Name} uses table-per-concrete-type mapping, which dblens does not compare.", [derived.Name]));
             return null;
         }
 
         if (root.Strategy == "TPT" || (derived.Table is not null && derived.Table != root.Table))
         {
-            unsupported.Add($"{derived.Name} uses table-per-type mapping, which dblens does not compare.");
+            unsupported.Add(new($"{derived.Name} uses table-per-type mapping, which dblens does not compare.", [derived.Name]));
             return null;
         }
 

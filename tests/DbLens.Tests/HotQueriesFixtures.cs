@@ -69,7 +69,9 @@ public sealed class PostgresHotFixture : IAsyncLifetime, IHotFixture
     private const string Database = "dblens_hot";
 
     private const string SetupSql = """
-        CREATE EXTENSION pg_stat_statements;
+        -- Off the search_path, as on Supabase (CREATE EXTENSION … SCHEMA extensions).
+        CREATE SCHEMA stats;
+        CREATE EXTENSION pg_stat_statements SCHEMA stats;
         CREATE SCHEMA hot;
         CREATE TABLE hot.orders (id int PRIMARY KEY, note text);
         CREATE TABLE hot.order_items (id int PRIMARY KEY, order_id int NOT NULL REFERENCES hot.orders (id), qty int);

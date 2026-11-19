@@ -21,7 +21,7 @@ public static class EfDriftEngine
         IReadOnlySet<string> schemas)
     {
         List<Finding> findings = [];
-        List<string> caveats = [.. model.Unsupported, .. match.Ambiguities];
+        List<string> caveats = [.. model.Unsupported.Select(u => u.Reason), .. match.Ambiguities];
 
         var history = historyTable is { } h ? $"{h.Schema}.{h.Name}" : null;
         var migrations = Migrations(model, applied, history, findings, caveats);

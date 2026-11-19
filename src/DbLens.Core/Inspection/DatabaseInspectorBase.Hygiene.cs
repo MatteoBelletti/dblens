@@ -41,7 +41,7 @@ public abstract partial class DatabaseInspectorBase
 
             var models = (request.Models ?? []).Select(m => EfModelMatcher.Match(m, details.Tables, DefaultSchema)).ToList();
             var unsupported = (request.Models ?? []).SelectMany(m => m.Unsupported).Distinct().ToList();
-            caveats.AddRange(models.SelectMany(m => m.Ambiguities).Concat(unsupported));
+            caveats.AddRange(models.SelectMany(m => m.Ambiguities).Concat(unsupported.Select(u => u.Reason)));
 
             var rowCounts = scope.Tables.ToDictionary(t => (t.Schema, t.Name), t => t.ApproximateRowCount);
             var plan = HygieneEngine.Analyze(

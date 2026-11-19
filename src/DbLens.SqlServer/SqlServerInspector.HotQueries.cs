@@ -137,12 +137,4 @@ public sealed partial class SqlServerInspector
 
         return await command.ExecuteScalarAsync(ct) is string { Length: > 0 } xml ? (ParsePlan(xml), null) : (null, none);
     }
-
-    private static void AddParameter(DbCommand command, string name, object value)
-    {
-        var parameter = command.CreateParameter();
-        parameter.ParameterName = name;
-        parameter.Value = value;
-        command.Parameters.Add(parameter);
-    }
 }

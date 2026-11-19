@@ -117,6 +117,6 @@ public sealed class EfDriftEngineTests
             """);
 
         model.Entities.Should().BeEmpty();
-        model.Unsupported.Should().Contain(u => u.Contains("N.Derived") && u.Contains("N.Base"));
+        model.Unsupported.Select(u => u.Reason).Should().Contain(u => u.Contains("N.Derived") && u.Contains("N.Base"));
     }
 }

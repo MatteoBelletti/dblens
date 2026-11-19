@@ -161,8 +161,15 @@ public sealed class HotQueryEngineTests
     [InlineData("SELECT * FROM orders o JOIN items i ON i.order_id = o.id JOIN invoices v ON v.order_id = o.id")]
     [InlineData("SELECT * FROM orders o JOIN items i ON i.order_id = o.id")]
     [InlineData("SELECT * FROM orders o JOIN addresses b ON b.id = o.billing_id JOIN addresses s ON s.id = o.shipping_id")]
+    [InlineData("SELECT * FROM orders o JOIN items i ON i.order_id = o.id WHERE EXISTS (SELECT 1 FROM payments p WHERE p.order_id = o.id)")]
+    [InlineData("SELECT o.id FROM orders o JOIN items i ON i.order_id = o.id UNION SELECT o.id FROM orders o JOIN payments p ON p.order_id = o.id")]
     public void AChainAOneToOneOrASingleChild_DoesNotMultiply(string sql) =>
         Detect(sql).Should().BeEmpty();
+
+    [Fact]
+    public void TheSameShapeJoinedTheOtherWayRound_IsOne() =>
+        Detect("SELECT * FROM orders o JOIN payments p ON p.order_id = o.id JOIN items i ON i.order_id = o.id").Single().Target.Key
+            .Should().Be(Detect("SELECT * FROM orders o JOIN items i ON i.order_id = o.id JOIN payments p ON p.order_id = o.id").Single().Target.Key);
 
     [Fact]
     public void TheProbe_IsAggregateOnly_AndPassesTheGuard()

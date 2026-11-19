@@ -167,7 +167,7 @@ public static class HotQueryEngine
 
     /// <summary>
     /// The user tables a query reads or writes: names in a table position (after FROM, JOIN, UPDATE,
-    /// INTO, USING, or a comma of a FROM list), never a column or function that shares a table's name.
+    /// INTO, USING, MERGE, or a comma of a FROM list), never a column or function that shares a table's name.
     /// A bare name resolves to the one table of that name, else to the one in the default schema.
     /// </summary>
     public static IReadOnlyList<(string Schema, string Name)> TablesNamed(
@@ -214,7 +214,7 @@ public static class HotQueryEngine
         return found;
     }
 
-    private static readonly HashSet<string> TableKeywords = new(["FROM", "JOIN", "UPDATE", "INTO", "USING"], StringComparer.OrdinalIgnoreCase);
+    private static readonly HashSet<string> TableKeywords = new(["FROM", "JOIN", "UPDATE", "INTO", "USING", "MERGE"], StringComparer.OrdinalIgnoreCase);
 
     private static readonly HashSet<string> ListEnds = new(
         ["WHERE", "ON", "GROUP", "ORDER", "HAVING", "SET", "SELECT", "VALUES", "LIMIT", "OFFSET", "UNION", "EXCEPT",

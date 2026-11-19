@@ -113,7 +113,7 @@ public sealed class EfSnapshotReaderTests
         var model = ReadFixture(major, provider);
 
         model.Entities.Should().NotContain(e => e.Name.EndsWith("OrderSummary"));
-        model.Unsupported.Should().ContainSingle(u => u.Contains("OrderSummary") && u.Contains("view"));
+        model.Unsupported.Select(u => u.Reason).Should().ContainSingle(u => u.Contains("OrderSummary") && u.Contains("view"));
     }
 
     // ── Constructs the demo model does not use ─────────────────────────────────
@@ -149,7 +149,7 @@ public sealed class EfSnapshotReaderTests
             """);
 
         model.Entities.Select(e => e.Name).Should().BeEquivalentTo(["N.Animal", "N.Customer"]);
-        model.Unsupported.Should().Contain(u => u.Contains("N.Dog") && u.Contains("table-per-type"))
+        model.Unsupported.Select(u => u.Reason).Should().Contain(u => u.Contains("N.Dog") && u.Contains("table-per-type"))
             .And.Contain(u => u.Contains("N.Circle") && u.Contains("table-per-concrete-type"))
             .And.Contain(u => u.Contains("N.Report") && u.Contains("keyless"))
             .And.Contain(u => u.Contains("N.Head and N.Body") && u.Contains("table splitting"))

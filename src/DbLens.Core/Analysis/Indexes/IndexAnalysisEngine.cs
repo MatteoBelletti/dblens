@@ -51,10 +51,13 @@ public static class IndexAnalysisEngine
             }
 
             if (!window.RestoreVisible)
-                caveats.Add(
-                    "This login cannot see when the database was created or restored (on PostgreSQL that needs " +
-                    "EXECUTE on pg_stat_file), so the scan counters are dated from the server start. If the " +
-                    "database was restored later, they cover less time and 'unused-index' findings may be false.");
+                caveats.Add(dialect == DatabaseDialect.SqlServer
+                    ? "This login cannot read msdb.dbo.restorehistory, so a restore over the database (RESTORE … WITH " +
+                      "REPLACE) is not seen and the scan counters are dated from its creation or the server start. If it " +
+                      "was restored later, they cover less time and 'unused-index' findings may be false."
+                    : "This login cannot see when the database was created or restored (that needs EXECUTE on " +
+                      "pg_stat_file), so the scan counters are dated from the server start. If the database was " +
+                      "restored later, they cover less time and 'unused-index' findings may be false.");
         }
 
         var split = FindingSplit.Partition(findings);

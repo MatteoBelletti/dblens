@@ -31,9 +31,10 @@ public static class JoinFanOut
         List<Shape> shapes = [];
 
         foreach (var (stats, query, _) in ranked)
+        foreach (var branch in OuterBranches(stats.Text, dialect))
         {
             var joins = JoinPredicateExtractor.Extract(
-                [new SqlSource(SqlSourceKind.Workload, "statistics", stats.Text)], tables, defaultSchema, dialect);
+                [new SqlSource(SqlSourceKind.Workload, "statistics", branch)], tables, defaultSchema, dialect);
 
             // A chain A ← B ← C does not multiply, nor one child joined through two keys (billing and
             // shipping address): only two child tables of the same parent do.
@@ -41,6 +42,8 @@ public static class JoinFanOut
             {
                 var children = byParent
                     .DistinctBy(j => (j.Child.Schema, j.Child.Name))
+                    // In a fixed order: the same pair joined the other way round is the same shape.
+                    .OrderBy(j => j.Child.Schema, StringComparer.Ordinal).ThenBy(j => j.Child.Name, StringComparer.Ordinal)
                     .ToList();
                 if (children.Count < 2) continue;
 
@@ -52,9 +55,80 @@ public static class JoinFanOut
         return shapes;
     }
 
+    private static readonly HashSet<string> SetOperators = new(["UNION", "EXCEPT", "INTERSECT"], StringComparer.OrdinalIgnoreCase);
+
+    private static readonly HashSet<string> TableSources = new(["FROM", "JOIN", "APPLY", "LATERAL"], StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// The joins that shape the rows a query returns: each branch of a UNION, EXCEPT or INTERSECT on
+    /// its own, without the subqueries of its conditions (EXISTS, IN, a scalar subquery), which never
+    /// multiply them. A derived table after FROM or JOIN stays: its rows are the query's.
+    /// </summary>
+    public static IReadOnlyList<string> OuterBranches(string sql, DatabaseDialect dialect)
+    {
+        List<string> branches = [];
+        var current = new System.Text.StringBuilder();
+        var (depth, skipFrom, previous) = (0, -1, "");
+
+        foreach (var segment in SqlText.Segments(sql, dialect))
+        {
+            if (segment.Kind != SqlSegmentKind.Code)
+            {
+                if (skipFrom < 0) current.Append(segment.Source);
+                continue;
+            }
+
+            var text = segment.Text;
+            for (var i = 0; i < text.Length; i++)
+            {
+                var c = text[i];
+                if (char.IsLetter(c) || c == '_')
+                {
+                    var start = i;
+                    while (i + 1 < text.Length && (char.IsLetterOrDigit(text[i + 1]) || text[i + 1] is '_' or '$')) i++;
+                    var word = text[start..(i + 1)];
+                    if (skipFrom >= 0) continue;
+                    if (depth == 0 && SetOperators.Contains(word))
+                    {
+                        branches.Add(current.ToString());
+                        current.Clear();
+                    }
+                    else current.Append(word);
+                    previous = word;
+                    continue;
+                }
+
+                if (c == '(')
+                {
+                    depth++;
+                    if (skipFrom < 0 && !TableSources.Contains(previous) && StartsSubquery(text, i + 1)) skipFrom = depth;
+                }
+                else if (c == ')' && depth > 0)
+                {
+                    if (skipFrom == depth) { skipFrom = -1; depth--; current.Append(' '); continue; }
+                    depth--;
+                }
+
+                if (skipFrom >= 0) continue;
+                current.Append(c);
+                if (!char.IsWhiteSpace(c)) previous = c.ToString();
+            }
+        }
+
+        branches.Add(current.ToString());
+        return branches;
+    }
+
+    private static bool StartsSubquery(string text, int from)
+    {
+        while (from < text.Length && char.IsWhiteSpace(text[from])) from++;
+        return text.AsSpan(from).StartsWith("SELECT", StringComparison.OrdinalIgnoreCase)
+               || text.AsSpan(from).StartsWith("WITH", StringComparison.OrdinalIgnoreCase);
+    }
+
     public static Finding ToSignal(Shape shape)
     {
-        var (parent, first, second) = (Name(shape.Parent), Name(shape.FirstChild), Name(shape.SecondChild));
+        var (parent, first, second) = (shape.Parent.Qualified(), shape.FirstChild.Qualified(), shape.SecondChild.Qualified());
 
         return new Finding(
             HotQueryRuleIds.JoinFanOut, Severity.Medium, FindingCategory.Performance, 0.7, Evidence.Inferred,
@@ -100,8 +174,8 @@ public static class JoinFanOut
 
         return new VerificationProbe(
             shape.Target, VerificationProbeKind.JoinFanOut, sql,
-            $"rows the join returns for {Name(shape.Parent)} rows that have both {Name(shape.FirstChild)} and " +
-            $"{Name(shape.SecondChild)}, against the rows of the two children read separately",
+            $"rows the join returns for {shape.Parent.Qualified()} rows that have both {shape.FirstChild.Qualified()} and " +
+            $"{shape.SecondChild.Qualified()}, against the rows of the two children read separately",
             size < 0 ? null : size);
     }
 
@@ -143,5 +217,4 @@ public static class JoinFanOut
             };
     }
 
-    private static string Name(TableDetail t) => $"{t.Schema}.{t.Name}";
 }

@@ -22,7 +22,7 @@ public static class HygieneEngine
         IReadOnlyList<EfModelMatch> Models,
         DatabaseDialect Dialect,
         /// <summary>The models' mappings dblens does not compare (EfModel.Unsupported).</summary>
-        IReadOnlyList<string>? Unsupported = null);
+        IReadOnlyList<EfUnsupported>? Unsupported = null);
 
     /// <summary>
     /// A measurable check. A signal stands on its own; a check that is only a question (is this
@@ -74,7 +74,7 @@ public static class HygieneEngine
             }
 
             if (request.VerifySignals && created.Count > 1)
-                caveats.Add($"{Name(table)} has {created.Count} creation columns ({string.Join(", ", created.Select(c => c.Name))}): " +
+                caveats.Add($"{table.Qualified()} has {created.Count} creation columns ({string.Join(", ", created.Select(c => c.Name))}): " +
                             "which one dates a row is not known, so no column of it was checked for being abandoned.");
 
             AuditRules(table, rows, created, updated, input, request, owners.GetValueOrDefault((table.Schema, table.Name)), findings, checks);
@@ -93,7 +93,7 @@ public static class HygieneEngine
 
     private static Check AlwaysNull(TableDetail t, ColumnDetail c, long? rows, EfRef? ef, DatabaseDialect dialect) => new(
         Signal(HygieneRuleIds.ColumnAlwaysNull, Severity.Low, 0.8, t, c,
-            $"{Name(t)}.{c.Name} looks NULL in every row",
+            $"{t.Qualified()}.{c.Name} looks NULL in every row",
             $"The planner's statistics sample no value in {c.Name}. A column nothing writes is dead weight, or a " +
             "feature that was never finished. Statistics are a sample: verifySignals counts the rows.",
             ef, DropColumnFix(ef, c)),
@@ -104,7 +104,7 @@ public static class HygieneEngine
 
     private static Check SingleValue(TableDetail t, ColumnDetail c, long? rows, EfRef? ef, AnalyzeTableHygieneRequest request, DatabaseDialect dialect) => new(
         Signal(HygieneRuleIds.ColumnSingleValue, Severity.Low, 0.7, t, c,
-            $"{Name(t)}.{c.Name} looks like it holds one value in every filled row",
+            $"{t.Qualified()}.{c.Name} looks like it holds one value in every filled row",
             $"The planner's statistics see a single distinct value in {c.Name}. A constant is not information: it belongs " +
             "in code or configuration, or the column is no longer written. The value itself is not reported.",
             ef, DropColumnFix(ef, c)),
@@ -122,12 +122,15 @@ public static class HygieneEngine
 
         return new Check(
             Signal(HygieneRuleIds.ColumnAbandoned, Severity.Medium, 0.6, t, c,
-                $"{Name(t)}.{c.Name} may no longer be filled",
+                $"{t.Qualified()}.{c.Name} may no longer be filled",
                 $"Checked against the rows created in the last {request.RecentDays} days ({created.Name}): a column older rows " +
                 "hold and new rows do not was abandoned by the code that writes the table.",
                 ef, DropColumnFix(ef, c)),
+            // Compared only when an older row holds a value: a column never filled is not abandoned.
             Probe(HygieneRuleIds.ColumnAbandoned, VerificationProbeKind.NoValue, t, [c.Name], rows, dialect,
-                $"SELECT {SqlCount.Of(dialect)} AS compared_rows, {SqlCount.Of(dialect, Q(c.Name, dialect))} AS divergent_rows " +
+                $"SELECT CASE WHEN EXISTS (SELECT 1 FROM {Table(t, dialect)} WHERE {Q(created.Name, dialect)} < {since} " +
+                $"AND {Q(c.Name, dialect)} IS NOT NULL) THEN {SqlCount.Of(dialect)} ELSE 0 END AS compared_rows, " +
+                $"{SqlCount.Of(dialect, Q(c.Name, dialect))} AS divergent_rows " +
                 $"FROM {Table(t, dialect)} WHERE {Q(created.Name, dialect)} >= {since}",
                 $"rows created in the last {request.RecentDays} days that hold a value", request.MinRecentRows),
             IsSignal: false);
@@ -135,7 +138,7 @@ public static class HygieneEngine
 
     private static Finding LegacyName(TableDetail t, ColumnDetail c, EfRef? ef) =>
         Signal(HygieneRuleIds.ColumnLegacyName, Severity.Info, 0.4, t, c,
-            $"{Name(t)}.{c.Name} is named or documented as left behind",
+            $"{t.Qualified()}.{c.Name} is named or documented as left behind",
             $"Its name or comment marks it as old, temporary or deprecated. Check whether anything still reads it " +
             "before removing it.",
             ef, DropColumnFix(ef, c));
@@ -146,13 +149,13 @@ public static class HygieneEngine
     /// </summary>
     private static IEnumerable<Finding> NotInModel(Input input)
     {
-        var unsupported = input.Unsupported ?? [];
+        var uncompared = (input.Unsupported ?? []).SelectMany(u => u.Entities).ToHashSet(StringComparer.Ordinal);
         var tables = input.Models.SelectMany(m => m.Tables).Where(t => t.Table is not null)
             .GroupBy(t => (t.Table!.Schema, t.Table.Name));
 
         foreach (var group in tables)
         {
-            if (group.SelectMany(t => t.Entities).Any(e => NamedIn(unsupported, e.Name))) continue;
+            if (group.SelectMany(t => t.Entities).Any(e => uncompared.Contains(e.Name))) continue;
 
             var table = group.First().Table!;
             var owner = group.First().Owner.Name;
@@ -161,9 +164,9 @@ public static class HygieneEngine
             foreach (var column in table.Columns.Where(c => !modeled.Contains(c.Name)))
                 yield return new Finding(
                     HygieneRuleIds.ColumnNotInModel, Severity.Medium, FindingCategory.Structure, 1.0, Evidence.Derived,
-                    Name(table), [column.Name],
-                    $"{Name(table)}.{column.Name} is not in the EF model",
-                    $"The snapshot maps {Name(table)} to {Short(owner)} and no property to {column.Name}. In a " +
+                    table.Qualified(), [column.Name],
+                    $"{table.Qualified()}.{column.Name} is not in the EF model",
+                    $"The snapshot maps {table.Qualified()} to {Short(owner)} and no property to {column.Name}. In a " +
                     "code-first database removing a property drops its column, so this one was added or kept by hand: " +
                     "another application may write it, or it was left behind. Map it, or drop it with a migration.",
                     null,
@@ -172,9 +175,6 @@ public static class HygieneEngine
                         $"migrationBuilder.DropColumn(name: \"{column.Name}\", table: \"{table.Name}\", schema: \"{table.Schema}\")."));
         }
     }
-
-    private static bool NamedIn(IEnumerable<string> sentences, string entity) =>
-        sentences.Any(s => s.Split(' ').Any(word => word.TrimEnd(',', '.') == entity));
 
     // ── Creation and update dates ──────────────────────────────────────────────
 
@@ -187,7 +187,7 @@ public static class HygieneEngine
 
         if (big && created.Count == 0)
             findings.Add(TableSignal(HygieneRuleIds.MissingCreated, Severity.Low, 0.6, t,
-                $"{Name(t)} has no creation date",
+                $"{t.Qualified()} has no creation date",
                 $"{Num.N0(rows!.Value)} rows and no column recording when each was created: no question about when data " +
                 "arrived can be answered from the table itself.",
                 owner, AuditFix));
@@ -195,7 +195,7 @@ public static class HygieneEngine
         // Known to be insert-only: nothing to record.
         if (big && updated.Count == 0 && updates is not 0)
             findings.Add(TableSignal(HygieneRuleIds.MissingUpdated, updates > 0 ? Severity.Medium : Severity.Low, 0.6, t,
-                $"{Name(t)} has no update date",
+                $"{t.Qualified()} has no update date",
                 updates > 0
                     ? $"Its rows were updated {Num.N0(updates.Value)} times since the counters started, and nothing records when."
                     : "Nothing records when a row last changed. Whether the table is ever updated is not known: the " +
@@ -204,12 +204,12 @@ public static class HygieneEngine
 
         foreach (var c in created.Where(c => c.IsNullable))
             findings.Add(new Finding(HygieneRuleIds.CreatedNullable, Severity.Low, FindingCategory.Structure, 1.0, Evidence.Derived,
-                Name(t), [c.Name], $"{Name(t)}.{c.Name} accepts NULL",
+                t.Qualified(), [c.Name], $"{t.Qualified()}.{c.Name} accepts NULL",
                 "A creation date that may be missing is one no query can rely on.", null, Ef(owner, AuditFix)));
 
         foreach (var c in created.Concat(updated).Where(c => IsWithoutTimeZone(c, input.Dialect)))
             findings.Add(new Finding(HygieneRuleIds.WithoutTimeZone, Severity.Low, FindingCategory.Structure, 1.0, Evidence.Derived,
-                Name(t), [c.Name], $"{Name(t)}.{c.Name} is a {c.FullDataType}, without a time zone",
+                t.Qualified(), [c.Name], $"{t.Qualified()}.{c.Name} is a {c.FullDataType}, without a time zone",
                 "The value means a different instant on every server or session time zone that reads it. EF Core writes " +
                 "DateTime.UtcNow into it only if every writer agrees to.", null,
                 Ef(owner, input.Dialect == DatabaseDialect.PostgreSql
@@ -222,7 +222,7 @@ public static class HygieneEngine
         if (updates > 0)
             checks.Add(new Check(
                 TableSignal(HygieneRuleIds.UpdatedNotMaintained, Severity.Medium, 0.6, t,
-                    $"{Name(t)}.{last.Name} may not be kept up to date",
+                    $"{t.Qualified()}.{last.Name} may not be kept up to date",
                     $"The table is updated ({Num.N0(updates.Value)} since the counters started) and has {first.Name} and " +
                     $"{last.Name}. If no row has {last.Name} different from {first.Name}, nothing writes it on update: no " +
                     "interceptor sets it, or the updates go through ExecuteUpdate, ExecuteDelete or plain SQL, which skip the " +
@@ -236,7 +236,7 @@ public static class HygieneEngine
         if (request.VerifySignals)
             checks.Add(new Check(
                 TableSignal(HygieneRuleIds.UpdateBeforeCreate, Severity.Low, 0.5, t,
-                    $"{Name(t)}.{last.Name} may precede {first.Name}",
+                    $"{t.Qualified()}.{last.Name} may precede {first.Name}",
                     "A row changed before it was created means one of the two dates is written from another clock or time zone.",
                     owner, AuditFix, [last.Name]),
                 Probe(HygieneRuleIds.UpdateBeforeCreate, VerificationProbeKind.RowsMatching, t, [last.Name], rows, input.Dialect,
@@ -360,18 +360,18 @@ public static class HygieneEngine
     private static Finding Signal(
         string ruleId, Severity severity, double confidence, TableDetail t, ColumnDetail c, string title, string description,
         EfRef? ef, string fix) =>
-        new(ruleId, severity, FindingCategory.Structure, confidence, Evidence.Inferred, Name(t), [c.Name], title, description, null, Ef(ef, fix));
+        new(ruleId, severity, FindingCategory.Structure, confidence, Evidence.Inferred, t.Qualified(), [c.Name], title, description, null, Ef(ef, fix));
 
     private static Finding TableSignal(
         string ruleId, Severity severity, double confidence, TableDetail t, string title, string description,
         EfRef? owner, string fix, IReadOnlyList<string>? columns = null) =>
-        new(ruleId, severity, FindingCategory.Structure, confidence, Evidence.Inferred, Name(t), columns, title, description, null,
+        new(ruleId, severity, FindingCategory.Structure, confidence, Evidence.Inferred, t.Qualified(), columns, title, description, null,
             Ef(owner, fix));
 
     private static VerificationProbe Probe(
         string ruleId, VerificationProbeKind kind, TableDetail t, IReadOnlyList<string> columns, long? rows, DatabaseDialect dialect,
         string sql, string measures, long minimumCompared = 1) =>
-        new(new VerificationTarget(ruleId, Name(t), columns), kind, sql, measures, rows, minimumCompared);
+        new(new VerificationTarget(ruleId, t.Qualified(), columns), kind, sql, measures, rows, minimumCompared);
 
     private static List<ColumnDetail> AuditColumns(TableDetail t, IReadOnlyList<string> names) =>
         [.. names.SelectMany(n => t.Columns.Where(c => PiiClassifier.Normalize(c.Name) == n && IsDateTime(c)))];
@@ -405,5 +405,4 @@ public static class HygieneEngine
 
     private static string Table(TableDetail t, DatabaseDialect dialect) => SqlIdentifier.Qualify(t.Schema, t.Name, dialect);
 
-    private static string Name(TableDetail t) => $"{t.Schema}.{t.Name}";
 }

@@ -68,10 +68,7 @@ public abstract partial class DatabaseInspectorBase
             var source = await HotQueryCommandsAsync(conn, ct);
             if (source is not { Name: { } name, Queries: { } command }) return (null, null, [], source.Notes);
 
-            var parameter = command.CreateParameter();
-            parameter.ParameterName = "fetch";
-            parameter.Value = fetch;
-            command.Parameters.Add(parameter);
+            AddParameter(command, "fetch", fetch);
 
             var queries = await ReadAllAsync(command, r => new HotQueryStats(
                 // An encrypted SQL Server module's text reads as NULL.

@@ -1,4 +1,5 @@
 using System.Data.Common;
+using DbLens.Core.Analysis;
 using DbLens.Core.Analysis.Relationships;
 using DbLens.Core.Inspection;
 
@@ -24,9 +25,10 @@ public sealed partial class PostgresInspector
           AND n.nspname NOT LIKE 'pg\_%'
         """;
 
+    // {0}: the extension's schema, which need not be on the search_path.
     private const string WorkloadSql = """
         SELECT query, calls
-        FROM pg_stat_statements
+        FROM {0}.pg_stat_statements
         WHERE dbid = (SELECT oid FROM pg_database WHERE datname = current_database())
         ORDER BY calls DESC
         LIMIT 1000
@@ -40,20 +42,23 @@ public sealed partial class PostgresInspector
             r.Text("kind") == "view" ? SqlSourceKind.View : SqlSourceKind.Routine, r.Text("name"), r.Text("definition")), ct);
         List<string> caveats = [];
 
-        await using (var check = Command(conn, "SELECT EXISTS (SELECT 1 FROM pg_extension WHERE extname = 'pg_stat_statements')"))
+        string schema;
+        await using (var check = Command(conn, StatementsSchemaSql))
         {
-            if (await check.ExecuteScalarAsync(ct) is not true)
+            if (await check.ExecuteScalarAsync(ct) is not string found)
             {
                 caveats.Add(
                     "pg_stat_statements is not installed, so query history was not used as join evidence — " +
                     "only view and routine definitions were.");
                 return new SqlSourceSet(sources, caveats);
             }
+
+            schema = SqlIdentifier.Quote(found, DbLens.Core.Models.DatabaseDialect.PostgreSql);
         }
 
         try
         {
-            sources.AddRange(await ReadAllAsync(Command(conn, WorkloadSql), r => new SqlSource(
+            sources.AddRange(await ReadAllAsync(Command(conn, string.Format(System.Globalization.CultureInfo.InvariantCulture, WorkloadSql, schema)), r => new SqlSource(
                 SqlSourceKind.Workload, "pg_stat_statements", r.Text("query"), r.Number("calls")), ct));
         }
         catch (DbException ex)
