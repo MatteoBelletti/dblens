@@ -37,7 +37,8 @@
     "modificato_il",
     "aggiornato_il",
     "dt_mod",
-    "dt_agg"
+    "dt_agg",
+    "last_modification_time"
   ],
   "legacyLast": [
     "old",
@@ -57,8 +58,6 @@
     "deprecated",
     "unused",
     "obsolete",
-    "tmp",
-    "bak",
-    "backup"
+    "tmp"
   ]
 }

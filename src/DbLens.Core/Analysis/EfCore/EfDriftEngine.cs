@@ -188,6 +188,7 @@ public static class EfDriftEngine
                 modelIndexes.Add(columns);
 
                 if (detail.Indexes.Any(i => SameColumns(i.Columns, columns))
+                    || detail.UniqueConstraints.Any(u => SameColumns(u.Columns, columns))
                     || (detail.PrimaryKey is { } pk && SameColumns(pk.Columns, columns))) continue;
 
                 findings.Add(new Finding(

@@ -40,6 +40,7 @@ public static class JoinFanOut
         foreach (var byParent in joins.GroupBy(j => (Branch: j.Source.Name, j.Parent.Schema, j.Parent.Name, j.ParentKey)))
         {
             var children = byParent
+                .Where(j => !IsOneToOne(j.Child, j.ChildColumn))
                 .DistinctBy(j => (j.Child.Schema, j.Child.Name))
                 // In a fixed order: the same pair joined the other way round is the same shape.
                 .OrderBy(j => j.Child.Schema, StringComparer.Ordinal).ThenBy(j => j.Child.Name, StringComparer.Ordinal)
@@ -53,6 +54,16 @@ public static class JoinFanOut
 
         return shapes;
     }
+
+    // EF Core enforces a 1:1 dependent with a unique index, filtered to IS NOT NULL on SQL Server: one
+    // child per parent multiplies nothing. Another filter makes it unique in part of the table only.
+    private static bool IsOneToOne(TableDetail child, string column) =>
+        child.Indexes.Any(i => i.IsUnique && i.Columns.Count == 1 && Names.Same(i.Columns[0], column)
+                               && (i.Predicate is null || IsNotNullFilter(i.Predicate, column)));
+
+    private static bool IsNotNullFilter(string predicate, string column) =>
+        string.Concat(predicate.Where(c => !char.IsWhiteSpace(c) && c is not ('(' or ')' or '[' or ']' or '"')))
+            .Equals(column.Replace(" ", "") + "ISNOTNULL", StringComparison.OrdinalIgnoreCase);
 
     private static readonly HashSet<string> SetOperators = new(["UNION", "EXCEPT", "INTERSECT"], StringComparer.OrdinalIgnoreCase);
 

@@ -224,7 +224,7 @@ public static class SnapshotReader
                     entity.Key = Strings(head.Arguments);
                     break;
                 case "HasAlternateKey":
-                    // A unique constraint in the database, which the catalog lists among the indexes.
+                    // A unique constraint in the database: an index on PostgreSQL's catalog, a constraint on SQL Server's.
                     entity.Indexes.Add(new EfIndex(Strings(head.Arguments), null, IsUnique: true, null));
                     break;
                 case "HasNoKey":
@@ -313,7 +313,9 @@ public static class SnapshotReader
 
     private static void ReadToTable(EntityState entity, Call head)
     {
-        // ToTable("t"), ToTable("t", "schema"), ToTable("t", "schema", t => …), ToTable((string)null).
+        // ToTable("t"), ToTable("t", "schema"), ToTable("t", "schema", t => …), ToTable((string)null). A
+        // lambda alone (ToTable(tb => tb.IsTemporal(…)), for a temporal table) configures, it does not name.
+        if (head.Arg(0) is LambdaExpressionSyntax) return;
         if (IsNull(head.Arg(0)))
         {
             entity.NoTable = true;

@@ -157,6 +157,21 @@ public sealed class EfSnapshotReaderTests
     }
 
     [Fact]
+    public void ATemporalTablesLambdaOnlyToTable_KeepsItsName()
+    {
+        var model = ParseBody("""
+            modelBuilder.Entity("N.Employee", b =>
+            {
+                b.Property<int>("Id"); b.HasKey("Id");
+                b.ToTable("Employees");
+                b.ToTable(tb => tb.IsTemporal(ttb => { ttb.UseHistoryTable("EmployeesHistory"); }));
+            });
+            """);
+
+        model.Entities.Single().Table.Should().Be("Employees");
+    }
+
+    [Fact]
     public void OneTypeOwnedTwice_IsTwoEntities_EachWithItsColumns()
     {
         var model = ParseBody("""

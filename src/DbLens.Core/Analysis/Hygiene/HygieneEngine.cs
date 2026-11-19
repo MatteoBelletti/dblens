@@ -229,7 +229,7 @@ public static class HygieneEngine
                     "SaveChanges interceptors.",
                     owner, AuditFix, [last.Name]),
                 Probe(HygieneRuleIds.UpdatedNotMaintained, VerificationProbeKind.NoValue, t, [last.Name], rows,
-                    TimestampPairSql(t, first, last, "<>", input.Dialect), $"rows where {last.Name} differs from {first.Name}",
+                    TimestampPairSql(t, first, last, earlier: false, input.Dialect), $"rows where {last.Name} differs from {first.Name} by more than a second",
                     request.MinTableRows),
                 IsSignal: true));
 
@@ -240,14 +240,24 @@ public static class HygieneEngine
                     "A row changed before it was created means one of the two dates is written from another clock or time zone.",
                     owner, AuditFix, [last.Name]),
                 Probe(HygieneRuleIds.UpdateBeforeCreate, VerificationProbeKind.RowsMatching, t, [last.Name], rows,
-                    TimestampPairSql(t, first, last, "<", input.Dialect), $"rows where {last.Name} is earlier than {first.Name}"),
+                    TimestampPairSql(t, first, last, earlier: true, input.Dialect), $"rows where {last.Name} is more than a second earlier than {first.Name}"),
                 IsSignal: false));
     }
 
-    private static string TimestampPairSql(TableDetail t, ColumnDetail created, ColumnDetail updated, string op, DatabaseDialect dialect) =>
-        $"SELECT {SqlCount.Of(dialect)} AS compared_rows, " +
-        $"{SqlCount.Of(dialect, $"CASE WHEN {Q(updated.Name, dialect)} {op} {Q(created.Name, dialect)} THEN 1 END")} AS divergent_rows " +
-        $"FROM {Table(t, dialect)} WHERE {Q(created.Name, dialect)} IS NOT NULL AND {Q(updated.Name, dialect)} IS NOT NULL";
+    /// <summary>
+    /// The rows where the update date is later (or earlier) than the creation date by more than a
+    /// second: an interceptor that reads the clock twice on insert writes two dates microseconds apart.
+    /// </summary>
+    private static string TimestampPairSql(TableDetail t, ColumnDetail created, ColumnDetail updated, bool earlier, DatabaseDialect dialect)
+    {
+        var (c, u) = (Q(created.Name, dialect), Q(updated.Name, dialect));
+        var apart = dialect == DatabaseDialect.SqlServer
+            ? (earlier ? $"DATEDIFF_BIG(MILLISECOND, {u}, {c}) > 1000" : $"ABS(DATEDIFF_BIG(MILLISECOND, {c}, {u})) > 1000")
+            : (earlier ? $"{u} < {c} - INTERVAL '1 second'" : $"({u} > {c} + INTERVAL '1 second' OR {u} < {c} - INTERVAL '1 second')");
+
+        return $"SELECT {SqlCount.Of(dialect)} AS compared_rows, {SqlCount.Of(dialect, $"CASE WHEN {apart} THEN 1 END")} AS divergent_rows " +
+               $"FROM {Table(t, dialect)} WHERE {c} IS NOT NULL AND {u} IS NOT NULL";
+    }
 
     private const string AuditFix =
         "public interface IAuditable { DateTime? CreatedAt { get; set; } DateTime? UpdatedAt { get; set; } } — implemented by " +
@@ -374,7 +384,10 @@ public static class HygieneEngine
         new(new VerificationTarget(ruleId, t.Qualified(), columns), kind, sql, measures, rows, minimumCompared);
 
     private static List<ColumnDetail> AuditColumns(TableDetail t, IReadOnlyList<string> names, DatabaseDialect dialect) =>
-        [.. names.SelectMany(n => t.Columns.Where(c => PiiClassifier.Normalize(c.Name) == n && IsDateTime(c, dialect)))];
+        [.. names.SelectMany(n => t.Columns.Where(c => WithoutUtc(PiiClassifier.Normalize(c.Name)) == n && IsDateTime(c, dialect)))];
+
+    /// <summary>CreatedOnUtc is created_on: the suffix says how it is written, not what it records.</summary>
+    private static string WithoutUtc(string name) => name.EndsWith("_utc", StringComparison.Ordinal) ? name[..^4] : name;
 
     // SQL Server's "timestamp" is rowversion, a binary(8) counter, not a date.
     private static bool IsDateTime(ColumnDetail c, DatabaseDialect dialect) =>

@@ -117,15 +117,7 @@ public static class JoinPredicateExtractor
     private static string? ColumnOf(TableDetail table, string name) =>
         table.Columns.FirstOrDefault(c => string.Equals(c.Name, name, StringComparison.OrdinalIgnoreCase))?.Name;
 
-    // EF Core enforces a 1:1 dependent with a unique index, filtered to IS NOT NULL on SQL Server: as
-    // much a key as a constraint. Another filter makes it unique in part of the table only.
     private static bool IsSingleKey(TableDetail table, string column) =>
         (table.PrimaryKey is { Columns.Count: 1 } pk && Same(pk.Columns[0], column))
-        || table.UniqueConstraints.Any(u => u.Columns.Count == 1 && Same(u.Columns[0], column))
-        || table.Indexes.Any(i => i.IsUnique && i.Columns.Count == 1 && Same(i.Columns[0], column)
-                                  && (i.Predicate is null || IsNotNullFilter(i.Predicate, column)));
-
-    private static bool IsNotNullFilter(string predicate, string column) =>
-        string.Concat(predicate.Where(c => !char.IsWhiteSpace(c) && c is not ('(' or ')' or '[' or ']' or '"')))
-            .Equals(column.Replace(" ", "") + "ISNOTNULL", StringComparison.OrdinalIgnoreCase);
+        || table.UniqueConstraints.Any(u => u.Columns.Count == 1 && Same(u.Columns[0], column));
 }

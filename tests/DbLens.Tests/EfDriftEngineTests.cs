@@ -1,5 +1,6 @@
 using DbLens.Core.Analysis;
 using DbLens.Core.Analysis.EfCore;
+using DbLens.Core.Models;
 using DbLens.EfCore;
 using FluentAssertions;
 using static DbLens.Tests.TestSchema;
@@ -67,6 +68,22 @@ public sealed class EfDriftEngineTests
     }
 
     // ── Names ──────────────────────────────────────────────────────────────────
+
+    [Fact]
+    public void AnAlternateKey_IsMatchedBySqlServersUniqueConstraint()
+    {
+        var entity = new EfEntity("Order", "public", "orders",
+            [new EfProperty("Id", "long", "id", "bigint", false), new EfProperty("Code", "string", "code", "text", false)],
+            ["Id"], [new EfIndex(["Code"], null, IsUnique: true, null)], []);
+        var model = new EfModel("ShopContext", null, "public", [entity], [], []);
+        var table = Table("orders", [Col("id", "bigint"), Col("code")]) with
+        {
+            UniqueConstraints = [new UniqueConstraintDetail("AK_orders_code", ["code"])],
+        };
+
+        Analyze(model, [], EfModelMatcher.Match(model, [table], "public")).Findings
+            .Should().NotContain(f => f.RuleId == EfRuleIds.IndexMissing);
+    }
 
     [Fact]
     public void AHistoryTableNotRead_IsNotCalledMissing()

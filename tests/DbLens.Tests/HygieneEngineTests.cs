@@ -121,7 +121,7 @@ public sealed class HygieneEngineTests
     public void ALeftBehindName_OrComment_IsASignal()
     {
         var plan = Analyze(Table("t", [Col("id", "int"), Col("notes_old"), Col("legacy_code"), Col("temperature"),
-            Col("old_value"), Col("water_temp"), Col("flag") with { Comment = "DEPRECATED since v3" }]), rows: 10);
+            Col("old_value"), Col("water_temp"), Col("backup_codes"), Col("flag") with { Comment = "DEPRECATED since v3" }]), rows: 10);
 
         plan.Findings.Where(f => f.RuleId == HygieneRuleIds.ColumnLegacyName).SelectMany(f => f.Columns!)
             .Should().BeEquivalentTo(["notes_old", "legacy_code", "flag"], "old_value is an audit log's, water_temp a temperature");
@@ -155,6 +155,11 @@ public sealed class HygieneEngineTests
         ((VerificationOutcome)HygieneEngine.Apply(check, measured)!.Metadata!["verification"]).NotVerifiedReason
             .Should().Be("TooFewRowsCompared");
     }
+
+    [Fact]
+    public void AUtcSuffix_IsTheSameAuditDate() =>
+        Rules(Analyze(Table("t", [Col("id", "int"), Ts("CreatedOnUtc"), Ts("ModifiedOnUtc")])))
+            .Should().NotContain([HygieneRuleIds.MissingCreated, HygieneRuleIds.MissingUpdated]);
 
     [Fact]
     public void ARowversion_IsNotAnUpdateDate()
