@@ -1,9 +1,7 @@
-using DbLens.Core.Abstractions;
 using DbLens.Core.Models;
 using DbLens.Mcp.Infrastructure;
 using DbLens.Mcp.Tools;
 using FluentAssertions;
-using Microsoft.Extensions.DependencyInjection;
 
 namespace DbLens.Tests;
 
@@ -40,8 +38,8 @@ public sealed class GetSchemaToolTests
         Action<DatabaseDialect>? onKeyedResolve = null,
         Action<DatabaseDialect, string>? onFactoryCreate = null) =>
         new(
-            new StubKeyedServiceProvider(handler ?? (_ => MakeOverview()), onKeyedResolve),
-            new StubFactory(handler ?? (_ => MakeOverview()), onFactoryCreate));
+            Services(handler ?? (_ => MakeOverview()), onKeyedResolve),
+            Factory(handler ?? (_ => MakeOverview()), onFactoryCreate));
 
     // --- request forwarding ---
 
@@ -227,98 +225,15 @@ public sealed class GetSchemaToolTests
 
     // --- stubs ---
 
-    // Implements both IServiceProvider and IKeyedServiceProvider, matching what the real DI container does.
-    private sealed class StubKeyedServiceProvider(
-        Func<SchemaOverviewRequest, DatabaseSchemaOverview> handler,
-        Action<DatabaseDialect>? onResolve = null) : IServiceProvider, IKeyedServiceProvider
+    private static StubServices Services(Func<SchemaOverviewRequest, DatabaseSchemaOverview> handler, Action<DatabaseDialect>? onResolve = null) =>
+        new(() => new Handled(handler), onResolve);
+
+    private static StubFactory Factory(Func<SchemaOverviewRequest, DatabaseSchemaOverview> handler, Action<DatabaseDialect, string>? onCreate = null) =>
+        new(() => new Handled(handler), onCreate);
+
+    private sealed class Handled(Func<SchemaOverviewRequest, DatabaseSchemaOverview> handler) : StubInspector
     {
-        public object? GetService(Type serviceType) => null;
-
-        public object? GetKeyedService(Type serviceType, object? serviceKey)
-        {
-            if (serviceKey is DatabaseDialect d) onResolve?.Invoke(d);
-            return new StubInspector(handler);
-        }
-
-        public object GetRequiredKeyedService(Type serviceType, object? serviceKey)
-        {
-            if (serviceKey is DatabaseDialect d) onResolve?.Invoke(d);
-            return new StubInspector(handler);
-        }
-    }
-
-    private sealed class StubFactory(
-        Func<SchemaOverviewRequest, DatabaseSchemaOverview> handler,
-        Action<DatabaseDialect, string>? onCreate = null) : IDatabaseInspectorFactory
-    {
-        public IDatabaseInspector Create(DatabaseDialect dialect, string connectionString)
-        {
-            onCreate?.Invoke(dialect, connectionString);
-            return new StubInspector(handler);
-        }
-    }
-
-    private sealed class StubInspector(Func<SchemaOverviewRequest, DatabaseSchemaOverview> handler)
-        : IDatabaseInspector
-    {
-        public DatabaseDialect Dialect => DatabaseDialect.PostgreSql;
-        public Task<bool> TestConnectionAsync(CancellationToken ct = default) => Task.FromResult(true);
-        public Task<DatabaseSchemaOverview> GetSchemaOverviewAsync(
-            SchemaOverviewRequest request, CancellationToken ct = default) =>
+        public override Task<DatabaseSchemaOverview> GetSchemaOverviewAsync(SchemaOverviewRequest request, CancellationToken ct = default) =>
             Task.FromResult(handler(request));
-        public Task<TableDetailsResult> GetTableDetailsAsync(
-            TableDetailsRequest request, CancellationToken ct = default) =>
-            throw new NotSupportedException();
-        public Task<DbLens.Core.Analysis.Indexes.AnalyzeIndexesResult> AnalyzeIndexesAsync(
-            DbLens.Core.Analysis.Indexes.AnalyzeIndexesRequest request, CancellationToken ct = default) =>
-            throw new NotSupportedException();
-        public Task<DbLens.Core.Analysis.Gdpr.ScanGdprResult> ScanGdprAsync(
-            DbLens.Core.Analysis.Gdpr.ScanGdprRequest request, CancellationToken ct = default) =>
-            throw new NotSupportedException();
-        public Task<DbLens.Core.Analysis.Cascade.CheckCascadePathsResult> CheckCascadePathsAsync(
-            DbLens.Core.Analysis.Cascade.CheckCascadePathsRequest request, CancellationToken ct = default) =>
-            throw new NotSupportedException();
-
-        public Task<DbLens.Core.Analysis.EfCore.CompareEfModelResult> CompareEfModelAsync(
-            DbLens.Core.Analysis.EfCore.CompareEfModelRequest request, CancellationToken ct = default) =>
-            throw new NotSupportedException();
-
-        public Task<DbLens.Core.Analysis.HotQueries.FindHotQueriesResult> FindHotQueriesAsync(
-            DbLens.Core.Analysis.HotQueries.FindHotQueriesRequest request, CancellationToken ct = default) =>
-            throw new NotSupportedException();
-
-        public Task<DbLens.Core.Analysis.Hygiene.AnalyzeTableHygieneResult> AnalyzeTableHygieneAsync(
-            DbLens.Core.Analysis.Hygiene.AnalyzeTableHygieneRequest request, CancellationToken ct = default) =>
-            throw new NotSupportedException();
-        public Task<DbLens.Core.Analysis.Denormalization.AnalyzeDenormalizationResult> AnalyzeDenormalizationAsync(
-            DbLens.Core.Analysis.Denormalization.AnalyzeDenormalizationRequest request,
-            CancellationToken ct = default) =>
-            throw new NotSupportedException();
-        public Task<DbLens.Core.Analysis.Fragmentation.AnalyzeFragmentationResult> AnalyzeFragmentationAsync(
-            DbLens.Core.Analysis.Fragmentation.AnalyzeFragmentationRequest request,
-            CancellationToken ct = default) =>
-            throw new NotSupportedException();
-        public Task<DbLens.Core.Analysis.QueryPlan.ExplainQueryResult> ExplainQueryAsync(
-            DbLens.Core.Analysis.QueryPlan.ExplainQueryRequest request,
-            CancellationToken ct = default) =>
-            throw new NotSupportedException();
-        public string DatabaseName => "stub";
-
-        public Task<DbLens.Core.Analysis.Receipts.QueryWithReceiptResult> QueryWithReceiptAsync(
-            DbLens.Core.Analysis.Receipts.QueryWithReceiptRequest request, CancellationToken ct = default) =>
-            throw new NotSupportedException();
-
-        public Task<DbLens.Core.Analysis.Glossary.GlossaryResult> BuildGlossaryAsync(
-            DbLens.Core.Analysis.Glossary.GlossaryRequest request, CancellationToken ct = default) =>
-            throw new NotSupportedException();
-
-        public Task<DbLens.Core.Analysis.Relationships.InferRelationshipsResult> InferRelationshipsAsync(
-            DbLens.Core.Analysis.Relationships.InferRelationshipsRequest request,
-            CancellationToken ct = default) =>
-            throw new NotSupportedException();
-        public Task<DbLens.Core.Analysis.Migration.CheckMigrationSafetyResult> CheckMigrationSafetyAsync(
-            DbLens.Core.Analysis.Migration.CheckMigrationSafetyRequest request,
-            CancellationToken ct = default) =>
-            throw new NotSupportedException();
     }
 }

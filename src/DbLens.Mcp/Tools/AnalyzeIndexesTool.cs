@@ -11,11 +11,10 @@ public sealed class AnalyzeIndexesTool(IServiceProvider services, IDatabaseInspe
     : InspectorTool(services, factory)
 {
     [McpServerTool, Description(
-        "Finds foreign keys without a covering index, duplicate and redundant (prefix) indexes, and non-unique " +
-        "indexes with zero scans, each with the CREATE/DROP INDEX statement. " +
-        "IMPORTANT: this reads metadata and scan counters, not query workloads. Scan counters reset on restart: " +
-        "read the Caveats before recommending that an index be dropped. " +
-        "Do NOT infer findings beyond what this tool returns.")]
+        "Finds foreign keys without a covering index, duplicate and prefix-redundant indexes, and non-unique indexes " +
+        "with no scans, each with its CREATE/DROP INDEX statement. IMPORTANT: reads metadata and scan counters, not the " +
+        "workload; counters reset on restart or restore, so read the Caveats before proposing a DROP. Do NOT infer " +
+        "beyond the response.")]
     public Task<AnalyzeIndexesResult> AnalyzeIndexes(
         [Description(DialectHelp)]
         DatabaseDialect dialect = DatabaseDialect.PostgreSql,
@@ -23,7 +22,7 @@ public sealed class AnalyzeIndexesTool(IServiceProvider services, IDatabaseInspe
         string? schema = null,
         [Description(TablesHelp)]
         string[]? tables = null,
-        [Description("Run the unused-index rule, which reads scan statistics. Default true.")]
+        [Description("Run the unused-index rule, which reads scan statistics.")]
         bool includeUnusedIndexes = true,
         [Description(ConnectionStringHelp)]
         string? connectionString = null,

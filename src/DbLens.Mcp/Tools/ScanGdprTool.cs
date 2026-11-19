@@ -11,13 +11,11 @@ public sealed class ScanGdprTool(IServiceProvider services, IDatabaseInspectorFa
     : InspectorTool(services, factory)
 {
     [McpServerTool, Description(
-        "Flags columns whose NAMES look like personal data (identifiers, contact, financial, GDPR Art. 9 special " +
-        "categories, location) in English and Italian, plus PII tables without soft-delete or audit columns. " +
-        "IMPORTANT: every result is a SIGNAL and Findings is always empty — present them as columns worth " +
-        "checking, never as PII found. No row data is read, so an empty result does NOT mean the database holds " +
-        "no personal data: always report the Coverage block (columns the scan could not interpret) and the " +
-        "Disclaimer, and never present a clean scan as evidence of compliance. " +
-        "Do NOT infer results beyond what this tool returns.")]
+        "Flags columns whose NAMES look like personal data (identifiers, contact, financial, GDPR Art. 9 categories, " +
+        "location; English and Italian) and PII tables without soft-delete or audit columns. IMPORTANT: every result is " +
+        "a SIGNAL and Findings is always empty: columns worth checking, never PII found. No row data is read, so an " +
+        "empty result does NOT mean no personal data: always report Coverage (columns it could not interpret) and the " +
+        "Disclaimer, and never present a clean scan as evidence of compliance. Do NOT infer beyond the response.")]
     public Task<ScanGdprResult> ScanGdpr(
         [Description(DialectHelp)]
         DatabaseDialect dialect = DatabaseDialect.PostgreSql,
@@ -27,7 +25,7 @@ public sealed class ScanGdprTool(IServiceProvider services, IDatabaseInspectorFa
         string[]? tables = null,
         [Description("Table names to exclude, without schema prefix.")]
         string[]? excludeTables = null,
-        [Description("Minimum match confidence, 0.0-1.0. Default 0.5; lower it for recall, raise it for precision.")]
+        [Description("Minimum match confidence, 0.0-1.0: lower for recall, higher for precision.")]
         double minConfidence = 0.5,
         [Description(ConnectionStringHelp)]
         string? connectionString = null,

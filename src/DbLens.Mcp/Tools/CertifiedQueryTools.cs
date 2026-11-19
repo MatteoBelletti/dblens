@@ -14,12 +14,10 @@ public sealed class CertifiedQueryTools(
     public sealed record CertifyResult(CertifiedQueryStore.Entry Certified, string StoredIn);
 
     [McpServerTool, Description(
-        "Saves a query the USER has confirmed returns the right answer, so it can be reused by name and is cited " +
-        "in receipts and in the glossary. The query is checked by the statement guard and planned (EXPLAIN, " +
-        "nothing is executed and no data is read). A query with the " +
-        "same name for this database is replaced. " +
-        "IMPORTANT: call this only after the user has explicitly said the result is correct — never certify a " +
-        "query on your own judgement.")]
+        "Saves a query the USER confirmed returns the right answer, to reuse it by name and cite it in receipts and the " +
+        "glossary. It is checked by the statement guard and planned, never executed; the same name for this database is " +
+        "replaced. IMPORTANT: call it only after the user has explicitly said the result is correct, never on your own " +
+        "judgement.")]
     public async Task<CertifyResult> CertifyQuery(
         [Description("Short unique name, e.g. 'revenue_by_month'.")]
         string name,
@@ -47,8 +45,8 @@ public sealed class CertifiedQueryTools(
     }
 
     [McpServerTool, Description(
-        "Lists the queries the user certified for this database: name, question and SQL. Prefer one of these " +
-        "over writing new SQL when it answers the question.")]
+        "Lists the queries the user certified for this database: name, question and SQL. Prefer one over new SQL when " +
+        "it answers the question.")]
     public IReadOnlyList<CertifiedQueryStore.Entry> ListCertifiedQueries(
         [Description(DialectHelp)]
         DatabaseDialect dialect = DatabaseDialect.PostgreSql,

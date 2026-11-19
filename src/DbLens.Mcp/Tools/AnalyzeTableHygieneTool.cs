@@ -14,11 +14,10 @@ public sealed class AnalyzeTableHygieneTool(IServiceProvider services, IDatabase
 {
     [McpServerTool, Description(
         "Finds columns nobody fills (always NULL, one value, abandoned by recent rows, named as left behind, not in the " +
-        "EF model) and tables whose creation and update dates are missing, nullable, without time zone or not kept up " +
-        "to date. Each finding carries the EF Core change in Metadata[\"ef\"]. " +
-        "IMPORTANT: signals come from planner statistics and names; verifySignals counts rows to confirm them — two " +
-        "counts per check, never a value, not even a constant column's. The snapshot, when given, is parsed as text. " +
-        "Do NOT infer findings beyond what this tool returns.")]
+        "EF model) and creation or update dates that are missing, nullable, without time zone or not kept up to date, " +
+        "each with the EF Core change in Metadata[\"ef\"]. IMPORTANT: signals come from planner statistics and names; " +
+        "verifySignals confirms them with two counts per check, never a value. The snapshot is parsed as text. Do NOT " +
+        "infer beyond the response.")]
     public Task<AnalyzeTableHygieneResult> AnalyzeTableHygiene(
         [Description(DialectHelp)]
         DatabaseDialect dialect = DatabaseDialect.PostgreSql,
@@ -26,9 +25,9 @@ public sealed class AnalyzeTableHygieneTool(IServiceProvider services, IDatabase
         string? schema = null,
         [Description(TablesHelp)]
         string[]? tables = null,
-        [Description("Confirm signals with read-only aggregate queries: two counts each, no values. Default false.")]
+        [Description("Confirm signals with read-only aggregate queries: two counts each, no values.")]
         bool verifySignals = false,
-        [Description("Absolute path of a *ModelSnapshot.cs or of a folder holding one per DbContext. Optional: maps findings to entities.")]
+        [Description("Absolute path of a *ModelSnapshot.cs, or of a folder with one per DbContext: maps findings to entities.")]
         string? modelSnapshotPath = null,
         [Description(ConnectionStringHelp)]
         string? connectionString = null,

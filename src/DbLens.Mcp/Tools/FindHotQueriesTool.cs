@@ -11,18 +11,16 @@ public sealed class FindHotQueriesTool(IServiceProvider services, IDatabaseInspe
     : InspectorTool(services, factory)
 {
     [McpServerTool, Description(
-        "Finds the queries that weigh most on the database, from the engine's own statistics " +
-        "(pg_stat_statements; Query Store, else the plan cache): total time, pages read per row returned, " +
-        "reads outside the cache, spills to temporary storage, the plan rules of explain_query on the heaviest, and joins " +
-        "of one parent to two 1:N children that multiply rows (a signal, measured with verifyJoins). " +
-        "IMPORTANT: query text is returned with every literal replaced by ? and every comment removed; no query " +
-        "of the user's is executed; plans are estimated or stored. When no statistics are available, Availability says what each source needs: " +
-        "an empty list then means nothing was measured, not that nothing is slow. " +
-        "Do NOT infer findings beyond what this tool returns.")]
+        "Finds the queries that weigh most, from the engine's own statistics (pg_stat_statements; Query Store, else the " +
+        "plan cache): total time, pages read per row, reads outside the cache, spills, explain_query's plan rules on " +
+        "the heaviest, and joins of one parent to two 1:N children that multiply rows (a signal; verifyJoins measures " +
+        "it). IMPORTANT: text comes back with every literal and comment removed; no query of the user's is executed; " +
+        "plans are estimated or stored. Without statistics, Availability says what each source needs: an empty list " +
+        "then means nothing was measured, not that nothing is slow. Do NOT infer beyond the response.")]
     public Task<FindHotQueriesResult> FindHotQueries(
         [Description(DialectHelp)]
         DatabaseDialect dialect = DatabaseDialect.PostgreSql,
-        [Description("Measure each join of one parent to two children with a read-only aggregate query: two counts, no row values. Default false.")]
+        [Description("Measure each join that multiplies rows with a read-only aggregate query: two counts, no row values.")]
         bool verifyJoins = false,
         [Description(ConnectionStringHelp)]
         string? connectionString = null,

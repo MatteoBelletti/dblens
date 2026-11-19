@@ -12,13 +12,11 @@ public sealed class BuildGlossaryTool(
     : InspectorTool(services, factory)
 {
     [McpServerTool, Description(
-        "Generates a data map of the database as a ready SKILL.md: every table with its documented meaning, " +
-        "columns, join paths labelled declared / inferred / verified, candidate measures, how often the database's " +
-        "own SQL uses each table, and the user's certified queries. Pass writeSkillTo to save it as a skill a client " +
-        "loads before writing SQL. " +
-        "IMPORTANT: meanings come only from schema comments. An undocumented column is shown as '—' — do NOT " +
-        "invent a meaning from its name; ask the user. verifyJoins runs counts-only, rolled-back probes on inferred " +
-        "joins. No row values are included.")]
+        "Generates a data map as a ready SKILL.md: each table's documented meaning, columns, join paths (declared / " +
+        "inferred / verified), candidate measures, how often the database's own SQL uses it, and the certified queries. " +
+        "writeSkillTo saves it as a skill. IMPORTANT: meanings come only from schema comments; '—' means undocumented: " +
+        "do NOT invent a meaning from the name, ask the user. verifyJoins runs counts-only, rolled-back probes. No row " +
+        "values are included.")]
     public async Task<GlossaryResult> BuildGlossary(
         [Description(DialectHelp)]
         DatabaseDialect dialect = DatabaseDialect.PostgreSql,
@@ -26,11 +24,11 @@ public sealed class BuildGlossaryTool(
         string? schema = null,
         [Description(TablesHelp)]
         string[]? tables = null,
-        [Description("Test inferred joins against the data (counts only). Default false.")]
+        [Description("Test inferred joins against the data: counts only.")]
         bool verifyJoins = false,
-        [Description("Absolute directory to write SKILL.md into, e.g. the project's .claude/skills/erp-data-map. Omit to only return it.")]
+        [Description("Absolute directory for SKILL.md, e.g. the project's .claude/skills/erp-data-map. Omit to only return it.")]
         string? writeSkillTo = null,
-        [Description("Replace an existing SKILL.md in writeSkillTo. Default false.")]
+        [Description("Replace an existing SKILL.md in writeSkillTo.")]
         bool overwrite = false,
         [Description(ConnectionStringHelp)]
         string? connectionString = null,

@@ -10,11 +10,11 @@ namespace DbLens.Mcp.Infrastructure;
 /// </summary>
 public abstract class InspectorTool(IServiceProvider services, IDatabaseInspectorFactory factory)
 {
-    protected const string DialectHelp = "Database dialect: PostgreSql or SqlServer.";
-    protected const string ConnectionStringHelp = "Connection string. Omit to use the server's default for the dialect.";
-    protected const string SchemaHelp = "Schema to analyze. Null = all user schemas.";
-    protected const string TablesHelp = "Table names without schema prefix. Null = all tables in scope.";
-    protected const string DefaultSchemaHelp = "Schema for unqualified table names. Defaults to public / dbo.";
+    protected const string DialectHelp = "Database engine.";
+    protected const string ConnectionStringHelp = "Omit for the server's default.";
+    protected const string SchemaHelp = "Null = all user schemas.";
+    protected const string TablesHelp = "Names without schema. Null = all in scope.";
+    protected const string DefaultSchemaHelp = "For unqualified table names. Null = public / dbo.";
 
     /// <summary>
     /// A caller-supplied connection string gets an ad-hoc inspector; none, or an empty one, gets

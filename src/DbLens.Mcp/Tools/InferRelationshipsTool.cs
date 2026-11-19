@@ -11,16 +11,13 @@ public sealed class InferRelationshipsTool(IServiceProvider services, IDatabaseI
     : InspectorTool(services, factory)
 {
     [McpServerTool, Description(
-        "Maps how tables join, including references the schema does not declare (common in legacy and ERP " +
-        "databases). Each relationship is Declared, Inferred, Verified or VerifiedWithOrphans. Inferred ones come " +
-        "from joins the database's own views, routines and query history (pg_stat_statements, Query Store) perform, " +
-        "then from names and types (x_id, id_x, cod_x, English and Italian plurals); ambiguous columns are skipped. " +
-        "IMPORTANT: with verifyCandidates = false inferred references are SIGNALS — hypotheses, not relationships. " +
-        "With verifyCandidates = true dblens runs one generated, read-only, rolled-back query per candidate that " +
-        "counts orphan values and moves the measured ones into FINDINGS; a path with mostly orphans is dropped. " +
-        "Only COUNTS are returned, never row values. Matching values are evidence, not intent: do not declare " +
-        "a constraint without the schema owner's confirmation. " +
-        "Do NOT infer relationships, columns or values beyond what this tool returns.")]
+        "Maps how tables join, including references the schema does not declare (legacy, ERP). Each is Declared, " +
+        "Inferred, Verified or VerifiedWithOrphans. Inferred ones come from the joins of the database's views, routines " +
+        "and query history, then from names and types (x_id, id_x, cod_x, English and Italian plurals); ambiguous " +
+        "columns are skipped. IMPORTANT: without verifyCandidates inferred references are SIGNALS, hypotheses. " +
+        "verifyCandidates runs one read-only, rolled-back orphan count per candidate and moves the measured ones to " +
+        "FINDINGS, dropping mostly-orphan paths: counts only, never row values. Matching values are evidence, not " +
+        "intent: declare no constraint without the schema owner's confirmation. Do NOT infer beyond the response.")]
     public Task<InferRelationshipsResult> InferRelationships(
         [Description(DialectHelp)]
         DatabaseDialect dialect = DatabaseDialect.PostgreSql,
@@ -29,7 +26,7 @@ public sealed class InferRelationshipsTool(IServiceProvider services, IDatabaseI
         [Description("Table names without schema prefix. Null = all. Both sides of a reference must be in scope.")]
         string[]? tables = null,
         [Description(
-            "When true, EXECUTES read-only aggregate queries to test the candidates. Counts only. Default false.")]
+            "When true, EXECUTES read-only aggregate queries to test the candidates: counts only.")]
         bool verifyCandidates = false,
         [Description(ConnectionStringHelp)]
         string? connectionString = null,

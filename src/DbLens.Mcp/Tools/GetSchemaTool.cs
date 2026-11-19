@@ -10,21 +10,20 @@ public sealed class GetSchemaTool(IServiceProvider services, IDatabaseInspectorF
     : InspectorTool(services, factory)
 {
     [McpServerTool, Description(
-        "Lists the user tables and views of a database with row estimates, sizes and FK/index counts. " +
-        "IMPORTANT: column names are NOT included, only a ColumnCount — do NOT infer them; call " +
-        "get_table_details for the tables you need.")]
+        "Lists the user tables and views with row estimates, sizes and FK/index counts. IMPORTANT: column names are NOT " +
+        "included, only ColumnCount: do NOT infer them, call get_table_details for the tables you need.")]
     public Task<DatabaseSchemaOverview> GetSchema(
         [Description(DialectHelp)]
         DatabaseDialect dialect = DatabaseDialect.PostgreSql,
         [Description(ConnectionStringHelp)]
         string? connectionString = null,
-        [Description("Exact schema name to filter by. Omit to return all user schemas.")]
+        [Description("Exact schema name. Omit for all user schemas.")]
         string? schemaFilter = null,
-        [Description("SQL LIKE pattern applied to object names, e.g. \"order%\". Omit to return all.")]
+        [Description("SQL LIKE pattern on object names, e.g. \"order%\".")]
         string? namePattern = null,
-        [Description("Whether to include views alongside tables. Defaults to true.")]
+        [Description("Include views.")]
         bool includeViews = true,
-        [Description("Whether to include system schemas such as pg_catalog and information_schema. Defaults to false.")]
+        [Description("Include system schemas (pg_catalog, information_schema).")]
         bool includeSystemSchemas = false,
         CancellationToken cancellationToken = default)
     {

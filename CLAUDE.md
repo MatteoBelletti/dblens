@@ -47,8 +47,8 @@ be forgotten by one dialect, and the dialects cannot drift apart.
    command or rows, with the same column aliases on both, so the reading stays in the base.
 4. Tests: engine tests with `TestSchema`; integration tests once in an abstract
    `<Feature>TestsBase(IDatabaseFixture)` derived per dialect; a `<Feature>ParityTests.cs`.
-5. Add `throw new NotSupportedException()` to the stub inspectors in `GetSchemaToolTests` and
-   `GetTableDetailsToolTests`.
+5. Add its `throw new NotSupportedException()` default to `StubInspector` (tests), the one stub
+   the tool tests share.
 6. Document it in `docs/tools.md`.
 
 ### Adding a tool
