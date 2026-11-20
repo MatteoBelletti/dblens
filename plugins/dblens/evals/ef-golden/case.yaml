@@ -1,0 +1,77 @@
+schema_version: "1.0"
+name: ef-golden
+description: The EF Core demo (schema shop) — drift, a hotfix migration, and a pending DROP COLUMN scripted and checked.
+runs: 1
+context:
+  scaffold_script: scaffold.sh
+execution:
+  max_turns: 12
+  timeout_seconds: 900
+  allowed_tools:
+    - "Skill"
+    - "Workflow"
+    - "Read"
+    - "Write"
+    - "Glob"
+    - "ToolSearch"
+    - "Bash(dotnet ef migrations script:*)"
+    - "mcp__plugin_dblens_dblens__ping"
+    - "mcp__plugin_dblens_dblens__get_schema"
+    - "mcp__plugin_dblens_dblens__get_table_details"
+    - "mcp__plugin_dblens_dblens__analyze_indexes"
+    - "mcp__plugin_dblens_dblens__analyze_fragmentation"
+    - "mcp__plugin_dblens_dblens__analyze_table_hygiene"
+    - "mcp__plugin_dblens_dblens__analyze_denormalization"
+    - "mcp__plugin_dblens_dblens__infer_relationships"
+    - "mcp__plugin_dblens_dblens__check_cascade_paths"
+    - "mcp__plugin_dblens_dblens__find_hot_queries"
+    - "mcp__plugin_dblens_dblens__explain_query"
+    - "mcp__plugin_dblens_dblens__compare_ef_model"
+    - "mcp__plugin_dblens_dblens__check_migration_safety"
+    - "mcp__plugin_dblens_dblens__scan_gdpr"
+  prompt: "Run the dblens audit workflow with args {\"dialect\": \"PostgreSql\", \"schema\": \"shop\", \"efSnapshot\": \"<the absolute path of DemoShop.EfCore/Migrations/PostgreSql in the current working directory>\", \"efScript\": true, \"outDir\": \"./dblens-audit\", \"runLabel\": \"eval-ef\"}: building that project is allowed. When it finishes, Read the Markdown report it wrote and print it in full."
+graders:
+  # Every analyst agent returned its findings.
+  - name: all-ran
+    type: regex
+    pattern: 'agents failed: 0'
+    match: contains
+  # The column users.phone the model maps and the database dropped is reported.
+  - name: column-missing
+    type: regex
+    pattern: 'ef-column-missing'
+    match: contains
+  # The narrowed first_name, the nullable total and the non-unique email index are reported.
+  - name: drift-shapes
+    type: regex
+    pattern: '^(?=[\s\S]*ef-column-type)(?=[\s\S]*ef-column-nullability)[\s\S]*ef-index-uniqueness'
+    match: contains
+  # The order_items → products foreign key dropped by hand is reported.
+  - name: fk-missing
+    type: regex
+    pattern: 'ef-fk-missing'
+    match: contains
+  # The index added by hand, ix_orders_created_manual, is reported.
+  - name: index-unmodeled
+    type: regex
+    pattern: 'ef-index-unmodeled'
+    match: contains
+  # The hotfix migration applied but absent from the code is reported.
+  - name: migration-unknown
+    type: regex
+    pattern: 'ef-migration-unknown'
+    match: contains
+  # The pending DropUserDateOfBirth migration, scripted and checked, is reported as destructive.
+  - name: pending-drop
+    type: regex
+    pattern: 'migration-destructive'
+    match: contains
+  # The report is written to the output folder.
+  - name: report-file
+    type: file_exists
+    path: 'dblens-audit/dblens-audit-eval-ef.md'
+  # The table legacy_notes the model does not map is reported.
+  - name: unmapped-table
+    type: regex
+    pattern: 'ef-unmapped-table'
+    match: contains

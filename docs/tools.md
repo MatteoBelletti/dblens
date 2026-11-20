@@ -206,7 +206,9 @@ every `RESTRICT` key, which is checked at once.
 For an EF Core migration, pass the script `dotnet ef migrations script` writes — the command
 `compare_ef_model` gives — without `--idempotent`: the idempotent script wraps every statement in a
 `DO` block (PostgreSQL) or `IF NOT EXISTS` (SQL Server), which this tool does not see into. In the
-plain script, `START TRANSACTION` and the `INSERT` into the history table are listed as `Unknown`.
+plain script, EF's bookkeeping is not a statement: the transaction, the row for `__EFMigrationsHistory`
+(under that name), and on SQL Server the variable it reads a column's default constraint into; the
+`EXEC` that drops that constraint is classified as the `DROP CONSTRAINT` it runs.
 
 `ALTER TABLE … VALIDATE CONSTRAINT` (the second half of PostgreSQL's `NOT VALID` pattern) is recognized
 and raises nothing: it scans without blocking reads or writes.
@@ -552,6 +554,20 @@ aside, and `ScriptCommands`: one `dotnet ef migrations script <from> <to> --cont
 run of consecutive pending migrations, whose output `check_migration_safety` reads. A pending
 migration older than the last applied one — usually from a merge — is one `database update` applies
 and a script from the last applied one leaves out, so it is flagged (High) and scripted on its own.
+
+### Pending migrations, end to end
+
+What the plugin's `ef` agent does, and what any MCP client (Claude Desktop included) can do by hand:
+
+1. `compare_ef_model` with the snapshot path: drift, then `Migrations`.
+2. Run each of `Migrations.ScriptCommands` from the project's folder (add `--project <folder>`
+   elsewhere). It is the only step that builds the user's code; dblens never runs it.
+3. `check_migration_safety` with each script's text as `ddl`, on the same database.
+
+On the demo, `compare_ef_model` with `samples/DemoShop.EfCore/Migrations/PostgreSql` (or
+`SqlServer`) and schema `shop` reports the drift `04-shop.sql` made and two pending migrations; run
+`dotnet tool restore` once in the sample, and the script of those two migrations gets a
+`migration-destructive` for the `DROP COLUMN` of `users.date_of_birth`.
 
 Every DbContext writes to the same history table by default. The migration ids of the other
 contexts, read from the `*.Designer.cs` files under the folder above the snapshot's, are set aside

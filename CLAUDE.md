@@ -23,7 +23,8 @@ Run the server: `dotnet run --project src/DbLens.Mcp` (stdio). `MCP_TRANSPORT=ss
 Logging goes to **stderr** only: stdout belongs to the MCP protocol.
 
 Demo volumes hold demo data only; after editing `db/*/0*.sql` recreate them with
-`docker compose down -v && docker compose up -d`.
+`docker compose down -v && docker compose up -d`. `db/*/04-shop.sql` is generated above its `-- Drift`
+line (`scripts/generate-ef-fixtures.sh`); the EF tests apply the same file.
 
 ## Where code goes
 

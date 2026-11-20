@@ -19,8 +19,8 @@ GO
 CREATE INDEX [IX_payments_order_id] ON [shop].[payments] ([order_id]);
 GO
 
-INSERT INTO [__EFMigrationsHistory] ([MigrationId], [ProductVersion])
-VALUES (N'20261116001555_AddPayments', N'8.0.34');
+INSERT INTO [shop].[__EFMigrationsHistory] ([MigrationId], [ProductVersion])
+VALUES (N'20261120194145_AddPayments', N'8.0.34');
 GO
 
 COMMIT;

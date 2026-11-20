@@ -15,13 +15,13 @@ public interface IEfFixture
 {
     bool IsReachable { get; }
 
-    /// <summary>Init applied, AddPayments pending, then: users.phone dropped, the order_items → products
+    /// <summary>The demo's shop schema (db/*/04-shop.sql): Init applied, AddPayments and DropUserDateOfBirth pending, then: users.phone dropped, the order_items → products
     /// foreign key dropped, ix_orders_created_manual and shop.legacy_notes added, users.first_name
     /// narrowed, orders.total made nullable, IX_users_email no longer unique, and a history row for a
     /// hotfix migration the code does not have.</summary>
     IDatabaseInspector? Drifted { get; }
 
-    /// <summary>Both migrations applied, nothing else.</summary>
+    /// <summary>Every migration applied, nothing else.</summary>
     IDatabaseInspector? Clean { get; }
 
     /// <summary>The provider's folder under Fixtures/EfSnapshots/ef10.</summary>
@@ -83,11 +83,11 @@ public abstract class EfDriftTestsBase(IEfFixture fixture)
 
         migrations.HistoryFound.Should().BeTrue();
         migrations.LastApplied.Should().Be(model.MigrationIds[0]);
-        migrations.Pending.Should().Equal(model.MigrationIds[1]);
+        migrations.Pending.Should().Equal(model.MigrationIds[1], model.MigrationIds[2]);
         migrations.Unknown.Should().Equal(Hotfix);
         migrations.OutOfOrder.Should().BeEmpty();
         migrations.ScriptCommands.Should().Equal(
-            $"dotnet ef migrations script {model.MigrationIds[0]} {model.MigrationIds[1]} --context {model.ContextName} -o pending.sql");
+            $"dotnet ef migrations script {model.MigrationIds[0]} {model.MigrationIds[2]} --context {model.ContextName} -o pending.sql");
     }
 
     [SkippableFact]
@@ -121,23 +121,29 @@ public abstract class EfDriftTestsBase(IEfFixture fixture)
 
     [SkippableFact]
     [Trait("Category", "Integration")]
-    public async Task TwoHistoryTables_TheLoginsDefaultSchemaIsRead()
+    public async Task TwoHistoryTables_TheLoginsDefaultSchemaIsRead_UnlessHistorySchemaNamesOne()
     {
         Skip.If(ShouldSkip, TestSkip.Reason);
 
-        // dotnet ef writes the history table unqualified even under HasDefaultSchema("shop").
-        var shopHistory = Fixture.Provider == "PostgreSql" ? "shop.\"__EFMigrationsHistory\"" : "shop.[__EFMigrationsHistory]";
-        await Fixture.ExecuteOnCleanAsync($"CREATE TABLE {shopHistory} (\"MigrationId\" varchar(150) PRIMARY KEY)");
+        // The sample keeps its history in shop (MigrationsHistoryTable); a stray one in the login's default schema wins.
+        var defaultSchema = Fixture.Provider == "PostgreSql" ? "public" : "dbo";
+        var stray = Fixture.Provider == "PostgreSql" ? "public.\"__EFMigrationsHistory\"" : "dbo.[__EFMigrationsHistory]";
+        await Fixture.ExecuteOnCleanAsync($"CREATE TABLE {stray} (\"MigrationId\" varchar(150) PRIMARY KEY)");
         try
         {
-            var result = await Fixture.Clean!.CompareEfModelAsync(new CompareEfModelRequest(Model));
+            var model = Model;
+            var guessed = await Fixture.Clean!.CompareEfModelAsync(new CompareEfModelRequest(model));
+            var named = await Fixture.Clean!.CompareEfModelAsync(
+                new CompareEfModelRequest(model, HistorySchema: "shop"));
 
-            HistoryTable(result).Should().Be((Fixture.Provider == "PostgreSql" ? "public" : "dbo") + ".__EFMigrationsHistory");
-            result.Migrations.Pending.Should().BeEmpty();
+            HistoryTable(guessed).Should().Be(defaultSchema + ".__EFMigrationsHistory");
+            guessed.Migrations.Pending.Should().Equal(model.MigrationIds);
+            HistoryTable(named).Should().Be("shop.__EFMigrationsHistory");
+            named.Migrations.Pending.Should().BeEmpty();
         }
         finally
         {
-            await Fixture.ExecuteOnCleanAsync($"DROP TABLE {shopHistory}");
+            await Fixture.ExecuteOnCleanAsync($"DROP TABLE {stray}");
         }
     }
 

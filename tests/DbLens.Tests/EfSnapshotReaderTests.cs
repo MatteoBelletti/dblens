@@ -33,9 +33,10 @@ public sealed class EfSnapshotReaderTests
         model.ContextName.Should().Be(provider == "PostgreSql" ? "ShopPostgresContext" : "ShopSqlServerContext");
         model.ProductVersion.Should().StartWith($"{major}.");
         model.DefaultSchema.Should().Be("shop");
-        model.MigrationIds.Should().HaveCount(2);
+        model.MigrationIds.Should().HaveCount(3);
         model.MigrationIds[0].Should().EndWith("_Init");
         model.MigrationIds[1].Should().EndWith("_AddPayments");
+        model.MigrationIds[2].Should().EndWith("_DropUserDateOfBirth");
     }
 
     [Theory]
@@ -56,7 +57,8 @@ public sealed class EfSnapshotReaderTests
         email.MaxLength.Should().Be(320);
         email.ColumnType.Should().Be(provider == "PostgreSql" ? "character varying(320)" : "nvarchar(320)");
         user.Properties.Single(p => p.Name == "Phone").IsNullable.Should().BeTrue();
-        user.Properties.Single(p => p.Name == "DateOfBirth").ClrType.Should().Be("DateOnly?");
+        user.Properties.Single(p => p.Name == "CreatedAt").ClrType.Should().Be("DateTimeOffset");
+        user.Properties.Should().NotContain(p => p.Name == "DateOfBirth");
         user.Indexes.Should().ContainSingle(i => i.Properties.SequenceEqual(new[] { "Email" }) && i.IsUnique);
 
         var sku = Entity(model, "Product").Properties.Single(p => p.Name == "Sku");

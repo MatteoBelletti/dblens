@@ -70,7 +70,7 @@ public sealed class PostgresIntegrationTests(PostgresFixture fixture) : IClassFi
     {
         Skip.If(ShouldSkip, TestSkip.Reason);
 
-        var result = await _fixture.Inspector!.GetSchemaOverviewAsync(new SchemaOverviewRequest());
+        var result = await _fixture.Inspector!.GetSchemaOverviewAsync(new SchemaOverviewRequest(SchemaFilter: "public"));
 
         var users = result.Schemas
             .SelectMany(s => s.Objects)
@@ -88,7 +88,7 @@ public sealed class PostgresIntegrationTests(PostgresFixture fixture) : IClassFi
     {
         Skip.If(ShouldSkip, TestSkip.Reason);
 
-        var result = await _fixture.Inspector!.GetSchemaOverviewAsync(new SchemaOverviewRequest());
+        var result = await _fixture.Inspector!.GetSchemaOverviewAsync(new SchemaOverviewRequest(SchemaFilter: "public"));
 
         var users = result.Schemas
             .SelectMany(s => s.Objects)
@@ -107,7 +107,7 @@ public sealed class PostgresIntegrationTests(PostgresFixture fixture) : IClassFi
     {
         Skip.If(ShouldSkip, TestSkip.Reason);
 
-        var result = await _fixture.Inspector!.GetSchemaOverviewAsync(new SchemaOverviewRequest());
+        var result = await _fixture.Inspector!.GetSchemaOverviewAsync(new SchemaOverviewRequest(SchemaFilter: "public"));
 
         var categories = result.Schemas
             .SelectMany(s => s.Objects)
@@ -125,7 +125,7 @@ public sealed class PostgresIntegrationTests(PostgresFixture fixture) : IClassFi
     {
         Skip.If(ShouldSkip, TestSkip.Reason);
 
-        var result = await _fixture.Inspector!.GetSchemaOverviewAsync(new SchemaOverviewRequest());
+        var result = await _fixture.Inspector!.GetSchemaOverviewAsync(new SchemaOverviewRequest(SchemaFilter: "public"));
 
         var tables = result.Schemas
             .SelectMany(s => s.Objects)
@@ -159,7 +159,7 @@ public sealed class PostgresIntegrationTests(PostgresFixture fixture) : IClassFi
         Skip.If(ShouldSkip, TestSkip.Reason);
 
         var result = await _fixture.Inspector!.GetSchemaOverviewAsync(
-            new SchemaOverviewRequest(NamePattern: "order%"));
+            new SchemaOverviewRequest(SchemaFilter: "public", NamePattern: "order%"));
 
         result.Schemas.SelectMany(s => s.Objects).Should().HaveCount(2);
     }

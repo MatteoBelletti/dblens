@@ -47,6 +47,18 @@ public static class DdlClassifier
     private static readonly Regex TransactionControlRx =
         new(@"^\s*(?:BEGIN|START\s+TRANSACTION|COMMIT|END)(?:\s+(?:TRAN|TRANSACTION|WORK))?\s*$", Opts);
 
+    // EF Core's bookkeeping in `dotnet ef migrations script`: its history row, and on SQL Server the
+    // variable it reads a column's default constraint name into. Not reported, not counted either.
+    private static readonly Regex EfBookkeepingRx =
+        new(@"^\s*(?:(?:INSERT\s+INTO|DELETE\s+FROM)\s+(?:\S+\s*\.\s*)?[\[""]?__EFMigrationsHistory[\]""]?[\s(]" +
+            @"|DECLARE\s+@\w+\s+\w+(?:\s*\(\s*\w+\s*\))?\s*$" +
+            @"|SELECT\s+@\w+\s*=\s*(?:QUOTENAME\s*\(\s*)?\[d\]\.\[name\]\s*\)?\s+FROM\s+\[sys\]\.\[default_constraints\])", Opts);
+
+    // ...which it then drops through EXEC: classified as the ALTER TABLE it runs, named by the variable.
+    private static readonly Regex EfDropDefaultRx =
+        new(@"^\s*IF\s+@(?<var>\w+)\s+IS\s+NOT\s+NULL\s+EXEC\s*\(\s*N?'(?<alter>ALTER\s+TABLE\s+.+?\s+DROP\s+CONSTRAINT\s+)" +
+            @"\[?'\s*\+\s*@\w+\s*\+\s*'\]?;?'\s*\)\s*;?\s*$", Opts);
+
     // ── T-SQL scripts: GO ends a batch, and statements need no separator ──────
 
     private static readonly Regex BatchSeparatorRx =
@@ -126,7 +138,8 @@ public static class DdlClassifier
 
     public static IReadOnlyList<MigrationStatement> Classify(string ddl, DatabaseDialect dialect) =>
         [.. Statements(ddl, dialect)
-            .Where(s => !TransactionControlRx.IsMatch(s))
+            .Where(s => !TransactionControlRx.IsMatch(s) && !EfBookkeepingRx.IsMatch(s))
+            .Select(s => EfDropDefaultRx.Replace(s, "${alter}[@${var}]"))
             .SelectMany(s => Expand(s, dialect))
             .Select(ClassifyOne)];
 

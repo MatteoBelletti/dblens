@@ -1,6 +1,7 @@
-﻿IF OBJECT_ID(N'[__EFMigrationsHistory]') IS NULL
+﻿IF OBJECT_ID(N'[shop].[__EFMigrationsHistory]') IS NULL
 BEGIN
-    CREATE TABLE [__EFMigrationsHistory] (
+    IF SCHEMA_ID(N'shop') IS NULL EXEC(N'CREATE SCHEMA [shop];');
+    CREATE TABLE [shop].[__EFMigrationsHistory] (
         [MigrationId] nvarchar(150) NOT NULL,
         [ProductVersion] nvarchar(32) NOT NULL,
         CONSTRAINT [PK___EFMigrationsHistory] PRIMARY KEY ([MigrationId])
@@ -78,8 +79,8 @@ CREATE INDEX [IX_products_category_id] ON [shop].[products] ([category_id]);
 
 CREATE UNIQUE INDEX [IX_users_email] ON [shop].[users] ([email]);
 
-INSERT INTO [__EFMigrationsHistory] ([MigrationId], [ProductVersion])
-VALUES (N'20261116001629_Init', N'9.0.23');
+INSERT INTO [shop].[__EFMigrationsHistory] ([MigrationId], [ProductVersion])
+VALUES (N'20261120194234_Init', N'9.0.23');
 
 COMMIT;
 GO

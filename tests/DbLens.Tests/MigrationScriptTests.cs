@@ -129,6 +129,31 @@ public sealed class MigrationScriptTests
             .Should().ContainSingle();
     }
 
+    [Theory]
+    [InlineData(8, "PostgreSql")]
+    [InlineData(9, "PostgreSql")]
+    [InlineData(10, "PostgreSql")]
+    [InlineData(8, "SqlServer")]
+    [InlineData(9, "SqlServer")]
+    [InlineData(10, "SqlServer")]
+    public void EfCoreScript_ItsBookkeepingIsNotAStatement_AndItsDefaultDropIsOne(int major, string provider)
+    {
+        var dialect = Enum.Parse<DatabaseDialect>(provider);
+        var script = File.ReadAllText(Path.Combine(EfScripts.Folder(provider, major), "DropUserDateOfBirth.sql"));
+
+        List<(MigrationOperationKind, string?)> expected = dialect == DatabaseDialect.SqlServer
+            ? [(MigrationOperationKind.DropConstraint, major == 8 ? "@var0" : "@var"), (MigrationOperationKind.DropColumn, "date_of_birth")]
+            : [(MigrationOperationKind.DropColumn, "date_of_birth")];
+        Shape(Classify(script, dialect)).Should().Equal(expected);
+    }
+
+    [Theory]
+    [InlineData("INSERT INTO dbo.orders (id) VALUES (1)")]
+    [InlineData("INSERT INTO dbo.__EFMigrationsHistory_old (id) VALUES (1)")]
+    [InlineData("SELECT @n = COUNT(*) FROM dbo.orders")]
+    public void StatementsOnlyLikeEfBookkeeping_StayUnrecognized(string sql) =>
+        Classify(sql, DatabaseDialect.SqlServer).Should().ContainSingle().Which.Kind.Should().Be(MigrationOperationKind.Unknown);
+
     [Fact]
     public void FunctionBody_IsNotSplitOnItsOwnSemicolons()
     {

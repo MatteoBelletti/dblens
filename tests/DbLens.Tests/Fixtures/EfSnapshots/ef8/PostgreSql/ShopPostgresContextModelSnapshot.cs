@@ -8,7 +8,7 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
 #nullable disable
 
-namespace DemoShop.EfCore.Migrations
+namespace DemoShop.EfCore.Migrations.PostgreSql
 {
     [DbContext(typeof(ShopPostgresContext))]
     partial class ShopPostgresContextModelSnapshot : ModelSnapshot
@@ -229,10 +229,6 @@ namespace DemoShop.EfCore.Migrations
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("created_at");
-
-                    b.Property<DateOnly?>("DateOfBirth")
-                        .HasColumnType("date")
-                        .HasColumnName("date_of_birth");
 
                     b.Property<string>("Email")
                         .IsRequired()

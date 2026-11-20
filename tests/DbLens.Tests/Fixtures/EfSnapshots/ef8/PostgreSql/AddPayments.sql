@@ -15,8 +15,8 @@ CREATE INDEX ix_products_sku ON shop.products (sku);
 
 CREATE INDEX "IX_payments_order_id" ON shop.payments (order_id);
 
-INSERT INTO "__EFMigrationsHistory" ("MigrationId", "ProductVersion")
-VALUES ('20261116001542_AddPayments', '8.0.34');
+INSERT INTO shop."__EFMigrationsHistory" ("MigrationId", "ProductVersion")
+VALUES ('20261120194122_AddPayments', '8.0.34');
 
 COMMIT;
 
