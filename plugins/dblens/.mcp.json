@@ -2,7 +2,7 @@
   "mcpServers": {
     "dblens": {
       "command": "dnx",
-      "args": ["DbLens.Mcp@0.7.0", "--yes"],
+      "args": ["DbLens.Mcp@0.6.0", "--yes"],
       "env": {
         "ConnectionStrings__PostgreSql": "${user_config.pg_connection}",
         "ConnectionStrings__SqlServer": "${user_config.ss_connection}"
