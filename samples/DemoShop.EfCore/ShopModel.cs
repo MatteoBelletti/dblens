@@ -10,7 +10,9 @@ public sealed class User
     public string FirstName { get; set; } = "";
     public string LastName { get; set; } = "";
     public string? Phone { get; set; }
+#if SHOP_STAGE1 || SHOP_STAGE2
     public DateOnly? DateOfBirth { get; set; }
+#endif
     public DateTimeOffset CreatedAt { get; set; }
     public PostalAddress? HomeAddress { get; set; }
     public List<Order> Orders { get; } = [];
@@ -186,15 +188,18 @@ public sealed class ShopPostgresContext(DbContextOptions<ShopPostgresContext> op
 
 public sealed class ShopSqlServerContext(DbContextOptions<ShopSqlServerContext> options) : ShopContext(options);
 
-/// <summary>Design-time only: `dotnet ef migrations add` needs no database, just the provider.</summary>
+/// <summary>
+/// Design-time only: `dotnet ef migrations add` and `migrations script` need no database, just the
+/// provider. The history table lives in shop, beside the tables, as in the demo database.
+/// </summary>
 public sealed class ShopPostgresContextFactory : IDesignTimeDbContextFactory<ShopPostgresContext>
 {
     public ShopPostgresContext CreateDbContext(string[] args) =>
-        new(new DbContextOptionsBuilder<ShopPostgresContext>().UseNpgsql("Host=localhost;Database=shop").Options);
+        new(new DbContextOptionsBuilder<ShopPostgresContext>().UseNpgsql("Host=localhost;Database=shop", o => o.MigrationsHistoryTable("__EFMigrationsHistory", "shop")).Options);
 }
 
 public sealed class ShopSqlServerContextFactory : IDesignTimeDbContextFactory<ShopSqlServerContext>
 {
     public ShopSqlServerContext CreateDbContext(string[] args) =>
-        new(new DbContextOptionsBuilder<ShopSqlServerContext>().UseSqlServer("Server=localhost;Database=shop").Options);
+        new(new DbContextOptionsBuilder<ShopSqlServerContext>().UseSqlServer("Server=localhost;Database=shop", o => o.MigrationsHistoryTable("__EFMigrationsHistory", "shop")).Options);
 }

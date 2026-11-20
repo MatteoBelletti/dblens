@@ -22,8 +22,9 @@ Work through these steps in order and stop at the first one that fails, saying w
    report the database name and the number of tables.
 5. **First audit.** Ask which dialect and, optionally, which schema; whether there is an EF Core
    migrations snapshot to compare (an absolute path) and whether to include the personal-data scan.
-   Then run the dblens `audit` workflow with args `{dialect, schema?, efSnapshot?, queriesFile?,
-   privacy?, outDir, runLabel}` (no other key: the workflow refuses unknown ones): `outDir` an absolute folder in the current project (default `<project>/dblens-audit`),
+   With a snapshot, ask whether the audit may run `dotnet ef migrations script` for the pending
+   migrations (`efScript`): it builds their project. Then run the dblens `audit` workflow with args
+   `{dialect, schema?, efSnapshot?, efScript?, queriesFile?, privacy?, outDir, runLabel}` (no other key: the workflow refuses unknown ones): `outDir` an absolute folder in the current project (default `<project>/dblens-audit`),
    `runLabel` today's date as `YYYY-MM-DD`.
 6. **Hand-off.** Give the report's path and its two-sentence summary. Say that confirmed findings
    were re-run by the verifier, that "Not re-checked" lists those it could not repeat, and that "To

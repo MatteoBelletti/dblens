@@ -1,11 +1,11 @@
 export const meta = {
   name: 'audit',
-  description: 'Audits a PostgreSQL or SQL Server database with dblens: agents run the diagnostics in parallel, a verifier re-runs every finding, and a report keeps the evidence. args: dialect (PostgreSql | SqlServer), outDir (absolute folder for the report), runLabel (e.g. the date); optional schema, efSnapshot (absolute path of an EF Core *ModelSnapshot.cs or its folder), queriesFile (a file of SQL queries to plan), privacy (true to scan column names for personal data)',
+  description: 'Audits a PostgreSQL or SQL Server database with dblens: agents run the diagnostics in parallel, a verifier re-runs every finding, and a report keeps the evidence. args: dialect (PostgreSql | SqlServer), outDir (absolute folder for the report), runLabel (e.g. the date); optional schema, efSnapshot (absolute path of an EF Core *ModelSnapshot.cs or its folder), efScript (true lets the ef agent run the `dotnet ef migrations script` command for the pending migrations and check the script: it builds the user\'s project, so ask the user first), queriesFile (a file of SQL queries to plan), privacy (true to scan column names for personal data)',
   whenToUse: 'The user asks for a dblens audit, health check or review of a database',
   phases: [{ title: 'Orient' }, { title: 'Analyze' }, { title: 'Verify' }, { title: 'Report' }],
 }
 
-// args: { dialect: 'PostgreSql' | 'SqlServer', schema?, outDir, runLabel, queriesFile?, efSnapshot?, privacy? }
+// args: { dialect: 'PostgreSql' | 'SqlServer', schema?, outDir, runLabel, queriesFile?, efSnapshot?, efScript?, privacy? }
 // runLabel and outDir come from the caller: a workflow has no clock and no filesystem.
 
 const FINDINGS = {
@@ -79,7 +79,7 @@ const REPORT = {
 }
 
 const a = args || {}
-const KNOWN = ['dialect', 'schema', 'outDir', 'runLabel', 'queriesFile', 'efSnapshot', 'privacy']
+const KNOWN = ['dialect', 'schema', 'outDir', 'runLabel', 'queriesFile', 'efSnapshot', 'efScript', 'privacy']
 // A misspelt option would silently skip an analyst: refuse it instead.
 const unknown = Object.keys(a).filter(k => !KNOWN.includes(k))
 if (unknown.length) throw new Error(`Unknown args ${unknown.join(', ')}; accepted: ${KNOWN.join(', ')}`)
@@ -101,7 +101,8 @@ const analysts = [
   { name: 'hygiene', task: a.efSnapshot ? `EF snapshot path: ${a.efSnapshot}.` : '' },
   { name: 'workload', task: a.queriesFile ? `Queries file: ${a.queriesFile}.` : '' },
 ]
-if (a.efSnapshot) analysts.push({ name: 'ef', task: `EF snapshot path: ${a.efSnapshot}.` })
+if (a.efSnapshot) analysts.push({ name: 'ef', task: `EF snapshot path: ${a.efSnapshot}. Output folder: ${a.outDir}. ` +
+  (a.efScript === true ? 'Building the project to script the pending migrations is allowed.' : 'Building the project is not allowed.') })
 if (a.privacy) analysts.push({ name: 'privacy', task: '' })
 
 const groups = await pipeline(analysts,

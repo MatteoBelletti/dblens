@@ -125,9 +125,12 @@ See [safety.md](safety.md#signal-verification) for the guarantees.
 Roslyn stays out of Core: only `DbLens.Mcp` references `DbLens.EfCore`. The test snapshots under
 `tests/DbLens.Tests/Fixtures/EfSnapshots/ef{8,9,10}` are written by the real `dotnet ef` of each major
 from `samples/DemoShop.EfCore` (`scripts/generate-ef-fixtures.sh`), because the snapshot format may
-change between versions; the fixtures are copied to the test output and never compiled. The EF
-integration tests build `dblens_ef` (first migration, then a deliberate drift) and `dblens_ef_clean`
-(every migration, no drift) from the SQL those same tools wrote.
+change between versions; the fixtures are copied to the test output and never compiled. The same
+script copies the EF Core 10 migrations into the sample (`Migrations/<provider>`, history in `shop`),
+so `dotnet ef migrations script` runs there, and writes the first migration's SQL into the demo's
+`shop` schema (`db/<dialect>/04-shop.sql`), above the drift that file keeps by hand. The EF
+integration tests build `dblens_ef` from that file and `dblens_ef_clean` (every migration, no drift)
+from the SQL those same tools wrote.
 
 ## Server layer
 
@@ -160,7 +163,8 @@ integration tests build `dblens_ef` (first migration, then a deliberate drift) a
   object counts the other tests assert.
 - **Composition tests** (`CompositionTestsBase`) feed one tool's output to another: the constraint
   `infer_relationships` proposes and the index `analyze_indexes` proposes must be recognized — and not
-  flagged — by `check_migration_safety`; a verification probe must pass `explain_query` and reproduce
+  flagged — by `check_migration_safety`, like the script of the demo's pending EF migrations, whose
+  drop must be flagged; a verification probe must pass `explain_query` and reproduce
   its counts through `query_with_receipt`; the glossary must list every path of the relationship map.
 - Integration tests connect as `dblens_reader`; the admin login (`DBLENS_TEST_*_ADMIN_CONNECTION`) is
   used for setup, to show that a local server is exempt from the read-only-login check, and — with
@@ -179,12 +183,13 @@ applies the fixes. A rule moves to `warning` only once the build is clean with i
 ## Demo databases
 
 `docker compose up -d` starts PostgreSQL 17 on port 5433 and SQL Server 2022 on 1434, initialized
-from `db/<dialect>/01-schema.sql` and `02-seed.sql`.
+from `db/<dialect>/01-schema.sql`, `02-seed.sql`, `03-reader.sql` and `04-shop.sql`, in that order.
 
 | Schema | Content |
 |---|---|
 | `public` / `dbo` | An e-commerce schema with deliberate flaws: unindexed FKs, plaintext PII, cascade chains, cached aggregates, undeclared references on `shipments` — `ship_to` visible only through the `shipment_destinations` view — and comments on `orders` for the glossary |
 | `demo_good` | A clean design every tool should pass |
+| `shop` | The EF Core model of `samples/DemoShop.EfCore` at its first migration, empty, then drifted by hand: a column and a foreign key dropped, an index and a table added, a column narrowed, one made nullable, a unique index made plain, and a hotfix row in `shop.__EFMigrationsHistory`. Two migrations are pending, the second a `DROP COLUMN` |
 
 Seed row counts are deterministic: `users` 20, `products` 30, `orders` 40, `order_items` 80,
 `payments` 35, `item_reviews` 20, `addresses` 20, `audit_logs` 100, `customer_profiles` 10,
@@ -193,6 +198,7 @@ Seed row counts are deterministic: `users` 20, `products` 30, `orders` 40, `orde
 `03-reader.sql` creates `dblens_reader`, the read-only login dblens connects with by default.
 
 Volumes hold demo data only; `docker compose down -v && docker compose up -d` recreates them.
+`04-shop.sql` is written by `scripts/generate-ef-fixtures.sh` above its `-- Drift` line.
 
 ## Releases
 

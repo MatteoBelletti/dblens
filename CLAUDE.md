@@ -23,7 +23,8 @@ Run the server: `dotnet run --project src/DbLens.Mcp` (stdio). `MCP_TRANSPORT=ss
 Logging goes to **stderr** only: stdout belongs to the MCP protocol.
 
 Demo volumes hold demo data only; after editing `db/*/0*.sql` recreate them with
-`docker compose down -v && docker compose up -d`.
+`docker compose down -v && docker compose up -d`. `db/*/04-shop.sql` is generated above its `-- Drift`
+line (`scripts/generate-ef-fixtures.sh`); the EF tests apply the same file.
 
 ## Where code goes
 
@@ -34,7 +35,7 @@ Demo volumes hold demo data only; after editing `db/*/0*.sql` recreate them with
 | `DbLens.Postgres` / `DbLens.SqlServer` (partial classes) | catalog SQL and dialect hooks only |
 | `DbLens.EfCore` | reading EF Core snapshots as text (Roslyn); referenced by `DbLens.Mcp` only |
 | `DbLens.Mcp/Tools/` | thin tools deriving from `InspectorTool` |
-| `plugins/dblens/` | the optional Claude Code plugin: agents, the `audit` workflow, skills, evals ([decisions](docs/roadmap/decisions.md)) — prompts only, no logic the server lacks |
+| `plugins/dblens/` | the optional Claude Code plugin: agents, the `audit` workflow, skills, evals ([decisions](docs/roadmap/decisions.md)) — prompts only, no logic the server lacks; its one command, `dotnet ef migrations script`, runs only when the audit's `efScript` allows it |
 
 Logic goes in the base whenever it can be written without dialect SQL: a rule enforced there cannot
 be forgotten by one dialect, and the dialects cannot drift apart.

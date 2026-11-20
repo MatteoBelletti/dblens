@@ -129,6 +129,40 @@ public sealed class MigrationScriptTests
             .Should().ContainSingle();
     }
 
+    [Theory]
+    [InlineData(8, "PostgreSql")]
+    [InlineData(9, "PostgreSql")]
+    [InlineData(10, "PostgreSql")]
+    [InlineData(8, "SqlServer")]
+    [InlineData(9, "SqlServer")]
+    [InlineData(10, "SqlServer")]
+    public void EfCoreScript_ItsBookkeepingIsNotAStatement_AndItsDefaultDropIsOne(int major, string provider)
+    {
+        var dialect = Enum.Parse<DatabaseDialect>(provider);
+        var script = File.ReadAllText(Path.Combine(EfScripts.Folder(provider, major), "DropUserDateOfBirth.sql"));
+
+        List<(MigrationOperationKind, string?)> expected = dialect == DatabaseDialect.SqlServer
+            ? [(MigrationOperationKind.DropConstraint, major == 8 ? "@var0" : "@var"), (MigrationOperationKind.DropColumn, "date_of_birth")]
+            : [(MigrationOperationKind.DropColumn, "date_of_birth")];
+        var statements = Classify(script, dialect);
+
+        Shape(statements).Should().Equal(expected);
+        statements.Should().OnlyContain(s => script.Contains(s.RawSql));
+    }
+
+    [Theory]
+    [InlineData("INSERT INTO dbo.orders (id) VALUES (1)")]
+    [InlineData("INSERT INTO dbo.__EFMigrationsHistory_old (id) VALUES (1)")]
+    [InlineData("SELECT @n = COUNT(*) FROM dbo.orders")]
+    [InlineData("INSERT INTO [__EFMigrationsHistory] VALUES (N'x', N'8.0')\nIF OBJECT_ID('t') IS NOT NULL EXEC('DROP TABLE t')")]
+    [InlineData("IF @v IS NOT NULL EXEC(N'ALTER TABLE [a] ADD x INT; DROP TABLE [orders]; ALTER TABLE [a] DROP CONSTRAINT ' + @v + ';')")]
+    [InlineData("IF @v IS NOT NULL EXEC(N'ALTER TABLE [a] DROP CONSTRAINT ' + @w + ';')")]
+    [InlineData("DELETE FROM [__EFMigrationsHistory] WHERE [MigrationId] = N'x' DROP TABLE [dbo].[orders]")]
+    [InlineData("SELECT @v = [d].[name] FROM [sys].[default_constraints] [d] INNER JOIN [sys].[columns] [c] ON 1=1 WHERE 1=1 DROP TABLE orders")]
+    [InlineData("DECLARE @sql nvarchar(max)")]
+    public void StatementsOnlyLikeEfBookkeeping_StayUnrecognized(string sql) =>
+        Classify(sql, DatabaseDialect.SqlServer).Should().ContainSingle().Which.Kind.Should().Be(MigrationOperationKind.Unknown);
+
     [Fact]
     public void FunctionBody_IsNotSplitOnItsOwnSemicolons()
     {

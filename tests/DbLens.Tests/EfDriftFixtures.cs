@@ -26,6 +26,10 @@ internal static class EfScripts
         Path.Combine(AppContext.BaseDirectory, "Fixtures", "EfSnapshots", $"ef{major}", provider);
 
     public static string Read(string provider, string migration) => File.ReadAllText(Path.Combine(Folder(provider), migration + ".sql"));
+
+    /// <summary>The demo database's shop schema (db/*/04-shop.sql): Init, then the drift the tests expect.</summary>
+    public static string Drifted(string provider) => File.ReadAllText(Path.Combine(
+        AppContext.BaseDirectory, "Fixtures", "Demo", provider == "PostgreSql" ? "postgres" : "sqlserver", "04-shop.sql"));
 }
 
 public sealed class PostgresEfFixture : IAsyncLifetime, IEfFixture
@@ -33,17 +37,6 @@ public sealed class PostgresEfFixture : IAsyncLifetime, IEfFixture
     private const string DriftedDb = "dblens_ef";
     private const string CleanDb = "dblens_ef_clean";
 
-    private const string DriftSql = $"""
-        ALTER TABLE shop.users DROP COLUMN phone;
-        ALTER TABLE shop.order_items DROP CONSTRAINT "FK_order_items_products_product_id";
-        CREATE INDEX ix_orders_created_manual ON shop.orders (created_at);
-        CREATE TABLE shop.legacy_notes (id int PRIMARY KEY);
-        ALTER TABLE shop.users ALTER COLUMN first_name TYPE varchar(60);
-        ALTER TABLE shop.orders ALTER COLUMN total DROP NOT NULL;
-        DROP INDEX shop."IX_users_email";
-        CREATE INDEX "IX_users_email" ON shop.users (email);
-        INSERT INTO "__EFMigrationsHistory" VALUES ('{EfDriftTestsBase.Hotfix}', '10.0.15');
-        """;
 
     private static string On(string database) => PostgresAdmin.On(database);
 
@@ -62,12 +55,12 @@ public sealed class PostgresEfFixture : IAsyncLifetime, IEfFixture
         if (!await PostgresAdmin.IsReachableAsync()) return;
 
         await PostgresAdmin.RecreateAsync(DriftedDb);
-        await PostgresAdmin.ExecuteAsync(On(DriftedDb), EfScripts.Read(Provider, "Init"));
-        await PostgresAdmin.ExecuteAsync(On(DriftedDb), DriftSql);
+        await PostgresAdmin.ExecuteAsync(On(DriftedDb), EfScripts.Drifted(Provider));
 
         await PostgresAdmin.RecreateAsync(CleanDb);
         await PostgresAdmin.ExecuteAsync(On(CleanDb), EfScripts.Read(Provider, "Init"));
         await PostgresAdmin.ExecuteAsync(On(CleanDb), EfScripts.Read(Provider, "AddPayments"));
+        await PostgresAdmin.ExecuteAsync(On(CleanDb), EfScripts.Read(Provider, "DropUserDateOfBirth"));
 
         Drifted = new PostgresInspector(On(DriftedDb), NullLogger<PostgresInspector>.Instance);
         Clean = new PostgresInspector(On(CleanDb), NullLogger<PostgresInspector>.Instance);
@@ -88,17 +81,6 @@ public sealed class SqlServerEfFixture : IAsyncLifetime, IEfFixture
     private const string DriftedDb = "dblens_ef";
     private const string CleanDb = "dblens_ef_clean";
 
-    private const string DriftSql = $"""
-        ALTER TABLE shop.users DROP COLUMN phone;
-        ALTER TABLE shop.order_items DROP CONSTRAINT [FK_order_items_products_product_id];
-        CREATE INDEX ix_orders_created_manual ON shop.orders (created_at);
-        CREATE TABLE shop.legacy_notes (id int PRIMARY KEY);
-        ALTER TABLE shop.users ALTER COLUMN first_name nvarchar(60) NOT NULL;
-        ALTER TABLE shop.orders ALTER COLUMN total decimal(10,2) NULL;
-        DROP INDEX [IX_users_email] ON shop.users;
-        CREATE INDEX [IX_users_email] ON shop.users (email);
-        INSERT INTO [__EFMigrationsHistory] VALUES ('{EfDriftTestsBase.Hotfix}', '10.0.15');
-        """;
 
     private static string On(string database) => SqlServerAdmin.On(database);
 
@@ -117,12 +99,12 @@ public sealed class SqlServerEfFixture : IAsyncLifetime, IEfFixture
         if (!await SqlServerAdmin.IsReachableAsync()) return;
 
         await SqlServerAdmin.RecreateAsync(DriftedDb);
-        await SqlServerAdmin.ExecuteScriptAsync(On(DriftedDb), EfScripts.Read(Provider, "Init"));
-        await SqlServerAdmin.ExecuteAsync(On(DriftedDb), DriftSql);
+        await SqlServerAdmin.ExecuteScriptAsync(On(DriftedDb), EfScripts.Drifted(Provider));
 
         await SqlServerAdmin.RecreateAsync(CleanDb);
         await SqlServerAdmin.ExecuteScriptAsync(On(CleanDb), EfScripts.Read(Provider, "Init"));
         await SqlServerAdmin.ExecuteScriptAsync(On(CleanDb), EfScripts.Read(Provider, "AddPayments"));
+        await SqlServerAdmin.ExecuteScriptAsync(On(CleanDb), EfScripts.Read(Provider, "DropUserDateOfBirth"));
 
         Drifted = new SqlServerInspector(On(DriftedDb), NullLogger<SqlServerInspector>.Instance);
         Clean = new SqlServerInspector(On(CleanDb), NullLogger<SqlServerInspector>.Instance);
@@ -135,7 +117,4 @@ public sealed class SqlServerEfFixture : IAsyncLifetime, IEfFixture
         await SqlServerAdmin.DropAsync(DriftedDb);
         await SqlServerAdmin.DropAsync(CleanDb);
     }
-
-
-
 }

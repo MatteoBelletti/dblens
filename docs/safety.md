@@ -199,6 +199,15 @@ held to the least they need:
 - nothing of the file is returned but the model's own names (entities, properties, tables, columns,
   migration ids).
 
+### The plugin's one command
+
+The server never builds the user's code. The optional Claude Code plugin can, once: its `ef` agent
+runs the `dotnet ef migrations script` command `compare_ef_model` returns, which builds the project
+and writes SQL to a file, only when the audit is started with `efScript: true` — the user's consent,
+asked for first. The agent's Bash is limited to that command (`tools:`), and the command is built
+only from migration ids and a context name shaped like EF's (letters, digits, `_`). The script is
+then read by `check_migration_safety`, which never executes it.
+
 ### EF Core's history table
 
 On the database side `compare_ef_model` makes the catalog reads every other tool makes, plus one read

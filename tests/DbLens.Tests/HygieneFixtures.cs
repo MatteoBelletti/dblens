@@ -80,6 +80,7 @@ public sealed class PostgresHygieneFixture : IAsyncLifetime, IHygieneFixture
         await PostgresAdmin.RecreateAsync(HygieneData.Database);
         await PostgresAdmin.ExecuteAsync(On, EfScripts.Read(Provider, "Init"));
         await PostgresAdmin.ExecuteAsync(On, EfScripts.Read(Provider, "AddPayments"));
+        await PostgresAdmin.ExecuteAsync(On, EfScripts.Read(Provider, "DropUserDateOfBirth"));
         await PostgresAdmin.ExecuteAsync(On, SetupSql);
         await IndexWorkload.OnPostgresAsync(On, "hygiene.stock_levels");
 
@@ -141,7 +142,7 @@ public sealed class SqlServerHygieneFixture : IAsyncLifetime, IHygieneFixture
         if (!await SqlServerAdmin.IsReachableAsync()) return;
 
         await SqlServerAdmin.RecreateAsync(HygieneData.Database);
-        foreach (var script in new[] { "Init", "AddPayments" })
+        foreach (var script in new[] { "Init", "AddPayments", "DropUserDateOfBirth" })
             await SqlServerAdmin.ExecuteScriptAsync(On, EfScripts.Read(Provider, script));
         foreach (var statement in SetupSql)
             await SqlServerAdmin.ExecuteAsync(On, statement);

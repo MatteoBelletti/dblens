@@ -8,7 +8,7 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
 
-namespace DemoShop.EfCore.Migrations
+namespace DemoShop.EfCore.Migrations.SqlServer
 {
     [DbContext(typeof(ShopSqlServerContext))]
     partial class ShopSqlServerContextModelSnapshot : ModelSnapshot
@@ -229,10 +229,6 @@ namespace DemoShop.EfCore.Migrations
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("datetimeoffset")
                         .HasColumnName("created_at");
-
-                    b.Property<DateOnly?>("DateOfBirth")
-                        .HasColumnType("date")
-                        .HasColumnName("date_of_birth");
 
                     b.Property<string>("Email")
                         .IsRequired()

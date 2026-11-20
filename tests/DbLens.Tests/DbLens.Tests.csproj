@@ -25,6 +25,7 @@
   <ItemGroup>
     <Compile Remove="Fixtures/**" />
     <None Include="Fixtures/**" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="../../db/**/04-shop.sql" Link="Fixtures/Demo/%(RecursiveDir)%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
 </Project>

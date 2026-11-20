@@ -1,4 +1,10 @@
-﻿CREATE TABLE IF NOT EXISTS "__EFMigrationsHistory" (
+﻿DO $EF$
+BEGIN
+    IF NOT EXISTS(SELECT 1 FROM pg_namespace WHERE nspname = 'shop') THEN
+        CREATE SCHEMA shop;
+    END IF;
+END $EF$;
+CREATE TABLE IF NOT EXISTS shop."__EFMigrationsHistory" (
     "MigrationId" character varying(150) NOT NULL,
     "ProductVersion" character varying(32) NOT NULL,
     CONSTRAINT "PK___EFMigrationsHistory" PRIMARY KEY ("MigrationId")
@@ -79,8 +85,8 @@ CREATE INDEX "IX_products_category_id" ON shop.products (category_id);
 
 CREATE UNIQUE INDEX "IX_users_email" ON shop.users (email);
 
-INSERT INTO "__EFMigrationsHistory" ("MigrationId", "ProductVersion")
-VALUES ('20261116001445_Init', '10.0.15');
+INSERT INTO shop."__EFMigrationsHistory" ("MigrationId", "ProductVersion")
+VALUES ('20261120194308_Init', '10.0.15');
 
 COMMIT;
 

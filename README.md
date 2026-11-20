@@ -190,6 +190,7 @@ SQL Server  Server=localhost,1434;Database=dblens_demo;User Id=dblens_reader;Pas
 `public` / `dbo` is an e-commerce schema with deliberate flaws — unindexed foreign keys,
 plaintext PII, cascade chains, cached counts that have drifted, undeclared references (one
 visible only through a view). `demo_good` is a clean design on which every tool reports nothing.
+`shop` is the EF Core model of `samples/DemoShop.EfCore`, drifted, with two migrations pending.
 Details in [docs/architecture.md](https://github.com/MatteoBelletti/dblens/blob/master/docs/architecture.md#demo-databases).
 
 ## Documentation

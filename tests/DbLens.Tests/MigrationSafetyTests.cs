@@ -63,6 +63,25 @@ public sealed class MigrationSafetyTests
     }
 
     [Fact]
+    public void QualifiedTableNotInTheCatalog_IsNotMatchedToOneOfTheSameNameElsewhere()
+    {
+        var result = Analyze("CREATE INDEX ix ON shop.payments (order_id)", Tables(Ctx("payments", rows: 35)));
+
+        var finding = OfRule(result, MigrationRuleIds.IndexNotConcurrent).Should().ContainSingle().Subject;
+        finding.Table.Should().Be("shop.payments");
+        finding.Title.Should().NotContain("35");
+    }
+
+    [Fact]
+    public void QualifiedTableInAnotherCase_StillGetsItsSize()
+    {
+        var result = Analyze("CREATE INDEX ix ON Public.Payments (order_id)", Tables(Ctx("payments", rows: 35)));
+
+        OfRule(result, MigrationRuleIds.IndexNotConcurrent).Should().ContainSingle()
+            .Which.Table.Should().Be("public.payments");
+    }
+
+    [Fact]
     public void Classifier_ExtractsSchemaAndTable()
     {
         var s = DdlClassifier.ClassifyOne("ALTER TABLE app.users ADD COLUMN x TEXT");

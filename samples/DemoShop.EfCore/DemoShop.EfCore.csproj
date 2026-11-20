@@ -21,8 +21,9 @@
     <NpgsqlEfVersion Condition="'$(EfMajor)' == '10'">10.0.3</NpgsqlEfVersion>
     <!-- Migrations are generated code; they are compiled only to keep them honest. -->
     <NoWarn>$(NoWarn);CS1591</NoWarn>
-    <!-- ShopStage=1 builds the model of the first migration, so the fixtures hold two. -->
+    <!-- ShopStage=1 and 2 build the models of the first two migrations, so the fixtures hold three. -->
     <DefineConstants Condition="'$(ShopStage)' == '1'">$(DefineConstants);SHOP_STAGE1</DefineConstants>
+    <DefineConstants Condition="'$(ShopStage)' == '2'">$(DefineConstants);SHOP_STAGE2</DefineConstants>
   </PropertyGroup>
 
   <ItemGroup>
