@@ -195,6 +195,18 @@ public sealed class IndexRulesTests
     }
 
     [Fact]
+    public void FkTypeMismatch_BoundedDigitsReferencingUnboundedOnesAreNarrower()
+    {
+        var parent = Table("users", [Col("id", "numeric")]);
+        var child = Table("orders", [Col("user_id", "numeric", fullType: "numeric(5,0)") with { NumericPrecision = 5, NumericScale = 0 }],
+            outgoing: UserFk);
+
+        IndexAnalysisEngine.Analyze([child], null, new AnalyzeIndexesRequest(), DatabaseDialect.PostgreSql, [parent])
+            .Findings.Should().ContainSingle(f => f.RuleId == IndexRuleIds.FkTypeMismatch)
+            .Which.Severity.Should().Be(Severity.Medium);
+    }
+
+    [Fact]
     public void FkTypeMismatch_AShorterStringIsNarrower()
     {
         var parent = Table("users", [Col("id", "character varying", fullType: "character varying(40)") with { CharacterMaxLength = 40 }]);

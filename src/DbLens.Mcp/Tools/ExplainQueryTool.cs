@@ -12,7 +12,8 @@ public sealed class ExplainQueryTool(IServiceProvider services, IDatabaseInspect
 {
     [McpServerTool, Description(
         "Returns a query's execution plan and flags large scans, bad row estimates, costly nested loops, spills to disk " +
-        "and post-scan filters. IMPORTANT: with analyze = false nothing runs and row counts are ESTIMATES. With analyze " +
+        "and post-scan filters, and columns converted to another type to be compared (on PostgreSQL an inferred signal, " +
+        "read from a cast). IMPORTANT: with analyze = false nothing runs and row counts are ESTIMATES. With analyze " +
         "= true the query IS EXECUTED, only if it is a single pure SELECT, in a transaction always rolled back; " +
         "anything else is rejected first. Explain writes with analyze = false, and do NOT rephrase a rejected statement " +
         "to pass the check. Do NOT infer beyond the response.")]

@@ -12,7 +12,8 @@ public sealed class AnalyzeIndexesTool(IServiceProvider services, IDatabaseInspe
 {
     [McpServerTool, Description(
         "Finds foreign keys without a covering index, duplicate and prefix-redundant indexes, and non-unique indexes " +
-        "with no scans, each with its CREATE/DROP INDEX statement. IMPORTANT: reads metadata and scan counters, not the " +
+        "with no scans, each with its CREATE/DROP INDEX statement, and foreign key columns whose type is not the " +
+        "referenced key's, with an ALTER COLUMN that rewrites the table. IMPORTANT: reads metadata and scan counters, not the " +
         "workload; counters reset on restart or restore, so read the Caveats before proposing a DROP. Do NOT infer " +
         "beyond the response.")]
     public Task<AnalyzeIndexesResult> AnalyzeIndexes(

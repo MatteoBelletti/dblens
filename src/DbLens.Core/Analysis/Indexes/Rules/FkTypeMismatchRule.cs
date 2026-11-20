@@ -64,6 +64,7 @@ public static class FkTypeMismatchRule
         if (!string.Equals(child.DataType, key.DataType, StringComparison.OrdinalIgnoreCase)) return false;
         return child.CharacterMaxLength < key.CharacterMaxLength
             || (key.CharacterMaxLength is null && child.CharacterMaxLength is not null)
+            || (key.NumericPrecision is null && child.NumericPrecision is not null)
             || child.NumericPrecision - child.NumericScale < key.NumericPrecision - key.NumericScale
             || child.NumericScale < key.NumericScale;
     }

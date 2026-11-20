@@ -106,10 +106,17 @@ public abstract partial class DatabaseInspectorBase
                 .Select(fk => (fk.ToSchema, fk.ToTable)).Distinct()
                 .Where(r => !details.Tables.Any(t => (t.Schema, t.Name) == r))
                 .Select(r => new ParsedName(r.ToSchema, r.ToTable, $"{r.ToSchema}.{r.ToTable}")).ToList();
-            var referenced = outside.Count == 0 ? [] : (await GetTableDetailsAsync(outside, ct)).Tables;
+            var referenced = outside.Count == 0 ? null : await GetTableDetailsAsync(outside, ct);
+            var referencedCaveat = referenced is { NotFound.Count: > 0 }
+                ? $"The referenced tables {string.Join(", ", referenced.NotFound)} could not be read, so the " +
+                  "'fk-type-mismatch' rule did not compare the foreign keys to them."
+                : null;
 
-            var result = IndexAnalysisEngine.Analyze(details.Tables, stats, request, Dialect, referenced);
-            result = result with { Caveats = WithCaveats(result.Caveats, statsCaveat, scopeCaveat, NotFoundCaveat(details)) };
+            var result = IndexAnalysisEngine.Analyze(details.Tables, stats, request, Dialect, referenced?.Tables);
+            result = result with
+            {
+                Caveats = WithCaveats(result.Caveats, statsCaveat, scopeCaveat, NotFoundCaveat(details), referencedCaveat),
+            };
 
             Log.LogInformation(
                 "Index analysis completed: {FindingCount} findings, {Caveats} caveats",

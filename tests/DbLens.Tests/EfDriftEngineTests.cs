@@ -76,6 +76,9 @@ public sealed class EfDriftEngineTests
     [InlineData("nvarchar(100)", "nvarchar(60)", true)]
     [InlineData("numeric(10,2)", "decimal(12,2)", true)]
     [InlineData("rowversion", "timestamp", false)]
+    [InlineData("timestamptz(3)", "timestamp(3) with time zone", false)]
+    [InlineData("time", "time without time zone", false)]
+    [InlineData("timestamp(3)", "timestamp(6) without time zone", true)]
     public void StoreTypes_DifferOnlyInWhatTheyHold_NotInHowTheyAreSpelt(string model, string database, bool drift)
     {
         var entity = new EfEntity("Order", "public", "orders",
@@ -84,6 +87,36 @@ public sealed class EfDriftEngineTests
         var table = Table("orders", [Col("id", "bigint"), Col("value", database)]);
 
         Analyze(efModel, [], EfModelMatcher.Match(efModel, [table], "public")).Findings.Any(f => f.RuleId == EfRuleIds.ColumnType)
+            .Should().Be(drift);
+    }
+
+    [Fact]
+    public void AStringKey_IsRequired_ThoughTheSnapshotDoesNotSaySo()
+    {
+        var entity = new EfEntity("User", "public", "users", [new EfProperty("Id", "string", "id", "text", true)], ["Id"], [], []);
+        var efModel = new EfModel("ShopContext", null, "public", [entity], [], []);
+        var table = Table("users", [Col("id", "text", nullable: false)]);
+
+        Analyze(efModel, [], EfModelMatcher.Match(efModel, [table], "public")).Findings
+            .Should().NotContain(f => f.RuleId == EfRuleIds.ColumnNullability);
+    }
+
+    [Theory]
+    [InlineData(true, false)]
+    [InlineData(false, true)]
+    public void IndexUniqueness_IsSatisfiedByAnyIndexOnTheColumns(bool alsoUnique, bool drift)
+    {
+        var entity = new EfEntity("User", "public", "users",
+            [new EfProperty("Id", "long", "id", null, false), new EfProperty("Email", "string", "email", null, false)],
+            ["Id"], [new EfIndex(["Email"], null, IsUnique: true, null)], []);
+        var efModel = new EfModel("ShopContext", null, "public", [entity], [], []);
+        IndexDetail Index(string name, bool unique) => new(name, ["email"], unique, false, "btree", "", false, null);
+        var table = Table("users", [Col("id", "bigint", nullable: false), Col("email", nullable: false)]) with
+        {
+            Indexes = [Index("ix_email_dup", false), .. alsoUnique ? [Index("IX_users_email", true)] : Array.Empty<IndexDetail>()],
+        };
+
+        Analyze(efModel, [], EfModelMatcher.Match(efModel, [table], "public")).Findings.Any(f => f.RuleId == EfRuleIds.IndexUniqueness)
             .Should().Be(drift);
     }
 

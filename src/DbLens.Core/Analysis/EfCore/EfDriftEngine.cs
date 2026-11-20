@@ -8,7 +8,7 @@ namespace DbLens.Core.Analysis.EfCore;
 /// is derived from the catalog and the snapshot; each names the entity and property to touch in
 /// <c>Metadata["ef"]</c>. Column types, lengths and nullability are not compared here.
 /// </summary>
-public static class EfDriftEngine
+public static partial class EfDriftEngine
 {
     /// <param name="applied">The applied migration ids; null when no history table was found.</param>
     /// <param name="historyTable">The history table read, as a catalog pair.</param>
@@ -193,10 +193,11 @@ public static class EfDriftEngine
 
                 if (detail.UniqueConstraints.Any(u => SameColumns(u.Columns, columns))
                     || (detail.PrimaryKey is { } pk && SameColumns(pk.Columns, columns))) continue;
-                if (detail.Indexes.FirstOrDefault(i => SameColumns(i.Columns, columns)) is { } existing)
+                var existing = detail.Indexes.Where(i => SameColumns(i.Columns, columns)).ToList();
+                if (existing.Count > 0)
                 {
-                    if (existing.IsUnique != index.IsUnique)
-                        findings.Add(Uniqueness(table, entity, index, existing, columns));
+                    if (!existing.Any(i => i.IsUnique == index.IsUnique))
+                        findings.Add(Uniqueness(table, entity, index, existing[0], columns));
                     continue;
                 }
 
@@ -255,11 +256,13 @@ public static class EfDriftEngine
                 null,
                 Ef(entity.Name, property.Name, $"b.Property(e => e.{property.Name}).HasColumnType(\"{actual.FullDataType}\")")));
 
-        if (property.IsNullable != actual.IsNullable)
+        // A snapshot writes no IsRequired() for a key property: a string key reads as nullable, and is not.
+        var nullable = property.IsNullable && !entity.Key.Contains(property.Name);
+        if (nullable != actual.IsNullable)
             findings.Add(new Finding(
                 EfRuleIds.ColumnNullability, Severity.Medium, FindingCategory.Structure, 1.0, Evidence.Derived,
                 table.Qualified, [actual.Name],
-                $"Column {where} is {(actual.IsNullable ? "nullable" : "NOT NULL")}; the model says {(property.IsNullable ? "nullable" : "required")}",
+                $"Column {where} is {(actual.IsNullable ? "nullable" : "NOT NULL")}; the model says {(nullable ? "nullable" : "required")}",
                 actual.IsNullable
                     ? $"The model treats {Short(entity.Name)}.{property.Name} as required, but the database allows NULL: a row " +
                       "written outside EF can hold one, and loading it fails or yields a default value."
@@ -292,16 +295,23 @@ public static class EfDriftEngine
     private static string NormalType(string type)
     {
         var t = string.Concat(type.ToLowerInvariant().Where(c => !char.IsWhiteSpace(c)));
+        if (t is "datetime2(7)" or "datetimeoffset(7)" or "time(7)") t = t[..^3];
+        // PostgreSQL writes the precision inside the name: "timestamp(3) with time zone".
+        t = TimePrecision().Replace(t, "$1$3timezone($2)");
         foreach (var (alias, name) in TypeAliases)
             if (t == alias || t.StartsWith(alias + "(", StringComparison.Ordinal)) { t = name + t[alias.Length..]; break; }
-        return t is "datetime2(7)" or "datetimeoffset(7)" or "time(7)" ? t[..^3] : t;
+        return t;
     }
+
+    [System.Text.RegularExpressions.GeneratedRegex(@"^(timestamp|time)\((\d+)\)(with|without)timezone$")]
+    private static partial System.Text.RegularExpressions.Regex TimePrecision();
 
     private static readonly (string Alias, string Name)[] TypeAliases =
     [
         ("int4", "integer"), ("int", "integer"), ("int8", "bigint"), ("int2", "smallint"), ("bool", "boolean"),
         ("varchar", "charactervarying"), ("charactervarying", "charactervarying"), ("char", "character"),
         ("timestamptz", "timestampwithtimezone"), ("timestamp", "timestampwithouttimezone"),
+        ("timetz", "timewithtimezone"), ("time", "timewithouttimezone"),
         ("float8", "doubleprecision"), ("float4", "real"), ("decimal", "numeric"),
         // SQL Server catalogs a rowversion column as "timestamp".
         ("rowversion", "timestampwithouttimezone"),

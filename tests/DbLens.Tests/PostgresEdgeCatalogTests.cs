@@ -3,6 +3,7 @@ using DbLens.Core.Analysis;
 using DbLens.Core.Analysis.Fragmentation;
 using DbLens.Core.Analysis.Hygiene;
 using DbLens.Core.Analysis.Indexes;
+using DbLens.Core.Analysis.Migration;
 using DbLens.Core.Models;
 using DbLens.Postgres;
 using FluentAssertions;
@@ -41,6 +42,11 @@ public sealed class PostgresEdgeCatalogTests(PostgresEdgeFixture fixture)
         finding.Severity.Should().Be(Severity.Medium, "an integer cannot hold every bigint key");
         finding.Columns.Should().Equal("parent_id");
         finding.SqlFix!.Sql.Should().Be("ALTER TABLE \"edge\".\"narrow_kid\" ALTER COLUMN \"parent_id\" TYPE bigint;");
+
+        // The intent warns of a rewrite: check_migration_safety, which reads the proposal, must agree.
+        var check = await Inspector.CheckMigrationSafetyAsync(new CheckMigrationSafetyRequest(finding.SqlFix.Sql));
+        check.Statements.Should().ContainSingle().Which.Kind.Should().Be(MigrationOperationKind.AlterColumnType);
+        check.Findings.Should().Contain(f => f.RuleId == MigrationRuleIds.TableRewrite);
     }
 
     [SkippableFact]

@@ -54,8 +54,10 @@ public static class QueryPlanAnalysisEngine
             if (HasFilterOnScan(node))
                 findings.Add(BuildScanWithFilterFinding(node, dialect));
 
+            // A conversion whose table the plan does not name (a table variable) has no finding to hang on.
             foreach (var conversion in (node.Conversions ?? []).Distinct())
-                findings.Add(BuildConversionFinding(node, conversion, dialect));
+                if ((conversion.Table ?? node.Relation) is { } table)
+                    findings.Add(BuildConversionFinding(table, conversion, dialect));
         }
 
         if (!executed)
@@ -349,9 +351,8 @@ public static class QueryPlanAnalysisEngine
     /// SQL Server says the conversion affects the seek plan: derived. PostgreSQL shows only the cast in
     /// a sequential scan's filter, which an expression index could still serve: inferred.
     /// </summary>
-    private static Finding BuildConversionFinding(QueryPlanNode node, PlanConversion conversion, DatabaseDialect dialect)
+    private static Finding BuildConversionFinding(string table, PlanConversion conversion, DatabaseDialect dialect)
     {
-        var table = conversion.Table ?? node.Relation ?? node.NodeType;
         var reported = dialect == DatabaseDialect.SqlServer;
         var unicode = conversion.ToType.StartsWith("nvarchar", StringComparison.OrdinalIgnoreCase)
             || conversion.ToType.StartsWith("nchar", StringComparison.OrdinalIgnoreCase);
@@ -375,11 +376,7 @@ public static class QueryPlanAnalysisEngine
                       "or HasColumnType(\"varchar(n)\"), and a hand-written parameter a DbType of AnsiString."
                     : "."),
             SqlFix:     null,
-            Metadata:   new Dictionary<string, object>
-            {
-                ["toType"] = conversion.ToType,
-                ["nodeType"] = node.NodeType,
-            });
+            Metadata:   new Dictionary<string, object> { ["toType"] = conversion.ToType });
     }
 
     private static QueryPlanSummary BuildSummary(

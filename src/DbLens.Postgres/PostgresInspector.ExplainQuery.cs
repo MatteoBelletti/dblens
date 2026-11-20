@@ -73,17 +73,20 @@ public sealed partial class PostgresInspector
                 ? (returned + removed) * (loops ?? 1)
                 : null,
             Conversions: kind == QueryPlanNodeKind.TableScan
-                ? CastColumns(GetString(e, "Filter"), GetString(e, "Schema") is { } schema ? $"{schema}.{GetString(e, "Relation Name")}" : null)
+                ? CastColumns(GetString(e, "Filter"), GetString(e, "Alias"),
+                    GetString(e, "Schema") is { } schema ? $"{schema}.{GetString(e, "Relation Name")}" : null)
                 : null);
     }
 
     private static readonly HashSet<string> TypeWords = ["with", "without", "time", "zone", "precision", "varying"];
 
     /// <summary>
-    /// Columns a filter casts, "(total)::numeric" or "(t.created_at)::timestamp with time zone". A cast
-    /// to text is left out: varchar to text costs nothing and an index on varchar still serves it.
+    /// Columns of the scanned relation a filter casts, "(total)::numeric" or "(t.created_at)::timestamp
+    /// with time zone". A cast of another relation's column (a correlated or join value, qualified by
+    /// its alias) is not this scan's. A cast to text is left out: varchar to text costs nothing and an
+    /// index on varchar still serves it.
     /// </summary>
-    private static List<PlanConversion>? CastColumns(string? filter, string? table)
+    private static List<PlanConversion>? CastColumns(string? filter, string? alias, string? table)
     {
         if (filter is null) return null;
 
@@ -97,6 +100,7 @@ public sealed partial class PostgresInspector
             if (!IsName(t[j])) continue;
             while (j >= 2 && t[j - 1].Source == "." && IsName(t[j - 2])) j -= 2;
             if (j < 1 || t[j - 1].Source != "(" || (j >= 2 && IsName(t[j - 2]))) continue;
+            if (j < i - 1 && t[i - 3].Text != alias) continue;
 
             var type = t[i + 3].Text.ToLowerInvariant();
             for (var k = i + 4; k < t.Count && t[k].Kind == SqlTokenKind.Word && TypeWords.Contains(t[k].Text.ToLowerInvariant()); k++)
