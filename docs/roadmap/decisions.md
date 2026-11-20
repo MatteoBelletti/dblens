@@ -70,7 +70,7 @@ Spellings of one store type are normalised before comparing (`int4` and `integer
 `datetime2(7)`, `timestamptz(3)` and `timestamp(3) with time zone`, `rowversion` and `timestamp`), so
 the real `dotnet ef` schemas of the EF fixtures report no drift on either engine.
 
-## Phase 3: the `ef` agent (0.7.0)
+## Phase 3: the `ef` agent (unreleased)
 
 The EF golden set is the demo's `shop` schema (`db/*/04-shop.sql`): the first migration of
 `samples/DemoShop.EfCore`, then the drift the EF tests expect, a hotfix row in
