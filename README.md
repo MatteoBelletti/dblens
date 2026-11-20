@@ -58,7 +58,8 @@ server with `dnx`) and dynamic workflows enabled in `/config`.
 
 Then `/dblens:setup` checks the connection and runs a first audit; `/dblens:audit` runs one with
 `dialect`, `outDir` and `runLabel`, and optionally `schema`, `efSnapshot` (an EF Core migrations
-snapshot), `queriesFile` (SQL to plan) and `privacy`. Set the connection strings in the
+snapshot), `efScript` (lets it script the pending migrations with `dotnet ef`, which builds the
+project), `queriesFile` (SQL to plan) and `privacy`. Set the connection strings in the
 plugin's settings, never in the chat. Keep one registration: if `dblens` was also added with
 `claude mcp add`, remove one of the two.
 

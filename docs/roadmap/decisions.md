@@ -97,3 +97,17 @@ Critical `migration-destructive` on `shop.users.date_of_birth`. That run found a
 an index on `shop.payments`, which the script itself creates, was weighed against the demo's
 `public.payments`. A qualified name missing from the catalog no longer falls back to a table of the
 same name in another schema.
+
+## Phase 4: distribution (unreleased)
+
+The marketplace (`.claude-plugin/marketplace.json`, source `./plugins/dblens`) and the README's
+"Claude Code plugin (optional)" section came with Phase 1. Instead of writing the tag's version into
+`plugin.json`, `release.yml` refuses a tag whose version the plugin, its `DbLens.Mcp@` pin and
+`server.json` do not already carry (`ReleaseVersionTests` checks the same in CI): master never pins
+a package NuGet does not list.
+
+Smoke test on 2026-11-20, each in an empty Claude Code configuration: `claude plugin install dblens
+--marketplace <repository>` installs it and `claude mcp list` shows `plugin:dblens:dblens` connected;
+`claude mcp add dblens -- dnx DbLens.Mcp@0.6.0 --yes`, without the plugin, connects too, and
+`get_schema` and `analyze_indexes` on `public` return the demo's 12 tables and 9 `fk-without-index`.
+The `.mcpb` in Claude Desktop is not covered: there is no desktop in the cloud container.
