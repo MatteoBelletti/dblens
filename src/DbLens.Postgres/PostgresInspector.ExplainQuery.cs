@@ -104,8 +104,10 @@ public sealed partial class PostgresInspector
             if (j < i - 1 && t[i - 3].Text != alias) continue;
 
             var type = t[i + 3].Text.ToLowerInvariant();
-            for (var k = i + 4; k < t.Count && t[k].Kind == SqlTokenKind.Word && TypeWords.Contains(t[k].Text.ToLowerInvariant()); k++)
+            var k = i + 4;
+            for (; k < t.Count && t[k].Kind == SqlTokenKind.Word && TypeWords.Contains(t[k].Text.ToLowerInvariant()); k++)
                 type += " " + t[k].Text.ToLowerInvariant();
+            if (k + 1 < t.Count && t[k].Source == "[" && t[k + 1].Source == "]") type += "[]";
             if (type != "text") found.Add(new PlanConversion(table, t[i - 1].Text, type));
         }
 

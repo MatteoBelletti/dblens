@@ -54,11 +54,12 @@ public static class QueryPlanAnalysisEngine
             if (HasFilterOnScan(node))
                 findings.Add(BuildScanWithFilterFinding(node, dialect));
 
-            // A conversion whose table the plan does not name (a table variable) has no finding to hang on.
-            foreach (var conversion in (node.Conversions ?? []).Distinct())
-                if (conversion.Table is { } table)
-                    findings.Add(BuildConversionFinding(table, conversion, dialect));
         }
+
+        // One per column and type, however many scans (aliases, partitions) convert it. A conversion whose
+        // table the plan does not name (a table variable) has no finding to hang on.
+        foreach (var conversion in nodes.SelectMany(n => n.Conversions ?? []).Where(c => c.Table is not null).Distinct())
+            findings.Add(BuildConversionFinding(conversion.Table!, conversion, dialect));
 
         if (!executed)
             caveats.Add(
@@ -70,6 +71,9 @@ public static class QueryPlanAnalysisEngine
 
         if (split.TruncationCaveat(hint: null) is { } truncation)
             caveats.Add(truncation);
+
+        if (split.SignalCaveat() is { } signalCaveat)
+            caveats.Add(signalCaveat);
 
         return Build(split, executed, planText, root, caveats,
             nodes.Count, root.EstimatedCost, root.ActualTimeMs);

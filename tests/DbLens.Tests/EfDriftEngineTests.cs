@@ -93,6 +93,19 @@ public sealed class EfDriftEngineTests
     }
 
     [Fact]
+    public void AComputedColumn_TakesItsTypeAndNullabilityFromItsExpression()
+    {
+        var entity = new EfEntity("Order", "public", "orders",
+            [new EfProperty("Id", "long", "id", null, false), new EfProperty("Total", "decimal", "total", "decimal(18,2)", false)],
+            ["Id"], [], []);
+        var efModel = new EfModel("ShopContext", null, "public", [entity], [], []);
+        var table = Table("orders", [Col("id", "bigint", nullable: false), Col("total", "decimal(37,4)") with { IsGenerated = true }]);
+
+        Analyze(efModel, [], EfModelMatcher.Match(efModel, [table], "public")).Findings
+            .Should().NotContain(f => f.RuleId == EfRuleIds.ColumnType || f.RuleId == EfRuleIds.ColumnNullability);
+    }
+
+    [Fact]
     public void AStringKey_IsRequired_ThoughTheSnapshotDoesNotSaySo()
     {
         var entity = new EfEntity("User", "public", "users", [new EfProperty("Id", "string", "id", "text", true)], ["Id"], [], []);

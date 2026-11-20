@@ -62,14 +62,16 @@ public sealed class QueryPlanAnalysisTests
         DatabaseDialect dialect, string toType, bool finding)
     {
         PlanConversion conversion = new("dbo.audit_logs", "ip_address", toType);
-        var scan = Node("Index Scan", QueryPlanNodeKind.IndexScan) with { Conversions = [conversion, conversion] };
+        var scan = Node("Index Scan", QueryPlanNodeKind.IndexScan) with { Conversions = [conversion] };
+        var union = Node("Append", QueryPlanNodeKind.Other, children: [scan, scan]);
 
-        var result = Analyze(scan, dialect: dialect);
+        var result = Analyze(union, dialect: dialect);
 
         var match = (finding ? result.Findings : result.Signals)
             .Should().ContainSingle(f => f.RuleId == QueryPlanRuleIds.ImplicitConversion).Subject;
         match.Table.Should().Be("dbo.audit_logs");
         match.Description.Contains("IsUnicode(false)").Should().Be(toType.StartsWith("nvarchar"));
+        result.Caveats.Any(c => c.Contains("signal", StringComparison.OrdinalIgnoreCase)).Should().Be(!finding);
     }
 
     // ── Summary contract ───────────────────────────────────────────────────────
