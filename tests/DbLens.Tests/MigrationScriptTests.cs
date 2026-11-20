@@ -157,6 +157,9 @@ public sealed class MigrationScriptTests
     [InlineData("INSERT INTO [__EFMigrationsHistory] VALUES (N'x', N'8.0')\nIF OBJECT_ID('t') IS NOT NULL EXEC('DROP TABLE t')")]
     [InlineData("IF @v IS NOT NULL EXEC(N'ALTER TABLE [a] ADD x INT; DROP TABLE [orders]; ALTER TABLE [a] DROP CONSTRAINT ' + @v + ';')")]
     [InlineData("IF @v IS NOT NULL EXEC(N'ALTER TABLE [a] DROP CONSTRAINT ' + @w + ';')")]
+    [InlineData("DELETE FROM [__EFMigrationsHistory] WHERE [MigrationId] = N'x' DROP TABLE [dbo].[orders]")]
+    [InlineData("SELECT @v = [d].[name] FROM [sys].[default_constraints] [d] INNER JOIN [sys].[columns] [c] ON 1=1 WHERE 1=1 DROP TABLE orders")]
+    [InlineData("DECLARE @sql nvarchar(max)")]
     public void StatementsOnlyLikeEfBookkeeping_StayUnrecognized(string sql) =>
         Classify(sql, DatabaseDialect.SqlServer).Should().ContainSingle().Which.Kind.Should().Be(MigrationOperationKind.Unknown);
 

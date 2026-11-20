@@ -154,7 +154,7 @@ public static partial class EfDriftEngine
         return commands;
     }
 
-    [System.Text.RegularExpressions.GeneratedRegex(@"^[A-Za-z0-9_]+$")]
+    [System.Text.RegularExpressions.GeneratedRegex(@"^[\p{L}\p{Nd}_]+$")]
     private static partial System.Text.RegularExpressions.Regex ShellWordRx();
 
     // ── Tables, columns, indexes, foreign keys ─────────────────────────────────

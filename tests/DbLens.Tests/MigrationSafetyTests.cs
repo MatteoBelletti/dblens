@@ -73,6 +73,15 @@ public sealed class MigrationSafetyTests
     }
 
     [Fact]
+    public void QualifiedTableInAnotherCase_StillGetsItsSize()
+    {
+        var result = Analyze("CREATE INDEX ix ON Public.Payments (order_id)", Tables(Ctx("payments", rows: 35)));
+
+        OfRule(result, MigrationRuleIds.IndexNotConcurrent).Should().ContainSingle()
+            .Which.Table.Should().Be("public.payments");
+    }
+
+    [Fact]
     public void Classifier_ExtractsSchemaAndTable()
     {
         var s = DdlClassifier.ClassifyOne("ALTER TABLE app.users ADD COLUMN x TEXT");

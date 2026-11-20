@@ -400,12 +400,11 @@ public static class MigrationSafetyEngine
         if (schema is not null && tables.TryGetValue((schema, statement.Table), out var exact))
             return exact;
 
-        // A qualified name that is not in the catalog is a table the script creates, never one elsewhere.
-        if (statement.Schema is not null) return null;
-
-        // Fall back to a unique bare-name match when the statement had no schema prefix.
+        // Otherwise a unique match ignoring case: in that schema when the statement names one (a
+        // qualified table missing from it is one the script creates, never one elsewhere), else anywhere.
         var matches = tables.Values
-            .Where(t => string.Equals(t.Name, statement.Table, StringComparison.OrdinalIgnoreCase))
+            .Where(t => string.Equals(t.Name, statement.Table, StringComparison.OrdinalIgnoreCase)
+                        && (statement.Schema is null || string.Equals(t.Schema, statement.Schema, StringComparison.OrdinalIgnoreCase)))
             .Take(2)
             .ToList();
 

@@ -47,14 +47,21 @@ public static class DdlClassifier
     private static readonly Regex TransactionControlRx =
         new(@"^\s*(?:BEGIN|START\s+TRANSACTION|COMMIT|END)(?:\s+(?:TRAN|TRANSACTION|WORK))?\s*$", Opts);
 
-    // EF Core's bookkeeping in `dotnet ef migrations script`: its history row, and on SQL Server the
-    // variable it reads a column's default constraint name into. Not reported, not counted either.
-    private static readonly Regex EfBookkeepingRx =
+    // EF Core's bookkeeping in `dotnet ef migrations script`, matched whole and in EF's exact shape:
+    // its history row, and on SQL Server the variable it reads a column's default constraint name into.
+    // Not reported, not counted either.
+    private static readonly Regex EfHistoryRowRx =
         new($@"^\s*(?:INSERT\s+INTO\s+(?:{Ident}\s*\.\s*)?{EfHistory}\s*\([^;()]*\)\s*VALUES\s*\((?:[^;()']|'[^']*')*\)" +
-            $@"|DELETE\s+FROM\s+(?:{Ident}\s*\.\s*)?{EfHistory}\s+WHERE\s+[^;()\n]*" +
-            @"|DECLARE\s+@\w+\s+(?:sysname|nvarchar\s*\(\s*max\s*\))" +
-            @"|SELECT\s+@\w+\s*=\s*(?:QUOTENAME\s*\(\s*)?\[d\]\.\[name\]\s*\)?\s+FROM\s+\[sys\]\.\[default_constraints\]\s+\[d\]" +
-            @"\s+INNER\s+JOIN\s+\[sys\]\.\[columns\]\s+\[c\]\s+ON\s+[^;\n]*\s+WHERE\s+[^;\n]*)\s*;?\s*$", Opts);
+            $@"|DELETE\s+FROM\s+(?:{Ident}\s*\.\s*)?{EfHistory}\s+WHERE\s+[\[""]?MigrationId[\]""]?\s*=\s*N?'[^']*')\s*;?\s*$", Opts);
+
+    private static readonly Regex EfDeclareRx =
+        new(@"^\s*DECLARE\s+@(?<var>\w+)\s+(?:sysname|nvarchar\s*\(\s*max\s*\))\s*;?\s*$", Opts);
+
+    private static readonly Regex EfDefaultLookupRx =
+        new(@"^\s*SELECT\s+@(?<var>\w+)\s*=\s*(?:QUOTENAME\s*\(\s*)?\[d\]\.\[name\]\s*\)?\s+FROM\s+\[sys\]\.\[default_constraints\]\s+\[d\]" +
+            @"\s+INNER\s+JOIN\s+\[sys\]\.\[columns\]\s+\[c\]\s+ON\s+\[d\]\.\[parent_column_id\]\s*=\s*\[c\]\.\[column_id\]" +
+            @"\s+AND\s+\[d\]\.\[parent_object_id\]\s*=\s*\[c\]\.\[object_id\]\s+WHERE\s*\(\s*\[d\]\.\[parent_object_id\]\s*=\s*" +
+            @"OBJECT_ID\s*\(\s*N'[^']*'\s*\)\s+AND\s+\[c\]\.\[name\]\s*=\s*N'[^']*'\s*\)\s*;?\s*$", Opts);
 
     private const string EfHistory = @"[\[""]?__EFMigrationsHistory[\]""]?";
 
@@ -141,12 +148,25 @@ public static class DdlClassifier
     private static readonly Regex VolatileDefaultRx =
         new(@"\bDEFAULT\s+(?!NULL\b)(?:[A-Za-z_][A-Za-z0-9_]*\s*\(|NEXT\s+VALUE\s+FOR\b)", Opts);
 
-    public static IReadOnlyList<MigrationStatement> Classify(string ddl, DatabaseDialect dialect) =>
-        [.. Statements(ddl, dialect)
-            .Where(s => !TransactionControlRx.IsMatch(s) && !EfBookkeepingRx.IsMatch(s))
+    public static IReadOnlyList<MigrationStatement> Classify(string ddl, DatabaseDialect dialect)
+    {
+        List<string> statements = [.. Statements(ddl, dialect).Where(s => !TransactionControlRx.IsMatch(s))];
+
+        return [.. statements
+            .Where((s, i) => !IsEfBookkeeping(statements, i))
             .SelectMany(s => EfDropDefaultRx.Match(s) is { Success: true } drop
                 ? [ClassifyOne($"{drop.Groups["alter"].Value}[@{drop.Groups["var"].Value}]") with { RawSql = s.Trim() }]
                 : Expand(s, dialect).Select(ClassifyOne))];
+    }
+
+    // A DECLARE is EF's only when its default-constraint lookup into the same variable comes next.
+    private static bool IsEfBookkeeping(List<string> statements, int i) =>
+        EfHistoryRowRx.IsMatch(statements[i])
+        || EfDefaultLookupRx.IsMatch(statements[i])
+        || (EfDeclareRx.Match(statements[i]) is { Success: true } declare
+            && i + 1 < statements.Count
+            && EfDefaultLookupRx.Match(statements[i + 1]) is { Success: true } lookup
+            && lookup.Groups["var"].Value == declare.Groups["var"].Value);
 
     private static IEnumerable<string> Statements(string ddl, DatabaseDialect dialect)
     {
