@@ -253,7 +253,7 @@ public static partial class EfDriftEngine
         var (property, actual, entity) = (column.Property, column.Column!, column.Entity);
         var where = $"{table.Qualified}.{actual.Name}";
 
-        if (property.ColumnType is { } expected && !SameStoreType(expected, actual.FullDataType))
+        if (property.ColumnType is { } expected && NormalType(expected) != NormalType(actual.FullDataType))
             findings.Add(new Finding(
                 EfRuleIds.ColumnType, Severity.Medium, FindingCategory.Structure, 1.0, Evidence.Derived,
                 table.Qualified, [actual.Name],
@@ -302,8 +302,6 @@ public static partial class EfDriftEngine
     /// Store types as the provider writes them against the catalog's: case, spaces and the aliases the
     /// two spell differently ("int4" and "integer", "datetime2" and "datetime2(7)") are not differences.
     /// </summary>
-    private static bool SameStoreType(string expected, string actual) => NormalType(expected) == NormalType(actual);
-
     private static string NormalType(string type)
     {
         var t = string.Concat(type.ToLowerInvariant().Where(c => !char.IsWhiteSpace(c)));

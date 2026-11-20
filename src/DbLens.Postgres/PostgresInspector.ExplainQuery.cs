@@ -78,7 +78,8 @@ public sealed partial class PostgresInspector
                 : null);
     }
 
-    private static readonly HashSet<string> TypeWords = ["with", "without", "time", "zone", "precision", "varying"];
+    private static readonly HashSet<string> TypeWords =
+        new(["with", "without", "time", "zone", "precision", "varying"], StringComparer.OrdinalIgnoreCase);
 
     /// <summary>
     /// Columns of the scanned relation a filter casts, "(total)::numeric" or "(t.created_at)::timestamp
@@ -103,11 +104,12 @@ public sealed partial class PostgresInspector
             if (j < 1 || t[j - 1].Source != "(" || (j >= 2 && IsName(t[j - 2]))) continue;
             if (j < i - 1 && t[i - 3].Text != alias) continue;
 
-            var type = t[i + 3].Text.ToLowerInvariant();
+            var type = t[i + 3].Text;
             var k = i + 4;
-            for (; k < t.Count && t[k].Kind == SqlTokenKind.Word && TypeWords.Contains(t[k].Text.ToLowerInvariant()); k++)
-                type += " " + t[k].Text.ToLowerInvariant();
+            for (; k < t.Count && t[k].Kind == SqlTokenKind.Word && TypeWords.Contains(t[k].Text); k++)
+                type += " " + t[k].Text;
             if (k + 1 < t.Count && t[k].Source == "[" && t[k + 1].Source == "]") type += "[]";
+            type = type.ToLowerInvariant();
             if (type != "text") found.Add(new PlanConversion(table, t[i - 1].Text, type));
         }
 
