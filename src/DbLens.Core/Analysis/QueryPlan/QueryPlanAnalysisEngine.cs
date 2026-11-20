@@ -72,7 +72,7 @@ public static class QueryPlanAnalysisEngine
         if (split.TruncationCaveat(hint: null) is { } truncation)
             caveats.Add(truncation);
 
-        if (split.SignalCaveat() is { } signalCaveat)
+        if (split.SignalCaveat("a cast in the plan's filter") is { } signalCaveat)
             caveats.Add(signalCaveat);
 
         return Build(split, executed, planText, root, caveats,

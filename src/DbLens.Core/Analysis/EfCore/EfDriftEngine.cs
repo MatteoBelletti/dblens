@@ -181,9 +181,11 @@ public static partial class EfDriftEngine
                 null,
                 Ef(column.Entity.Name, column.Property.Name)));
 
-        // A computed column takes its type and nullability from its expression, not from the model. TPH
-        // subtypes and owned types can map one column more than once: it is compared once.
-        foreach (var column in table.Columns.Where(c => c.Column is { IsGenerated: false } && !c.Ambiguous).DistinctBy(c => c.Column!.Name))
+        // A column the model computes takes its type and nullability from its expression. TPH subtypes and
+        // owned types can map one column more than once: mappings that expect the same are compared once.
+        foreach (var column in table.Columns
+                     .Where(c => c.Column is not null && !c.Ambiguous && !c.Property.IsComputed)
+                     .DistinctBy(c => (c.Column!.Name, c.Property.ColumnType is { } t ? NormalType(t) : null, c.Property.IsNullable)))
             CompareColumn(table, column, findings);
 
         List<IReadOnlyList<string>> modelIndexes = [];
@@ -259,9 +261,9 @@ public static partial class EfDriftEngine
                 $"{Short(entity.Name)}.{property.Name} is mapped to {expected}. A shorter or narrower column truncates or " +
                 "rejects what the code writes; a wider one hides a migration that never ran. EF compares the model with " +
                 "its snapshot, never with the database, so no migration will correct it: alter the column by hand, or " +
-                $"map the property with HasColumnType(\"{actual.FullDataType}\") if the database is right.",
+                "map the property to the database's type if the database is right.",
                 null,
-                Ef(entity.Name, property.Name)));
+                Ef(entity.Name, property.Name, $"b.Property(e => e.{property.Name}).HasColumnType(\"{actual.FullDataType}\")")));
 
         // A snapshot writes no IsRequired() for a key property: a string key reads as nullable, and is not.
         var nullable = property.IsNullable && !entity.Key.Contains(property.Name);
@@ -288,8 +290,8 @@ public static partial class EfDriftEngine
             : $"{existing} on {table.Qualified} is unique; the model does not say so",
         index.IsUnique
             ? $"{Short(entity.Name)} relies on ({string.Join(", ", columns)}) being unique, but the database does not enforce " +
-              "it: duplicates can already be there, and the migration that adds the unique index fails on them. Find " +
-              "and resolve them, then make the index unique in the database."
+              "it: duplicates can already be there. EF sees the index as unique in its snapshot, so no migration will " +
+              "change it: find and resolve the duplicates, then make the index unique in the database by hand."
             : $"The database enforces uniqueness the model does not know: an insert EF expects to succeed can fail. " +
               "EF compares the model with its snapshot, not the database, so no migration will change it.",
         null,

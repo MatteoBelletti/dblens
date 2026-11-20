@@ -92,17 +92,37 @@ public sealed class EfDriftEngineTests
             .Should().Be(drift);
     }
 
-    [Fact]
-    public void AComputedColumn_TakesItsTypeAndNullabilityFromItsExpression()
+    [Theory]
+    [InlineData(true, false)]
+    [InlineData(false, true)]
+    public void AColumnTheModelComputes_TakesItsTypeAndNullabilityFromItsExpression(bool modelComputes, bool drift)
     {
         var entity = new EfEntity("Order", "public", "orders",
-            [new EfProperty("Id", "long", "id", null, false), new EfProperty("Total", "decimal", "total", "decimal(18,2)", false)],
+            [new EfProperty("Id", "long", "id", null, false),
+             new EfProperty("Total", "decimal", "total", "decimal(18,2)", false, IsComputed: modelComputes)],
             ["Id"], [], []);
         var efModel = new EfModel("ShopContext", null, "public", [entity], [], []);
         var table = Table("orders", [Col("id", "bigint", nullable: false), Col("total", "decimal(37,4)") with { IsGenerated = true }]);
 
         Analyze(efModel, [], EfModelMatcher.Match(efModel, [table], "public")).Findings
-            .Should().NotContain(f => f.RuleId == EfRuleIds.ColumnType || f.RuleId == EfRuleIds.ColumnNullability);
+            .Any(f => f.RuleId is EfRuleIds.ColumnType or EfRuleIds.ColumnNullability).Should().Be(drift,
+                "a column computed by hand while the model writes it is drift");
+    }
+
+    [Fact]
+    public void HasComputedColumnSql_IsRead()
+    {
+        var model = Parse("""
+            modelBuilder.Entity("Shop.Order", b =>
+            {
+                b.Property<long>("Id").HasColumnType("bigint");
+                b.Property<decimal>("Total").HasColumnType("numeric(18,2)").HasComputedColumnSql("qty * price", stored: true);
+                b.HasKey("Id");
+                b.ToTable("orders");
+            });
+            """);
+
+        model.Entities.Single().Properties.Single(p => p.Name == "Total").IsComputed.Should().BeTrue();
     }
 
     [Fact]

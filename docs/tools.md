@@ -235,7 +235,7 @@ names yield one statement each. `BEGIN` / `COMMIT` are skipped.
 | `plan-nested-loop-large-input` | Medium | A nested loop driven by more than 10 000 outer rows |
 | `plan-sort-spilled-to-disk` | Medium | A sort or hash that did not fit in memory |
 | `plan-scan-with-filter` | Low | A predicate applied after reading every row |
-| `plan-implicit-conversion` | Medium | A column converted to another type to be compared with a parameter or literal, so an index on it cannot be used. SQL Server reports it (`PlanAffectingConvert`, a finding); on PostgreSQL it is read from a cast in a sequential scan's filter (a signal: an expression index could still serve it), casts to `text` aside. An `nvarchar` conversion names the EF fix, `IsUnicode(false)` |
+| `plan-implicit-conversion` | Medium | A column converted to another type to be compared with a parameter or literal, so an index on it cannot be used. SQL Server reports it (`PlanAffectingConvert`, a finding); on PostgreSQL it is read from a cast in a sequential scan's filter (a signal: an expression index could still serve it), casts to `text` aside (array casts such as `text[]` are reported). An `nvarchar` conversion names the EF fix, `IsUnicode(false)` |
 
 With `analyze: false` nothing runs and every row count is an optimizer estimate; any single statement
 is accepted, a write included, but a second statement after `;` is rejected. With `analyze: true`
@@ -533,7 +533,10 @@ text, never compiled**: no project is built and none of the user's code runs.
 | `ef-fk-missing` | Medium | A relationship in the model with no foreign key in the database |
 | `ef-index-uniqueness` | High / Low | A `HasIndex` whose index is unique on one side only: High when the model declares it unique and the database does not enforce it |
 | `ef-column-type` | Medium | A column whose store type differs from the model's `HasColumnType` (length, precision, kind); spellings of one type (`int4` and `integer`, `datetime2` and `datetime2(7)`) are not differences |
-| `ef-column-nullability` | Medium | A column nullable on one side and required on the other |
+| `ef-column-nullability` | Medium | A column nullable on one side and required on the other (a key property is required) |
+
+Neither column rule compares a property the model computes (`HasComputedColumnSql`); a column several
+entities map (TPH subtypes, owned types) is compared once per distinct expectation.
 | `ef-unmapped-table` | Info | A table in a compared schema that no entity maps (the migrations history, temporal history tables and the tables of mappings not compared excluded) |
 | `ef-drift-summary` | Info | Always exactly one |
 

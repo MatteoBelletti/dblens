@@ -63,7 +63,9 @@ public sealed record EfProperty(
     int? MaxLength = null,
     bool? IsUnicode = null,
     int? Precision = null,
-    int? Scale = null);
+    int? Scale = null,
+    /// <summary>HasComputedColumnSql: the database derives its type and nullability from the expression.</summary>
+    bool IsComputed = false);
 
 public sealed record EfIndex(
     /// <summary>Property names, in key order.</summary>
