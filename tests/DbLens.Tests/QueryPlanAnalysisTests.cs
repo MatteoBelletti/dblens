@@ -55,6 +55,23 @@ public sealed class QueryPlanAnalysisTests
     private static IEnumerable<Finding> OfRule(ExplainQueryResult r, string ruleId) =>
         r.Findings.Where(f => f.RuleId == ruleId);
 
+    [Theory]
+    [InlineData(DatabaseDialect.SqlServer, "nvarchar(45)", true)]
+    [InlineData(DatabaseDialect.PostgreSql, "numeric", false)]
+    public void ImplicitConversion_IsAFindingWhereTheEngineReportsIt_ASignalWhereItIsRead(
+        DatabaseDialect dialect, string toType, bool finding)
+    {
+        PlanConversion conversion = new("dbo.audit_logs", "ip_address", toType);
+        var scan = Node("Index Scan", QueryPlanNodeKind.IndexScan) with { Conversions = [conversion, conversion] };
+
+        var result = Analyze(scan, dialect: dialect);
+
+        var match = (finding ? result.Findings : result.Signals)
+            .Should().ContainSingle(f => f.RuleId == QueryPlanRuleIds.ImplicitConversion).Subject;
+        match.Table.Should().Be("dbo.audit_logs");
+        match.Description.Contains("IsUnicode(false)").Should().Be(toType.StartsWith("nvarchar"));
+    }
+
     // ── Summary contract ───────────────────────────────────────────────────────
 
     [Fact]

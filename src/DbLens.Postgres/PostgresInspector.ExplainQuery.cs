@@ -1,5 +1,7 @@
 using System.Text.Json;
+using DbLens.Core.Analysis;
 using DbLens.Core.Analysis.QueryPlan;
+using DbLens.Core.Models;
 
 namespace DbLens.Postgres;
 
@@ -51,10 +53,11 @@ public sealed partial class PostgresInspector
                 children.Add(ParseNode(child));
 
         var loops = GetDouble(e, "Actual Loops");
+        var kind = MapKind(nodeType);
 
         return new QueryPlanNode(
             NodeType: nodeType,
-            Kind: MapKind(nodeType),
+            Kind: kind,
             Relation: GetString(e, "Relation Name"),
             IndexName: GetString(e, "Index Name"),
             EstimatedRows: GetDouble(e, "Plan Rows") ?? 0,
@@ -68,7 +71,42 @@ public sealed partial class PostgresInspector
             // Both figures are per-loop averages.
             RowsRead: GetDouble(e, "Actual Rows") is { } returned && GetDouble(e, "Rows Removed by Filter") is { } removed
                 ? (returned + removed) * (loops ?? 1)
+                : null,
+            Conversions: kind == QueryPlanNodeKind.TableScan
+                ? CastColumns(GetString(e, "Filter"), GetString(e, "Schema") is { } schema ? $"{schema}.{GetString(e, "Relation Name")}" : null)
                 : null);
+    }
+
+    private static readonly HashSet<string> TypeWords = ["with", "without", "time", "zone", "precision", "varying"];
+
+    /// <summary>
+    /// Columns a filter casts, "(total)::numeric" or "(t.created_at)::timestamp with time zone". A cast
+    /// to text is left out: varchar to text costs nothing and an index on varchar still serves it.
+    /// </summary>
+    private static List<PlanConversion>? CastColumns(string? filter, string? table)
+    {
+        if (filter is null) return null;
+
+        var t = SqlText.Tokens(filter, DatabaseDialect.PostgreSql).Where(k => k.Kind != SqlTokenKind.Space).ToList();
+        List<PlanConversion> found = [];
+        for (var i = 1; i + 3 < t.Count; i++)
+        {
+            if (t[i].Source != ")" || t[i + 1].Source != ":" || t[i + 2].Source != ":" || t[i + 3].Kind != SqlTokenKind.Word) continue;
+
+            var j = i - 1;
+            if (!IsName(t[j])) continue;
+            while (j >= 2 && t[j - 1].Source == "." && IsName(t[j - 2])) j -= 2;
+            if (j < 1 || t[j - 1].Source != "(" || (j >= 2 && IsName(t[j - 2]))) continue;
+
+            var type = t[i + 3].Text.ToLowerInvariant();
+            for (var k = i + 4; k < t.Count && t[k].Kind == SqlTokenKind.Word && TypeWords.Contains(t[k].Text.ToLowerInvariant()); k++)
+                type += " " + t[k].Text.ToLowerInvariant();
+            if (type != "text") found.Add(new PlanConversion(table, t[i - 1].Text, type));
+        }
+
+        return found.Count == 0 ? null : found;
+
+        static bool IsName(SqlToken token) => token.Kind is SqlTokenKind.Word or SqlTokenKind.QuotedIdentifier;
     }
 
     private static QueryPlanNodeKind MapKind(string nodeType) => nodeType switch

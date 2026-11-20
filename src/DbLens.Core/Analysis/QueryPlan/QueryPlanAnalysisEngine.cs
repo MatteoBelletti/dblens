@@ -53,6 +53,9 @@ public static class QueryPlanAnalysisEngine
 
             if (HasFilterOnScan(node))
                 findings.Add(BuildScanWithFilterFinding(node, dialect));
+
+            foreach (var conversion in (node.Conversions ?? []).Distinct())
+                findings.Add(BuildConversionFinding(node, conversion, dialect));
         }
 
         if (!executed)
@@ -338,6 +341,43 @@ public static class QueryPlanAnalysisEngine
             Metadata:   new Dictionary<string, object>
             {
                 ["filter"] = node.Filter!,
+                ["nodeType"] = node.NodeType,
+            });
+    }
+
+    /// <summary>
+    /// SQL Server says the conversion affects the seek plan: derived. PostgreSQL shows only the cast in
+    /// a sequential scan's filter, which an expression index could still serve: inferred.
+    /// </summary>
+    private static Finding BuildConversionFinding(QueryPlanNode node, PlanConversion conversion, DatabaseDialect dialect)
+    {
+        var table = conversion.Table ?? node.Relation ?? node.NodeType;
+        var reported = dialect == DatabaseDialect.SqlServer;
+        var unicode = conversion.ToType.StartsWith("nvarchar", StringComparison.OrdinalIgnoreCase)
+            || conversion.ToType.StartsWith("nchar", StringComparison.OrdinalIgnoreCase);
+
+        return new Finding(
+            RuleId:     QueryPlanRuleIds.ImplicitConversion,
+            Severity:   Severity.Medium,
+            Category:   FindingCategory.Performance,
+            Confidence: reported ? 0.9 : 0.6,
+            Evidence:   reported ? Evidence.Derived : Evidence.Inferred,
+            Table:      table,
+            Columns:    [conversion.Column],
+            Title:      $"{table}.{conversion.Column} is converted to {conversion.ToType} before it is compared",
+            Description:
+                (reported
+                    ? "SQL Server reports that this conversion affects the seek plan: an index on the column cannot be sought. "
+                    : "The column is cast inside the filter of a sequential scan, so a plain index on it cannot serve the comparison. ") +
+                "The value it is compared with has another type. Give the parameter or literal the column's type" +
+                (unicode
+                    ? ": a .NET string is sent as nvarchar, so an EF property on a varchar column needs IsUnicode(false) " +
+                      "or HasColumnType(\"varchar(n)\"), and a hand-written parameter a DbType of AnsiString."
+                    : "."),
+            SqlFix:     null,
+            Metadata:   new Dictionary<string, object>
+            {
+                ["toType"] = conversion.ToType,
                 ["nodeType"] = node.NodeType,
             });
     }

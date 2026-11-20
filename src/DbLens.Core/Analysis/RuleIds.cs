@@ -53,9 +53,10 @@ public static class QueryPlanRuleIds
     public const string NestedLoopLargeInput = "plan-nested-loop-large-input";
     public const string SortSpilledToDisk  = "plan-sort-spilled-to-disk";
     public const string ScanWithFilter     = "plan-scan-with-filter";
+    public const string ImplicitConversion = "plan-implicit-conversion";
 
     public static readonly string[] All =
-        [SeqScanLargeTable, EstimateMismatch, NestedLoopLargeInput, SortSpilledToDisk, ScanWithFilter];
+        [SeqScanLargeTable, EstimateMismatch, NestedLoopLargeInput, SortSpilledToDisk, ScanWithFilter, ImplicitConversion];
 }
 
 public static class MigrationRuleIds

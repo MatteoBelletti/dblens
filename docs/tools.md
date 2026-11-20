@@ -235,6 +235,7 @@ names yield one statement each. `BEGIN` / `COMMIT` are skipped.
 | `plan-nested-loop-large-input` | Medium | A nested loop driven by more than 10 000 outer rows |
 | `plan-sort-spilled-to-disk` | Medium | A sort or hash that did not fit in memory |
 | `plan-scan-with-filter` | Low | A predicate applied after reading every row |
+| `plan-implicit-conversion` | Medium | A column converted to another type to be compared with a parameter or literal, so an index on it cannot be used. SQL Server reports it (`PlanAffectingConvert`, a finding); on PostgreSQL it is read from a cast in a sequential scan's filter (a signal: an expression index could still serve it), casts to `text` aside. An `nvarchar` conversion names the EF fix, `IsUnicode(false)` |
 
 With `analyze: false` nothing runs and every row count is an optimizer estimate; any single statement
 is accepted, a write included, but a second statement after `;` is rejected. With `analyze: true`
@@ -477,7 +478,7 @@ cache, temp pages, and the tables it names.
 | `hot-query-reads-per-row` | Medium | Measured | More than 100 pages read per row returned, over at least 2 calls |
 | `hot-query-disk-reads` | Low | Measured | 20% or more of 1,000+ pages read outside the database's cache (on PostgreSQL, possibly from the OS cache) |
 | `hot-query-temp-spill` | Medium | Measured | Pages written to temporary files; on SQL Server tempdb space, temp tables included |
-| `plan-*` of [`explain_query`](#explain_query) | as there | Derived | On the plan of the first 10, each with `Metadata["queryId"]` |
+| `plan-*` of [`explain_query`](#explain_query) | as there | as there | On the plan of the first 10, each with `Metadata["queryId"]` |
 | `join-fanout` | Medium | Inferred → Measured | A parent joined to two 1:N children in one query |
 | `hot-query-summary` | Info | Derived | Always one: source, window covered, plans read |
 
