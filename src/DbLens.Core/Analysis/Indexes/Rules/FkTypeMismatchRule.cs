@@ -61,13 +61,16 @@ public static class FkTypeMismatchRule
     private static bool IsNarrower(ColumnDetail child, ColumnDetail key)
     {
         if (IntegerRank(child.DataType) is { } c && IntegerRank(key.DataType) is { } k) return c < k;
+        if (IsString(child.DataType) && IsString(key.DataType))
+            return child.CharacterMaxLength is { } length && !(key.CharacterMaxLength <= length);
         if (!string.Equals(child.DataType, key.DataType, StringComparison.OrdinalIgnoreCase)) return false;
-        return child.CharacterMaxLength < key.CharacterMaxLength
-            || (key.CharacterMaxLength is null && child.CharacterMaxLength is not null)
-            || (key.NumericPrecision is null && child.NumericPrecision is not null)
+        return (key.NumericPrecision is null && child.NumericPrecision is not null)
             || child.NumericPrecision - child.NumericScale < key.NumericPrecision - key.NumericScale
             || child.NumericScale < key.NumericScale;
     }
+
+    private static bool IsString(string type) => type.ToLowerInvariant() is
+        "text" or "character varying" or "character" or "varchar" or "char" or "bpchar" or "nvarchar" or "nchar";
 
     private static int? IntegerRank(string type) => type.ToLowerInvariant() switch
     {

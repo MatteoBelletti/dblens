@@ -83,8 +83,9 @@ public sealed partial class PostgresInspector
     /// <summary>
     /// Columns of the scanned relation a filter casts, "(total)::numeric" or "(t.created_at)::timestamp
     /// with time zone". A cast of another relation's column (a correlated or join value, qualified by
-    /// its alias) is not this scan's. A cast to text is left out: varchar to text costs nothing and an
-    /// index on varchar still serves it.
+    /// its alias) is not this scan's. A cast to text is left out: PostgreSQL casts only varchar and char
+    /// to text implicitly (a uuid or integer compared with text is an error), which costs nothing and
+    /// keeps an index on the column usable.
     /// </summary>
     private static List<PlanConversion>? CastColumns(string? filter, string? alias, string? table)
     {

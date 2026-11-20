@@ -22,7 +22,7 @@ public enum QueryPlanNodeKind
 
 /// <summary>
 /// A column the plan converts to <paramref name="ToType"/> to compare it: a parameter or literal of
-/// another type. <paramref name="Table"/> is "schema.table" when the plan names it, else the node's relation.
+/// another type. <paramref name="Table"/> is "schema.table"; null when the plan does not name it.
 /// </summary>
 public sealed record PlanConversion(string? Table, string Column, string ToType);
 

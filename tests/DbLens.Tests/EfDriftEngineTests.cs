@@ -79,6 +79,8 @@ public sealed class EfDriftEngineTests
     [InlineData("timestamptz(3)", "timestamp(3) with time zone", false)]
     [InlineData("time", "time without time zone", false)]
     [InlineData("timestamp(3)", "timestamp(6) without time zone", true)]
+    [InlineData("serial", "integer", false)]
+    [InlineData("int4[]", "integer[]", false)]
     public void StoreTypes_DifferOnlyInWhatTheyHold_NotInHowTheyAreSpelt(string model, string database, bool drift)
     {
         var entity = new EfEntity("Order", "public", "orders",
@@ -118,6 +120,22 @@ public sealed class EfDriftEngineTests
 
         Analyze(efModel, [], EfModelMatcher.Match(efModel, [table], "public")).Findings.Any(f => f.RuleId == EfRuleIds.IndexUniqueness)
             .Should().Be(drift);
+    }
+
+    [Fact]
+    public void AUniqueConstraint_TheModelDoesNotKnow_IsReported()
+    {
+        var entity = new EfEntity("User", "public", "users",
+            [new EfProperty("Id", "long", "id", null, false), new EfProperty("Email", "string", "email", null, false)],
+            ["Id"], [new EfIndex(["Email"], null, IsUnique: false, null)], []);
+        var efModel = new EfModel("ShopContext", null, "public", [entity], [], []);
+        var table = Table("users", [Col("id", "bigint", nullable: false), Col("email", nullable: false)]) with
+        {
+            UniqueConstraints = [new UniqueConstraintDetail("uq_email", ["email"])],
+        };
+
+        Analyze(efModel, [], EfModelMatcher.Match(efModel, [table], "public")).Findings
+            .Should().ContainSingle(f => f.RuleId == EfRuleIds.IndexUniqueness).Which.Severity.Should().Be(Severity.Low);
     }
 
     [Fact]

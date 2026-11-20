@@ -5,6 +5,7 @@ using DbLens.Core.Analysis.Denormalization;
 using DbLens.Core.Analysis.Fragmentation;
 using DbLens.Core.Analysis.Gdpr;
 using DbLens.Core.Analysis.Indexes;
+using DbLens.Core.Models;
 using DbLens.Core.Analysis.Migration;
 using DbLens.Core.Analysis.QueryPlan;
 using Microsoft.Extensions.Logging;
@@ -101,8 +102,9 @@ public abstract partial class DatabaseInspectorBase
                 }
             }
 
-            // fk-type-mismatch compares with the referenced key, which may be outside the scope.
-            var outside = details.Tables.SelectMany(t => t.ForeignKeysOutgoing)
+            // fk-type-mismatch compares with the referenced key, which may be outside the scope. SQL Server
+            // refuses a foreign key of another type (Msg 1753, 1778): nothing to read there.
+            var outside = Dialect == DatabaseDialect.SqlServer ? [] : details.Tables.SelectMany(t => t.ForeignKeysOutgoing)
                 .Select(fk => (fk.ToSchema, fk.ToTable)).Distinct()
                 .Where(r => !details.Tables.Any(t => (t.Schema, t.Name) == r))
                 .Select(r => new ParsedName(r.ToSchema, r.ToTable, $"{r.ToSchema}.{r.ToTable}")).ToList();

@@ -6,7 +6,7 @@ namespace DbLens.Core.Analysis.EfCore;
 /// <summary>
 /// What the database holds that the EF model does not know, and the reverse. Pure. Every finding
 /// is derived from the catalog and the snapshot; each names the entity and property to touch in
-/// <c>Metadata["ef"]</c>. Column types, lengths and nullability are not compared here.
+/// <c>Metadata["ef"]</c>. Index filters and defaults are not compared here.
 /// </summary>
 public static partial class EfDriftEngine
 {
@@ -191,13 +191,17 @@ public static partial class EfDriftEngine
                 if (EfModelMatcher.ColumnsOf(table, entity.Name, index.Properties) is not { } columns) continue;
                 modelIndexes.Add(columns);
 
-                if (detail.UniqueConstraints.Any(u => SameColumns(u.Columns, columns))
-                    || (detail.PrimaryKey is { } pk && SameColumns(pk.Columns, columns))) continue;
+                if (detail.PrimaryKey is { } pk && SameColumns(pk.Columns, columns)) continue;
+                if (detail.UniqueConstraints.FirstOrDefault(u => SameColumns(u.Columns, columns)) is { } constraint)
+                {
+                    if (!index.IsUnique) findings.Add(Uniqueness(table, entity, index, constraint.Name, columns));
+                    continue;
+                }
                 var existing = detail.Indexes.Where(i => SameColumns(i.Columns, columns)).ToList();
                 if (existing.Count > 0)
                 {
                     if (!existing.Any(i => i.IsUnique == index.IsUnique))
-                        findings.Add(Uniqueness(table, entity, index, existing[0], columns));
+                        findings.Add(Uniqueness(table, entity, index, existing[0].Name, columns));
                     continue;
                 }
 
@@ -272,19 +276,22 @@ public static partial class EfDriftEngine
                 Ef(entity.Name, property.Name, actual.IsNullable ? null : $"b.Property(e => e.{property.Name}).IsRequired()")));
     }
 
-    private static Finding Uniqueness(EfTableMatch table, EfEntity entity, EfIndex index, IndexDetail existing, IReadOnlyList<string> columns) => new(
+    /// <param name="existing">The index or unique constraint on those columns.</param>
+    private static Finding Uniqueness(EfTableMatch table, EfEntity entity, EfIndex index, string existing, IReadOnlyList<string> columns) => new(
         EfRuleIds.IndexUniqueness, index.IsUnique ? Severity.High : Severity.Low, FindingCategory.Structure, 1.0, Evidence.Derived,
         table.Qualified, columns,
         index.IsUnique
-            ? $"Index {existing.Name} on {table.Qualified} is not unique; the model declares it unique"
-            : $"Index {existing.Name} on {table.Qualified} is unique; the model does not say so",
+            ? $"Index {existing} on {table.Qualified} is not unique; the model declares it unique"
+            : $"{existing} on {table.Qualified} is unique; the model does not say so",
         index.IsUnique
             ? $"{Short(entity.Name)} relies on ({string.Join(", ", columns)}) being unique, but the database does not enforce " +
-              "it: duplicates can already be there, and the migration that adds the unique index fails on them."
+              "it: duplicates can already be there, and the migration that adds the unique index fails on them. Find " +
+              "and resolve them, then make the index unique in the database."
             : $"The database enforces uniqueness the model does not know: an insert EF expects to succeed can fail, and " +
               "the next migration may drop the constraint.",
         null,
-        Ef(entity.Name, fluent: $"b.HasIndex({Lambda(index.Properties)}){(existing.IsUnique ? ".IsUnique()" : "")}"));
+        // The model is right where it asks for uniqueness: the database is what changes.
+        Ef(entity.Name, fluent: index.IsUnique ? null : $"b.HasIndex({Lambda(index.Properties)}).IsUnique()"));
 
     /// <summary>
     /// Store types as the provider writes them against the catalog's: case, spaces and the aliases the
@@ -295,6 +302,7 @@ public static partial class EfDriftEngine
     private static string NormalType(string type)
     {
         var t = string.Concat(type.ToLowerInvariant().Where(c => !char.IsWhiteSpace(c)));
+        if (t.EndsWith("[]", StringComparison.Ordinal)) return NormalType(t[..^2]) + "[]";
         if (t is "datetime2(7)" or "datetimeoffset(7)" or "time(7)") t = t[..^3];
         // PostgreSQL writes the precision inside the name: "timestamp(3) with time zone".
         t = TimePrecision().Replace(t, "$1$3timezone($2)");
@@ -312,6 +320,7 @@ public static partial class EfDriftEngine
         ("varchar", "charactervarying"), ("charactervarying", "charactervarying"), ("char", "character"),
         ("timestamptz", "timestampwithtimezone"), ("timestamp", "timestampwithouttimezone"),
         ("timetz", "timewithtimezone"), ("time", "timewithouttimezone"),
+        ("serial", "integer"), ("bigserial", "bigint"), ("smallserial", "smallint"),
         ("float8", "doubleprecision"), ("float4", "real"), ("decimal", "numeric"),
         // SQL Server catalogs a rowversion column as "timestamp".
         ("rowversion", "timestampwithouttimezone"),

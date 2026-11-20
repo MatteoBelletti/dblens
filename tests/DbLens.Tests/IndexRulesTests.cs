@@ -206,10 +206,12 @@ public sealed class IndexRulesTests
             .Which.Severity.Should().Be(Severity.Medium);
     }
 
-    [Fact]
-    public void FkTypeMismatch_AShorterStringIsNarrower()
+    [Theory]
+    [InlineData("character varying", "character varying(40)", 40)]
+    [InlineData("text", "text", null)]
+    public void FkTypeMismatch_AShorterStringIsNarrower(string keyType, string keyFull, int? keyLength)
     {
-        var parent = Table("users", [Col("id", "character varying", fullType: "character varying(40)") with { CharacterMaxLength = 40 }]);
+        var parent = Table("users", [Col("id", keyType, fullType: keyFull) with { CharacterMaxLength = keyLength }]);
         var child = Table("orders", [Col("user_id", "character varying", fullType: "character varying(20)") with { CharacterMaxLength = 20 }],
             outgoing: UserFk);
 

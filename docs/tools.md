@@ -31,7 +31,7 @@ and the result states the ones that applied.
 | [`analyze_table_hygiene`](#analyze_table_hygiene) | planner statistics, catalog, update counters (+ an EF snapshot as text) | only with `verifySignals: true`, counts only | Findings + Signals |
 | [`find_hot_queries`](#find_hot_queries) | the engine's query statistics + estimated or stored plans | only with `verifyJoins: true`, counts only | Findings + Signals |
 | [`check_migration_safety`](#check_migration_safety) | catalog (table sizes) | **never** the script | Findings |
-| [`explain_query`](#explain_query) | plan | only with `analyze: true`, pure `SELECT`, rolled back | Findings |
+| [`explain_query`](#explain_query) | plan | only with `analyze: true`, pure `SELECT`, rolled back | Findings + Signals |
 | [`scan_gdpr`](#scan_gdpr) | column names | no | Signals only |
 | [`analyze_denormalization`](#analyze_denormalization) | catalog | only with `verifySignals: true`, counts only | Signals → Findings |
 | [`infer_relationships`](#infer_relationships) | catalog, views, routines, query history | only with `verifyCandidates: true`, counts only | Signals → Findings |
