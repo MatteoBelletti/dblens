@@ -86,6 +86,8 @@ public abstract class CompositionTestsBase(IDatabaseFixture fixture)
         check.Statements.Where(s => s.Kind == MigrationOperationKind.Unknown).Select(s => s.RawSql).Should().BeEmpty();
         check.Findings.Should().Contain(f => f.RuleId == MigrationRuleIds.Destructive && f.Table == "shop.users"
             && f.Columns!.SequenceEqual(new[] { "date_of_birth" }));
+        // shop.payments is created by the script; the demo's own payments table is another one.
+        check.Findings.Should().NotContain(f => f.Table == $"{Fixture.UserSchema}.payments");
     }
 
     [SkippableFact]

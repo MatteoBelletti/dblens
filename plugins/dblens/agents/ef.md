@@ -1,7 +1,7 @@
 ---
 name: ef
 description: Compares an EF Core model, read from its migrations snapshot, with the database using dblens, checks the pending migrations' script, and returns findings as JSON. Used by /dblens:audit when a snapshot path is given.
-tools: mcp__plugin_dblens_dblens__compare_ef_model, mcp__plugin_dblens_dblens__check_migration_safety, Bash, Glob, Read
+tools: mcp__plugin_dblens_dblens__compare_ef_model, mcp__plugin_dblens_dblens__check_migration_safety, Bash(dotnet ef migrations script:*), Glob, Read
 skills: [findings-schema]
 model: sonnet
 maxTurns: 12

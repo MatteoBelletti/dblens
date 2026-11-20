@@ -69,3 +69,31 @@ and the documentation was corrected rather than the demo.
 Spellings of one store type are normalised before comparing (`int4` and `integer`, `datetime2` and
 `datetime2(7)`, `timestamptz(3)` and `timestamp(3) with time zone`, `rowversion` and `timestamp`), so
 the real `dotnet ef` schemas of the EF fixtures report no drift on either engine.
+
+## Phase 3: the `ef` agent (0.7.0)
+
+The EF golden set is the demo's `shop` schema (`db/*/04-shop.sql`): the first migration of
+`samples/DemoShop.EfCore`, then the drift the EF tests expect, a hotfix row in
+`shop.__EFMigrationsHistory`, and two pending migrations, the second a `DROP COLUMN`. The sample keeps
+its EF Core 10 migrations, and the repository root pins `dotnet-ef` in `.config/dotnet-tools.json`.
+
+| Step | Who | Gate |
+|---|---|---|
+| `compare_ef_model` | `ef` agent | always, with `efSnapshot` |
+| `dotnet ef migrations script <ScriptCommands>` | `ef` agent, Bash limited to that command | `efScript: true`, asked of the user first; otherwise the command goes in "Not covered" |
+| `check_migration_safety` on the script | `ef` agent, re-run by the verifier | a script was written |
+
+`check_migration_safety` read EF's own bookkeeping as `Unknown` statements: the history row, and on
+SQL Server the lookup of a column's default constraint. It now skips the first and classifies the
+`EXEC` that drops the constraint as the `DROP CONSTRAINT` it runs, so a clean EF script has no
+`Unknown` left.
+
+The `ef-golden` eval case runs the audit on `shop` with a scaffold that copies and builds the sample.
+In this repository's cloud container the eval harness runs as root and its sandbox cannot write the
+`TMPDIR` it gives Bash, so MSBuild fails there and the pending-migration step lands in "Not covered":
+8 of 9 graders pass, $0.63. The same audit run with `claude -p --plugin-dir` (no eval sandbox)
+scripted both pending migrations and reported 15 confirmed findings, none unverified, the first a
+Critical `migration-destructive` on `shop.users.date_of_birth`. That run found a bug the tests had not:
+an index on `shop.payments`, which the script itself creates, was weighed against the demo's
+`public.payments`. A qualified name missing from the catalog no longer falls back to a table of the
+same name in another schema.

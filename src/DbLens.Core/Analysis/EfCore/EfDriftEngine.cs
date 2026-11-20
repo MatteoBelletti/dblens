@@ -121,7 +121,8 @@ public static partial class EfDriftEngine
                 $": {pending[0]}" + (pending.Count > 1 ? $" … {pending[^1]}" : ""),
                 $"The database's last applied migration is {lastApplied ?? "none"}.{outOfOrderText} The differences below " +
                 "that these migrations would create are expected until they run. Write their SQL with " +
-                string.Join(" and ", commands.Select(c => $"`{c}`")) + ", and check it with check_migration_safety before applying it.",
+                (commands.Count > 0 ? string.Join(" and ", commands.Select(c => $"`{c}`")) : "`dotnet ef migrations script`") +
+                ", and check it with check_migration_safety before applying it.",
                 null,
                 new Dictionary<string, object> { ["pending"] = pending, ["outOfOrder"] = outOfOrder, ["lastApplied"] = lastApplied ?? "" }));
         }
@@ -137,6 +138,8 @@ public static partial class EfDriftEngine
     {
         List<string> commands = [];
         var code = model.MigrationIds;
+        // The commands are meant to be run: a name read from the snapshot that is not a plain word goes in no shell line.
+        if (!code.All(ShellWordRx().IsMatch) || !ShellWordRx().IsMatch(model.ContextName)) return commands;
 
         for (var i = 0; i < code.Count; i++)
         {
@@ -150,6 +153,9 @@ public static partial class EfDriftEngine
         if (commands.Count == 1) commands[0] = commands[0].Replace("-o pending-1.sql", "-o pending.sql", StringComparison.Ordinal);
         return commands;
     }
+
+    [System.Text.RegularExpressions.GeneratedRegex(@"^[A-Za-z0-9_]+$")]
+    private static partial System.Text.RegularExpressions.Regex ShellWordRx();
 
     // ── Tables, columns, indexes, foreign keys ─────────────────────────────────
 

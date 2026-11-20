@@ -154,6 +154,9 @@ public sealed class MigrationScriptTests
     [InlineData("INSERT INTO dbo.orders (id) VALUES (1)")]
     [InlineData("INSERT INTO dbo.__EFMigrationsHistory_old (id) VALUES (1)")]
     [InlineData("SELECT @n = COUNT(*) FROM dbo.orders")]
+    [InlineData("INSERT INTO [__EFMigrationsHistory] VALUES (N'x', N'8.0')\nIF OBJECT_ID('t') IS NOT NULL EXEC('DROP TABLE t')")]
+    [InlineData("IF @v IS NOT NULL EXEC(N'ALTER TABLE [a] ADD x INT; DROP TABLE [orders]; ALTER TABLE [a] DROP CONSTRAINT ' + @v + ';')")]
+    [InlineData("IF @v IS NOT NULL EXEC(N'ALTER TABLE [a] DROP CONSTRAINT ' + @w + ';')")]
     public void StatementsOnlyLikeEfBookkeeping_StayUnrecognized(string sql) =>
         Classify(sql, DatabaseDialect.SqlServer).Should().ContainSingle().Which.Kind.Should().Be(MigrationOperationKind.Unknown);
 

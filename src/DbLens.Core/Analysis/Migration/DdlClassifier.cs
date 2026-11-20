@@ -50,15 +50,19 @@ public static class DdlClassifier
     // EF Core's bookkeeping in `dotnet ef migrations script`: its history row, and on SQL Server the
     // variable it reads a column's default constraint name into. Not reported, not counted either.
     private static readonly Regex EfBookkeepingRx =
-        new(@"^\s*(?:(?:INSERT\s+INTO|DELETE\s+FROM)\s+(?:\S+\s*\.\s*)?[\[""]?__EFMigrationsHistory[\]""]?[\s(]" +
-            @"|DECLARE\s+@\w+\s+(?:sysname|nvarchar\s*\(\s*max\s*\))\s*$" +
-            @"|SELECT\s+@\w+\s*=\s*(?:QUOTENAME\s*\(\s*)?\[d\]\.\[name\]\s*\)?\s+FROM\s+\[sys\]\.\[default_constraints\])", Opts);
+        new($@"^\s*(?:INSERT\s+INTO\s+(?:{Ident}\s*\.\s*)?{EfHistory}\s*\([^;()]*\)\s*VALUES\s*\((?:[^;()']|'[^']*')*\)" +
+            $@"|DELETE\s+FROM\s+(?:{Ident}\s*\.\s*)?{EfHistory}\s+WHERE\s+[^;()\n]*" +
+            @"|DECLARE\s+@\w+\s+(?:sysname|nvarchar\s*\(\s*max\s*\))" +
+            @"|SELECT\s+@\w+\s*=\s*(?:QUOTENAME\s*\(\s*)?\[d\]\.\[name\]\s*\)?\s+FROM\s+\[sys\]\.\[default_constraints\]\s+\[d\]" +
+            @"\s+INNER\s+JOIN\s+\[sys\]\.\[columns\]\s+\[c\]\s+ON\s+[^;\n]*\s+WHERE\s+[^;\n]*)\s*;?\s*$", Opts);
+
+    private const string EfHistory = @"[\[""]?__EFMigrationsHistory[\]""]?";
 
     // ...which it then drops through EXEC: classified as the ALTER TABLE it runs, named by the variable,
     // and reported with the script's own text.
     private static readonly Regex EfDropDefaultRx =
-        new(@"^\s*IF\s+@(?<var>\w+)\s+IS\s+NOT\s+NULL\s+EXEC\s*\(\s*N?'(?<alter>ALTER\s+TABLE\s+.+?\s+DROP\s+CONSTRAINT\s+)" +
-            @"\[?'\s*\+\s*@\w+\s*\+\s*'\]?;?'\s*\)\s*;?\s*$", Opts);
+        new($@"^\s*IF\s+@(?<var>\w+)\s+IS\s+NOT\s+NULL\s+EXEC\s*\(\s*N?'(?<alter>ALTER\s+TABLE\s+{QualifiedName}\s+DROP\s+CONSTRAINT\s+)" +
+            @"\[?'\s*\+\s*@\k<var>\s*\+\s*'\]?;?'\s*\)\s*;?\s*$", Opts);
 
     // ── T-SQL scripts: GO ends a batch, and statements need no separator ──────
 
@@ -141,7 +145,7 @@ public static class DdlClassifier
         [.. Statements(ddl, dialect)
             .Where(s => !TransactionControlRx.IsMatch(s) && !EfBookkeepingRx.IsMatch(s))
             .SelectMany(s => EfDropDefaultRx.Match(s) is { Success: true } drop
-                ? [ClassifyOne($"{drop.Groups["alter"].Value.Replace("''", "'", StringComparison.Ordinal)}[@{drop.Groups["var"].Value}]") with { RawSql = s.Trim() }]
+                ? [ClassifyOne($"{drop.Groups["alter"].Value}[@{drop.Groups["var"].Value}]") with { RawSql = s.Trim() }]
                 : Expand(s, dialect).Select(ClassifyOne))];
 
     private static IEnumerable<string> Statements(string ddl, DatabaseDialect dialect)

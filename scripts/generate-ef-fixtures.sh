@@ -71,3 +71,5 @@ for major in "${majors[@]}"; do
     fi
   done
 done
+
+echo "The migration ids changed: recreate the demo volumes (docker compose down -v && docker compose up -d)."
