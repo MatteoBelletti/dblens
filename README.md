@@ -63,6 +63,17 @@ project), `queriesFile` (SQL to plan) and `privacy`. Set the connection strings 
 plugin's settings, never in the chat. Keep one registration: if `dblens` was also added with
 `claude mcp add`, remove one of the two.
 
+### Reviewing a .NET branch (optional)
+
+The same marketplace has `dotnet-review`, which needs `dblens`: `/dotnet-review:review` with `base`,
+`branch` and `outDir` sorts the changed files, has one agent review each touched area (EF
+migrations, EF queries, the public API contract), drops every comment its evidence does not
+support, and writes at most five to `review-<branch>.md`. It posts nothing.
+
+```
+/plugin install dotnet-review --marketplace MatteoBelletti/dblens
+```
+
 ## Checking a migration
 
 1. Restore a recent dump locally and point dblens at it (or use a read-only login on a copy).

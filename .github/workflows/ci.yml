@@ -25,11 +25,12 @@ jobs:
       - name: Install Claude Code
         # Pinned: a newer validator may turn today's warnings (no icon) into --strict failures.
         run: npm install -g @anthropic-ai/claude-code@2.1.328
-      # The marketplace at the root and the plugin under it; no model is called.
+      # The marketplace at the root and the plugins under it; no model is called.
       - name: Validate
         run: |
           claude plugin validate --strict .
           claude plugin validate --strict ./plugins/dblens
+          claude plugin validate --strict ./plugins/dotnet-review
 
   build:
     name: Build and test

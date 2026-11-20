@@ -36,6 +36,7 @@ line (`scripts/generate-ef-fixtures.sh`); the EF tests apply the same file.
 | `DbLens.EfCore` | reading EF Core snapshots as text (Roslyn); referenced by `DbLens.Mcp` only |
 | `DbLens.Mcp/Tools/` | thin tools deriving from `InspectorTool` |
 | `plugins/dblens/` | the optional Claude Code plugin: agents, the `audit` workflow, skills, evals ([decisions](docs/roadmap/decisions.md)) — prompts only, no logic the server lacks; its one command, `dotnet ef migrations script`, runs only when the audit's `efScript` allows it |
+| `plugins/dotnet-review/` | the second plugin (depends on `dblens`): the `review` workflow for a .NET / EF Core branch, its agents, the `review-rules` skill, and evals for the workflow (`evals/`) and for one agent with the same rules (`evals-solo/`) |
 
 Logic goes in the base whenever it can be written without dialect SQL: a rule enforced there cannot
 be forgotten by one dialect, and the dialects cannot drift apart.
