@@ -51,10 +51,11 @@ public static class DdlClassifier
     // variable it reads a column's default constraint name into. Not reported, not counted either.
     private static readonly Regex EfBookkeepingRx =
         new(@"^\s*(?:(?:INSERT\s+INTO|DELETE\s+FROM)\s+(?:\S+\s*\.\s*)?[\[""]?__EFMigrationsHistory[\]""]?[\s(]" +
-            @"|DECLARE\s+@\w+\s+\w+(?:\s*\(\s*\w+\s*\))?\s*$" +
+            @"|DECLARE\s+@\w+\s+(?:sysname|nvarchar\s*\(\s*max\s*\))\s*$" +
             @"|SELECT\s+@\w+\s*=\s*(?:QUOTENAME\s*\(\s*)?\[d\]\.\[name\]\s*\)?\s+FROM\s+\[sys\]\.\[default_constraints\])", Opts);
 
-    // ...which it then drops through EXEC: classified as the ALTER TABLE it runs, named by the variable.
+    // ...which it then drops through EXEC: classified as the ALTER TABLE it runs, named by the variable,
+    // and reported with the script's own text.
     private static readonly Regex EfDropDefaultRx =
         new(@"^\s*IF\s+@(?<var>\w+)\s+IS\s+NOT\s+NULL\s+EXEC\s*\(\s*N?'(?<alter>ALTER\s+TABLE\s+.+?\s+DROP\s+CONSTRAINT\s+)" +
             @"\[?'\s*\+\s*@\w+\s*\+\s*'\]?;?'\s*\)\s*;?\s*$", Opts);
@@ -139,9 +140,9 @@ public static class DdlClassifier
     public static IReadOnlyList<MigrationStatement> Classify(string ddl, DatabaseDialect dialect) =>
         [.. Statements(ddl, dialect)
             .Where(s => !TransactionControlRx.IsMatch(s) && !EfBookkeepingRx.IsMatch(s))
-            .Select(s => EfDropDefaultRx.Replace(s, "${alter}[@${var}]"))
-            .SelectMany(s => Expand(s, dialect))
-            .Select(ClassifyOne)];
+            .SelectMany(s => EfDropDefaultRx.Match(s) is { Success: true } drop
+                ? [ClassifyOne($"{drop.Groups["alter"].Value.Replace("''", "'", StringComparison.Ordinal)}[@{drop.Groups["var"].Value}]") with { RawSql = s.Trim() }]
+                : Expand(s, dialect).Select(ClassifyOne))];
 
     private static IEnumerable<string> Statements(string ddl, DatabaseDialect dialect)
     {

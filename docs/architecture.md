@@ -183,7 +183,7 @@ applies the fixes. A rule moves to `warning` only once the build is clean with i
 ## Demo databases
 
 `docker compose up -d` starts PostgreSQL 17 on port 5433 and SQL Server 2022 on 1434, initialized
-from `db/<dialect>/01-schema.sql` and `02-seed.sql`, then `04-shop.sql`.
+from `db/<dialect>/01-schema.sql`, `02-seed.sql`, `03-reader.sql` and `04-shop.sql`, in that order.
 
 | Schema | Content |
 |---|---|

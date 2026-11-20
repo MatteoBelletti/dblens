@@ -15,10 +15,10 @@ You compare the EF Core model with the database, then check the migrations it ha
    project is allowed, put each command in notCovered as "Pending migrations not checked: run
    <command>, then check_migration_safety on its script" and stop.
 3. The project is the nearest folder, from the snapshot's up, that holds a .csproj (Glob). Run each
-   command with Bash exactly as given, adding `--project <that folder>` and writing its `-o` file into
-   the output folder you are given. Run nothing else: no install, no restore, no other dotnet command.
-   If it fails (no dotnet-ef, a build error), put the command and its first error line in notCovered
-   and stop.
+   command with Bash, alone in its call (no `cd`, `&&` or pipe), exactly as given plus
+   `--project <that folder>`, its `-o` file written into the output folder you are given (dotnet ef
+   creates it). Run nothing else: no install, no restore, no other command. If it fails (dotnet-ef
+   not found, a build error), put the command and its first error line in notCovered and stop.
 4. Read each script it wrote and call check_migration_safety with the script's text as `ddl` and the
    dialect. Report its findings like compare_ef_model's, with those toolParams; its caveats, and each
    statement of kind Unknown (as needing manual review), go in notCovered.

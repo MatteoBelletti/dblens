@@ -33,6 +33,7 @@ public interface IEfFixture
 
 public abstract class EfDriftTestsBase(IEfFixture fixture)
 {
+    /// <summary>The history row db/*/04-shop.sql inserts for a migration the code does not have.</summary>
     public const string Hotfix = "20991231000000_Hotfix";
 
     protected IEfFixture Fixture { get; } = fixture;

@@ -144,7 +144,10 @@ public sealed class MigrationScriptTests
         List<(MigrationOperationKind, string?)> expected = dialect == DatabaseDialect.SqlServer
             ? [(MigrationOperationKind.DropConstraint, major == 8 ? "@var0" : "@var"), (MigrationOperationKind.DropColumn, "date_of_birth")]
             : [(MigrationOperationKind.DropColumn, "date_of_birth")];
-        Shape(Classify(script, dialect)).Should().Equal(expected);
+        var statements = Classify(script, dialect);
+
+        Shape(statements).Should().Equal(expected);
+        statements.Should().OnlyContain(s => script.Contains(s.RawSql));
     }
 
     [Theory]

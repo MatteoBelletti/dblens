@@ -76,6 +76,7 @@ public abstract class CompositionTestsBase(IDatabaseFixture fixture)
         var provider = Fixture.UserSchema == "public" ? "PostgreSql" : "SqlServer";
         var model = SnapshotReader.Read(EfScripts.Folder(provider));
         var migrations = (await Inspector.CompareEfModelAsync(new CompareEfModelRequest(model))).Migrations;
+        migrations.HistoryFound.Should().BeTrue("db/*/04-shop.sql creates the demo's shop schema: recreate older volumes");
 
         migrations.ScriptCommands.Should().ContainSingle().Which.Should().StartWith(
             $"dotnet ef migrations script {model.MigrationIds[0]} {model.MigrationIds[^1]} ");
