@@ -57,3 +57,15 @@ and the verifier. That is also why `/dblens:setup` stops when dynamic workflows 
 
 The demo has no duplicate indexes, although `docs/architecture.md` listed them: the audit found that,
 and the documentation was corrected rather than the demo.
+
+## Phase 2: new rules (0.6.0)
+
+| Rule | Tool | Evidence | Notes |
+|---|---|---|---|
+| `fk-type-mismatch` | `analyze_indexes` | Derived | Compared with the referenced key, read even when it is outside the scope. PostgreSQL only: SQL Server refuses such a key (Msg 1753, 1778), which its edge tests assert. |
+| `plan-implicit-conversion` | `explain_query`, `find_hot_queries` | Derived on SQL Server, Inferred on PostgreSQL | SQL Server names the conversion (`PlanAffectingConvert`, "Seek Plan"); PostgreSQL shows only a cast in a sequential scan's filter, which may be the caller's own. |
+| `ef-column-type`, `ef-column-nullability`, `ef-index-uniqueness` | `compare_ef_model` | Derived | D5. Index filters and defaults are not compared: EF and the catalog write them differently. A property the model computes is skipped. |
+
+Spellings of one store type are normalised before comparing (`int4` and `integer`, `datetime2` and
+`datetime2(7)`, `timestamptz(3)` and `timestamp(3) with time zone`, `rowversion` and `timestamp`), so
+the real `dotnet ef` schemas of the EF fixtures report no drift on either engine.
