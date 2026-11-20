@@ -28,6 +28,19 @@ public sealed class SqlServerEdgeCatalogTests(SqlServerEdgeFixture fixture)
 
     [SkippableFact]
     [Trait("Category", "Integration")]
+    public async Task FkTypeMismatch_CannotExist_SqlServerRefusesTheForeignKey()
+    {
+        Skip.If(ShouldSkip, TestSkip.Reason);
+
+        // The table PostgreSQL accepts in its edge fixture, where fk-type-mismatch is tested.
+        var create = () => SqlServerAdmin.ExecuteAsync(SqlServerEdgeFixture.EdgeConnectionString,
+            "CREATE TABLE edge.narrow_kid (id int PRIMARY KEY, parent_id int REFERENCES edge.wide_parent (id))");
+
+        (await create.Should().ThrowAsync<SqlException>()).Which.Number.Should().Be(1778);
+    }
+
+    [SkippableFact]
+    [Trait("Category", "Integration")]
     public async Task IndexedView_ListsItsIndex()
     {
         Skip.If(ShouldSkip, TestSkip.Reason);
@@ -94,6 +107,7 @@ public sealed class SqlServerEdgeFixture : IAsyncLifetime, IEdgeFixture
             account_id int REFERENCES edge.account (id) ON DELETE CASCADE,
             approved_by int REFERENCES edge.account (id))
         """,
+        "CREATE TABLE edge.wide_parent (id bigint PRIMARY KEY)",
 
         $"CREATE LOGIN {LimitedLogin} WITH PASSWORD = 'Limited123!', CHECK_POLICY = OFF",
         $"CREATE USER {LimitedLogin} FOR LOGIN {LimitedLogin}",
@@ -102,7 +116,7 @@ public sealed class SqlServerEdgeFixture : IAsyncLifetime, IEdgeFixture
 
     private const string LimitedLogin = "dblens_edge_limited";
 
-    private static string EdgeConnectionString => SqlServerAdmin.On(Database);
+    internal static string EdgeConnectionString => SqlServerAdmin.On(Database);
 
     private const string DropLoginSql = $"IF SUSER_ID('{LimitedLogin}') IS NOT NULL DROP LOGIN {LimitedLogin}";
 

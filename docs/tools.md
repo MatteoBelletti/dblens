@@ -31,7 +31,7 @@ and the result states the ones that applied.
 | [`analyze_table_hygiene`](#analyze_table_hygiene) | planner statistics, catalog, update counters (+ an EF snapshot as text) | only with `verifySignals: true`, counts only | Findings + Signals |
 | [`find_hot_queries`](#find_hot_queries) | the engine's query statistics + estimated or stored plans | only with `verifyJoins: true`, counts only | Findings + Signals |
 | [`check_migration_safety`](#check_migration_safety) | catalog (table sizes) | **never** the script | Findings |
-| [`explain_query`](#explain_query) | plan | only with `analyze: true`, pure `SELECT`, rolled back | Findings |
+| [`explain_query`](#explain_query) | plan | only with `analyze: true`, pure `SELECT`, rolled back | Findings + Signals |
 | [`scan_gdpr`](#scan_gdpr) | column names | no | Signals only |
 | [`analyze_denormalization`](#analyze_denormalization) | catalog | only with `verifySignals: true`, counts only | Signals → Findings |
 | [`infer_relationships`](#infer_relationships) | catalog, views, routines, query history | only with `verifyCandidates: true`, counts only | Signals → Findings |
@@ -107,6 +107,7 @@ computed by the database (generated, computed, system-period) has `IsGenerated`.
 | `duplicate-index` | Medium | Derived | Two indexes with the same key and key order, uniqueness, access method and `INCLUDE` columns |
 | `redundant-index` | Low | Derived | A non-unique index whose work another does: its key is a prefix of the other's, or the same key under a unique or wider-covering index |
 | `unused-index` | Low | Measured | A non-unique index with zero scans |
+| `fk-type-mismatch` | Medium / Low | Derived | A foreign key column whose type is not the referenced key's: Medium when it is narrower (`integer` referencing `bigint`, a shorter `varchar`), so a later parent key cannot be referenced. PostgreSQL only: SQL Server refuses such a key |
 
 Only an index that can do the job counts. A partial (filtered) index never covers a foreign key or
 makes another index redundant; a hash index covers a foreign key only on exactly its columns; GIN,
@@ -234,6 +235,7 @@ names yield one statement each. `BEGIN` / `COMMIT` are skipped.
 | `plan-nested-loop-large-input` | Medium | A nested loop driven by more than 10 000 outer rows |
 | `plan-sort-spilled-to-disk` | Medium | A sort or hash that did not fit in memory |
 | `plan-scan-with-filter` | Low | A predicate applied after reading every row |
+| `plan-implicit-conversion` | Medium | A column converted to another type to be compared with a parameter or literal, so an index on it cannot be used. SQL Server reports it (`PlanAffectingConvert`, a finding); on PostgreSQL it is read from a cast in a sequential scan's filter (a signal: an expression index could still serve it), casts to `text` aside (array casts such as `text[]` are reported). An `nvarchar` conversion names the EF fix, `IsUnicode(false)` |
 
 With `analyze: false` nothing runs and every row count is an optimizer estimate; any single statement
 is accepted, a write included, but a second statement after `;` is rejected. With `analyze: true`
@@ -476,7 +478,7 @@ cache, temp pages, and the tables it names.
 | `hot-query-reads-per-row` | Medium | Measured | More than 100 pages read per row returned, over at least 2 calls |
 | `hot-query-disk-reads` | Low | Measured | 20% or more of 1,000+ pages read outside the database's cache (on PostgreSQL, possibly from the OS cache) |
 | `hot-query-temp-spill` | Medium | Measured | Pages written to temporary files; on SQL Server tempdb space, temp tables included |
-| `plan-*` of [`explain_query`](#explain_query) | as there | Derived | On the plan of the first 10, each with `Metadata["queryId"]` |
+| `plan-*` of [`explain_query`](#explain_query) | as there | as there | On the plan of the first 10, each with `Metadata["queryId"]` |
 | `join-fanout` | Medium | Inferred → Measured | A parent joined to two 1:N children in one query |
 | `hot-query-summary` | Info | Derived | Always one: source, window covered, plans read |
 
@@ -529,6 +531,12 @@ text, never compiled**: no project is built and none of the user's code runs.
 | `ef-migration-pending` | Medium / High | Migrations in the code not yet applied (one finding listing them); High when one is older than the last applied |
 | `ef-index-unmodeled` | Medium | An index in the database the model does not declare — added by hand |
 | `ef-fk-missing` | Medium | A relationship in the model with no foreign key in the database |
+| `ef-index-uniqueness` | High / Low | A `HasIndex` whose index is unique on one side only: High when the model declares it unique and the database does not enforce it |
+| `ef-column-type` | Medium | A column whose store type differs from the model's `HasColumnType` (length, precision, kind); spellings of one type (`int4` and `integer`, `datetime2` and `datetime2(7)`) are not differences |
+| `ef-column-nullability` | Medium | A column nullable on one side and required on the other (a key property is required) |
+
+Neither column rule compares a property the model computes (`HasComputedColumnSql`); a column several
+entities map (TPH subtypes, owned types) is compared once per distinct expectation.
 | `ef-unmapped-table` | Info | A table in a compared schema that no entity maps (the migrations history, temporal history tables and the tables of mappings not compared excluded) |
 | `ef-drift-summary` | Info | Always exactly one |
 
@@ -565,8 +573,8 @@ their owner's table, complex properties, alternate keys. **Not compared**, each 
 table-per-type and table-per-concrete-type mappings, JSON columns (`ToJson`), table splitting, entity
 splitting (`SplitToTable`; an owned type split leaves its owner's table uncompared too), views
 (`ToView`) and keyless entities. Temporal tables are compared, their history table set aside. The same
-type owned through two navigations is two entities. **Not considered here:** column types, lengths and
-nullability. A project without migrations has no snapshot to read.
+type owned through two navigations is two entities. **Not considered here:** index filters, whose text EF and
+the catalog write differently, and defaults. A project without migrations has no snapshot to read.
 
 ## `certify_query`
 

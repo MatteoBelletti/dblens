@@ -53,7 +53,13 @@ public static class QueryPlanAnalysisEngine
 
             if (HasFilterOnScan(node))
                 findings.Add(BuildScanWithFilterFinding(node, dialect));
+
         }
+
+        // One per column and type, however many scans (aliases, partitions) convert it. A conversion whose
+        // table the plan does not name (a table variable) has no finding to hang on.
+        foreach (var conversion in nodes.SelectMany(n => n.Conversions ?? []).Where(c => c.Table is not null).Distinct())
+            findings.Add(BuildConversionFinding(conversion.Table!, conversion, dialect));
 
         if (!executed)
             caveats.Add(
@@ -65,6 +71,9 @@ public static class QueryPlanAnalysisEngine
 
         if (split.TruncationCaveat(hint: null) is { } truncation)
             caveats.Add(truncation);
+
+        if (split.SignalCaveat("a cast in the plan's filter") is { } signalCaveat)
+            caveats.Add(signalCaveat);
 
         return Build(split, executed, planText, root, caveats,
             nodes.Count, root.EstimatedCost, root.ActualTimeMs);
@@ -340,6 +349,41 @@ public static class QueryPlanAnalysisEngine
                 ["filter"] = node.Filter!,
                 ["nodeType"] = node.NodeType,
             });
+    }
+
+    /// <summary>
+    /// SQL Server says the conversion affects the seek plan: derived. PostgreSQL shows only the cast in
+    /// a sequential scan's filter, which an expression index could still serve: inferred.
+    /// </summary>
+    private static Finding BuildConversionFinding(string table, PlanConversion conversion, DatabaseDialect dialect)
+    {
+        var reported = dialect == DatabaseDialect.SqlServer;
+        var unicode = conversion.ToType.StartsWith("nvarchar", StringComparison.OrdinalIgnoreCase)
+            || conversion.ToType.StartsWith("nchar", StringComparison.OrdinalIgnoreCase);
+
+        return new Finding(
+            RuleId:     QueryPlanRuleIds.ImplicitConversion,
+            Severity:   Severity.Medium,
+            Category:   FindingCategory.Performance,
+            Confidence: reported ? 0.9 : 0.6,
+            Evidence:   reported ? Evidence.Derived : Evidence.Inferred,
+            Table:      table,
+            Columns:    [conversion.Column],
+            Title:      $"{table}.{conversion.Column} is converted to {conversion.ToType} before it is compared",
+            Description:
+                (reported
+                    ? "SQL Server reports that this conversion affects the seek plan: an index on the column cannot be sought. " +
+                      "The value it is compared with has another type. Give the parameter or literal the column's type"
+                    : "The column is cast inside the filter of a sequential scan, so a plain index on it cannot serve the " +
+                      "comparison. The plan does not say who wrote the cast: if the value compared has another type, give it " +
+                      "the column's; if the query casts the column itself, compare it with a range of the column's type or " +
+                      "index the cast expression") +
+                (unicode
+                    ? ": a .NET string is sent as nvarchar, so an EF property on a varchar column needs IsUnicode(false) " +
+                      "or HasColumnType(\"varchar(n)\"), and a hand-written parameter a DbType of AnsiString."
+                    : "."),
+            SqlFix:     null,
+            Metadata:   new Dictionary<string, object> { ["toType"] = conversion.ToType });
     }
 
     private static QueryPlanSummary BuildSummary(

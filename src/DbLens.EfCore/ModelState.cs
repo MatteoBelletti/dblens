@@ -286,12 +286,13 @@ internal sealed class PropertyState(string name, string defaultColumn)
     public bool? Unicode { get; set; }
     public int? Precision { get; set; }
     public int? Scale { get; set; }
+    public bool Computed { get; set; }
 
     public EfProperty Build(bool columnNullable)
     {
         var type = ClrType ?? "object";
         var nullable = columnNullable || type.EndsWith('?') || (IsReferenceType(type) && !Required);
-        return new EfProperty(Name, type, Column ?? defaultColumn, ColumnType, nullable, MaxLength, Unicode, Precision, Scale);
+        return new EfProperty(Name, type, Column ?? defaultColumn, ColumnType, nullable, MaxLength, Unicode, Precision, Scale, Computed);
     }
 
     /// <summary>

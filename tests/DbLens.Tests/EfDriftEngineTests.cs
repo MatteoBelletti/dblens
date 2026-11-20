@@ -69,6 +69,108 @@ public sealed class EfDriftEngineTests
 
     // ── Names ──────────────────────────────────────────────────────────────────
 
+    [Theory]
+    [InlineData("int4", "integer", false)]
+    [InlineData("datetime2", "datetime2(7)", false)]
+    [InlineData("character varying(100)", "varchar(100)", false)]
+    [InlineData("nvarchar(100)", "nvarchar(60)", true)]
+    [InlineData("numeric(10,2)", "decimal(12,2)", true)]
+    [InlineData("rowversion", "timestamp", false)]
+    [InlineData("timestamptz(3)", "timestamp(3) with time zone", false)]
+    [InlineData("time", "time without time zone", false)]
+    [InlineData("timestamp(3)", "timestamp(6) without time zone", true)]
+    [InlineData("serial", "integer", false)]
+    [InlineData("int4[]", "integer[]", false)]
+    public void StoreTypes_DifferOnlyInWhatTheyHold_NotInHowTheyAreSpelt(string model, string database, bool drift)
+    {
+        var entity = new EfEntity("Order", "public", "orders",
+            [new EfProperty("Id", "long", "id", null, false), new EfProperty("Value", "string", "value", model, false)], ["Id"], [], []);
+        var efModel = new EfModel("ShopContext", null, "public", [entity], [], []);
+        var table = Table("orders", [Col("id", "bigint"), Col("value", database)]);
+
+        Analyze(efModel, [], EfModelMatcher.Match(efModel, [table], "public")).Findings.Any(f => f.RuleId == EfRuleIds.ColumnType)
+            .Should().Be(drift);
+    }
+
+    [Theory]
+    [InlineData(true, false)]
+    [InlineData(false, true)]
+    public void AColumnTheModelComputes_TakesItsTypeAndNullabilityFromItsExpression(bool modelComputes, bool drift)
+    {
+        var entity = new EfEntity("Order", "public", "orders",
+            [new EfProperty("Id", "long", "id", null, false),
+             new EfProperty("Total", "decimal", "total", "decimal(18,2)", false, IsComputed: modelComputes)],
+            ["Id"], [], []);
+        var efModel = new EfModel("ShopContext", null, "public", [entity], [], []);
+        var table = Table("orders", [Col("id", "bigint", nullable: false), Col("total", "decimal(37,4)") with { IsGenerated = true }]);
+
+        Analyze(efModel, [], EfModelMatcher.Match(efModel, [table], "public")).Findings
+            .Any(f => f.RuleId is EfRuleIds.ColumnType or EfRuleIds.ColumnNullability).Should().Be(drift,
+                "a column computed by hand while the model writes it is drift");
+    }
+
+    [Fact]
+    public void HasComputedColumnSql_IsRead()
+    {
+        var model = Parse("""
+            modelBuilder.Entity("Shop.Order", b =>
+            {
+                b.Property<long>("Id").HasColumnType("bigint");
+                b.Property<decimal>("Total").HasColumnType("numeric(18,2)").HasComputedColumnSql("qty * price", stored: true);
+                b.HasKey("Id");
+                b.ToTable("orders");
+            });
+            """);
+
+        model.Entities.Single().Properties.Single(p => p.Name == "Total").IsComputed.Should().BeTrue();
+    }
+
+    [Fact]
+    public void AStringKey_IsRequired_ThoughTheSnapshotDoesNotSaySo()
+    {
+        var entity = new EfEntity("User", "public", "users", [new EfProperty("Id", "string", "id", "text", true)], ["Id"], [], []);
+        var efModel = new EfModel("ShopContext", null, "public", [entity], [], []);
+        var table = Table("users", [Col("id", "text", nullable: false)]);
+
+        Analyze(efModel, [], EfModelMatcher.Match(efModel, [table], "public")).Findings
+            .Should().NotContain(f => f.RuleId == EfRuleIds.ColumnNullability);
+    }
+
+    [Theory]
+    [InlineData(true, false)]
+    [InlineData(false, true)]
+    public void IndexUniqueness_IsSatisfiedByAnyIndexOnTheColumns(bool alsoUnique, bool drift)
+    {
+        var entity = new EfEntity("User", "public", "users",
+            [new EfProperty("Id", "long", "id", null, false), new EfProperty("Email", "string", "email", null, false)],
+            ["Id"], [new EfIndex(["Email"], null, IsUnique: true, null)], []);
+        var efModel = new EfModel("ShopContext", null, "public", [entity], [], []);
+        IndexDetail Index(string name, bool unique) => new(name, ["email"], unique, false, "btree", "", false, null);
+        var table = Table("users", [Col("id", "bigint", nullable: false), Col("email", nullable: false)]) with
+        {
+            Indexes = [Index("ix_email_dup", false), .. alsoUnique ? [Index("IX_users_email", true)] : Array.Empty<IndexDetail>()],
+        };
+
+        Analyze(efModel, [], EfModelMatcher.Match(efModel, [table], "public")).Findings.Any(f => f.RuleId == EfRuleIds.IndexUniqueness)
+            .Should().Be(drift);
+    }
+
+    [Fact]
+    public void AUniqueConstraint_TheModelDoesNotKnow_IsReported()
+    {
+        var entity = new EfEntity("User", "public", "users",
+            [new EfProperty("Id", "long", "id", null, false), new EfProperty("Email", "string", "email", null, false)],
+            ["Id"], [new EfIndex(["Email"], null, IsUnique: false, null)], []);
+        var efModel = new EfModel("ShopContext", null, "public", [entity], [], []);
+        var table = Table("users", [Col("id", "bigint", nullable: false), Col("email", nullable: false)]) with
+        {
+            UniqueConstraints = [new UniqueConstraintDetail("uq_email", ["email"])],
+        };
+
+        Analyze(efModel, [], EfModelMatcher.Match(efModel, [table], "public")).Findings
+            .Should().ContainSingle(f => f.RuleId == EfRuleIds.IndexUniqueness).Which.Severity.Should().Be(Severity.Low);
+    }
+
     [Fact]
     public void ATableTheModelCreates_IsNotUnmapped()
     {

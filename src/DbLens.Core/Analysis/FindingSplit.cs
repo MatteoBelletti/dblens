@@ -82,11 +82,12 @@ public sealed record FindingSplit(
     /// The caveat explaining the split, so a caller that only reads Findings still learns that
     /// Signals exist and why they are held apart.
     /// </summary>
-    public string? SignalCaveat() =>
+    /// <param name="source">What the signals are inferred from.</param>
+    public string? SignalCaveat(string source = "column names and table structure") =>
         Signals.Count == 0
             ? null
             : $"{Signals.Count} result(s) {SignalCaveatMarker}. " +
-              "Signals are inferred from column names and table structure, not measured or read " +
+              $"Signals are inferred from {source}, not measured or read " +
               "from catalog guarantees — treat them as hypotheses to confirm against the data, " +
               "and do not report them as established problems.";
 

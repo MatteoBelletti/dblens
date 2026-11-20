@@ -14,10 +14,11 @@ public sealed class CompareEfModelTool(IServiceProvider services, IDatabaseInspe
     [McpServerTool, Description(
         "Compares an EF Core model, read from its migrations snapshot, with the database: migrations applied but " +
         "unknown to the code and pending; tables, columns, indexes and foreign keys the model expects and the database " +
-        "lacks, and those the database has and the model does not. Metadata[\"ef\"] names the entity and property to " +
+        "lacks, and those the database has and the model does not; column types and nullability, and index uniqueness, " +
+        "that differ. Metadata[\"ef\"] names the entity and property to " +
         "change; Migrations gives the command that scripts the pending ones. IMPORTANT: the snapshot is parsed as text, " +
-        "no code of the user's runs; the only rows read are the migration ids of EF's history table. Types, lengths and " +
-        "nullability are not compared; mappings not compared are named in the Caveats. Do NOT infer beyond the " +
+        "no code of the user's runs; the only rows read are the migration ids of EF's history table. Index filters and " +
+        "defaults are not compared; mappings not compared are named in the Caveats. Do NOT infer beyond the " +
         "response.")]
     public Task<CompareEfModelResult> CompareEfModel(
         [Description("Absolute path of the *ModelSnapshot.cs file, or of the Migrations folder that holds it.")]

@@ -5,6 +5,7 @@ using DbLens.Core.Analysis.Denormalization;
 using DbLens.Core.Analysis.Fragmentation;
 using DbLens.Core.Analysis.Gdpr;
 using DbLens.Core.Analysis.Indexes;
+using DbLens.Core.Models;
 using DbLens.Core.Analysis.Migration;
 using DbLens.Core.Analysis.QueryPlan;
 using Microsoft.Extensions.Logging;
@@ -101,8 +102,23 @@ public abstract partial class DatabaseInspectorBase
                 }
             }
 
-            var result = IndexAnalysisEngine.Analyze(details.Tables, stats, request, Dialect);
-            result = result with { Caveats = WithCaveats(result.Caveats, statsCaveat, scopeCaveat, NotFoundCaveat(details)) };
+            // fk-type-mismatch compares with the referenced key, which may be outside the scope. SQL Server
+            // refuses a foreign key of another type (Msg 1753, 1778): nothing to read there.
+            var outside = Dialect == DatabaseDialect.SqlServer ? [] : details.Tables.SelectMany(t => t.ForeignKeysOutgoing)
+                .Select(fk => (fk.ToSchema, fk.ToTable)).Distinct()
+                .Where(r => !details.Tables.Any(t => (t.Schema, t.Name) == r))
+                .Select(r => new ParsedName(r.ToSchema, r.ToTable, $"{r.ToSchema}.{r.ToTable}")).ToList();
+            var referenced = outside.Count == 0 ? null : await GetTableDetailsAsync(outside, ct);
+            var referencedCaveat = referenced is { NotFound.Count: > 0 }
+                ? $"The referenced tables {string.Join(", ", referenced.NotFound)} could not be read, so the " +
+                  "'fk-type-mismatch' rule did not compare the foreign keys to them."
+                : null;
+
+            var result = IndexAnalysisEngine.Analyze(details.Tables, stats, request, Dialect, referenced?.Tables);
+            result = result with
+            {
+                Caveats = WithCaveats(result.Caveats, statsCaveat, scopeCaveat, NotFoundCaveat(details), referencedCaveat),
+            };
 
             Log.LogInformation(
                 "Index analysis completed: {FindingCount} findings, {Caveats} caveats",

@@ -16,8 +16,9 @@ public interface IEfFixture
     bool IsReachable { get; }
 
     /// <summary>Init applied, AddPayments pending, then: users.phone dropped, the order_items → products
-    /// foreign key dropped, ix_orders_created_manual and shop.legacy_notes added, and a history row
-    /// for a hotfix migration the code does not have.</summary>
+    /// foreign key dropped, ix_orders_created_manual and shop.legacy_notes added, users.first_name
+    /// narrowed, orders.total made nullable, IX_users_email no longer unique, and a history row for a
+    /// hotfix migration the code does not have.</summary>
     IDatabaseInspector? Drifted { get; }
 
     /// <summary>Both migrations applied, nothing else.</summary>
@@ -63,6 +64,9 @@ public abstract class EfDriftTestsBase(IEfFixture fixture)
                 (EfRuleIds.ForeignKeyMissing, "shop.order_items", "product_id"),
                 (EfRuleIds.IndexUnmodeled, "shop.orders", "created_at"),
                 (EfRuleIds.UnmappedTable, "shop.legacy_notes", ""),
+                (EfRuleIds.ColumnType, "shop.users", "first_name"),
+                (EfRuleIds.ColumnNullability, "shop.orders", "total"),
+                (EfRuleIds.IndexUniqueness, "shop.users", "email"),
                 (EfRuleIds.DriftSummary, Fixture.Provider == "PostgreSql" ? "ShopPostgresContext" : "ShopSqlServerContext", ""),
             ]);
         result.Summary.ByRule.Keys.Should().BeEquivalentTo(EfRuleIds.All);

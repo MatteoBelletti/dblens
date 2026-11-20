@@ -6,8 +6,9 @@ public static class IndexRuleIds
     public const string DuplicateIndex = "duplicate-index";
     public const string RedundantIndex = "redundant-index";
     public const string UnusedIndex    = "unused-index";
+    public const string FkTypeMismatch = "fk-type-mismatch";
 
-    public static readonly string[] All = [FkWithoutIndex, DuplicateIndex, RedundantIndex, UnusedIndex];
+    public static readonly string[] All = [FkWithoutIndex, DuplicateIndex, RedundantIndex, UnusedIndex, FkTypeMismatch];
 }
 
 public static class GdprRuleIds
@@ -52,9 +53,10 @@ public static class QueryPlanRuleIds
     public const string NestedLoopLargeInput = "plan-nested-loop-large-input";
     public const string SortSpilledToDisk  = "plan-sort-spilled-to-disk";
     public const string ScanWithFilter     = "plan-scan-with-filter";
+    public const string ImplicitConversion = "plan-implicit-conversion";
 
     public static readonly string[] All =
-        [SeqScanLargeTable, EstimateMismatch, NestedLoopLargeInput, SortSpilledToDisk, ScanWithFilter];
+        [SeqScanLargeTable, EstimateMismatch, NestedLoopLargeInput, SortSpilledToDisk, ScanWithFilter, ImplicitConversion];
 }
 
 public static class MigrationRuleIds
@@ -100,12 +102,15 @@ public static class EfRuleIds
     public const string IndexUnmodeled   = "ef-index-unmodeled";
     public const string ForeignKeyMissing = "ef-fk-missing";
     public const string UnmappedTable    = "ef-unmapped-table";
+    public const string ColumnType       = "ef-column-type";
+    public const string ColumnNullability = "ef-column-nullability";
+    public const string IndexUniqueness  = "ef-index-uniqueness";
     public const string DriftSummary     = "ef-drift-summary";
 
     public static readonly string[] All =
     [
         MigrationUnknown, TableMissing, ColumnMissing, IndexMissing, MigrationPending,
-        IndexUnmodeled, ForeignKeyMissing, UnmappedTable, DriftSummary,
+        IndexUnmodeled, ForeignKeyMissing, UnmappedTable, ColumnType, ColumnNullability, IndexUniqueness, DriftSummary,
     ];
 }
 

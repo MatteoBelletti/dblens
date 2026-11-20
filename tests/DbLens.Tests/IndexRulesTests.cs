@@ -172,7 +172,55 @@ public sealed class IndexRulesTests
 
         result.Findings.Should().BeEmpty("a hash index cannot be searched by a prefix of its key");
     }
+
+    // ── fk-type-mismatch ───────────────────────────────────────────────────────
+
+    [Theory]
+    [InlineData("integer", "integer", "bigint", "bigint", Severity.Medium)]
+    [InlineData("bigint", "bigint", "integer", "integer", Severity.Low)]
+    [InlineData("text", "text", "character varying", "character varying(20)", Severity.Low)]
+    [InlineData("integer", "integer", "integer", "integer", null)]
+    public void FkTypeMismatch_RatesANarrowerChildAboveAnyOtherDifference(
+        string childType, string childFull, string keyType, string keyFull, Severity? expected)
+    {
+        var parent = Table("users", [Col("id", keyType, fullType: keyFull)]);
+        var child = Table("orders", [Col("id", "integer"), Col("user_id", childType, fullType: childFull)], outgoing: UserFk);
+
+        var finding = IndexAnalysisEngine.Analyze([child], null, new AnalyzeIndexesRequest(), DatabaseDialect.PostgreSql, [parent])
+            .Findings.SingleOrDefault(f => f.RuleId == IndexRuleIds.FkTypeMismatch);
+
+        finding?.Severity.Should().Be(expected);
+        (finding is null).Should().Be(expected is null);
+        finding?.SqlFix!.Sql.Should().Be($"ALTER TABLE \"public\".\"orders\" ALTER COLUMN \"user_id\" TYPE {keyFull};");
+    }
+
+    [Fact]
+    public void FkTypeMismatch_BoundedDigitsReferencingUnboundedOnesAreNarrower()
+    {
+        var parent = Table("users", [Col("id", "numeric")]);
+        var child = Table("orders", [Col("user_id", "numeric", fullType: "numeric(5,0)") with { NumericPrecision = 5, NumericScale = 0 }],
+            outgoing: UserFk);
+
+        IndexAnalysisEngine.Analyze([child], null, new AnalyzeIndexesRequest(), DatabaseDialect.PostgreSql, [parent])
+            .Findings.Should().ContainSingle(f => f.RuleId == IndexRuleIds.FkTypeMismatch)
+            .Which.Severity.Should().Be(Severity.Medium);
+    }
+
+    [Theory]
+    [InlineData("character varying", "character varying(40)", 40)]
+    [InlineData("text", "text", null)]
+    public void FkTypeMismatch_AShorterStringIsNarrower(string keyType, string keyFull, int? keyLength)
+    {
+        var parent = Table("users", [Col("id", keyType, fullType: keyFull) with { CharacterMaxLength = keyLength }]);
+        var child = Table("orders", [Col("user_id", "character varying", fullType: "character varying(20)") with { CharacterMaxLength = 20 }],
+            outgoing: UserFk);
+
+        IndexAnalysisEngine.Analyze([child], null, new AnalyzeIndexesRequest(), DatabaseDialect.PostgreSql, [parent])
+            .Findings.Should().ContainSingle(f => f.RuleId == IndexRuleIds.FkTypeMismatch)
+            .Which.Severity.Should().Be(Severity.Medium);
+    }
 }
+
 
 /// <summary>What the 200-result cap keeps must never depend on the order the rules ran in.</summary>
 public sealed class FindingSplitTests

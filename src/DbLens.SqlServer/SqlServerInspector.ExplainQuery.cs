@@ -1,7 +1,9 @@
 using System.Data.Common;
 using System.Globalization;
 using System.Xml.Linq;
+using DbLens.Core.Analysis;
 using DbLens.Core.Analysis.QueryPlan;
+using DbLens.Core.Models;
 
 namespace DbLens.SqlServer;
 
@@ -89,7 +91,52 @@ public sealed partial class SqlServerInspector
         }
 
         var relOp = doc.Descendants(ShowPlanNs + "RelOp").FirstOrDefault();
-        return relOp is null ? null : ParseRelOp(relOp);
+        if (relOp is null) return null;
+
+        // The warning belongs to the statement, not to an operator, and names the column with its table.
+        var conversions = relOp.Ancestors(ShowPlanNs + "QueryPlan").FirstOrDefault()?
+            .Elements(ShowPlanNs + "Warnings").Elements(ShowPlanNs + "PlanAffectingConvert")
+            .Where(w => (string?)w.Attribute("ConvertIssue") == "Seek Plan")
+            .SelectMany(w => ConvertedColumns((string?)w.Attribute("Expression") ?? ""))
+            .Distinct().ToList();
+        var root = ParseRelOp(relOp);
+        return conversions is { Count: > 0 } ? root with { Conversions = conversions } : root;
+    }
+
+    /// <summary>
+    /// The columns in "CONVERT_IMPLICIT(nvarchar(20),[db].[shop].[users].[code],0)". A converted
+    /// parameter ([@1]) or expression is not a column and is left out.
+    /// </summary>
+    private static IEnumerable<PlanConversion> ConvertedColumns(string expression)
+    {
+        var t = SqlText.Tokens(expression, DatabaseDialect.SqlServer).Where(k => k.Kind != SqlTokenKind.Space).ToList();
+        for (var i = 0; i + 1 < t.Count; i++)
+        {
+            if (!t[i].Text.Equals("CONVERT_IMPLICIT", StringComparison.OrdinalIgnoreCase) || t[i + 1].Source != "(") continue;
+
+            var j = i + 2;
+            var depth = 0;
+            var type = "";
+            for (; j < t.Count && !(depth == 0 && t[j].Source == ","); j++)
+            {
+                depth += t[j].Source == "(" ? 1 : t[j].Source == ")" ? -1 : 0;
+                type += t[j].Source;
+            }
+
+            List<string> parts = [];
+            for (j++; j < t.Count && t[j].Kind == SqlTokenKind.QuotedIdentifier; j += 2)
+            {
+                parts.Add(t[j].Text);
+                if (j + 1 >= t.Count || t[j + 1].Source != ".") { j++; break; }
+            }
+
+            // An operator's predicate adds the alias: "[db].[shop].[users].[code] as [u].[code]".
+            if (j < t.Count && t[j].Text.Equals("as", StringComparison.OrdinalIgnoreCase))
+                for (j++; j < t.Count && (t[j].Kind == SqlTokenKind.QuotedIdentifier || t[j].Source == "."); j++) { }
+
+            if (j < t.Count && t[j].Source == "," && parts is [.., var column] && !column.StartsWith('@'))
+                yield return new PlanConversion(parts.Count >= 3 ? $"{parts[^3]}.{parts[^2]}" : null, column, type.ToLowerInvariant());
+        }
     }
 
     private static QueryPlanNode ParseRelOp(XElement relOp)

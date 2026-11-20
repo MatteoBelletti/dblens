@@ -3,6 +3,7 @@ using DbLens.Core.Analysis;
 using DbLens.Core.Analysis.Fragmentation;
 using DbLens.Core.Analysis.Hygiene;
 using DbLens.Core.Analysis.Indexes;
+using DbLens.Core.Analysis.Migration;
 using DbLens.Core.Models;
 using DbLens.Postgres;
 using FluentAssertions;
@@ -27,6 +28,26 @@ public sealed class PostgresEdgeCatalogTests(PostgresEdgeFixture fixture)
         result.Caveats.Should().Contain(c => c.Contains("cannot see when the database was created or restored"));
         result.Findings.Where(f => f.RuleId == IndexRuleIds.UnusedIndex).Should().OnlyContain(f =>
             (string)f.Metadata!["stats_since"] == nameof(StatsWindowStart.ServerStart) && f.Confidence < 0.9);
+    }
+
+    [SkippableFact]
+    [Trait("Category", "Integration")]
+    public async Task FkTypeMismatch_ComparesWithAReferencedKeyOutsideTheScope()
+    {
+        Skip.If(ShouldSkip, TestSkip.Reason);
+
+        var result = await Inspector.AnalyzeIndexesAsync(new AnalyzeIndexesRequest(Schema, ["narrow_kid"]));
+
+        var finding = result.Findings.Should().ContainSingle(f => f.RuleId == IndexRuleIds.FkTypeMismatch).Subject;
+        finding.Severity.Should().Be(Severity.Medium, "an integer cannot hold every bigint key");
+        finding.Columns.Should().Equal("parent_id");
+        finding.SqlFix!.Sql.Should().Be("ALTER TABLE \"edge\".\"narrow_kid\" ALTER COLUMN \"parent_id\" TYPE bigint;");
+
+        // The intent warns of a rewrite: check_migration_safety, which reads the proposal, must agree. Here
+        // rather than in CompositionTestsBase: the demo has no such key, and SQL Server cannot have one.
+        var check = await Inspector.CheckMigrationSafetyAsync(new CheckMigrationSafetyRequest(finding.SqlFix.Sql));
+        check.Statements.Should().ContainSingle().Which.Kind.Should().Be(MigrationOperationKind.AlterColumnType);
+        check.Findings.Should().Contain(f => f.RuleId == MigrationRuleIds.TableRewrite);
     }
 
     [SkippableFact]
@@ -192,6 +213,9 @@ public sealed class PostgresEdgeFixture : IAsyncLifetime, IEdgeFixture
         CREATE TABLE edge.event_notes (
             id int PRIMARY KEY, event_id int, event_date date,
             FOREIGN KEY (event_id, event_date) REFERENCES edge.events (id, created_at) ON DELETE CASCADE);
+
+        CREATE TABLE edge.wide_parent (id bigint PRIMARY KEY);
+        CREATE TABLE edge.narrow_kid (id int PRIMARY KEY, parent_id int REFERENCES edge.wide_parent (id));
 
         CREATE ROLE dblens_edge_limited LOGIN PASSWORD 'limited';
         GRANT USAGE ON SCHEMA edge TO dblens_edge_limited;

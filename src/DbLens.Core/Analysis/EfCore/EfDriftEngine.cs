@@ -6,9 +6,9 @@ namespace DbLens.Core.Analysis.EfCore;
 /// <summary>
 /// What the database holds that the EF model does not know, and the reverse. Pure. Every finding
 /// is derived from the catalog and the snapshot; each names the entity and property to touch in
-/// <c>Metadata["ef"]</c>. Column types, lengths and nullability are not compared here.
+/// <c>Metadata["ef"]</c>. Index filters and defaults are not compared here.
 /// </summary>
-public static class EfDriftEngine
+public static partial class EfDriftEngine
 {
     /// <param name="applied">The applied migration ids; null when no history table was found.</param>
     /// <param name="historyTable">The history table read, as a catalog pair.</param>
@@ -181,6 +181,13 @@ public static class EfDriftEngine
                 null,
                 Ef(column.Entity.Name, column.Property.Name)));
 
+        // A column the model computes takes its type and nullability from its expression. TPH subtypes and
+        // owned types can map one column more than once: mappings that expect the same are compared once.
+        foreach (var column in table.Columns
+                     .Where(c => c.Column is not null && !c.Ambiguous && !c.Property.IsComputed)
+                     .DistinctBy(c => (c.Column!.Name, c.Property.ColumnType is { } t ? NormalType(t) : null, c.Property.IsNullable)))
+            CompareColumn(table, column, findings);
+
         List<IReadOnlyList<string>> modelIndexes = [];
         foreach (var entity in table.Entities)
             foreach (var index in entity.Indexes)
@@ -188,9 +195,19 @@ public static class EfDriftEngine
                 if (EfModelMatcher.ColumnsOf(table, entity.Name, index.Properties) is not { } columns) continue;
                 modelIndexes.Add(columns);
 
-                if (detail.Indexes.Any(i => SameColumns(i.Columns, columns))
-                    || detail.UniqueConstraints.Any(u => SameColumns(u.Columns, columns))
-                    || (detail.PrimaryKey is { } pk && SameColumns(pk.Columns, columns))) continue;
+                if (detail.PrimaryKey is { } pk && SameColumns(pk.Columns, columns)) continue;
+                if (detail.UniqueConstraints.FirstOrDefault(u => SameColumns(u.Columns, columns)) is { } constraint)
+                {
+                    if (!index.IsUnique) findings.Add(Uniqueness(table, entity, index, constraint.Name, columns));
+                    continue;
+                }
+                var existing = detail.Indexes.Where(i => SameColumns(i.Columns, columns)).ToList();
+                if (existing.Count > 0)
+                {
+                    if (!existing.Any(i => i.IsUnique == index.IsUnique))
+                        findings.Add(Uniqueness(table, entity, index, existing[0].Name, columns));
+                    continue;
+                }
 
                 findings.Add(new Finding(
                     EfRuleIds.IndexMissing, Severity.High, FindingCategory.Performance, 1.0, Evidence.Derived,
@@ -229,6 +246,88 @@ public static class EfDriftEngine
             foreach (var key in entity.ForeignKeys)
                 CompareForeignKey(table, detail, entity, key, match, findings);
     }
+
+    /// <summary>The column the model expects against the one the database has: store type and nullability.</summary>
+    private static void CompareColumn(EfTableMatch table, EfColumnMatch column, List<Finding> findings)
+    {
+        var (property, actual, entity) = (column.Property, column.Column!, column.Entity);
+        var where = $"{table.Qualified}.{actual.Name}";
+
+        if (property.ColumnType is { } expected && NormalType(expected) != NormalType(actual.FullDataType))
+            findings.Add(new Finding(
+                EfRuleIds.ColumnType, Severity.Medium, FindingCategory.Structure, 1.0, Evidence.Derived,
+                table.Qualified, [actual.Name],
+                $"Column {where} is {actual.FullDataType}; the model expects {expected}",
+                $"{Short(entity.Name)}.{property.Name} is mapped to {expected}. A shorter or narrower column truncates or " +
+                "rejects what the code writes; a wider one hides a migration that never ran. EF compares the model with " +
+                "its snapshot, never with the database, so no migration will correct it: alter the column by hand, or " +
+                "map the property to the database's type if the database is right.",
+                null,
+                Ef(entity.Name, property.Name, $"b.Property(e => e.{property.Name}).HasColumnType(\"{actual.FullDataType}\")")));
+
+        // A snapshot writes no IsRequired() for a key property: a string key reads as nullable, and is not.
+        var nullable = property.IsNullable && !entity.Key.Contains(property.Name);
+        if (nullable != actual.IsNullable)
+            findings.Add(new Finding(
+                EfRuleIds.ColumnNullability, Severity.Medium, FindingCategory.Structure, 1.0, Evidence.Derived,
+                table.Qualified, [actual.Name],
+                $"Column {where} is {(actual.IsNullable ? "nullable" : "NOT NULL")}; the model says {(nullable ? "nullable" : "required")}",
+                actual.IsNullable
+                    ? $"The model treats {Short(entity.Name)}.{property.Name} as required, but the database allows NULL: a row " +
+                      "written outside EF can hold one, and loading it fails or yields a default value."
+                    : $"The model allows null in {Short(entity.Name)}.{property.Name}, but the column is NOT NULL: saving an " +
+                      "entity without a value fails at the database.",
+                null,
+                Ef(entity.Name, property.Name, actual.IsNullable ? null : $"b.Property(e => e.{property.Name}).IsRequired()")));
+    }
+
+    /// <param name="existing">The index or unique constraint on those columns.</param>
+    private static Finding Uniqueness(EfTableMatch table, EfEntity entity, EfIndex index, string existing, IReadOnlyList<string> columns) => new(
+        EfRuleIds.IndexUniqueness, index.IsUnique ? Severity.High : Severity.Low, FindingCategory.Structure, 1.0, Evidence.Derived,
+        table.Qualified, columns,
+        index.IsUnique
+            ? $"Index {existing} on {table.Qualified} is not unique; the model declares it unique"
+            : $"{existing} on {table.Qualified} is unique; the model does not say so",
+        index.IsUnique
+            ? $"{Short(entity.Name)} relies on ({string.Join(", ", columns)}) being unique, but the database does not enforce " +
+              "it: duplicates can already be there. EF sees the index as unique in its snapshot, so no migration will " +
+              "change it: find and resolve the duplicates, then make the index unique in the database by hand."
+            : $"The database enforces uniqueness the model does not know: an insert EF expects to succeed can fail. " +
+              "EF compares the model with its snapshot, not the database, so no migration will change it.",
+        null,
+        // The model is right where it asks for uniqueness: the database is what changes.
+        Ef(entity.Name, fluent: index.IsUnique ? null : $"b.HasIndex({Lambda(index.Properties)}).IsUnique()"));
+
+    /// <summary>
+    /// Store types as the provider writes them against the catalog's: case, spaces and the aliases the
+    /// two spell differently ("int4" and "integer", "datetime2" and "datetime2(7)") are not differences.
+    /// </summary>
+    private static string NormalType(string type)
+    {
+        var t = string.Concat(type.ToLowerInvariant().Where(c => !char.IsWhiteSpace(c)));
+        if (t.EndsWith("[]", StringComparison.Ordinal)) return NormalType(t[..^2]) + "[]";
+        if (t is "datetime2(7)" or "datetimeoffset(7)" or "time(7)") t = t[..^3];
+        // PostgreSQL writes the precision inside the name: "timestamp(3) with time zone".
+        t = TimePrecision().Replace(t, "$1$3timezone($2)");
+        foreach (var (alias, name) in TypeAliases)
+            if (t == alias || t.StartsWith(alias + "(", StringComparison.Ordinal)) { t = name + t[alias.Length..]; break; }
+        return t;
+    }
+
+    [System.Text.RegularExpressions.GeneratedRegex(@"^(timestamp|time)\((\d+)\)(with|without)timezone$")]
+    private static partial System.Text.RegularExpressions.Regex TimePrecision();
+
+    private static readonly (string Alias, string Name)[] TypeAliases =
+    [
+        ("int4", "integer"), ("int", "integer"), ("int8", "bigint"), ("int2", "smallint"), ("bool", "boolean"),
+        ("varchar", "charactervarying"), ("charactervarying", "charactervarying"), ("char", "character"),
+        ("timestamptz", "timestampwithtimezone"), ("timestamp", "timestampwithouttimezone"),
+        ("timetz", "timewithtimezone"), ("time", "timewithouttimezone"),
+        ("serial", "integer"), ("bigserial", "bigint"), ("smallserial", "smallint"),
+        ("float8", "doubleprecision"), ("float4", "real"), ("decimal", "numeric"),
+        // SQL Server catalogs a rowversion column as "timestamp".
+        ("rowversion", "timestampwithouttimezone"),
+    ];
 
     private static void CompareForeignKey(
         EfTableMatch table, TableDetail detail, EfEntity entity, EfForeignKey key, EfModelMatch match, List<Finding> findings)

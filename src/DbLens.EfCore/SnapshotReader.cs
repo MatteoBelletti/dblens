@@ -292,6 +292,7 @@ public static class SnapshotReader
                 case "HasPrecision": property.Precision = Int(call.Arg(0)); property.Scale = Int(call.Arg(1)); break;
                 case "HasColumnType": property.ColumnType = Str(call.Arg(0)); break;
                 case "HasColumnName": property.Column = Str(call.Arg(0)); break;
+                case "HasComputedColumnSql": property.Computed = true; break;
             }
         }
     }

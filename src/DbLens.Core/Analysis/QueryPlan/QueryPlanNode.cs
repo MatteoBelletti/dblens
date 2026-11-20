@@ -21,6 +21,12 @@ public enum QueryPlanNodeKind
 }
 
 /// <summary>
+/// A column the plan converts to <paramref name="ToType"/> to compare it: a parameter or literal of
+/// another type. <paramref name="Table"/> is "schema.table"; null when the plan does not name it.
+/// </summary>
+public sealed record PlanConversion(string? Table, string Column, string ToType);
+
+/// <summary>
 /// One node of a normalized execution plan. Estimated values are always present; actual values
 /// are populated only when the query was executed (EXPLAIN ANALYZE / actual plan).
 /// </summary>
@@ -45,7 +51,9 @@ public sealed record QueryPlanNode(
     string? Filter,
     IReadOnlyList<QueryPlanNode> Children,
     /// <summary>Rows the node read in total, when the engine reports it: a filter may discard most of them.</summary>
-    double? RowsRead = null
+    double? RowsRead = null,
+    /// <summary>Columns converted to another type before a comparison, which keeps an index on them from being used.</summary>
+    IReadOnlyList<PlanConversion>? Conversions = null
 )
 {
     /// <summary>Depth-first walk over this node and all of its descendants.</summary>
