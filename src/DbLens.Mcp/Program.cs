@@ -1,7 +1,4 @@
-using DbLens.Core.Abstractions;
-using DbLens.Core.Models;
 using DbLens.Mcp.Infrastructure;
-using DbLens.Mcp.Tools;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -31,15 +28,5 @@ static IMcpServerBuilder Configure(ILoggingBuilder logging, IServiceCollection s
     logging.ClearProviders();
     logging.AddConsole(o => o.LogToStandardErrorThreshold = LogLevel.Trace);
 
-    services.AddSingleton(ServerPolicy.From(configuration));
-    services.AddSingleton<IDatabaseInspectorFactory, DatabaseInspectorFactory>();
-    services.AddSingleton(new CertifiedQueryStore(
-        configuration["DbLens:CertifiedQueriesPath"] ?? CertifiedQueryStore.DefaultPath()));
-
-    services.AddConfiguredDatabases(configuration);
-
-    return services
-        .AddMcpServer()
-        .WithToolsFromAssembly(typeof(PingTool).Assembly)
-        .WithRequestFilters(filters => filters.AddCallToolFilter(ToolErrors.Filter));
+    return services.AddDbLensServer(configuration);
 }

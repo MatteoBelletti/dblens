@@ -45,6 +45,32 @@ public sealed class ConfiguredDatabases(IConfiguration configuration)
             : null;
     }
 
+    /// <summary>
+    /// The database a call reaches. A connection string needs its dialect, never guessed from its
+    /// format; without either, the one configured dialect is the default, and two are an error.
+    /// </summary>
+    public ConfiguredDatabase Resolve(DatabaseDialect dialect, bool dialectGiven, string? connectionString)
+    {
+        if (!string.IsNullOrWhiteSpace(connectionString))
+            return dialectGiven
+                ? new(dialect, connectionString, TargetSource.Parameter)
+                : throw new ArgumentException(
+                    "connectionString needs dialect (PostgreSql or SqlServer): dblens does not guess the engine from the string.");
+
+        if (dialectGiven) return Require(dialect);
+
+        List<ConfiguredDatabase> available = [.. Enum.GetValues<DatabaseDialect>().Select(For).OfType<ConfiguredDatabase>()];
+        return available.Count switch
+        {
+            1 => available[0],
+            0 => throw new ArgumentException(
+                "No database is configured: pass dialect and connectionString, or set ConnectionStrings__PostgreSql " +
+                "or ConnectionStrings__SqlServer in the server's environment."),
+            _ => throw new ArgumentException(
+                $"Both {string.Join(" and ", available.Select(d => d.Dialect))} are configured: pass dialect to say which one."),
+        };
+    }
+
     /// <summary>The configured database for the dialect, or the error a caller can act on.</summary>
     public ConfiguredDatabase Require(DatabaseDialect dialect) =>
         For(dialect) ?? throw new ArgumentException(

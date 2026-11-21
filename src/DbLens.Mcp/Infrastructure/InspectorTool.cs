@@ -1,5 +1,6 @@
 using DbLens.Core.Abstractions;
 using DbLens.Core.Models;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace DbLens.Mcp.Infrastructure;
@@ -10,18 +11,26 @@ namespace DbLens.Mcp.Infrastructure;
 /// </summary>
 public abstract class InspectorTool(IServiceProvider services, IDatabaseInspectorFactory factory)
 {
-    protected const string DialectHelp = "Database engine.";
+    protected const string DialectHelp = "Database engine. Omit only when the server has a single one configured; always pass it with connectionString.";
     protected const string ConnectionStringHelp = "Omit for the server's default.";
     protected const string SchemaHelp = "Null = all user schemas.";
     protected const string TablesHelp = "Names without schema. Null = all in scope.";
     protected const string DefaultSchemaHelp = "For unqualified table names. Null = public / dbo.";
 
     /// <summary>
-    /// A caller-supplied connection string gets an ad-hoc inspector; none, or an empty one, gets
-    /// the configured inspector for the dialect.
+    /// A caller-supplied connection string gets an ad-hoc inspector; none, or an empty one, the
+    /// configured inspector of the dialect, which is the only configured one when the call names none.
     /// </summary>
-    protected IDatabaseInspector ResolveInspector(DatabaseDialect dialect, string? connectionString) =>
-        !string.IsNullOrWhiteSpace(connectionString)
-            ? factory.Create(dialect, connectionString)
-            : ((IKeyedServiceProvider)services).GetRequiredKeyedService<IDatabaseInspector>(dialect);
+    protected IDatabaseInspector ResolveInspector(DatabaseDialect dialect, string? connectionString)
+    {
+        var database = Databases.Resolve(dialect, CallArguments.Has("dialect"), connectionString);
+
+        return database.Source == TargetSource.Parameter
+            ? factory.Create(database.Dialect, database.ConnectionString)
+            : ((IKeyedServiceProvider)services).GetRequiredKeyedService<IDatabaseInspector>(database.Dialect);
+    }
+
+    // A host that registers none (a C# caller building a tool by hand) has nothing configured.
+    private ConfiguredDatabases Databases =>
+        services.GetService<ConfiguredDatabases>() ?? new ConfiguredDatabases(new ConfigurationBuilder().Build());
 }

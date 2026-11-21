@@ -14,6 +14,7 @@ using DbLens.Core.Analysis.Receipts;
 using DbLens.Core.Analysis.Relationships;
 using DbLens.Core.Models;
 using DbLens.Mcp.Infrastructure;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace DbLens.Tests;
@@ -48,7 +49,12 @@ internal class StubInspector : IDatabaseInspector
 internal sealed class StubServices(Func<IDatabaseInspector> inspector, Action<DatabaseDialect>? onResolve = null)
     : IServiceProvider, IKeyedServiceProvider
 {
-    public object? GetService(Type serviceType) => null;
+    // Both dialects answer, as with the demo fallback on: the stub inspector stands in for either.
+    public object? GetService(Type serviceType) =>
+        serviceType == typeof(ConfiguredDatabases)
+            ? new ConfiguredDatabases(new ConfigurationBuilder()
+                .AddInMemoryCollection([new("DbLens:DemoFallback", "true")]).Build())
+            : null;
 
     public object? GetKeyedService(Type serviceType, object? serviceKey) => GetRequiredKeyedService(serviceType, serviceKey);
 

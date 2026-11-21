@@ -18,7 +18,9 @@ public static class ToolErrors
         {
             try
             {
-                return await next(context, ct);
+                // The test harness may call the filter without a request.
+                using var _ = CallArguments.Begin(context?.Params?.Arguments?.Keys ?? []);
+                return await next(context!, ct);
             }
             catch (Exception ex) when (ex is ArgumentException or ExecutionRefusedException or DatabaseInspectionException)
             {

@@ -7,14 +7,21 @@ All database tools share these parameters, so the tables below leave them out:
 
 | Parameter | Type | Default | Meaning |
 |---|---|---|---|
-| `dialect` | `PostgreSql` \| `SqlServer` | `PostgreSql` | Target engine |
-| `connectionString` | string | server default | Use a different database for this call only |
+| `dialect` | `PostgreSql` \| `SqlServer` | the only configured one | Target engine |
+| `connectionString` | string | the configured database | Use a different database for this call only; needs `dialect` |
 
 Scoped tools also take `schema` (null = every user schema) and `tables` (bare names, null = every
 table in scope): `analyze_indexes`, `analyze_fragmentation`, `analyze_denormalization`, `scan_gdpr`,
 `infer_relationships` and `build_glossary`. `check_cascade_paths` takes `schema` only, and starts from
 `startingTable` instead. A schema or table that matches nothing is named in a caveat: an empty result
-for a mistyped name is not a clean one. An empty `connectionString` means the server default.
+for a mistyped name is not a clean one. An empty `connectionString` means the configured database.
+
+dblens never guesses the target. A call without `dialect` reaches the one dialect the server has a
+database for (`ConnectionStrings:<dialect>`, or the demo with `DbLens:DemoFallback`); with both
+configured it is an error, and so is a `connectionString` without its `dialect`. A dialect with
+nothing configured is an error naming the setting, never the demo. The input schema still lists
+`PostgreSql` as the default, a contract with existing clients: whether `dialect` was sent is read
+from the call itself.
 
 Thresholds, budgets and caps are server defaults, not parameters: a model has no reason to tune them,
 and the result states the ones that applied.
