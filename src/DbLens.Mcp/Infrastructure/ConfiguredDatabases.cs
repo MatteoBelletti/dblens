@@ -5,19 +5,6 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace DbLens.Mcp.Infrastructure;
 
-/// <summary>Where a call's database came from.</summary>
-public enum TargetSource
-{
-    /// <summary><c>ConnectionStrings:&lt;dialect&gt;</c> in the server's configuration.</summary>
-    Configured,
-
-    /// <summary>The caller's <c>connectionString</c> parameter.</summary>
-    Parameter,
-
-    /// <summary>The local demo database, because <c>DbLens:DemoFallback</c> is on and nothing is configured.</summary>
-    DemoDefault,
-}
-
 public sealed record ConfiguredDatabase(DatabaseDialect Dialect, string ConnectionString, TargetSource Source);
 
 /// <summary>

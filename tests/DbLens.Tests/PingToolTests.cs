@@ -6,48 +6,28 @@ namespace DbLens.Tests;
 
 public sealed class PingToolTests
 {
-    [Fact]
-    public void Ping_DefaultMessage_ReturnsPong()
-    {
-        var result = PingTool.Ping();
-
-        result.Message.Should().Be("pong");
-    }
+    private static PingTool Tool() => new(new StubServices(() => new StubInspector()), new StubFactory(() => new StubInspector()));
 
     [Fact]
-    public void Ping_CustomMessage_ReflectsInput()
+    public async Task Ping_EchoesTheMessage_AndReportsTheDatabaseVersion()
     {
-        var result = PingTool.Ping("hello");
+        var result = await Tool().Ping("hello");
 
         result.Message.Should().Be("hello");
+        result.DatabaseServerVersion.Should().Be("stub 1.0");
+        result.AvailableDialects.Should().Equal(nameof(DatabaseDialect.PostgreSql), nameof(DatabaseDialect.SqlServer));
+        result.ServerVersion.Should().NotBeNullOrWhiteSpace();
     }
 
     [Fact]
-    public void Ping_AvailableDialects_ContainsBothDialects()
-    {
-        var result = PingTool.Ping();
-
-        result.AvailableDialects.Should().Contain(nameof(DatabaseDialect.PostgreSql));
-        result.AvailableDialects.Should().Contain(nameof(DatabaseDialect.SqlServer));
-    }
-
-    [Fact]
-    public void Ping_Timestamp_IsUtcIso8601()
+    public async Task Ping_Timestamp_IsUtcIso8601()
     {
         var before = DateTime.UtcNow;
-        var result = PingTool.Ping();
+        var result = await Tool().Ping();
         var after = DateTime.UtcNow;
 
         var timestamp = DateTime.Parse(result.Timestamp, null, System.Globalization.DateTimeStyles.RoundtripKind);
         timestamp.Kind.Should().Be(DateTimeKind.Utc);
         timestamp.Should().BeOnOrAfter(before).And.BeOnOrBefore(after);
-    }
-
-    [Fact]
-    public void Ping_ServerVersion_IsNotEmpty()
-    {
-        var result = PingTool.Ping();
-
-        result.ServerVersion.Should().NotBeNullOrWhiteSpace();
     }
 }

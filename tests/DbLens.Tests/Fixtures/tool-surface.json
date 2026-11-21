@@ -591,6 +591,21 @@
       "message": {
         "type": "string",
         "default": "pong"
+      },
+      "dialect": {
+        "type": "string",
+        "enum": [
+          "PostgreSql",
+          "SqlServer"
+        ],
+        "default": "PostgreSql"
+      },
+      "connectionString": {
+        "type": [
+          "string",
+          "null"
+        ],
+        "default": null
       }
     }
   },

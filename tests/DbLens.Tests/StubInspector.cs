@@ -28,6 +28,8 @@ internal class StubInspector : IDatabaseInspector
     public DatabaseDialect Dialect => DatabaseDialect.PostgreSql;
     public string DatabaseName => "stub";
     public Task<bool> TestConnectionAsync(CancellationToken ct = default) => Task.FromResult(true);
+    public Target Describe(TargetSource source) => new(Dialect, "stub", null, DatabaseName, "stub", true, source);
+    public Task<string> GetServerVersionAsync(CancellationToken ct = default) => Task.FromResult("stub 1.0");
     public virtual Task<DatabaseSchemaOverview> GetSchemaOverviewAsync(SchemaOverviewRequest request, CancellationToken ct = default) => throw new NotSupportedException();
     public virtual Task<TableDetailsResult> GetTableDetailsAsync(TableDetailsRequest request, CancellationToken ct = default) => throw new NotSupportedException();
     public Task<AnalyzeIndexesResult> AnalyzeIndexesAsync(AnalyzeIndexesRequest request, CancellationToken ct = default) => throw new NotSupportedException();

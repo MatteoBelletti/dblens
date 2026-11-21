@@ -23,11 +23,13 @@ public abstract class InspectorTool(IServiceProvider services, IDatabaseInspecto
     /// </summary>
     protected IDatabaseInspector ResolveInspector(DatabaseDialect dialect, string? connectionString)
     {
-        var database = Databases.Resolve(dialect, CallArguments.Has("dialect"), connectionString);
-
-        return database.Source == TargetSource.Parameter
+        var database = Databases.Resolve(dialect, ToolCall.Has("dialect"), connectionString);
+        var inspector = database.Source == TargetSource.Parameter
             ? factory.Create(database.Dialect, database.ConnectionString)
             : ((IKeyedServiceProvider)services).GetRequiredKeyedService<IDatabaseInspector>(database.Dialect);
+
+        if (ToolCall.Current is { } call) call.Target = inspector.Describe(database.Source);
+        return inspector;
     }
 
     // A host that registers none (a C# caller building a tool by hand) has nothing configured.

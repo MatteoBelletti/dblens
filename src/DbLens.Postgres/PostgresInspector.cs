@@ -262,6 +262,17 @@ public sealed partial class PostgresInspector(string connectionString, ILogger<P
 
     protected override DbConnection CreateConnection() => new NpgsqlConnection(connectionString);
 
+    protected override (string? Host, int? Port, string? Database, string? User) Endpoint
+    {
+        get
+        {
+            var b = new NpgsqlConnectionStringBuilder(connectionString);
+            return (b.Host ?? "localhost", b.Port, b.Database, b.Username);
+        }
+    }
+
+    protected override string ServerVersionSql => "SELECT version()";
+
     // Host may list several servers for failover; an unset Host means the local default socket or localhost.
     protected override IReadOnlyList<string> ServerHosts =>
         (new NpgsqlConnectionStringBuilder(connectionString).Host ?? "localhost")

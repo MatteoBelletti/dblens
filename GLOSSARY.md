@@ -125,6 +125,11 @@ The words dblens uses in its results and its code, and what each one commits to.
 **Candidate measure**
 : A numeric column named like an amount or total. A hint for the model, not a confirmed metric.
 
+**Target**
+: The database an answer describes: dialect, host, port, database, login, `isLocal` and its `source`
+  (`Configured`, `Parameter` or `DemoDefault`), read from the connection string without the password.
+  Every tool's answer carries it; `ping` connects and adds the server's version.
+
 **Server policy**
 : Operator settings that change the contract (`DbLens:AllowQueryResults`,
   `DbLens:AllowWriteCapableLogin`, `DbLens:ReadOnlyLoginOnLocalhost`). Configuration, never a tool parameter.

@@ -23,12 +23,17 @@ nothing configured is an error naming the setting, never the demo. The input sch
 `PostgreSql` as the default, a contract with existing clients: whether `dialect` was sent is read
 from the call itself.
 
+Every answer carries `target`: the dialect, host, port, database and login it ran against, whether
+the server is on this machine (`isLocal`, from the address alone), and its `source` — `Configured`,
+`Parameter` or `DemoDefault`. It is read from the connection string with the driver's own builder
+and never holds the password.
+
 Thresholds, budgets and caps are server defaults, not parameters: a model has no reason to tune them,
 and the result states the ones that applied.
 
 | Tool | Reads | Executes SQL? | Results in |
 |---|---|---|---|
-| [`ping`](#ping) | nothing | no | — |
+| [`ping`](#ping) | the server's version | `SELECT version()` / `@@VERSION` | — |
 | [`get_schema`](#get_schema) | catalog | no | overview |
 | [`get_table_details`](#get_table_details) | catalog | no | structure |
 | [`analyze_indexes`](#analyze_indexes) | catalog + scan counters | no | Findings |
@@ -58,8 +63,11 @@ first within each, and a caveat says how many were cut. The `Summary` counts wha
 
 ## `ping`
 
-Returns the server version, a UTC timestamp, the supported dialects and `message` echoed back
-(default `pong`). Touches no database: use it to check the server is reachable.
+Connects to the database the call resolves to (the same `dialect` and `connectionString` rules as
+every tool) and returns its `target`, the database server's own version (`databaseServerVersion`),
+dblens's version, a UTC timestamp, the supported dialects and `message` echoed back (default
+`pong`). Nothing configured, or a connection that fails, is an error with the reason: there is no
+"reachable" answer without a database that answered.
 
 ## `get_schema`
 

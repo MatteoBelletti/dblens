@@ -49,6 +49,28 @@ public abstract partial class DatabaseInspectorBase(ILogger logger) : IDatabaseI
         return true;
     }
 
+    public Target Describe(TargetSource source)
+    {
+        var (host, port, database, user) = Endpoint;
+        return new Target(Dialect, host, port, database, user,
+            ServerHosts.Count > 0 && ServerHosts.All(LocalServer.IsLocal), source);
+    }
+
+    public Task<string> GetServerVersionAsync(CancellationToken ct = default) =>
+        RunAsync("server version", async () =>
+        {
+            await using var conn = await OpenAsync(ct);
+            await using var cmd = Command(conn, ServerVersionSql);
+            var version = Convert.ToString(await cmd.ExecuteScalarAsync(ct), System.Globalization.CultureInfo.InvariantCulture) ?? "";
+            return version.Split('\n', 2)[0].Trim();
+        });
+
+    /// <summary>Host, port, database and login of the connection string, from the driver's builder.</summary>
+    protected abstract (string? Host, int? Port, string? Database, string? User) Endpoint { get; }
+
+    /// <summary>One row, one column: the server's version string.</summary>
+    protected abstract string ServerVersionSql { get; }
+
     // ── Connections, commands, errors ──────────────────────────────────────────
 
     protected async Task<DbConnection> OpenAsync(CancellationToken ct)
