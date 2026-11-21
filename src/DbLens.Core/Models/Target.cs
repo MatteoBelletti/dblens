@@ -11,6 +11,9 @@ public enum TargetSource
 
     /// <summary>The local demo database: nothing configured, and <c>DbLens:DemoFallback</c> on.</summary>
     DemoDefault,
+
+    /// <summary>A connection saved under a name (<c>DbLens:ConnectionsPath</c>), passed as <c>connection</c>.</summary>
+    Named,
 }
 
 /// <summary>
@@ -24,4 +27,5 @@ public sealed record Target(
     string? Database,
     string? User,
     bool IsLocal,
-    TargetSource Source);
+    TargetSource Source,
+    string? Connection = null);

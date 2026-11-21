@@ -33,6 +33,8 @@ public sealed class QueryWithReceiptTool(
         double tolerance = 0.0,
         [Description(ConnectionStringHelp)]
         string? connectionString = null,
+        [Description(ConnectionHelp)]
+        string? connection = null,
         CancellationToken cancellationToken = default)
     {
         if (!policy.AllowQueryResults)
@@ -41,10 +43,10 @@ public sealed class QueryWithReceiptTool(
                 "DbLens:AllowQueryResults=true (see docs/safety.md#query-results). Use explain_query or the " +
                 "diagnostic tools instead.");
 
-        var inspector = ResolveInspector(dialect, connectionString);
+        var inspector = ResolveInspector(dialect, connectionString, connection);
 
         if (certified is not null)
-            sql = (store.Find(dialect, inspector.DatabaseName, certified)
+            sql = (store.Find(inspector.Dialect, inspector.DatabaseName, certified)
                    ?? throw new ArgumentException($"No certified query named '{certified}' for this database.")).Sql;
 
         if (string.IsNullOrWhiteSpace(sql))
@@ -53,7 +55,7 @@ public sealed class QueryWithReceiptTool(
         var result = await inspector.QueryWithReceiptAsync(
             new QueryWithReceiptRequest(sql, crossCheckSql, tolerance), cancellationToken);
 
-        return store.Matching(dialect, result.Receipt.Database, sql) is { } entry
+        return store.Matching(inspector.Dialect, result.Receipt.Database, sql) is { } entry
             ? result with { Receipt = result.Receipt with { CertifiedAs = $"{entry.Name}: {entry.Question}" } }
             : result;
     }

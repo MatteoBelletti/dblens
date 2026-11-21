@@ -29,19 +29,21 @@ public sealed class CertifiedQueryTools(
         DatabaseDialect dialect = DatabaseDialect.PostgreSql,
         [Description(ConnectionStringHelp)]
         string? connectionString = null,
+        [Description(ConnectionHelp)]
+        string? connection = null,
         CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(name) || string.IsNullOrWhiteSpace(question))
             throw new ArgumentException("name and question must not be empty.");
 
-        var guard = StatementGuard.IsReadOnlySelect(sql, dialect);
+        var inspector = ResolveInspector(dialect, connectionString, connection);
+        var guard = StatementGuard.IsReadOnlySelect(sql, inspector.Dialect);
         if (!guard.Allowed)
             throw new ArgumentException($"Only a read-only SELECT can be certified. {guard.RejectionReason}");
 
-        var inspector = ResolveInspector(dialect, connectionString);
         await inspector.ExplainQueryAsync(new ExplainQueryRequest(sql), cancellationToken);
 
-        return new CertifyResult(store.Save(name, question, sql, dialect, inspector.DatabaseName), store.Path);
+        return new CertifyResult(store.Save(name, question, sql, inspector.Dialect, inspector.DatabaseName), store.Path);
     }
 
     [McpServerTool, Description(
@@ -51,6 +53,10 @@ public sealed class CertifiedQueryTools(
         [Description(DialectHelp)]
         DatabaseDialect dialect = DatabaseDialect.PostgreSql,
         [Description(ConnectionStringHelp)]
-        string? connectionString = null) =>
-        store.List(dialect, ResolveInspector(dialect, connectionString).DatabaseName);
+        string? connectionString = null,
+        [Description(ConnectionHelp)]
+        string? connection = null) =>
+        ResolveInspector(dialect, connectionString, connection) is var inspector
+            ? store.List(inspector.Dialect, inspector.DatabaseName)
+            : [];
 }

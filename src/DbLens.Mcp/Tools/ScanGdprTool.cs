@@ -29,9 +29,11 @@ public sealed class ScanGdprTool(IServiceProvider services, IDatabaseInspectorFa
         double minConfidence = 0.5,
         [Description(ConnectionStringHelp)]
         string? connectionString = null,
+        [Description(ConnectionHelp)]
+        string? connection = null,
         CancellationToken cancellationToken = default)
     {
-        var inspector = ResolveInspector(dialect, connectionString);
+        var inspector = ResolveInspector(dialect, connectionString, connection);
 
         return inspector.ScanGdprAsync(
             new ScanGdprRequest(schema, tables, excludeTables, minConfidence),

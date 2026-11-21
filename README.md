@@ -184,6 +184,7 @@ claude mcp add dblens -- dotnet run --project /path/to/dblens/src/DbLens.Mcp
 | `DbLens:AllowQueryResults` | `DbLens__AllowQueryResults` | `false` — enables `query_with_receipt` |
 | `DbLens:AllowWriteCapableLogin` | `DbLens__AllowWriteCapableLogin` | `false` — skips the read-only-login check on remote servers too; disposable databases only |
 | `DbLens:ReadOnlyLoginOnLocalhost` | `DbLens__ReadOnlyLoginOnLocalhost` | `false` — applies the check to a local server as well, for dblens installed on a real database server |
+| `DbLens:ConnectionsPath` | `DbLens__ConnectionsPath` | `dblens/connections` under the local application-data folder — connections saved under a name, one `<name>.conn` each (dialect, then connection string), for the `connection` parameter |
 | `DbLens:CertifiedQueriesPath` | `DbLens__CertifiedQueriesPath` | `dblens/certified-queries.json` under the local application-data folder: `%LOCALAPPDATA%` on Windows, `~/.local/share` on Linux, `~/Library/Application Support` on macOS |
 
 An empty value means the default, so an unset Claude Desktop setting counts as not configured. A

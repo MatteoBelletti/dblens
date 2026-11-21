@@ -9,6 +9,7 @@ All database tools share these parameters, so the tables below leave them out:
 |---|---|---|---|
 | `dialect` | `PostgreSql` \| `SqlServer` | the only configured one | Target engine |
 | `connectionString` | string | the configured database | Use a different database for this call only; needs `dialect` |
+| `connection` | string | none | A connection saved under this name, instead of `connectionString`; it carries its own dialect |
 
 Scoped tools also take `schema` (null = every user schema) and `tables` (bare names, null = every
 table in scope): `analyze_indexes`, `analyze_fragmentation`, `analyze_denormalization`, `scan_gdpr`,
@@ -22,6 +23,12 @@ configured it is an error, and so is a `connectionString` without its `dialect`.
 nothing configured is an error naming the setting, never the demo. The input schema still lists
 `PostgreSql` as the default, a contract with existing clients: whether `dialect` was sent is read
 from the call itself.
+
+A **named connection** is a file `<name>.conn` in `DbLens:ConnectionsPath` (`ping` returns the folder
+as `connectionsFolder`): the dialect on the first line, the connection string on the second. A
+local tool writes it — the plugin's audit skill does, from a Docker container's own settings — so
+that only the name travels through a prompt; `target.source` is then `Named` and `target.connection`
+the name. Passing `connection` with `connectionString`, or with a `dialect` it contradicts, is an error.
 
 Every answer carries `target`: the dialect, host, port, database and login it ran against, whether
 the server is on this machine (`isLocal`, from the address alone), and its `source` — `Configured`,

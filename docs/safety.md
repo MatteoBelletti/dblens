@@ -199,6 +199,14 @@ held to the least they need:
 - nothing of the file is returned but the model's own names (entities, properties, tables, columns,
   migration ids).
 
+### Named connections
+
+`DbLens:ConnectionsPath` holds connections saved under a name, one `<name>.conn` file each. The
+server reads them; a call passes only the name (`connection`), so a password written there by a
+local tool never appears in a prompt, a tool argument or a result. The audit skill writes the file
+from a Docker container's own environment with a command that prints no secret, and keeps it
+readable by the user only (`0600`).
+
 ### The plugin's one command
 
 The server never builds the user's code. The optional Claude Code plugin can, once: its `ef` agent

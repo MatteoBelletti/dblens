@@ -32,10 +32,12 @@ public sealed class BuildGlossaryTool(
         bool overwrite = false,
         [Description(ConnectionStringHelp)]
         string? connectionString = null,
+        [Description(ConnectionHelp)]
+        string? connection = null,
         CancellationToken cancellationToken = default)
     {
-        var inspector = ResolveInspector(dialect, connectionString);
-        var certified = CertifiedQueryStore.ForGlossary(store.List(dialect, inspector.DatabaseName));
+        var inspector = ResolveInspector(dialect, connectionString, connection);
+        var certified = CertifiedQueryStore.ForGlossary(store.List(inspector.Dialect, inspector.DatabaseName));
 
         var result = await inspector.BuildGlossaryAsync(
             new GlossaryRequest(schema, tables, verifyJoins, certified), cancellationToken);

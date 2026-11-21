@@ -14,6 +14,7 @@ public static class DbLensServer
         services.AddSingleton(new CertifiedQueryStore(
             configuration["DbLens:CertifiedQueriesPath"] ?? CertifiedQueryStore.DefaultPath()));
         services.AddConfiguredDatabases(configuration);
+        services.AddSingleton(new NamedConnections(configuration));
 
         return services
             .AddMcpServer()

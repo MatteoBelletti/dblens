@@ -30,9 +30,11 @@ public sealed class InferRelationshipsTool(IServiceProvider services, IDatabaseI
         bool verifyCandidates = false,
         [Description(ConnectionStringHelp)]
         string? connectionString = null,
+        [Description(ConnectionHelp)]
+        string? connection = null,
         CancellationToken cancellationToken = default)
     {
-        return ResolveInspector(dialect, connectionString).InferRelationshipsAsync(
+        return ResolveInspector(dialect, connectionString, connection).InferRelationshipsAsync(
             new InferRelationshipsRequest(schema, tables, VerifyCandidates: verifyCandidates),
             cancellationToken);
     }

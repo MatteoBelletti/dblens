@@ -26,9 +26,11 @@ public sealed class CheckCascadePathsTool(IServiceProvider services, IDatabaseIn
         int maxDepth = 10,
         [Description(ConnectionStringHelp)]
         string? connectionString = null,
+        [Description(ConnectionHelp)]
+        string? connection = null,
         CancellationToken cancellationToken = default)
     {
-        var inspector = ResolveInspector(dialect, connectionString);
+        var inspector = ResolveInspector(dialect, connectionString, connection);
 
         return inspector.CheckCascadePathsAsync(
             new CheckCascadePathsRequest(startingTable, maxDepth, schema),

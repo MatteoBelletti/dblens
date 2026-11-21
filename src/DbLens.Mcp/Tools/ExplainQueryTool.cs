@@ -26,12 +26,14 @@ public sealed class ExplainQueryTool(IServiceProvider services, IDatabaseInspect
         bool analyze = false,
         [Description(ConnectionStringHelp)]
         string? connectionString = null,
+        [Description(ConnectionHelp)]
+        string? connection = null,
         CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(sql))
             throw new ArgumentException("sql must not be empty.");
 
-        return ResolveInspector(dialect, connectionString).ExplainQueryAsync(
+        return ResolveInspector(dialect, connectionString, connection).ExplainQueryAsync(
             new ExplainQueryRequest(sql, analyze), cancellationToken);
     }
 }
