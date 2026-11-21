@@ -27,6 +27,8 @@
     <None Remove="publish\**" />
     <Compile Remove="publish\**" />
     <Content Update="appsettings.json" Pack="false" />
+    <!-- Turns the demo fallback on for `dotnet run` only: never shipped. -->
+    <Content Update="appsettings.Development.json" Pack="false" CopyToPublishDirectory="Never" />
   </ItemGroup>
 
   <ItemGroup>

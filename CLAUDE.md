@@ -199,8 +199,9 @@ PostgreSQL  Host=localhost;Port=5433;Database=dblens_demo;Username=dblens_reader
 SQL Server  Server=localhost,1434;Database=dblens_demo;User Id=dblens_reader;Password=ReaderPassword123!;TrustServerCertificate=true
 ```
 
-In `appsettings.json`, with the same values as fallbacks in `Program.cs`; an empty value (an unset
-`.mcpb` setting) means the default. The admin logins (`postgres` / `sa`) exist for setup only.
+Used only when `DbLens:DemoFallback` is on (`appsettings.Development.json`, the Makefile, the tests):
+otherwise a dialect without `ConnectionStrings:<dialect>` is an error, never the demo. An empty value
+(an unset `.mcpb` setting) counts as not configured (`ConfiguredDatabases`). The admin logins (`postgres` / `sa`) exist for setup only.
 Non-standard ports avoid clashing with local installs.
 
 ## Releasing

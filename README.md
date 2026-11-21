@@ -178,15 +178,16 @@ claude mcp add dblens -- dotnet run --project /path/to/dblens/src/DbLens.Mcp
 
 | Key (`appsettings.json`) | Environment variable | Default |
 |---|---|---|
-| `ConnectionStrings:PostgreSql` | `ConnectionStrings__PostgreSql` | the demo database, as `dblens_reader` |
-| `ConnectionStrings:SqlServer` | `ConnectionStrings__SqlServer` | the demo database, as `dblens_reader` |
+| `ConnectionStrings:PostgreSql` | `ConnectionStrings__PostgreSql` | none: a call without `connectionString` is an error |
+| `ConnectionStrings:SqlServer` | `ConnectionStrings__SqlServer` | none: a call without `connectionString` is an error |
+| `DbLens:DemoFallback` | `DbLens__DemoFallback` | `false` — `true` uses the demo database for a dialect with no connection string; `dotnet run` and `make` turn it on |
 | `DbLens:AllowQueryResults` | `DbLens__AllowQueryResults` | `false` — enables `query_with_receipt` |
 | `DbLens:AllowWriteCapableLogin` | `DbLens__AllowWriteCapableLogin` | `false` — skips the read-only-login check on remote servers too; disposable databases only |
 | `DbLens:ReadOnlyLoginOnLocalhost` | `DbLens__ReadOnlyLoginOnLocalhost` | `false` — applies the check to a local server as well, for dblens installed on a real database server |
 | `DbLens:CertifiedQueriesPath` | `DbLens__CertifiedQueriesPath` | `dblens/certified-queries.json` under the local application-data folder: `%LOCALAPPDATA%` on Windows, `~/.local/share` on Linux, `~/Library/Application Support` on macOS |
 
-An empty value means the default, so an unset Claude Desktop setting is harmless. A tool call can
-also pass its own `connectionString`. `analyze_fragmentation` additionally needs
+An empty value means the default, so an unset Claude Desktop setting counts as not configured. A
+tool call can also pass its own `connectionString`. `analyze_fragmentation` additionally needs
 `pgstattuple` (PostgreSQL) or `VIEW DATABASE STATE` (SQL Server); query history needs
 `pg_stat_statements` or Query Store.
 

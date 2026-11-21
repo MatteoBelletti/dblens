@@ -5,7 +5,8 @@
       "commandName": "Project",
       "dotnetRunMessages": true,
       "environmentVariables": {
-        "ASPNETCORE_ENVIRONMENT": "Development"
+        "ASPNETCORE_ENVIRONMENT": "Development",
+        "DOTNET_ENVIRONMENT": "Development"
       }
     },
     "sse": {
@@ -14,7 +15,8 @@
       "applicationUrl": "http://localhost:5050",
       "environmentVariables": {
         "ASPNETCORE_ENVIRONMENT": "Development",
-        "MCP_TRANSPORT": "sse"
+        "MCP_TRANSPORT": "sse",
+        "DOTNET_ENVIRONMENT": "Development"
       }
     }
   }
