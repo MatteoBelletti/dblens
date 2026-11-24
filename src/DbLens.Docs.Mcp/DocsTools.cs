@@ -7,7 +7,8 @@ namespace DbLens.Docs.Mcp;
 
 public sealed record InventoryView(IReadOnlyList<InventoryItem> Items, IReadOnlyList<CoverageNote> Coverage, int Total);
 
-public sealed record SlotList(int Total, int Returned, IReadOnlyList<SlotInfo> Slots, string Note);
+/// <param name="Language">The language the words are written in: the one of the documents (<c>it</c> or <c>en</c>).</param>
+public sealed record SlotList(int Total, int Returned, IReadOnlyList<SlotInfo> Slots, string Note, string Language);
 
 public sealed record SlotWritten(string Id, string File, string Evidence, int Lines);
 
@@ -54,7 +55,7 @@ public sealed class DocsTools(DocsWorkspace workspace)
             .ToList();
         var chosen = all.Where(s => state switch { "all" => true, "needed" => s.State != "current", _ => s.State == state }).ToList();
         var note = all.Count == 0 ? "No slots: the documents do not exist yet (run dblens-docs scaffold) or nothing matches." : "";
-        return new SlotList(chosen.Count, Math.Min(chosen.Count, MaxItems), [.. chosen.Take(MaxItems)], note);
+        return new SlotList(chosen.Count, Math.Min(chosen.Count, MaxItems), [.. chosen.Take(MaxItems)], note, workspace.Options.Language);
     }
 
     [McpServerTool(ReadOnly = true), Description(

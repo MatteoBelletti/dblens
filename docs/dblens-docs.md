@@ -111,7 +111,15 @@ Events are recognised by presets for the eShop bus (`IntegrationEvent`, `AddSubs
 A flow follows calls by method name, commands and domain events by type, and stops at the bus: what a consumer does is the
 next hop. A name counts only if one method of the component (or of the libraries it shares) carries it, and not the names
 every collection has (`Add`, `Save`, `Send`…). It stops at an interface, at a base class and at a name that several methods
-carry; the inventory's `coverage` says so. None of this is in the five documents yet: the overview document is the next step.
+carry; the inventory's `coverage` says so.
+
+`dblens-docs scaffold` writes it as `overview.md`: the component graph (Mermaid), a table and one caption slot per
+component, a sequence diagram and a caption slot per flow, the events and the shared libraries. The diagrams and tables
+are generated; only the captions are words. To go deeper into one component, `dblens-docs detail <name>` starts
+`components/<slug>.md` (its endpoints, events, data, links and flows, plus one narrative slot of up to 80 lines that the
+writer fills after reading the component's code); scaffold keeps it up to date afterwards. The plugin's
+`detail-component` skill asks the user which component and does both steps. The language of the documents and of the
+sentences is `language` in `dblens-docs.json` (the writer reads it from `get_doc_slots`).
 
 ## Links between endpoints and entities
 
@@ -121,6 +129,6 @@ and body, so a handler that delegates to a service shows none. The inventory's `
 
 ## What it does not read
 
-Messaging (integration events, queues, handlers: not recognised yet), conventional MVC routes (`MapDefaultControllerRoute`), a route built at run time and a group
+Messaging with a bus the presets do not know (add it in `dblens-docs.json`), conventional MVC routes (`MapDefaultControllerRoute`), a route built at run time and a group
 passed through several layers are named in the inventory's `coverage`, not guessed.
 See [roadmap/docs-m0.md](roadmap/docs-m0.md), [docs-m1.md](roadmap/docs-m1.md), [docs-m2.md](roadmap/docs-m2.md), [docs-m3.md](roadmap/docs-m3.md) and [docs-m4-m5.md](roadmap/docs-m4-m5.md).

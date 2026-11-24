@@ -263,10 +263,12 @@ overlap, and neither do those of a command-line `scaffold` or `confirm` running 
 nothing (but `--out`).
 
 `dblens-docs mcp` serves the same folder to a model, and **fixed when it starts**: no tool takes a path.
-Three tools read; `set_doc_slot` writes the words of one slot of those five files, and nothing else. It
+Three tools read; `set_doc_slot` writes the words of one slot of the project documents (the overview, the five
+others and `components/*.md`, at most 200 of them), and nothing else. It
 refuses a slot that holds a person's words (also when the item has since changed), a document whose item
-changed since it was generated, more lines than the slot allows, a line over 300 characters, blank
-lines, and any text with an HTML comment, which is how the regions are marked. The words are marked
+changed since it was generated, more lines than the slot allows, a line over 300 characters (800 in a narrative
+slot, which alone may have blank lines between paragraphs), and any text with an HTML comment, which is how the
+regions are marked. `dblens-docs detail <name>` creates `components/<slug>.md` only for a component of the inventory. The words are marked
 `inferred`; a person editing them makes them `human`. A model cannot confirm, delete or empty a slot.
 
 What the inventory carries is names and text the code states: project names and references, package ids

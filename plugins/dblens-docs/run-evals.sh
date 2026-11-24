@@ -17,7 +17,7 @@ WRAP
 chmod +x "$bin/dblens-docs"
 export PATH="$bin:$PATH"
 
-allow=(Workflow Write)
+allow=(Workflow Write AskUserQuestion "Bash(dblens-docs detail:*)")
 for t in get_project_inventory get_doc_slots check_doc_coverage set_doc_slot; do allow+=("mcp__plugin_dblens-docs_docs__$t"); done
 
 cd "$here/.."

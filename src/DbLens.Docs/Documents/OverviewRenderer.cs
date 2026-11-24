@@ -40,7 +40,7 @@ internal static class OverviewRenderer
         {
             var kinds = pair.GroupBy(i => i.Attributes["kind"]).ToDictionary(g => g.Key, g => g.Count(), StringComparer.Ordinal);
             var (from, to) = (node[pair.Key.From], node[pair.Key.To]);
-            if (kinds.TryGetValue("event", out var events)) text.Append($"  {from} -->|\"{events} {l["eventsWord"]}\"| {to}\n");
+            if (kinds.TryGetValue("event", out var events)) text.Append($"  {from} -->|\"{l["eventsWord"]}: {events}\"| {to}\n");
             if (kinds.ContainsKey("call")) text.Append($"  {from} -->|\"{l["callWord"]}\"| {to}\n");
             if (kinds.ContainsKey("data")) text.Append($"  {from} -.->|\"{l["dataWord"]}\"| {to}\n");
             if (!kinds.ContainsKey("event") && !kinds.ContainsKey("call") && !kinds.ContainsKey("data")) text.Append($"  {from} -.->|\"{l["dependsWord"]}\"| {to}\n");

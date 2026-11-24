@@ -17,8 +17,9 @@ events or endpoints.
 
 ## 2. Start its document
 
-Run `dblens-docs detail "<name>"` with Bash, alone in its call. It creates `docs/project/components/<slug>.md` with the
-generated tables and one empty narrative slot, `detail:<name>`. If the command refuses, say why and stop.
+Call `get_doc_slots` with `state` all and `idPrefix` `detail:<name>`. If it lists the slot, the document exists: go to step 3.
+Otherwise run `dblens-docs detail "<name>"` with Bash, alone in its call. It creates `docs/project/components/<slug>.md`
+with the generated tables and one empty narrative slot, `detail:<name>`. If the command refuses, say why and stop.
 
 ## 3. Write it
 

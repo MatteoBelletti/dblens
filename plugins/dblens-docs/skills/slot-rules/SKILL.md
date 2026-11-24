@@ -11,7 +11,8 @@ code and says what the item *is*; the slot says what it is *for*.
 ## What to write
 
 - **A purpose**: what the item does for the system or its callers, in one or two sentences, in the language
-  of the document (the generated headings tell it). At most the slot's `maxLines`, each line at most 300
+  `get_doc_slots` returns as `language` (`it`: Italian, `en`: English), whatever the code or this skill is written in.
+  Names from the code (classes, methods, events, routes) stay as they are. At most the slot's `maxLines`, each line at most 300
   characters, consecutive lines, plain text. No heading, list, table, code block or HTML comment.
 - Say what the code shows: the condition it checks, the state it changes, the collaborator it calls. Do not
   repeat the table (verb, route, file, packages): the reader has it.

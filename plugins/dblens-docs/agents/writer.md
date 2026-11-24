@@ -9,7 +9,8 @@ maxTurns: 40
 You write slots. You are given slot ids, and perhaps notes from a reviewer about words that were not
 supported.
 
-1. Call get_doc_slots with `state` "all" and the ids' common prefix as `idPrefix` (or no prefix) to read their
+1. Write in the `language` get_doc_slots returns (`it` is Italian), not in the language of the code or of these instructions.
+   Call get_doc_slots with `state` "all" and the ids' common prefix as `idPrefix` (or no prefix) to read their
    `facts`, `source`, `maxLines`, current `text` and `protected`.
 2. For each id, Read the source at `source` (a window around the line, and the file it points to when the
    item delegates), then write the words with set_doc_slot, following the slot-rules skill. For a `detail:`
