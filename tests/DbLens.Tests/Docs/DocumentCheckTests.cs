@@ -110,6 +110,7 @@ public sealed class DocumentCheckTests
 
         Check(inventory, documents).Issues.Should().Contain(i => i.Code == "slot-missing" && i.Severity == IssueSeverity.Warning);
         Check(inventory, documents, requireSlots: true).Ok.Should().BeFalse();
+        Check(inventory, documents, strict: true).Ok.Should().BeFalse();
     }
 
     [Fact]
@@ -190,6 +191,8 @@ public sealed class DocumentCheckTests
 
 internal static class InventoryTestExtensions
 {
+    public static ProjectInventory WithoutItem(this ProjectInventory inventory, string id) => inventory with { Items = [.. inventory.Items.Where(i => i.Id != id)] };
+
     public static ProjectInventory WithAttribute(this ProjectInventory inventory, string id, string key, string value) => inventory with
     {
         Items = [.. inventory.Items.Select(i => i.Id == id

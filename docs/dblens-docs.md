@@ -69,7 +69,7 @@ Returns an order with its lines; 404 when it is not the caller's.
    marker (`malformed`).
 
 An **empty** slot (`slot-empty`), a **stale** one (`slot-stale`) and a region **without its slot** (`slot-missing`) are warnings, so the check is useful
-before anyone writes a word; `--require-slots` and `--strict` make them errors.
+before anyone writes a word; `--require-slots` makes the empty and missing ones errors, `--strict` the stale and missing ones.
 
 ## In CI
 

@@ -37,10 +37,18 @@ public static class DocsFolder
 
             // A name nobody could have planted: CreateNew fails on anything that already exists, a link included.
             var temporary = $"{target}.{Guid.NewGuid():N}.tmp";
-            using (var stream = new FileStream(temporary, FileMode.CreateNew, FileAccess.Write))
-            using (var writer = new StreamWriter(stream, new System.Text.UTF8Encoding(false)))
-                writer.Write(text);
-            File.Move(temporary, target, overwrite: true);
+            try
+            {
+                using (var stream = new FileStream(temporary, FileMode.CreateNew, FileAccess.Write))
+                using (var writer = new StreamWriter(stream, new System.Text.UTF8Encoding(false)))
+                    writer.Write(text);
+                File.Move(temporary, target, overwrite: true);
+            }
+            catch
+            {
+                if (File.Exists(temporary)) File.Delete(temporary);
+                throw;
+            }
         }
     }
 
@@ -94,7 +102,7 @@ public static class DocsConfig
 
     private static string? Text(JsonElement root, string name)
     {
-        if (!root.TryGetProperty(name, out var value)) return null;
+        if (!root.TryGetProperty(name, out var value) || value.ValueKind == JsonValueKind.Null) return null;
         return value.ValueKind == JsonValueKind.String
             ? value.GetString() is { Length: > 0 } text ? text : null
             : throw new ArgumentException($"{FileName}: \"{name}\" must be text.");

@@ -151,6 +151,17 @@ public sealed class ScaffoldTests
     }
 
     [Fact]
+    public void ANoteAfterTheOnlyRegion_IsKept_WhenEveryItemOfTheFileLeaves()
+    {
+        var first = Scaffolder.Scaffold(Solution("/a"), new Dictionary<string, string>(), Options).Files;
+        var withNote = new Dictionary<string, string>(first) { ["docs/project/api.md"] = first["docs/project/api.md"].TrimEnd() + "\n\nA note about /a.\n" };
+
+        var gone = Scaffolder.Scaffold(Solution("/a").WithoutItem("endpoint:GET /a"), withNote, Options);
+
+        gone.Files["docs/project/api.md"].Should().Contain("A note about /a.");
+    }
+
+    [Fact]
     public void ADocsFolderThatIsALink_IsRefused_AndSoIsAnyFolderAboveIt()
     {
         var root = Path.Combine(Path.GetTempPath(), $"dblens-docs-link-{Guid.NewGuid():N}");
@@ -169,6 +180,23 @@ public sealed class ScaffoldTests
             Directory.Delete(Path.Combine(root, "docs", "project"));
             Directory.Delete(root, recursive: true);
             Directory.Delete(elsewhere, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void ANullSetting_MeansTheDefault()
+    {
+        var root = Path.Combine(Path.GetTempPath(), $"dblens-docs-null-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(root);
+        try
+        {
+            System.IO.File.WriteAllText(Path.Combine(root, DocsConfig.FileName), "{ \"language\": null, \"docs\": \"documentation\" }");
+
+            DocsConfig.Load(root).Should().Be(new DocsOptions("en", "documentation"));
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
         }
     }
 

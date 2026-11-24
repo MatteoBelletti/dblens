@@ -41,5 +41,5 @@ public sealed class DocsWorkspace
         }
     }
 
-    public void Write(string path, string text) => DocsFolder.Write(Root, Options, new Dictionary<string, string> { [path] = text });
+    private void Write(string path, string text) => DocsFolder.Write(Root, Options, new Dictionary<string, string> { [path] = text });
 }

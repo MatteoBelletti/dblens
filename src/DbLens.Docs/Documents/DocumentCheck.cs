@@ -68,7 +68,7 @@ public static class DocumentCheck
 
             if (block.Slot is { } slot) issues.AddRange(CheckSlot(slot, desired.Hash, path, strict, requireSlots));
             else if (desired.MaxLines is not null)
-                issues.Add(new DocIssue("slot-missing", requireSlots ? IssueSeverity.Error : IssueSeverity.Warning, desired.Id, path, $"{desired.Id} has no slot in its region: run dblens-docs scaffold."));
+                issues.Add(new DocIssue("slot-missing", requireSlots || strict ? IssueSeverity.Error : IssueSeverity.Warning, desired.Id, path, $"{desired.Id} has no slot in its region: run dblens-docs scaffold."));
         }
 
         var wanted = expected.Select(e => e.Desired.Id).ToHashSet(StringComparer.Ordinal);

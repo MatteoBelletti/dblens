@@ -65,6 +65,7 @@ public static class Scaffolder
 
             var (title, intro) = DocPlan.Header(file, labels);
             var leading = parsed is null ? $"# {title}\n\n{intro}" : parsed.Leading;
+            if (blocks.Count == 0 && kept.Count > 0) leading = string.Join("\n\n", [leading, .. kept]).Trim('\n');
             files[path] = DocumentModel.Render(new ParsedDocument(leading, blocks, []));
         }
 
