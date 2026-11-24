@@ -83,6 +83,27 @@ public sealed class SlotWriterTests
     }
 
     [Fact]
+    public void WordsAPersonEditedBeforeAnyScaffold_AreProtected_AndStayProtectedThroughOneThatFollows()
+    {
+        var inventory = Solution();
+        var documents = WithWords(inventory, "Lists a.");
+        documents["docs/project/api.md"] = documents["docs/project/api.md"].Replace("Lists a.", "Lists a, as I know it.");
+
+        SlotWriter.List(inventory, documents, Options).Single(s => s.Id == Endpoint).Protected.Should().BeTrue("the marker still says inferred");
+        var set = () => SlotWriter.Set(inventory, documents, Options, Endpoint, "Overwritten.");
+        set.Should().Throw<ArgumentException>().WithMessage("*person*");
+
+        // Same edit on words that had already gone stale: the person's, not the model's.
+        var changed = inventory.WithAttribute(Endpoint, "handler", "Other");
+        var staleThenEdited = Scaffolder.Scaffold(changed, WithWords(inventory, "Lists a."), Options).Files.ToDictionary(f => f.Key, f => f.Value);
+        staleThenEdited["docs/project/api.md"] = staleThenEdited["docs/project/api.md"].Replace("Lists a.", "Lists a, as I know it.");
+        SlotWriter.List(changed, staleThenEdited, Options).Single(s => s.Id == Endpoint).Protected.Should().BeTrue();
+
+        var scaffolded = Scaffolder.Scaffold(changed, staleThenEdited, Options).Files.ToDictionary(f => f.Key, f => f.Value);
+        SlotWriter.List(changed, scaffolded, Options).Single(s => s.Id == Endpoint).Should().Match<SlotInfo>(s => s.State == "stale" && s.Protected && s.Text == "Lists a, as I know it.");
+    }
+
+    [Fact]
     public void AModelsStaleWords_MayBeRewritten()
     {
         var inventory = Solution();

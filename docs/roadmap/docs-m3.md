@@ -32,3 +32,12 @@ regex engine takes no `(?i)`); the second scored 1.00 ($0.18, 40 s). Words writt
 by hand: each sentence is in the code (including that `DELETE /orders/{id}` does not check the customer, which
 no table says). One run proves the mechanics, not the quality: nothing here measures how often a reviewer
 passes a wrong sentence.
+
+## Review
+
+One round (ten findings, all fixed, each with a test): words a person edited but no scaffold had marked yet
+are protected (`SlotWriter.IsPersons`); `scaffold` keeps an edited slot stale when the item also changed; `check`
+sees generated text the item hash does not cover (a moved file, the project graph) and a region without its slot;
+a note after a region whose item left is kept at the end of the file; concurrent `set_doc_slot` calls are
+serialised; links in the docs path are refused; an invalid `dblens-docs.json` is exit code 2; ids with `%` survive
+escaping; `kind` takes names only.

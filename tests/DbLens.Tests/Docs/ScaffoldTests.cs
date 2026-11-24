@@ -123,6 +123,77 @@ public sealed class ScaffoldTests
     }
 
     [Fact]
+    public void WordsAPersonEdited_WhileTheItemChanged_BecomeHumanAndStaleAtOnce_NotCurrent()
+    {
+        var first = Scaffolder.Scaffold(Solution(), new Dictionary<string, string>(), Options).Files;
+        var written = Fill(first, "endpoint:GET /items", "Lists items.");
+        var edited = new Dictionary<string, string>(written) { ["docs/project/api.md"] = written["docs/project/api.md"].Replace("Lists items.", "Lists items, mine.") };
+
+        var result = Scaffolder.Scaffold(Solution().WithAttribute("endpoint:GET /items", "handler", "Other"), edited, Options);
+
+        result.Report.MarkedHuman.Should().Contain("endpoint:GET /items");
+        result.Report.Stale.Should().Contain("endpoint:GET /items");
+        DocumentModel.Parse(Api(result)).Blocks.Single(b => b.Id == "endpoint:GET /items").Slot.Should()
+            .Match<DocSlot>(s => s.Evidence == "stale" && s.Was == "human" && s.Text == "Lists items, mine.", "the person's words are kept, and read again");
+    }
+
+    [Fact]
+    public void ANoteAfterARegionWhoseItemLeft_IsKeptAtTheEndOfTheFile_AndReported()
+    {
+        var first = Scaffolder.Scaffold(Solution("/a", "app.MapGet(\"/b\", List);"), new Dictionary<string, string>(), Options).Files;
+        var withNote = new Dictionary<string, string>(first) { ["docs/project/api.md"] = first["docs/project/api.md"].Replace("<!-- dblens:end -->\n\n<!-- dblens:item endpoint:GET /b", "<!-- dblens:end -->\n\nA note about /a.\n\n<!-- dblens:item endpoint:GET /b") };
+        withNote["docs/project/api.md"].Should().Contain("A note about /a.");
+
+        var result = Scaffolder.Scaffold(Solution("/b"), withNote, Options);
+
+        Api(result).Should().Contain("A note about /a.");
+        result.Report.Removed.Should().Contain(r => r.Contains("endpoint:GET /a") && r.Contains("note was kept"));
+    }
+
+    [Fact]
+    public void ADocsFolderThatIsALink_IsRefused_AndSoIsAnyFolderAboveIt()
+    {
+        var root = Path.Combine(Path.GetTempPath(), $"dblens-docs-link-{Guid.NewGuid():N}");
+        var elsewhere = Path.Combine(Path.GetTempPath(), $"dblens-docs-elsewhere-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(Path.Combine(root, "docs"));
+        Directory.CreateDirectory(elsewhere);
+        try
+        {
+            Directory.CreateSymbolicLink(Path.Combine(root, "docs", "project"), elsewhere);
+
+            new Action(() => DocsFolder.Write(root, new DocsOptions(), new Dictionary<string, string> { ["docs/project/api.md"] = "x" })).Should().Throw<ArgumentException>().WithMessage("*link*");
+            Directory.GetFiles(elsewhere).Should().BeEmpty();
+        }
+        finally
+        {
+            Directory.Delete(Path.Combine(root, "docs", "project"));
+            Directory.Delete(root, recursive: true);
+            Directory.Delete(elsewhere, recursive: true);
+        }
+    }
+
+    [Theory]
+    [InlineData("{ \"docs\": 1 }")]
+    [InlineData("{ \"language\": [] }")]
+    [InlineData("[1]")]
+    [InlineData("{ not json")]
+    public void AnInvalidSettingsFile_IsAnArgumentError_NotACrash(string json)
+    {
+        var root = Path.Combine(Path.GetTempPath(), $"dblens-docs-config-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(root);
+        try
+        {
+            System.IO.File.WriteAllText(Path.Combine(root, DocsConfig.FileName), json);
+
+            new Action(() => DocsConfig.Load(root)).Should().Throw<ArgumentException>();
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
+    [Fact]
     public void ADocsFolderOutsideTheRoot_IsRefused()
     {
         foreach (var folder in new[] { "../docs", "/etc/docs", "a/../../b", "" })

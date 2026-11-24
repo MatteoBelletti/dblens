@@ -119,6 +119,27 @@ public sealed class DocsMcpTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task WritesFromManyCallsAtOnce_AreAllKept()
+    {
+        var routes = Enumerable.Range(0, 12).Select(i => $"/r{i:00}").ToList();
+        File.WriteAllText(Path.Combine(_root, "src/Api/Api.cs"), "public static class A { public static void M(WebApplication app) { " + string.Concat(routes.Select((r, i) => $"app.MapGet(\"{r}\", H{i});")) + " } }");
+        Scaffold();
+
+        var results = await Task.WhenAll(routes.Select(r => Call("set_doc_slot", ("id", $"endpoint:GET {r}"), ("text", $"Words for {r}."))));
+
+        results.Should().OnlyContain(r => !r.IsError);
+        var document = File.ReadAllText(Path.Combine(_root, "docs/project/api.md"));
+        routes.Should().OnlyContain(r => document.Contains($"Words for {r}."));
+    }
+
+    [Fact]
+    public async Task AKindThatIsNotAName_IsRefused()
+    {
+        foreach (var kind in new[] { "7", "Endpoint,Config", "99" })
+            (await Call("get_project_inventory", ("kind", kind))).IsError.Should().BeTrue(kind);
+    }
+
+    [Fact]
     public async Task ARefusal_ReachesTheModelAsReadableText_AndWritesNothing()
     {
         Scaffold();

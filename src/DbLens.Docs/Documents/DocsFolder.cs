@@ -35,8 +35,11 @@ public static class DocsFolder
             if (File.Exists(target) && File.GetAttributes(target).HasFlag(FileAttributes.ReparsePoint))
                 throw new ArgumentException($"{path} is a link and was not written.");
 
-            var temporary = target + ".tmp";
-            File.WriteAllText(temporary, text);
+            // A name nobody could have planted: CreateNew fails on anything that already exists, a link included.
+            var temporary = $"{target}.{Guid.NewGuid():N}.tmp";
+            using (var stream = new FileStream(temporary, FileMode.CreateNew, FileAccess.Write))
+            using (var writer = new StreamWriter(stream, new System.Text.UTF8Encoding(false)))
+                writer.Write(text);
             File.Move(temporary, target, overwrite: true);
         }
     }
@@ -50,7 +53,18 @@ public static class DocsFolder
 
         var full = Path.GetFullPath(Path.Combine(root, folder));
         var inside = Path.GetFullPath(root).TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar;
-        return full.StartsWith(inside, StringComparison.Ordinal) ? full : throw new ArgumentException("The docs folder must be inside the root.");
+        if (!full.StartsWith(inside, StringComparison.Ordinal)) throw new ArgumentException("The docs folder must be inside the root.");
+
+        // A folder that is a link leads wherever it points: neither it nor any folder above it, below the root, may be one.
+        var walk = Path.GetFullPath(root).TrimEnd(Path.DirectorySeparatorChar);
+        foreach (var segment in folder.Split('/', StringSplitOptions.RemoveEmptyEntries))
+        {
+            walk = Path.Combine(walk, segment);
+            if (Directory.Exists(walk) && new DirectoryInfo(walk).Attributes.HasFlag(FileAttributes.ReparsePoint))
+                throw new ArgumentException($"{segment} in the docs folder is a link: the documents are not written through links.");
+        }
+
+        return full;
     }
 }
 
@@ -67,14 +81,22 @@ public static class DocsConfig
         try
         {
             using var document = JsonDocument.Parse(File.ReadAllText(path), new JsonDocumentOptions { CommentHandling = JsonCommentHandling.Skip, AllowTrailingCommas = true });
+            if (document.RootElement.ValueKind != JsonValueKind.Object) throw new ArgumentException($"{FileName} must hold a JSON object.");
+
             var defaults = new DocsOptions();
-            return new DocsOptions(
-                document.RootElement.TryGetProperty("language", out var language) && language.GetString() is { Length: > 0 } l ? l : defaults.Language,
-                document.RootElement.TryGetProperty("docs", out var docs) && docs.GetString() is { Length: > 0 } d ? d : defaults.Directory);
+            return new DocsOptions(Text(document.RootElement, "language") ?? defaults.Language, Text(document.RootElement, "docs") ?? defaults.Directory);
         }
         catch (JsonException ex)
         {
             throw new ArgumentException($"{FileName} is not valid JSON: {ex.Message}");
         }
+    }
+
+    private static string? Text(JsonElement root, string name)
+    {
+        if (!root.TryGetProperty(name, out var value)) return null;
+        return value.ValueKind == JsonValueKind.String
+            ? value.GetString() is { Length: > 0 } text ? text : null
+            : throw new ArgumentException($"{FileName}: \"{name}\" must be text.");
     }
 }

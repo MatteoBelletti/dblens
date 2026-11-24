@@ -63,12 +63,12 @@ Returns an order with its lines; 404 when it is not the caller's.
 
 1. an item of the code with no region in the documents (`missing-item`);
 2. a region whose item left the code (`orphan-item`);
-3. an item that changed since its region was generated (`outdated-item`): run `scaffold`;
+3. an item that changed since its region was generated, in what it says or in what the table shows, such as its file or the project graph (`outdated-item`): run `scaffold`;
 4. a generated region edited by hand (`generated-edited`);
 5. a slot over its line limit (`slot-too-long`); a region twice (`duplicate-item`); a file with a broken
    marker (`malformed`).
 
-An **empty** slot (`slot-empty`) and a **stale** one (`slot-stale`) are warnings, so the check is useful
+An **empty** slot (`slot-empty`), a **stale** one (`slot-stale`) and a region **without its slot** (`slot-missing`) are warnings, so the check is useful
 before anyone writes a word; `--require-slots` and `--strict` make them errors.
 
 ## In CI

@@ -24,5 +24,22 @@ public sealed class DocsWorkspace
 
     public IReadOnlyDictionary<string, string> Documents() => DocsFolder.Read(Root, Options);
 
+    private readonly object _writing = new();
+
+    /// <summary>
+    /// Reads the code and the documents, lets <paramref name="change"/> decide, and writes, with no other
+    /// write in between: the workflow's agents call the tools at the same time, and a write that started
+    /// from an older text would take another's words away.
+    /// </summary>
+    public T Update<T>(Func<ProjectInventory, IReadOnlyDictionary<string, string>, (string Path, string Text, T Result)> change)
+    {
+        lock (_writing)
+        {
+            var (path, text, result) = change(Inventory(), Documents());
+            Write(path, text);
+            return result;
+        }
+    }
+
     public void Write(string path, string text) => DocsFolder.Write(Root, Options, new Dictionary<string, string> { [path] = text });
 }

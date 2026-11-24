@@ -42,10 +42,12 @@ public static partial class DocumentModel
         $"<!-- dblens:slot {Escape(slot.Id)} purpose max-lines={slot.MaxLines} evidence={slot.Evidence}"
         + (slot.Was is null ? "" : $" was={slot.Was}") + $" hash={slot.ItemHash} text={slot.TextHash} -->";
 
-    // An id may hold "--" or ">", which an HTML comment cannot.
-    private static string Escape(string id) => id.Replace(">", "%3E", StringComparison.Ordinal).Replace("--", "-%2D", StringComparison.Ordinal);
+    // An id may hold "--" or ">", which an HTML comment cannot; "%" is escaped first so that the two are inverses.
+    private static string Escape(string id) =>
+        id.Replace("%", "%25", StringComparison.Ordinal).Replace(">", "%3E", StringComparison.Ordinal).Replace("--", "-%2D", StringComparison.Ordinal);
 
-    private static string Unescape(string id) => id.Replace("-%2D", "--", StringComparison.Ordinal).Replace("%3E", ">", StringComparison.Ordinal);
+    private static string Unescape(string id) =>
+        id.Replace("-%2D", "--", StringComparison.Ordinal).Replace("%3E", ">", StringComparison.Ordinal).Replace("%25", "%", StringComparison.Ordinal);
 
     [GeneratedRegex(@"^<!-- dblens:item (?<id>.+) hash=(?<hash>[0-9a-f]+) gen=(?<gen>[0-9a-f]+) -->$")]
     private static partial Regex ItemRx();

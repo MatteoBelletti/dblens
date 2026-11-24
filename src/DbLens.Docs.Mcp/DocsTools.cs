@@ -28,7 +28,8 @@ public sealed class DocsTools(DocsWorkspace workspace)
         var inventory = workspace.Inventory();
         ItemKind? wanted = null;
         if (kind is { Length: > 0 })
-            wanted = Enum.TryParse<ItemKind>(kind, ignoreCase: true, out var parsed) ? parsed : throw new ArgumentException($"Unknown kind {kind}.");
+            wanted = Enum.GetValues<ItemKind>().Cast<ItemKind?>().FirstOrDefault(k => string.Equals(k.ToString(), kind, StringComparison.OrdinalIgnoreCase))
+                     ?? throw new ArgumentException($"Unknown kind {kind}; one of {string.Join(", ", Enum.GetNames<ItemKind>())}.");
 
         var items = inventory.Items
             .Where(i => (wanted is null || i.Kind == wanted) && (idPrefix is not { Length: > 0 } || i.Id.StartsWith(idPrefix, StringComparison.Ordinal)))
@@ -74,8 +75,10 @@ public sealed class DocsTools(DocsWorkspace workspace)
         [Description("The words: what the item is for, in at most the slot's max lines.")]
         string text)
     {
-        var (path, document) = SlotWriter.Set(workspace.Inventory(), workspace.Documents(), workspace.Options, id, text);
-        workspace.Write(path, document);
-        return new SlotWritten(id, path, "inferred", text.Trim().Split('\n').Length);
+        return workspace.Update((inventory, documents) =>
+        {
+            var (path, document) = SlotWriter.Set(inventory, documents, workspace.Options, id, text);
+            return (path, document, new SlotWritten(id, path, "inferred", text.Trim().Split('\n').Length));
+        });
     }
 }

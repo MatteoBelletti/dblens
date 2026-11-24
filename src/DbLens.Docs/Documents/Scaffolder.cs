@@ -52,8 +52,16 @@ public static class Scaffolder
                 blocks.Add(new DocBlock(d.Kind, d.Id, d.Hash, gen, d.Generated, slot, old?.Trailing ?? "", 0));
             }
 
+            List<string> kept = [];
             foreach (var gone in previous.Values.Where(b => desired.All(d => d.Id != b.Id)))
-                removed.Add(gone.Slot is { Text.Length: > 0 } ? $"{gone.Id} (it held text)" : gone.Id);
+            {
+                // What a person wrote after a region stays in the file, at its end, so that no text is lost.
+                if (gone.Trailing.Length > 0) kept.Add(gone.Trailing);
+                removed.Add((gone.Slot is { Text.Length: > 0 } ? $"{gone.Id} (it held text)" : gone.Id) + (gone.Trailing.Length > 0 ? " (its note was kept at the end of the file)" : ""));
+            }
+
+            if (kept.Count > 0 && blocks.Count > 0)
+                blocks[^1] = blocks[^1] with { Trailing = string.Join("\n\n", [blocks[^1].Trailing, .. kept]).Trim('\n') };
 
             var (title, intro) = DocPlan.Header(file, labels);
             var leading = parsed is null ? $"# {title}\n\n{intro}" : parsed.Leading;
@@ -71,23 +79,22 @@ public static class Scaffolder
         if (slot.Text.Length == 0)
             return slot with { MaxLines = max, Evidence = "inferred", Was = null, ItemHash = itemHash, TextHash = textHash };
 
-        // A model's words that a person has since changed are the person's.
-        if (slot.Evidence == "inferred" && textHash != slot.TextHash)
+        // A model's words that a person has since changed are the person's, whether or not the item changed too.
+        var kind = slot.Evidence == "stale" ? slot.Was ?? "inferred" : slot.Evidence;
+        if (kind == "inferred" && textHash != slot.TextHash)
         {
             human.Add(slot.Id);
-            return slot with { MaxLines = max, Evidence = "human", Was = null, ItemHash = itemHash, TextHash = textHash };
+            kind = "human";
+            slot = slot with { TextHash = textHash };
         }
 
-        if (slot.Evidence is "inferred" or "human" && slot.ItemHash != itemHash)
+        if (slot.ItemHash != itemHash)
         {
-            stale.Add(slot.Id);
-            return slot with { MaxLines = max, Evidence = "stale", Was = slot.Evidence };
+            if (slot.Evidence != "stale") stale.Add(slot.Id);
+            return slot with { MaxLines = max, Evidence = "stale", Was = kind };
         }
 
-        if (slot.Evidence == "stale" && slot.ItemHash == itemHash)
-            return slot with { MaxLines = max, Evidence = slot.Was ?? "inferred", Was = null };
-
-        return slot with { MaxLines = max };
+        return slot with { MaxLines = max, Evidence = kind, Was = null };
     }
 
     /// <summary>A person confirms a slot as they now read it: it is theirs, and current.</summary>

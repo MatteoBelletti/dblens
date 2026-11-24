@@ -8,7 +8,7 @@ public enum IssueSeverity
     Error,
 }
 
-/// <param name="Code">missing-item, orphan-item, outdated-item, generated-edited, duplicate-item, malformed, slot-too-long, slot-empty, slot-stale, slot-unmarked-edit.</param>
+/// <param name="Code">missing-item, orphan-item, outdated-item, generated-edited, duplicate-item, malformed, slot-too-long, slot-missing, slot-empty, slot-stale, slot-unmarked-edit.</param>
 public sealed record DocIssue(string Code, IssueSeverity Severity, string Id, string File, string Message);
 
 public sealed record DocCheckResult(IReadOnlyList<DocIssue> Issues)
@@ -63,10 +63,12 @@ public static class DocumentCheck
             var (path, block) = existing;
             if (ItemHash.OfText(block.Generated) != block.Gen)
                 issues.Add(new DocIssue("generated-edited", IssueSeverity.Error, desired.Id, path, $"The generated text of {desired.Id} was edited by hand: scaffold rewrites it, put your words in its slot."));
-            else if (block.Hash != desired.Hash)
+            else if (block.Hash != desired.Hash || block.Gen != ItemHash.OfText(desired.Generated))
                 issues.Add(new DocIssue("outdated-item", IssueSeverity.Error, desired.Id, path, $"{desired.Id} changed in the code since the document was generated: run dblens-docs scaffold."));
 
             if (block.Slot is { } slot) issues.AddRange(CheckSlot(slot, desired.Hash, path, strict, requireSlots));
+            else if (desired.MaxLines is not null)
+                issues.Add(new DocIssue("slot-missing", requireSlots ? IssueSeverity.Error : IssueSeverity.Warning, desired.Id, path, $"{desired.Id} has no slot in its region: run dblens-docs scaffold."));
         }
 
         var wanted = expected.Select(e => e.Desired.Id).ToHashSet(StringComparer.Ordinal);

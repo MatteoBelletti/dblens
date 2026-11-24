@@ -28,7 +28,7 @@ public static class SlotWriter
                 var slot = block.Slot!;
                 var item = items[block.Id];
                 var state = slot.Text.Length == 0 ? "empty" : slot.Evidence == "stale" || slot.ItemHash != ItemHash.Of(item) ? "stale" : "current";
-                var isProtected = slot.Text.Length > 0 && (slot.Evidence == "human" || slot is { Evidence: "stale", Was: "human" });
+                var isProtected = IsPersons(slot);
                 slots.Add(new SlotInfo(
                     slot.Id, item.Kind.ToString(), item.Name, path, $"{item.Source.File}:{item.Source.Line}", slot.MaxLines, state,
                     slot.Evidence, isProtected, slot.Text, item.Attributes));
@@ -56,13 +56,20 @@ public static class SlotWriter
         var slot = block.Slot!;
         var hash = ItemHash.Of(item);
         if (block.Hash != hash) throw new ArgumentException($"{id} changed since the document was generated: run dblens-docs scaffold first.");
-        if (slot.Text.Length > 0 && (slot.Evidence == "human" || slot is { Evidence: "stale", Was: "human" }))
+        if (IsPersons(slot))
             throw new ArgumentException($"The slot of {id} holds words written by a person; a model does not replace them. Ask the person to edit or delete it.");
 
         var text = Validate(words, slot.MaxLines);
         var written = slot with { Evidence = "inferred", Was = null, ItemHash = hash, TextHash = ItemHash.OfText(text), Text = text };
         return (path, DocumentModel.Render(parsed with { Blocks = [.. parsed.Blocks.Select(b => b.Id == id ? b with { Slot = written } : b)] }));
     }
+
+    /// <summary>
+    /// Words that are, or may now be, a person's: marked human, or a model's words whose text is no longer
+    /// what the tool wrote (a person edited them and no scaffold has noticed yet).
+    /// </summary>
+    public static bool IsPersons(DocSlot slot) =>
+        slot.Text.Length > 0 && (slot.Evidence == "human" || slot is { Evidence: "stale", Was: "human" } || ItemHash.OfText(slot.Text) != slot.TextHash);
 
     internal static string Validate(string words, int maxLines)
     {

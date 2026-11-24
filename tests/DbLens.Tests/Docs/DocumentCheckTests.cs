@@ -80,6 +80,49 @@ public sealed class DocumentCheckTests
     }
 
     [Fact]
+    public void GeneratedTextThatTheItemHashDoesNotCover_StillMakesTheRegionOutdated()
+    {
+        var documents = Written(Solution("/a"));
+        var moved = Solution("/a");
+        moved = moved with { Items = [.. moved.Items.Select(i => i.Id == "endpoint:GET /a" ? i with { Source = new SourceLocation("src/Other/Moved.cs", 3) } : i)] };
+
+        Check(moved, documents).Issues.Should().ContainSingle(i => i.Code == "outdated-item" && i.Id == "endpoint:GET /a");
+
+        var withReference = Build(
+            Project("src/Api/Api.csproj", "Microsoft.NET.Sdk.Web", "<PropertyGroup><TargetFramework>net10.0</TargetFramework></PropertyGroup><ItemGroup><ProjectReference Include=\"..\\Core\\Core.csproj\" /></ItemGroup>"),
+            Project("src/Core/Core.csproj"),
+            InventoryTestSupport.Code("src/Api/Api.cs", "public static class A { public static void M(WebApplication app) { app.MapGet(\"/a\", H0); } }"));
+        var withoutReference = Build(
+            Project("src/Api/Api.csproj", "Microsoft.NET.Sdk.Web"),
+            Project("src/Core/Core.csproj"),
+            InventoryTestSupport.Code("src/Api/Api.cs", "public static class A { public static void M(WebApplication app) { app.MapGet(\"/a\", H0); } }"));
+
+        Check(withReference, Written(withoutReference)).Issues.Should().Contain(i => i.Code == "outdated-item" && i.Id == ProjectGraph.Id);
+    }
+
+    [Fact]
+    public void ARegionWhoseSlotWasDeleted_IsAWarning_AndAnErrorWhenSlotsAreRequired()
+    {
+        var inventory = Solution("/a");
+        var documents = Written(inventory);
+        var parsed = DocumentModel.Parse(documents["docs/project/api.md"]);
+        documents["docs/project/api.md"] = DocumentModel.Render(parsed with { Blocks = [.. parsed.Blocks.Select(b => b with { Slot = null })] });
+
+        Check(inventory, documents).Issues.Should().Contain(i => i.Code == "slot-missing" && i.Severity == IssueSeverity.Warning);
+        Check(inventory, documents, requireSlots: true).Ok.Should().BeFalse();
+    }
+
+    [Fact]
+    public void AnIdThatHoldsTheEscapes_SurvivesParseAndRender()
+    {
+        var inventory = Solution("/a%3Eb", "/c--d>e");
+        var documents = Written(inventory);
+
+        Check(inventory, documents).Issues.Should().NotContain(i => i.Severity == IssueSeverity.Error);
+        DocumentModel.Parse(documents["docs/project/api.md"]).Blocks.Select(b => b.Id).Should().Contain(["endpoint:GET /a%3Eb", "endpoint:GET /c--d>e"]);
+    }
+
+    [Fact]
     public void ASlotOverItsLimit_Fails()
     {
         var inventory = Solution("/a");
