@@ -1,0 +1,197 @@
+# Ground truth for AntonioFalcaoJr/EventualShop at d63e424, from an independent regex pass (not the spike).
+# Definitions (the preset): an event is a record whose bases include IEvent/IDomainEvent; it is produced where it is created
+# (new T, or RaiseEvent/Publish/Send with T as type argument) and consumed where IConsumer<T> or Consumer<T> names it.
+
+[producers]
+DomainEvent.AccountActivated@Account/Command
+DomainEvent.AccountCreated@Account/Command
+DomainEvent.AccountDeleted@Account/Command
+DomainEvent.BillingAddressAdded@Account/Command
+DomainEvent.BillingAddressAdded@ShoppingCart/Command
+DomainEvent.BillingAddressDeleted@Account/Command
+DomainEvent.BillingAddressPreferred@Account/Command
+DomainEvent.BillingAddressRestored@Account/Command
+DomainEvent.CartCheckedOut@ShoppingCart/Command
+DomainEvent.CartCreated@ShoppingCart/Command
+DomainEvent.CartDiscarded@ShoppingCart/Command
+DomainEvent.CartItemAdded@ShoppingCart/Command
+DomainEvent.CartItemDecreased@ShoppingCart/Command
+DomainEvent.CartItemIncreased@ShoppingCart/Command
+DomainEvent.CartItemRemoved@ShoppingCart/Command
+DomainEvent.CatalogActivated@Catalog/Command
+DomainEvent.CatalogCreated@Catalog/Command
+DomainEvent.CatalogDeactivated@Catalog/Command
+DomainEvent.CatalogDeleted@Catalog/Command
+DomainEvent.CatalogDescriptionChanged@Catalog/Command
+DomainEvent.CatalogItemAdded@Catalog/Command
+DomainEvent.CatalogItemIncreased@Catalog/Command
+DomainEvent.CatalogItemRemoved@Catalog/Command
+DomainEvent.CatalogTitleChanged@Catalog/Command
+DomainEvent.CreditCardAdded@Payment/Command
+DomainEvent.CreditCardAdded@ShoppingCart/Command
+DomainEvent.DebitCardAdded@Payment/Command
+DomainEvent.DebitCardAdded@ShoppingCart/Command
+DomainEvent.EmailChanged@Identity/Command
+DomainEvent.EmailConfirmed@Identity/Command
+DomainEvent.EmailExpired@Identity/Command
+DomainEvent.InventoryAdjustmentDecreased@Warehouse/Command
+DomainEvent.InventoryAdjustmentIncreased@Warehouse/Command
+DomainEvent.InventoryAdjustmentNotDecreased@Warehouse/Command
+DomainEvent.InventoryCreated@Warehouse/Command
+DomainEvent.InventoryItemIncreased@Warehouse/Command
+DomainEvent.InventoryItemReceived@Warehouse/Command
+DomainEvent.InventoryNotReserved@Warehouse/Command
+DomainEvent.InventoryReserved@Warehouse/Command
+DomainEvent.NotificationMethodCancelled@Communication/Command
+DomainEvent.NotificationMethodFailed@Communication/Command
+DomainEvent.NotificationMethodReset@Communication/Command
+DomainEvent.NotificationMethodSent@Communication/Command
+DomainEvent.NotificationRequested@Communication/Command
+DomainEvent.OrderConfirmed@Order/Command
+DomainEvent.OrderPlaced@Order/Command
+DomainEvent.PayPalAdded@Payment/Command
+DomainEvent.PayPalAdded@ShoppingCart/Command
+DomainEvent.PaymentCanceled@Payment/Command
+DomainEvent.PaymentCompleted@Payment/Command
+DomainEvent.PaymentMethodAuthorized@Payment/Command
+DomainEvent.PaymentMethodCanceled@Payment/Command
+DomainEvent.PaymentMethodCancellationDenied@Payment/Command
+DomainEvent.PaymentMethodDenied@Payment/Command
+DomainEvent.PaymentMethodRefundDenied@Payment/Command
+DomainEvent.PaymentMethodRefunded@Payment/Command
+DomainEvent.PaymentNotCompleted@Payment/Command
+DomainEvent.PaymentRequested@Payment/Command
+DomainEvent.PrimaryBillingAddressRemoved@Account/Command
+DomainEvent.PrimaryEmailDefined@Identity/Command
+DomainEvent.PrimaryShippingAddressRemoved@Account/Command
+DomainEvent.ShippingAddressAdded@Account/Command
+DomainEvent.ShippingAddressAdded@ShoppingCart/Command
+DomainEvent.ShippingAddressDeleted@Account/Command
+DomainEvent.ShippingAddressPreferred@Account/Command
+DomainEvent.ShippingAddressRestored@Account/Command
+DomainEvent.StockDepleted@Warehouse/Command
+DomainEvent.UserDeleted@Identity/Command
+DomainEvent.UserPasswordChanged@Identity/Command
+DomainEvent.UserRegistered@Identity/Command
+NotificationEvent.CartProjectionRebuildRequested@ShoppingCart/Command
+
+[subscriptions]
+DomainEvent.AccountActivated@Account/Query
+DomainEvent.AccountCreated@Account/Query
+DomainEvent.AccountDeactivated@Account/Query
+DomainEvent.AccountDeactivated@Identity/Command
+DomainEvent.AccountDeleted@Account/Query
+DomainEvent.AccountDeleted@Identity/Command
+DomainEvent.BillingAddressAdded@Account/Query
+DomainEvent.CartCheckedOut@ShoppingCart/Command
+DomainEvent.CartCheckedOut@ShoppingCart/Query
+DomainEvent.CartCreated@ShoppingCart/Query
+DomainEvent.CartDiscarded@ShoppingCart/Query
+DomainEvent.CartItemAdded@ShoppingCart/Query
+DomainEvent.CartItemAdded@Warehouse/Command
+DomainEvent.CartItemDecreased@ShoppingCart/Query
+DomainEvent.CartItemIncreased@ShoppingCart/Query
+DomainEvent.CartItemRemoved@ShoppingCart/Query
+DomainEvent.CatalogActivated@Catalog/Query
+DomainEvent.CatalogCreated@Catalog/Query
+DomainEvent.CatalogDeactivated@Catalog/Query
+DomainEvent.CatalogDeleted@Catalog/Query
+DomainEvent.CatalogDescriptionChanged@Catalog/Query
+DomainEvent.CatalogItemAdded@Catalog/Query
+DomainEvent.CatalogItemRemoved@Catalog/Query
+DomainEvent.CatalogTitleChanged@Catalog/Query
+DomainEvent.CreditCardAdded@ShoppingCart/Query
+DomainEvent.DebitCardAdded@ShoppingCart/Query
+DomainEvent.EmailChanged@Identity/Command
+DomainEvent.EmailConfirmed@Identity/Command
+DomainEvent.InventoryAdjustmentDecreased@Warehouse/Query
+DomainEvent.InventoryAdjustmentIncreased@Warehouse/Query
+DomainEvent.InventoryCreated@Warehouse/Query
+DomainEvent.InventoryItemIncreased@Warehouse/Query
+DomainEvent.InventoryItemReceived@Warehouse/Query
+DomainEvent.NotificationRequested@Communication/Command
+DomainEvent.NotificationRequested@Communication/Query
+DomainEvent.OrderConfirmed@Order/Query
+DomainEvent.OrderPlaced@Order/Query
+DomainEvent.OrderPlaced@Payment/Command
+DomainEvent.PayPalAdded@ShoppingCart/Query
+DomainEvent.PaymentCanceled@Payment/Query
+DomainEvent.PaymentCompleted@Order/Command
+DomainEvent.PaymentMethodAuthorized@Payment/Query
+DomainEvent.PaymentMethodCanceled@Payment/Query
+DomainEvent.PaymentMethodCancellationDenied@Payment/Query
+DomainEvent.PaymentMethodDenied@Payment/Query
+DomainEvent.PaymentMethodRefundDenied@Payment/Query
+DomainEvent.PaymentMethodRefunded@Payment/Query
+DomainEvent.PaymentRequested@Payment/Command
+DomainEvent.PaymentRequested@Payment/Query
+DomainEvent.ShippingAddressAdded@Account/Query
+DomainEvent.UserDeleted@Identity/Query
+DomainEvent.UserPasswordChanged@Identity/Query
+DomainEvent.UserRegistered@Account/Command
+DomainEvent.UserRegistered@Communication/Command
+DomainEvent.UserRegistered@Identity/Command
+DomainEvent.UserRegistered@Identity/Query
+NotificationEvent.CartProjectionRebuildRequested@ShoppingCart/Command
+
+[eventedges]
+Account/Command->Account/Query DomainEvent.AccountActivated
+Account/Command->Account/Query DomainEvent.AccountCreated
+Account/Command->Account/Query DomainEvent.AccountDeleted
+Account/Command->Account/Query DomainEvent.BillingAddressAdded
+Account/Command->Account/Query DomainEvent.ShippingAddressAdded
+Account/Command->Identity/Command DomainEvent.AccountDeleted
+Catalog/Command->Catalog/Query DomainEvent.CatalogActivated
+Catalog/Command->Catalog/Query DomainEvent.CatalogCreated
+Catalog/Command->Catalog/Query DomainEvent.CatalogDeactivated
+Catalog/Command->Catalog/Query DomainEvent.CatalogDeleted
+Catalog/Command->Catalog/Query DomainEvent.CatalogDescriptionChanged
+Catalog/Command->Catalog/Query DomainEvent.CatalogItemAdded
+Catalog/Command->Catalog/Query DomainEvent.CatalogItemRemoved
+Catalog/Command->Catalog/Query DomainEvent.CatalogTitleChanged
+Communication/Command->Communication/Command DomainEvent.NotificationRequested
+Communication/Command->Communication/Query DomainEvent.NotificationRequested
+Identity/Command->Account/Command DomainEvent.UserRegistered
+Identity/Command->Communication/Command DomainEvent.UserRegistered
+Identity/Command->Identity/Command DomainEvent.EmailChanged
+Identity/Command->Identity/Command DomainEvent.EmailConfirmed
+Identity/Command->Identity/Command DomainEvent.UserRegistered
+Identity/Command->Identity/Query DomainEvent.UserDeleted
+Identity/Command->Identity/Query DomainEvent.UserPasswordChanged
+Identity/Command->Identity/Query DomainEvent.UserRegistered
+Order/Command->Order/Query DomainEvent.OrderConfirmed
+Order/Command->Order/Query DomainEvent.OrderPlaced
+Order/Command->Payment/Command DomainEvent.OrderPlaced
+Payment/Command->Order/Command DomainEvent.PaymentCompleted
+Payment/Command->Payment/Command DomainEvent.PaymentRequested
+Payment/Command->Payment/Query DomainEvent.PaymentCanceled
+Payment/Command->Payment/Query DomainEvent.PaymentMethodAuthorized
+Payment/Command->Payment/Query DomainEvent.PaymentMethodCanceled
+Payment/Command->Payment/Query DomainEvent.PaymentMethodCancellationDenied
+Payment/Command->Payment/Query DomainEvent.PaymentMethodDenied
+Payment/Command->Payment/Query DomainEvent.PaymentMethodRefundDenied
+Payment/Command->Payment/Query DomainEvent.PaymentMethodRefunded
+Payment/Command->Payment/Query DomainEvent.PaymentRequested
+Payment/Command->ShoppingCart/Query DomainEvent.CreditCardAdded
+Payment/Command->ShoppingCart/Query DomainEvent.DebitCardAdded
+Payment/Command->ShoppingCart/Query DomainEvent.PayPalAdded
+ShoppingCart/Command->Account/Query DomainEvent.BillingAddressAdded
+ShoppingCart/Command->Account/Query DomainEvent.ShippingAddressAdded
+ShoppingCart/Command->ShoppingCart/Command DomainEvent.CartCheckedOut
+ShoppingCart/Command->ShoppingCart/Command NotificationEvent.CartProjectionRebuildRequested
+ShoppingCart/Command->ShoppingCart/Query DomainEvent.CartCheckedOut
+ShoppingCart/Command->ShoppingCart/Query DomainEvent.CartCreated
+ShoppingCart/Command->ShoppingCart/Query DomainEvent.CartDiscarded
+ShoppingCart/Command->ShoppingCart/Query DomainEvent.CartItemAdded
+ShoppingCart/Command->ShoppingCart/Query DomainEvent.CartItemDecreased
+ShoppingCart/Command->ShoppingCart/Query DomainEvent.CartItemIncreased
+ShoppingCart/Command->ShoppingCart/Query DomainEvent.CartItemRemoved
+ShoppingCart/Command->ShoppingCart/Query DomainEvent.CreditCardAdded
+ShoppingCart/Command->ShoppingCart/Query DomainEvent.DebitCardAdded
+ShoppingCart/Command->ShoppingCart/Query DomainEvent.PayPalAdded
+ShoppingCart/Command->Warehouse/Command DomainEvent.CartItemAdded
+Warehouse/Command->Warehouse/Query DomainEvent.InventoryAdjustmentDecreased
+Warehouse/Command->Warehouse/Query DomainEvent.InventoryAdjustmentIncreased
+Warehouse/Command->Warehouse/Query DomainEvent.InventoryCreated
+Warehouse/Command->Warehouse/Query DomainEvent.InventoryItemIncreased
+Warehouse/Command->Warehouse/Query DomainEvent.InventoryItemReceived

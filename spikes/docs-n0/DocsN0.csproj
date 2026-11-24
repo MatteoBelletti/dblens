@@ -1,0 +1,24 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    DbLens.Docs milestone N0: a throwaway spike. From syntax only, it groups the projects of a solution into
+    macro-components and derives events, calls, data access and event chains, then measures them against a
+    ground truth written by hand. Not in dblens.slnx and not shipped; N1 replaces it with real extractors.
+    Run it with dotnet run on this folder, giving the path of a checkout and, optionally, a ground truth file.
+  -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+    <EnforceCodeStyleInBuild>false</EnforceCodeStyleInBuild>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\DbLens.Docs\DbLens.Docs.csproj" />
+    <PackageReference Include="Microsoft.CodeAnalysis.CSharp" />
+  </ItemGroup>
+
+</Project>

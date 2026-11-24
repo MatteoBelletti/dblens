@@ -8,10 +8,10 @@ namespace DbLens.Docs.Inventory;
 /// </summary>
 public static class ProjectInventoryEngine
 {
-    public static ProjectInventory Build(SolutionRead read) => Build(read.Files, read.Models, read.Coverage);
+    public static ProjectInventory Build(SolutionRead read) => Build(read.Files, read.Models, read.Coverage, read.ModelSources);
 
     public static ProjectInventory Build(
-        IReadOnlyList<SourceFile> files, IReadOnlyList<EfModel> models, IReadOnlyList<CoverageNote>? reading = null)
+        IReadOnlyList<SourceFile> files, IReadOnlyList<EfModel> models, IReadOnlyList<CoverageNote>? reading = null, IReadOnlyList<string>? modelSources = null)
     {
         var ordered = files.OrderBy(f => f.Path, StringComparer.Ordinal).ToList();
         var csharp = ordered.Where(f => f.Path.EndsWith(".cs", StringComparison.OrdinalIgnoreCase)).ToList();
@@ -25,7 +25,7 @@ public static class ProjectInventoryEngine
             .ToDictionary(g => g.Key, g => Path.GetFileNameWithoutExtension(g.First().Path), StringComparer.Ordinal);
 
         var projects = ProjectExtractor.Extract(ordered);
-        var (entityItems, entityCoverage) = EntityExtractor.Extract(models, ordered);
+        var (entityItems, entityCoverage) = EntityExtractor.Extract(models, ordered, modelSources ?? []);
         var endpoints = EndpointExtractor.Extract(parsed);
         var config = ConfigExtractor.Extract(parsed, ordered);
         var (clients, clientCoverage) = HttpClientExtractor.Extract(parsed, path => ProjectOf(path, projectDirectories));
@@ -68,7 +68,7 @@ public static class ProjectInventoryEngine
     private static IEnumerable<InventoryItem> UsedBy(IReadOnlyList<InventoryItem> entities, IReadOnlyList<InventoryItem> endpoints)
     {
         var only = entities.Where(e => e.Kind == ItemKind.Entity).ToList();
-        var users = only.ToDictionary(e => e.Id, _ => new List<string>(), StringComparer.Ordinal);
+        var users = only.GroupBy(e => e.Id, StringComparer.Ordinal).ToDictionary(g => g.Key, _ => new List<string>(), StringComparer.Ordinal);
         foreach (var endpoint in endpoints)
             foreach (var touched in endpoint.Attributes["touches"].Split(", ", StringSplitOptions.RemoveEmptyEntries))
                 foreach (var entity in only.Where(e => $"{e.Attributes["context"]}.{EntityLinks.Simple(e.Name)}" == touched || (!touched.Contains('.') && EntityLinks.Simple(e.Name) == touched)))

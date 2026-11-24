@@ -7,7 +7,11 @@ public sealed record SolutionRead(
     IReadOnlyList<SourceFile> Files,
     IReadOnlyList<EfModel> Models,
     /// <summary>What reading the folder could not do: a file too large, one unreadable, a snapshot that did not parse.</summary>
-    IReadOnlyList<CoverageNote> Coverage);
+    IReadOnlyList<CoverageNote> Coverage)
+{
+    /// <summary>The snapshot file each model was read from, in the order of <see cref="Models"/>. Empty when the models were handed in without one.</summary>
+    public IReadOnlyList<string> ModelSources { get; init; } = [];
+}
 
 /// <summary>
 /// The one place that touches a folder. It opens only <c>*.cs</c>, <c>*.csproj</c>, <c>Directory.Build.props</c>,
@@ -89,11 +93,13 @@ public static class SolutionReader
         if (overLimit) coverage.Add(new CoverageNote("reading", $"Only the first {maxFiles} files, by path, were read.", skippedByCap));
 
         List<EfModel> models = [];
+        List<string> modelSources = [];
         foreach (var snapshot in files.Where(f => f.Path.EndsWith("ModelSnapshot.cs", StringComparison.Ordinal)).OrderBy(f => f.Path, StringComparer.Ordinal))
         {
             try
             {
                 models.Add(SnapshotReader.Read(Path.Combine(full, snapshot.Path)));
+                modelSources.Add(snapshot.Path);
             }
             catch (Exception ex) when (ex is ArgumentException or IOException or UnauthorizedAccessException)
             {
@@ -101,7 +107,7 @@ public static class SolutionReader
             }
         }
 
-        return new SolutionRead([.. files.OrderBy(f => f.Path, StringComparer.Ordinal)], models, coverage);
+        return new SolutionRead([.. files.OrderBy(f => f.Path, StringComparer.Ordinal)], models, coverage) { ModelSources = modelSources };
     }
 
     private static bool IsRead(string path)

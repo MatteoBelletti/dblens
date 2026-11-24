@@ -1,0 +1,115 @@
+# Ground truth for dotnet/eShop at e5e24f0, written by hand from grep and from reading the code
+# (AppHost.cs, csproj references, AddSubscription, `new ...IntegrationEvent(`), not from the spike.
+
+[macros]
+Basket.API
+Catalog.API
+ClientApp
+HybridApp
+Identity.API
+OrderProcessor
+Ordering.API
+PaymentProcessor
+WebApp
+WebhookClient
+Webhooks.API
+
+# Corrected after the first run: ClientApp has a conditional OutputType (Exe for the mobile target frameworks), so it is a macro, not an orphan.
+
+[private]
+Ordering.API=Ordering.Domain
+Ordering.API=Ordering.Infrastructure
+
+[shared]
+EventBus
+EventBusRabbitMQ
+IntegrationEventLogEF
+WebAppComponents
+eShop.ServiceDefaults
+
+[producers]
+GracePeriodConfirmedIntegrationEvent@OrderProcessor
+OrderPaymentFailedIntegrationEvent@PaymentProcessor
+OrderPaymentSucceededIntegrationEvent@PaymentProcessor
+OrderStartedIntegrationEvent@Ordering.API
+OrderStatusChangedToAwaitingValidationIntegrationEvent@Ordering.API
+OrderStatusChangedToCancelledIntegrationEvent@Ordering.API
+OrderStatusChangedToPaidIntegrationEvent@Ordering.API
+OrderStatusChangedToShippedIntegrationEvent@Ordering.API
+OrderStatusChangedToStockConfirmedIntegrationEvent@Ordering.API
+OrderStatusChangedToSubmittedIntegrationEvent@Ordering.API
+OrderStockConfirmedIntegrationEvent@Catalog.API
+OrderStockRejectedIntegrationEvent@Catalog.API
+ProductPriceChangedIntegrationEvent@Catalog.API
+
+[subscriptions]
+GracePeriodConfirmedIntegrationEvent@Ordering.API
+OrderStockConfirmedIntegrationEvent@Ordering.API
+OrderStockRejectedIntegrationEvent@Ordering.API
+OrderPaymentFailedIntegrationEvent@Ordering.API
+OrderPaymentSucceededIntegrationEvent@Ordering.API
+OrderStartedIntegrationEvent@Basket.API
+OrderStatusChangedToStockConfirmedIntegrationEvent@PaymentProcessor
+OrderStatusChangedToAwaitingValidationIntegrationEvent@Catalog.API
+OrderStatusChangedToPaidIntegrationEvent@Catalog.API
+OrderStatusChangedToAwaitingValidationIntegrationEvent@WebApp
+OrderStatusChangedToPaidIntegrationEvent@WebApp
+OrderStatusChangedToStockConfirmedIntegrationEvent@WebApp
+OrderStatusChangedToShippedIntegrationEvent@WebApp
+OrderStatusChangedToCancelledIntegrationEvent@WebApp
+OrderStatusChangedToSubmittedIntegrationEvent@WebApp
+ProductPriceChangedIntegrationEvent@Webhooks.API
+OrderStatusChangedToShippedIntegrationEvent@Webhooks.API
+OrderStatusChangedToPaidIntegrationEvent@Webhooks.API
+
+[eventedges]
+Ordering.API->Basket.API OrderStartedIntegrationEvent
+Ordering.API->WebApp OrderStatusChangedToSubmittedIntegrationEvent
+OrderProcessor->Ordering.API GracePeriodConfirmedIntegrationEvent
+Ordering.API->Catalog.API OrderStatusChangedToAwaitingValidationIntegrationEvent
+Ordering.API->WebApp OrderStatusChangedToAwaitingValidationIntegrationEvent
+Catalog.API->Ordering.API OrderStockConfirmedIntegrationEvent
+Catalog.API->Ordering.API OrderStockRejectedIntegrationEvent
+Ordering.API->PaymentProcessor OrderStatusChangedToStockConfirmedIntegrationEvent
+Ordering.API->WebApp OrderStatusChangedToStockConfirmedIntegrationEvent
+PaymentProcessor->Ordering.API OrderPaymentSucceededIntegrationEvent
+PaymentProcessor->Ordering.API OrderPaymentFailedIntegrationEvent
+Ordering.API->Catalog.API OrderStatusChangedToPaidIntegrationEvent
+Ordering.API->WebApp OrderStatusChangedToPaidIntegrationEvent
+Ordering.API->Webhooks.API OrderStatusChangedToPaidIntegrationEvent
+Ordering.API->WebApp OrderStatusChangedToShippedIntegrationEvent
+Ordering.API->Webhooks.API OrderStatusChangedToShippedIntegrationEvent
+Ordering.API->WebApp OrderStatusChangedToCancelledIntegrationEvent
+Catalog.API->Webhooks.API ProductPriceChangedIntegrationEvent
+
+# What a consumed event leads to, through the handler, the mediator, the aggregate and the domain events.
+# OrderStockRejectedIntegrationEvent leads to nothing on purpose: the aggregate does not raise an event there.
+[chains]
+GracePeriodConfirmedIntegrationEvent->OrderStatusChangedToAwaitingValidationIntegrationEvent
+OrderStatusChangedToAwaitingValidationIntegrationEvent->OrderStockConfirmedIntegrationEvent
+OrderStatusChangedToAwaitingValidationIntegrationEvent->OrderStockRejectedIntegrationEvent
+OrderStockConfirmedIntegrationEvent->OrderStatusChangedToStockConfirmedIntegrationEvent
+OrderStatusChangedToStockConfirmedIntegrationEvent->OrderPaymentSucceededIntegrationEvent
+OrderStatusChangedToStockConfirmedIntegrationEvent->OrderPaymentFailedIntegrationEvent
+OrderPaymentSucceededIntegrationEvent->OrderStatusChangedToPaidIntegrationEvent
+OrderPaymentFailedIntegrationEvent->OrderStatusChangedToCancelledIntegrationEvent
+
+# Entry points: the handler of an endpoint that can be named, or a hosted service, and the events it leads to.
+[entries]
+CreateOrderAsync->OrderStartedIntegrationEvent
+CreateOrderAsync->OrderStatusChangedToSubmittedIntegrationEvent
+CancelOrderAsync->OrderStatusChangedToCancelledIntegrationEvent
+ShipOrderAsync->OrderStatusChangedToShippedIntegrationEvent
+UpdateItem->ProductPriceChangedIntegrationEvent
+UpdateItemV1->ProductPriceChangedIntegrationEvent
+GracePeriodManagerService->GracePeriodConfirmedIntegrationEvent
+
+[sync]
+WebApp->Basket.API AddGrpcClient
+WebApp->Catalog.API AddHttpClient
+WebApp->Ordering.API AddHttpClient
+WebApp->Catalog.API MapForwarder
+WebhookClient->Webhooks.API AddHttpClient
+
+[data]
+OrderProcessor->Ordering.API ordering.orders
