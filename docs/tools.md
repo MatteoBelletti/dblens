@@ -626,8 +626,11 @@ be re-run by name, is cited in receipts and appears in the glossary.
 | `sql` | The confirmed `SELECT` |
 
 The SQL is checked by the statement guard and planned with `EXPLAIN`; nothing is executed. Entries are
-scoped to dialect and database and stored in one JSON file, `dblens/certified-queries.json` under the
+scoped to dialect, server (`host:port`) and database — two servers can hold databases of the same name —
+and stored in one JSON file, `dblens/certified-queries.json` under the
 local application-data folder (`%LOCALAPPDATA%` on Windows, `~/.local/share` on Linux,
 `~/Library/Application Support` on macOS), overridable with `DbLens:CertifiedQueriesPath`. `list_certified_queries`
-returns the entries for the current database.
+returns the entries for the current database. An entry saved before the server was recorded has no
+`server`: it still applies, `query_with_receipt` and `build_glossary` say in a caveat that it may come
+from another server, and certifying it again on this one ties it down.
 

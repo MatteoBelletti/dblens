@@ -103,4 +103,28 @@ public sealed class NamedConnectionsTests : IDisposable
         isError.Should().BeFalse(text);
         json.GetProperty("certified").GetProperty("dialect").GetString().Should().Be("SqlServer");
     }
+
+    [SkippableFact]
+    [Trait("Category", "Integration")]
+    public async Task OverMcp_ACertifiedQuery_BelongsToItsServer()
+    {
+        Skip.If(!await TestConnections.IsReachableAsync(DatabaseDialect.PostgreSql), TestSkip.Reason);
+        await using var mcp = await McpHarness.StartAsync(new Dictionary<string, string?> { ["ConnectionStrings:PostgreSql"] = TestConnections.PostgreSql });
+
+        var (certifyError, certified, certifyText) = await mcp.CallAsync("certify_query", new Dictionary<string, object?>
+        {
+            ["name"] = "users", ["question"] = "How many users?", ["sql"] = "SELECT COUNT(*) AS n FROM public.users",
+        });
+        certifyError.Should().BeFalse(certifyText);
+        certified.GetProperty("certified").GetProperty("server").GetString().Should().Be("localhost:5433");
+
+        var (_, here, _) = await mcp.CallAsync("list_certified_queries", new Dictionary<string, object?>());
+        var (_, elsewhere, _) = await mcp.CallAsync("list_certified_queries", new Dictionary<string, object?>
+        {
+            ["dialect"] = "PostgreSql", ["connectionString"] = TestConnections.PostgreSql.Replace("localhost", "127.0.0.1"),
+        });
+
+        here.GetArrayLength().Should().Be(1);
+        elsewhere.GetArrayLength().Should().Be(0, "the same database name on another server is another database");
+    }
 }

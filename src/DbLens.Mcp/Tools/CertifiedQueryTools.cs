@@ -43,7 +43,8 @@ public sealed class CertifiedQueryTools(
 
         await inspector.ExplainQueryAsync(new ExplainQueryRequest(sql), cancellationToken);
 
-        return new CertifyResult(store.Save(name, question, sql, inspector.Dialect, inspector.DatabaseName), store.Path);
+        var server = CertifiedQueryStore.ServerOf(inspector.Describe(TargetSource.Configured));
+        return new CertifyResult(store.Save(name, question, sql, inspector.Dialect, inspector.DatabaseName, server), store.Path);
     }
 
     [McpServerTool, Description(
@@ -57,6 +58,6 @@ public sealed class CertifiedQueryTools(
         [Description(ConnectionHelp)]
         string? connection = null) =>
         ResolveInspector(dialect, connectionString, connection) is var inspector
-            ? store.List(inspector.Dialect, inspector.DatabaseName)
+            ? store.List(inspector.Dialect, inspector.DatabaseName, CertifiedQueryStore.ServerOf(inspector.Describe(TargetSource.Configured)))
             : [];
 }

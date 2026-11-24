@@ -44,9 +44,10 @@ public sealed class QueryWithReceiptTool(
                 "diagnostic tools instead.");
 
         var inspector = ResolveInspector(dialect, connectionString, connection);
+        var server = CertifiedQueryStore.ServerOf(inspector.Describe(TargetSource.Configured));
 
         if (certified is not null)
-            sql = (store.Find(inspector.Dialect, inspector.DatabaseName, certified)
+            sql = (store.Find(inspector.Dialect, inspector.DatabaseName, certified, server)
                    ?? throw new ArgumentException($"No certified query named '{certified}' for this database.")).Sql;
 
         if (string.IsNullOrWhiteSpace(sql))
@@ -55,8 +56,12 @@ public sealed class QueryWithReceiptTool(
         var result = await inspector.QueryWithReceiptAsync(
             new QueryWithReceiptRequest(sql, crossCheckSql, tolerance), cancellationToken);
 
-        return store.Matching(inspector.Dialect, result.Receipt.Database, sql) is { } entry
-            ? result with { Receipt = result.Receipt with { CertifiedAs = $"{entry.Name}: {entry.Question}" } }
+        return store.Matching(inspector.Dialect, result.Receipt.Database, sql, server) is { } entry
+            ? result with
+            {
+                Receipt = result.Receipt with { CertifiedAs = $"{entry.Name}: {entry.Question}" },
+                Caveats = entry.Server is null ? [.. result.Caveats, CertifiedQueryStore.LegacyCaveat(entry, server)] : result.Caveats,
+            }
             : result;
     }
 }

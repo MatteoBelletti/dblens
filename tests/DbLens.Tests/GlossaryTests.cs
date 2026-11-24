@@ -142,4 +142,45 @@ public class CertifiedQueryStoreTests : IDisposable
         new CertifiedQueryStore(_path).List(DatabaseDialect.PostgreSql, "erp")
             .Should().ContainSingle().Which.Question.Should().Be("new");
     }
+
+    [Fact]
+    public void TwoServersWithADatabaseOfTheSameName_KeepTheirOwnCertifications()
+    {
+        var store = new CertifiedQueryStore(_path);
+        store.Save("revenue", "on A", "SELECT 1", DatabaseDialect.PostgreSql, "erp", "localhost:5433");
+        store.Save("revenue", "on B", "SELECT 2", DatabaseDialect.PostgreSql, "erp", "localhost:5434");
+
+        store.List(DatabaseDialect.PostgreSql, "erp", "localhost:5433").Should().ContainSingle().Which.Question.Should().Be("on A");
+        store.List(DatabaseDialect.PostgreSql, "erp", "localhost:5434").Should().ContainSingle().Which.Question.Should().Be("on B");
+        store.List(DatabaseDialect.PostgreSql, "erp", "other:5432").Should().BeEmpty();
+        store.Matching(DatabaseDialect.PostgreSql, "erp", "SELECT 2", "localhost:5433").Should().BeNull();
+    }
+
+    [Fact]
+    public void AFileFromBeforeTheServerWasRecorded_IsStillRead_AndTiedDownWhenCertifiedAgain()
+    {
+        Directory.CreateDirectory(Path.GetDirectoryName(_path)!);
+        File.WriteAllText(_path, """
+            [{"Name":"revenue","Question":"old","Sql":"SELECT 1","Dialect":0,"Database":"erp","CertifiedAt":"2026-01-01T00:00:00.0000000+00:00"}]
+            """);
+        var store = new CertifiedQueryStore(_path);
+
+        var legacy = store.List(DatabaseDialect.PostgreSql, "erp", "localhost:5433").Should().ContainSingle().Subject;
+        legacy.Server.Should().BeNull();
+        CertifiedQueryStore.LegacyCaveat(legacy, "localhost:5433")
+            .Should().Contain("saved before queries were tied to a server").And.Contain("certify it again on localhost:5433");
+
+        store.Save("revenue", "new", "SELECT 1", DatabaseDialect.PostgreSql, "erp", "localhost:5433");
+
+        var all = new CertifiedQueryStore(_path).List(DatabaseDialect.PostgreSql, "erp");
+        all.Should().ContainSingle().Which.Should().Match<CertifiedQueryStore.Entry>(e => e.Question == "new" && e.Server == "localhost:5433");
+    }
+
+    [Fact]
+    public void ServerOf_IsHostAndPort()
+    {
+        CertifiedQueryStore.ServerOf(new Target(DatabaseDialect.PostgreSql, "db", 5432, "erp", "u", false, TargetSource.Parameter)).Should().Be("db:5432");
+        CertifiedQueryStore.ServerOf(new Target(DatabaseDialect.SqlServer, "db", null, "erp", "u", false, TargetSource.Parameter)).Should().Be("db");
+        CertifiedQueryStore.ServerOf(new Target(DatabaseDialect.SqlServer, null, null, "erp", "u", false, TargetSource.Parameter)).Should().BeNull();
+    }
 }
