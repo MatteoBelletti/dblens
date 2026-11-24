@@ -86,7 +86,7 @@ public sealed class DocsTools(DocsWorkspace workspace)
         result.Ok, result.Errors, result.Warnings,
         [.. result.Issues.GroupBy(i => OwnMessage.Contains(i.Code) ? (i.Code, i.Severity, i.File, i.Message) : (i.Code, i.Severity, i.File, "")).Select(g =>
             new IssueGroup(g.Key.Code, g.Key.Severity.ToString(), g.Key.File, [.. g.Select(i => i.Id).Where(id => id.Length > 0)],
-                OwnMessage.Contains(g.Key.Code) ? g.First().Message : g.First().Message.Replace(g.First().Id, "{id}", StringComparison.Ordinal)))]);
+                OwnMessage.Contains(g.Key.Code) || g.First().Id.Length == 0 ? g.First().Message : g.First().Message.Replace(g.First().Id, "{id}", StringComparison.Ordinal)))]);
 
     [McpServerTool(Destructive = false, Idempotent = true), Description(
         "Writes the words of one slot of the project documents at most the slot's max lines; a caption (2 to 4 lines) is plain text with no blank lines, a narrative slot (a `detail:` one) takes Markdown with paragraphs. The only thing this server writes. " +

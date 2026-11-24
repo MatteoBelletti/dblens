@@ -111,13 +111,13 @@ public static class DocsCli
 
             case "confirm":
                 var id2 = positional[0];
-                var item = inventory.Items.FirstOrDefault(i => i.Id == id2) ?? throw new ArgumentException($"{id2} is not in the inventory.");
+                if (!inventory.Items.Any(i => i.Id == id2)) throw new ArgumentException($"{id2} is not in the inventory.");
                 DocsFolder.Locked(root, docs, () =>
                 {
                     var documents = DocsFolder.Read(root, docs);
                     var (path, text) = documents.FirstOrDefault(d => DocumentModel.Parse(d.Value).Blocks.Any(b => b.Id == id2 && b.Slot is not null));
                     if (path is null) throw new ArgumentException($"No slot for {id2} in the documents.");
-                    DocsFolder.Write(root, docs, new Dictionary<string, string> { [path] = Scaffolder.Confirm(text, id2, ItemHash.Of(item)) });
+                    DocsFolder.Write(root, docs, new Dictionary<string, string> { [path] = Scaffolder.Confirm(text, id2, SlotWriter.CurrentHash(inventory, documents, docs, id2)) });
                     return 0;
                 });
                 output.WriteLine($"{id2} is confirmed as human.");

@@ -50,6 +50,11 @@ public static class SlotWriter
             .SelectMany(p => p.Value).Where(d => d.Kind == DocBlockKind.Item)
             .GroupBy(d => d.Id, StringComparer.Ordinal).ToDictionary(g => g.Key, g => g.First(), StringComparer.Ordinal);
 
+    /// <summary>The hash a slot must carry to be current: the one the documents are planned with (a detail slot's is not the item's own).</summary>
+    public static string CurrentHash(ProjectInventory inventory, IReadOnlyDictionary<string, string> documents, DocsOptions options, string id) =>
+        Wanted(inventory, options, DocPlan.Present(documents.Keys, options)).GetValueOrDefault(id)?.Hash
+        ?? throw new ArgumentException($"{id} has no slot in the documents.");
+
     /// <summary>
     /// A model writes the words of one slot. It may not replace a person's words, write more than the slot
     /// allows, or write anything that looks like a region marker; the item's facts must be current, so the
@@ -90,7 +95,7 @@ public static class SlotWriter
         var text = words.Replace("\r\n", "\n").Trim('\n', ' ', '\t');
         if (text.Length == 0) throw new ArgumentException("The words are empty.");
         if (text.Contains("<!--", StringComparison.Ordinal) || text.Contains("-->", StringComparison.Ordinal))
-            throw new ArgumentException("The words contain an HTML comment, which is how the regions are marked.");
+            throw new ArgumentException("The words contain '<!--' or '-->' (also inside a diagram arrow such as -->>): the regions are marked with HTML comments.");
 
         var lines = text.Split('\n');
         var longest = narrative ? NarrativeLineLength : MaxLineLength;

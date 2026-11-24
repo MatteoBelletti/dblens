@@ -51,7 +51,6 @@ public static class DocumentCheck
         }
 
         var expected = plan.SelectMany(p => p.Value.Select(d => (File: $"{options.Folder}/{p.Key}", Desired: d))).ToList();
-        var items = inventory.Items.ToDictionary(i => i.Id, StringComparer.Ordinal);
 
         foreach (var (file, desired) in expected)
         {

@@ -23,7 +23,7 @@ code and says what the item *is*; the slot says what it is *for*.
 ## A narrative slot: the detail of a component
 
 A slot with id `detail:<component>` holds a page (up to 80 lines) of Markdown: paragraphs, `##` headings, lists, and one
-Mermaid sequence diagram if it makes a flow clearer. The generated tables above it (endpoints, events, flows) already say
+Mermaid sequence diagram (solid arrows `->>` only: a text with `-->` is refused) if it makes a flow clearer. The generated tables above it (endpoints, events, flows) already say
 what exists; the page says how it works. In this order, and only what the code shows:
 
 1. What it does and for whom, in three or four lines.

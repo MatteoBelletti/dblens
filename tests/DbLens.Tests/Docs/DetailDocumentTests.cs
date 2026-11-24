@@ -71,6 +71,20 @@ public sealed class DetailDocumentTests : IDisposable
     }
 
     [Fact]
+    public void ConfirmingTheNarrative_MakesItCurrent()
+    {
+        var inventory = Solution();
+        var files = Started(inventory, "Ordering");
+        var (path, text) = SlotWriter.Set(inventory, files, Options, "detail:Ordering", "It places orders.");
+        files[path] = text;
+
+        files[path] = Scaffolder.Confirm(files[path], "detail:Ordering", SlotWriter.CurrentHash(inventory, files, Options, "detail:Ordering"));
+
+        SlotWriter.List(inventory, files, Options).Single(s => s.Id == "detail:Ordering").State.Should().Be("current");
+        DocumentCheck.Check(inventory, files, Options, strict: true).Issues.Should().NotContain(i => i.Code == "slot-stale");
+    }
+
+    [Fact]
     public void TwoComponentsWithTheSameDocumentName_AreRefused()
     {
         var inventory = InventoryTestSupport.Build(

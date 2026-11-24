@@ -25,6 +25,12 @@ public static class Scaffolder
     public static ScaffoldResult Scaffold(
         ProjectInventory inventory, IReadOnlyDictionary<string, string> existing, DocsOptions options, IEnumerable<string>? newDetails = null)
     {
+        foreach (var name in newDetails ?? [])
+        {
+            var sharing = inventory.Items.Where(i => i.Kind == ItemKind.Detail && DocPlan.DetailFile(i.Name) == DocPlan.DetailFile(name)).Select(i => i.Name).ToList();
+            if (sharing.Count > 1) throw new ArgumentException($"{string.Join(" and ", sharing)} would share the document {DocPlan.DetailFile(name)}: rename one of them.");
+        }
+
         var labels = DocLabels.For(options.Language);
         var plan = DocPlan.For(inventory, options, DocPlan.Present(existing.Keys, options).Concat((newDetails ?? []).Select(DocPlan.DetailFile)));
         Dictionary<string, string> files = new(StringComparer.Ordinal);

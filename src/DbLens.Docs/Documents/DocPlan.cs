@@ -105,14 +105,13 @@ internal static class DocPlan
         foreach (var file in (files ?? []).Where(IsDetailFile).Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal))
         {
             var owners = inventory.Items.Where(i => i.Kind == ItemKind.Detail && DetailFile(i.Name) == file).ToList();
-            if (owners.Count > 1) throw new ArgumentException($"{string.Join(" and ", owners.Select(o => o.Name))} would share the document {file}: rename one of them.");
             if (owners.Count == 0)
             {
                 byFile[file] = [];
                 continue;
             }
 
-            var detail = owners[0];
+            var detail = owners.OrderBy(o => o.Name, StringComparer.Ordinal).First();
 
             var facts = OverviewRenderer.Detail(inventory, detail, l);
             byFile[file] =
