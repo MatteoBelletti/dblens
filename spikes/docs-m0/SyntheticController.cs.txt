@@ -1,0 +1,14 @@
+using Microsoft.AspNetCore.Mvc;
+namespace Shop;
+[ApiController]
+[Route("api/[controller]")]
+public class OrdersController : ControllerBase
+{
+    private const string Archive = "archive";
+    [HttpGet] public IActionResult List() => Ok();
+    [HttpGet("{id:int}")] public IActionResult Get(int id) => Ok();
+    [HttpPost("[action]")] public IActionResult Import() => Ok();
+    [HttpDelete(Archive + "/{id}")] public IActionResult Remove(int id) => Ok();
+    [HttpPut($"x/{Archive}")] public IActionResult Interp() => Ok();
+    [HttpGet(Routes.Missing)] public IActionResult Unknown() => Ok();
+}
