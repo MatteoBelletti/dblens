@@ -11,7 +11,7 @@ only their slots, through the `docs` MCP server, and never edits a document with
 
 ## 1. What needs words
 
-Call `get_doc_slots` (state `needed`, with `idPrefix` if the user gave one). If `total` is 0 and the note says
+Call `get_doc_slots` (state `needed`, `brief` true, with `idPrefix` if the user gave one). If `total` is 0 and the note says
 the documents do not exist, tell the user to run `dblens-docs scaffold` and stop. If nothing is needed, run
 `check_doc_coverage` and report its result.
 

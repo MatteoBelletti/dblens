@@ -76,7 +76,7 @@ public sealed class DocsMcpTests : IAsyncLifetime
         string[] Parameters(string tool) =>
             [.. JsonDocument.Parse(tools.Single(t => t.Name == tool).ProtocolTool.InputSchema.GetRawText()).RootElement.GetProperty("properties").EnumerateObject().Select(p => p.Name).Order(StringComparer.Ordinal)];
         Parameters("get_project_inventory").Should().Equal("idPrefix", "kind");
-        Parameters("get_doc_slots").Should().Equal("idPrefix", "state");
+        Parameters("get_doc_slots").Should().Equal("brief", "idPrefix", "ids", "state");
         Parameters("check_doc_coverage").Should().Equal("requireSlots", "strict");
         Parameters("set_doc_slot").Should().Equal("id", "text");
         tools.Where(t => t.Name != "set_doc_slot").Should().OnlyContain(t => t.ProtocolTool.Annotations!.ReadOnlyHint == true, "only set_doc_slot writes");
@@ -116,6 +116,23 @@ public sealed class DocsMcpTests : IAsyncLifetime
         var slots = JsonDocument.Parse((await Call("get_doc_slots", ("state", "current"))).Text).RootElement;
         slots.GetProperty("slots").EnumerateArray().Single().GetProperty("text").GetString().Should().Be("Lists a.");
         JsonDocument.Parse((await Call("check_doc_coverage")).Text).RootElement.GetProperty("ok").GetBoolean().Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task SlotsCanBeAskedForByExactId_Briefly_AndTheCheckGroupsItsIssues()
+    {
+        File.WriteAllText(Path.Combine(_root, "src/Api/Api.cs"), "public static class A { public static void M(WebApplication app) { app.MapGet(\"/a\", H); app.MapGet(\"/b\", H); app.MapGet(\"/c\", H); } }");
+        Scaffold();
+
+        var one = JsonDocument.Parse((await Call("get_doc_slots", ("ids", new[] { "endpoint:GET /b" }))).Text).RootElement;
+        var brief = JsonDocument.Parse((await Call("get_doc_slots", ("brief", true))).Text).RootElement;
+        var check = JsonDocument.Parse((await Call("check_doc_coverage", ("requireSlots", true))).Text).RootElement;
+
+        one.GetProperty("slots").EnumerateArray().Select(x => x.GetProperty("id").GetString()).Should().Equal("endpoint:GET /b");
+        brief.GetProperty("slots").EnumerateArray().Should().OnlyContain(x => x.GetProperty("facts").EnumerateObject().Count() == 0 && x.GetProperty("text").GetString() == "");
+        var empty = check.GetProperty("issues").EnumerateArray().Where(i => i.GetProperty("code").GetString() == "slot-empty").ToList();
+        empty.Select(i => i.GetProperty("file").GetString()).Should().OnlyHaveUniqueItems("one entry per file");
+        empty.Sum(i => i.GetProperty("ids").GetArrayLength()).Should().Be(brief.GetProperty("total").GetInt32());
     }
 
     [Fact]

@@ -8,7 +8,7 @@ maxTurns: 20
 ---
 You try to find a sentence the code does not support. You are given slot ids.
 
-1. Call get_doc_slots with `state` "all" to read each slot's `text`, `facts` and `source`.
+1. Call get_doc_slots with `ids` (the ids you were given) to read each slot's `text`, `facts` and `source`.
 2. Read the source at `source`, and what it delegates to. For each slot, decide: every claim in the words must
    be shown by code you read; a claim about behaviour, a condition, a state or a collaborator that you cannot
    find is unsupported, and so are words that only restate the table.

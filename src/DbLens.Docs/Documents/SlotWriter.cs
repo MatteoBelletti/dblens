@@ -38,7 +38,7 @@ public static class SlotWriter
                 var state = slot.Text.Length == 0 ? "empty" : slot.Evidence == "stale" || slot.ItemHash != desired.Hash ? "stale" : "current";
                 slots.Add(new SlotInfo(
                     slot.Id, item.Kind.ToString(), item.Name, path, $"{item.Source.File}:{item.Source.Line}", slot.MaxLines, state,
-                    slot.Evidence, IsPersons(slot), slot.Text, item.Attributes));
+                    slot.Evidence, IsPersons(slot), slot.Text, ItemHash.Shown(item).ToDictionary(a => a.Key, a => a.Value, StringComparer.Ordinal)));
             }
         }
 

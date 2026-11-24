@@ -14,6 +14,9 @@ public static class ItemHash
     /// What the item says, not where it sits: a line number is left out, so an unrelated edit above a
     /// declaration does not make the text written about it stale.
     /// </summary>
+    /// <summary>The attributes a document, or a model, has any use for.</summary>
+    public static IEnumerable<KeyValuePair<string, string>> Shown(InventoryItem item) => item.Attributes.Where(a => a.Value.Length > 0 && !NotShown.Contains(a.Key));
+
     public static string Of(InventoryItem item)
     {
         var text = new StringBuilder()

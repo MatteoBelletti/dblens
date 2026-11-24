@@ -10,6 +10,11 @@ public sealed record InventoryView(IReadOnlyList<InventoryItem> Items, IReadOnly
 /// <param name="Language">The language the words are written in: the one of the documents (<c>it</c> or <c>en</c>).</param>
 public sealed record SlotList(int Total, int Returned, IReadOnlyList<SlotInfo> Slots, string Note, string Language);
 
+/// <summary>The issues of a check, one entry per code, severity and file: <c>slot-empty</c> for a hundred slots is one line, not a hundred.</summary>
+public sealed record CoverageView(bool Ok, int Errors, int Warnings, IReadOnlyList<IssueGroup> Issues);
+
+public sealed record IssueGroup(string Code, string Severity, string File, IReadOnlyList<string> Ids, string Message);
+
 public sealed record SlotWritten(string Id, string File, string Evidence, int Lines);
 
 [McpServerToolType]
@@ -46,14 +51,20 @@ public sealed class DocsTools(DocsWorkspace workspace)
         [Description("empty, stale, current or all. Default: empty and stale, the slots that need words.")]
         string state = "needed",
         [Description("Only slots whose id starts with this text.")]
-        string? idPrefix = null)
+        string? idPrefix = null,
+        [Description("Only these slot ids, exactly (whatever their state).")]
+        string[]? ids = null,
+        [Description("Only id, kind, file, state and protected: no facts and no text.")]
+        bool brief = false)
     {
         if (state is not ("needed" or "empty" or "stale" or "current" or "all")) throw new ArgumentException("state is one of needed, empty, stale, current, all.");
 
         var all = SlotWriter.List(workspace.Inventory(), workspace.Documents(), workspace.Options)
             .Where(s => idPrefix is not { Length: > 0 } || s.Id.StartsWith(idPrefix, StringComparison.Ordinal))
+            .Where(s => ids is not { Length: > 0 } || ids.Contains(s.Id, StringComparer.Ordinal))
             .ToList();
-        var chosen = all.Where(s => state switch { "all" => true, "needed" => s.State != "current", _ => s.State == state }).ToList();
+        var chosen = all.Where(s => ids is { Length: > 0 } || state switch { "all" => true, "needed" => s.State != "current", _ => s.State == state })
+            .Select(s => brief ? s with { Facts = new Dictionary<string, string>(), Text = "", Source = "", Name = "" } : s).ToList();
         var note = all.Count == 0 ? "No slots: the documents do not exist yet (run dblens-docs scaffold) or nothing matches." : "";
         return new SlotList(chosen.Count, Math.Min(chosen.Count, MaxItems), [.. chosen.Take(MaxItems)], note, workspace.Options.Language);
     }
@@ -61,12 +72,17 @@ public sealed class DocsTools(DocsWorkspace workspace)
     [McpServerTool(ReadOnly = true), Description(
         "Compares the project documents with the code, as dblens-docs check does: missing items, items gone from the code, items changed, generated text edited by hand, slots too long, empty or stale. " +
         "IMPORTANT: it fixes nothing; a missing or outdated item is fixed by running dblens-docs scaffold.")]
-    public DocCheckResult CheckDocCoverage(
+    public CoverageView CheckDocCoverage(
         [Description("Stale slots, and regions without their slot, are errors.")]
         bool strict = false,
         [Description("Empty slots, and regions without their slot, are errors.")]
         bool requireSlots = false) =>
-        DocumentCheck.Check(workspace.Inventory(), workspace.Documents(), workspace.Options, strict, requireSlots);
+        Grouped(DocumentCheck.Check(workspace.Inventory(), workspace.Documents(), workspace.Options, strict, requireSlots));
+
+    private static CoverageView Grouped(DocCheckResult result) => new(
+        result.Ok, result.Errors, result.Warnings,
+        [.. result.Issues.GroupBy(i => (i.Code, i.Severity, i.File)).Select(g => new IssueGroup(
+            g.Key.Code, g.Key.Severity.ToString(), g.Key.File, [.. g.Select(i => i.Id).Where(id => id.Length > 0)], g.First().Message))]);
 
     [McpServerTool(Destructive = false, Idempotent = true), Description(
         "Writes the words of one slot of the project documents at most the slot's max lines; a caption (2 to 4 lines) is plain text with no blank lines, a narrative slot (a `detail:` one) takes Markdown with paragraphs. The only thing this server writes. " +

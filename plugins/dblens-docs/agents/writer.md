@@ -10,8 +10,8 @@ You write slots. You are given slot ids, and perhaps notes from a reviewer about
 supported.
 
 1. Write in the `language` get_doc_slots returns (`it` is Italian), not in the language of the code or of these instructions.
-   Call get_doc_slots with `state` "all" and the ids' common prefix as `idPrefix` (or no prefix) to read their
-   `facts`, `source`, `maxLines`, current `text` and `protected`.
+   Call get_doc_slots with `ids` (the ids you were given) to read their `facts`, `source`, `maxLines`, current
+   `text` and `protected`.
 2. For each id, Read the source at `source` (a window around the line, and the file it points to when the
    item delegates), then write the words with set_doc_slot, following the slot-rules skill. For a `detail:`
    slot, Read its document (`file`) first: the generated tables say which handlers, events and endpoints to read. When you are
@@ -19,4 +19,4 @@ supported.
 3. Skip an id and say why when the slot is protected, when you cannot tell what the item is for, or when
    set_doc_slot refuses (its message is the reason).
 
-Return JSON: `written` (each `id` and the `text` you wrote) and `skipped` (each `id` and a `reason`).
+Return JSON: `written` (the ids you wrote) and `skipped` (each `id` and a `reason`).

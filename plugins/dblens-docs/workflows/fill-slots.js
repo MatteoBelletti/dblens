@@ -11,10 +11,7 @@ const WRITTEN = {
   type: 'object',
   required: ['written', 'skipped'],
   properties: {
-    written: {
-      type: 'array',
-      items: { type: 'object', required: ['id', 'text'], properties: { id: { type: 'string' }, text: { type: 'string' } } },
-    },
+    written: { type: 'array', items: { type: 'string' } },
     skipped: {
       type: 'array',
       items: { type: 'object', required: ['id', 'reason'], properties: { id: { type: 'string' }, reason: { type: 'string' } } },
@@ -48,7 +45,7 @@ const results = await pipeline(a.batches,
     { agentType: 'dblens-docs:writer', schema: WRITTEN, phase: 'Write', label: `write ${ids.length}` }),
   async (written, ids) => {
     if (!written) return { written: [], skipped: ids.map(id => ({ id, reason: 'the writer returned nothing' })), unsupported: [] }
-    const wrote = written.written.map(w => w.id)
+    const wrote = written.written
     if (wrote.length === 0) return { ...written, unsupported: [] }
 
     const review = await agent(`Check the words of these slots against the code: ${JSON.stringify(wrote)}.`,
@@ -63,7 +60,7 @@ const results = await pipeline(a.batches,
     const again = await agent(
       `Rewrite these slots. The reviewer did not find their words in the code: ${JSON.stringify(bad)}. Say only what the code shows; if you cannot, skip the id and say why.`,
       { agentType: 'dblens-docs:writer', schema: WRITTEN, phase: 'Rewrite', label: `rewrite ${bad.length}` })
-    const redone = new Set(again ? again.written.map(w => w.id) : [])
+    const redone = new Set(again ? again.written : [])
     return {
       written: written.written,
       skipped: [...written.skipped, ...(again ? again.skipped : [])],
@@ -74,7 +71,7 @@ const results = await pipeline(a.batches,
 
 const done = results.filter(Boolean)
 return {
-  written: done.flatMap(r => r.written.map(w => w.id)),
+  written: done.flatMap(r => r.written),
   skipped: done.flatMap(r => r.skipped),
   rewritten: done.flatMap(r => r.unsupported),
   batchesFailed: results.length - done.length,

@@ -35,9 +35,10 @@ public sealed class DocsWorkspace
     {
         lock (_writing)
         {
+            var inventory = Inventory();
             return DocsFolder.Locked(Root, Options, () =>
             {
-                var (path, text, result) = change(Inventory(), Documents());
+                var (path, text, result) = change(inventory, Documents());
                 Write(path, text);
                 return result;
             });
