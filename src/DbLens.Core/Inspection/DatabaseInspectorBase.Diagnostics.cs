@@ -346,16 +346,15 @@ public abstract partial class DatabaseInspectorBase
 
         return RunAsync("query explanation", async () =>
         {
-            if (request.Analyze) await EnsureReadOnlyLoginAsync(ct);
+            var loginCaveat = request.Analyze ? await EnsureReadOnlyLoginAsync(ct) : null;
 
             var fetched = await FetchQueryPlanAsync(request, ct);
 
             var result = QueryPlanAnalysisEngine.Analyze(
                 fetched.Root, QueryPlanAnalysisEngine.RenderPlanText(fetched.Root), request.Analyze, request, Dialect);
 
-            return fetched.Caveats.Count == 0
-                ? result
-                : result with { Caveats = [..result.Caveats, ..fetched.Caveats] };
+            List<string> extra = [.. fetched.Caveats, .. loginCaveat is null ? [] : new[] { loginCaveat }];
+            return extra.Count == 0 ? result : result with { Caveats = [..result.Caveats, ..extra] };
         });
     }
 }

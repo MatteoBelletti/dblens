@@ -108,6 +108,13 @@ pipe or the machine's own name — the check is skipped: that is a developer's o
 containers included), where the admin login is the normal one. The test is on the address only; no
 DNS lookup is made, so an alias that happens to resolve to `127.0.0.1` still counts as remote.
 
+An address says nothing about what sits behind it: `ssh -L`, `kubectl port-forward` and a cloud SQL
+proxy make a production database answer on `localhost`. So when the exemption lets through a login that
+can write, `explain_query` (with `analyze`) and `query_with_receipt` say it in a caveat that names the
+reason and the tunnel case; on SQL Server it adds that the rollback does not undo the locks the
+statement holds while it runs. The audit skill asks before accepting such a login. The switch is the
+existing `DbLens:ReadOnlyLoginOnLocalhost=true`: with it a write-capable login is refused wherever it is.
+
 | Setting | Effect |
 |---|---|
 | *(default)* | check remote servers, skip local ones |

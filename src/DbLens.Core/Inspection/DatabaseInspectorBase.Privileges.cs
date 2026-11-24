@@ -36,17 +36,32 @@ public abstract partial class DatabaseInspectorBase
         !AllowWriteCapableLogin
         && (ReadOnlyLoginOnLocalhost || ServerHosts.Count == 0 || !ServerHosts.All(LocalServer.IsLocal));
 
-    /// <summary>Throws unless caller SQL may be executed on this login.</summary>
-    protected async Task EnsureReadOnlyLoginAsync(CancellationToken ct)
+    /// <summary>
+    /// Throws unless caller SQL may be executed on this login. When the login can write and only the
+    /// server's local address allowed it, returns the caveat that says so: an address says nothing
+    /// about what sits behind it.
+    /// </summary>
+    protected async Task<string?> EnsureReadOnlyLoginAsync(CancellationToken ct)
     {
-        if (!RequiresReadOnlyLogin) return;
+        if (AllowWriteCapableLogin) return null;
 
         await using var conn = await OpenAsync(ct);
+        var why = await DescribeWriteCapabilityAsync(conn, ct);
+        if (why is null) return null;
 
-        if (await DescribeWriteCapabilityAsync(conn, ct) is { } why)
+        if (RequiresReadOnlyLogin)
             throw new Models.ExecutionRefusedException(
                 $"Refusing to execute caller SQL: the login can write ({why}) and the server is not on this " +
                 "machine. Connect dblens with a read-only account — see docs/safety.md#read-only-login. " +
                 "Estimated plans (analyze = false) need no execution and still work.");
+
+        return $"The login can write ({why}) and the server address is local, so the read-only-login check was not " +
+               "applied. A tunnel to another machine (ssh -L, kubectl port-forward, a cloud SQL proxy) also " +
+               "looks local: unless this is a disposable copy, connect with a read-only login, or ask the " +
+               "server's operator to set DbLens:ReadOnlyLoginOnLocalhost=true so that dblens refuses this one." +
+               LocalWriteCaveatExtra;
     }
+
+    /// <summary>What a dialect adds about running caller SQL as a login that can write.</summary>
+    protected virtual string LocalWriteCaveatExtra => "";
 }

@@ -93,9 +93,18 @@ public abstract class ReceiptAndPrivilegeTestsBase(IDatabaseFixture fixture)
 
         var admin = Fixture.CreateAdminInspector();
 
-        (await admin.ExplainQueryAsync(new ExplainQueryRequest("SELECT 1", Analyze: true))).Should().NotBeNull(
-            "a database on localhost is the developer's own; the read-only-login check does not apply");
-        (await admin.QueryWithReceiptAsync(new QueryWithReceiptRequest("SELECT 1"))).Result.Rows.Should().ContainSingle();
+        var plan = await admin.ExplainQueryAsync(new ExplainQueryRequest("SELECT 1", Analyze: true));
+        var receipt = await admin.QueryWithReceiptAsync(new QueryWithReceiptRequest("SELECT 1"));
+
+        receipt.Result.Rows.Should().ContainSingle();
+        foreach (var caveats in new[] { plan.Caveats, receipt.Caveats })
+        {
+            var caveat = caveats.Should().ContainSingle(c => c.Contains("server address is local")).Subject;
+            caveat.Should().Contain("The login can write").And.Contain("ssh -L").And.Contain("kubectl port-forward")
+                .And.Contain("DbLens:ReadOnlyLoginOnLocalhost=true");
+            // Only SQL Server holds locks that a rollback does not undo.
+            caveat.Contains("rollback does not undo the locks").Should().Be(Fixture.UserSchema == "dbo");
+        }
     }
 
     [SkippableFact]
@@ -177,7 +186,7 @@ public abstract class ReceiptAndPrivilegeTestsBase(IDatabaseFixture fixture)
 
         var plan = await Fixture.Inspector!.ExplainQueryAsync(new ExplainQueryRequest($"SELECT COUNT(*) FROM {Q("users")}", Analyze: true));
 
-        plan.Should().NotBeNull();
+        plan.Caveats.Should().NotContain(c => c.Contains("server address is local"), "a read-only login needs no such warning");
     }
 
     [SkippableFact]
