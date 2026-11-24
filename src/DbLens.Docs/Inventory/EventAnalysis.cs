@@ -72,7 +72,7 @@ internal sealed class EventAnalysis
                             break;
                     }
 
-                if (type.ParameterList is not null) Add(new CodeNode(type.Identifier.Text, ".ctor", file.Path, owner, type));
+                if (type.ParameterList is { } primary) Add(new CodeNode(type.Identifier.Text, ".ctor", file.Path, owner, primary));
             }
 
         foreach (var list in _nodesByType.Values) list.Sort(static (a, b) => string.CompareOrdinal($"{a.File}|{a.Method}", $"{b.File}|{b.Method}"));

@@ -166,4 +166,32 @@ public sealed class OverviewReviewTests
 
         inventory.Of(ItemKind.Component).Select(c => c.Name).Should().Equal("Shop");
     }
+    [Fact]
+    public void TwoComponentsWhoseHandlersShareAName_EachLeadToTheirOwnEvents()
+    {
+        var events = "public record OrderPlacedIntegrationEvent(int Id) : IntegrationEvent;\npublic record AuditedIntegrationEvent(int Id) : IntegrationEvent;\n";
+        var inventory = Build(
+            Web("src/Ordering/Ordering.csproj"),
+            File("src/Ordering/Bus.cs", Bus + events),
+            File("src/Ordering/Api.cs", "public static class Api { public static void Map(WebApplication app) { app.MapPost(\"/orders\", Place); }\n static void Place(IEventBus bus) { bus.Publish(new OrderPlacedIntegrationEvent(1)); } }"),
+            Web("src/Audit/Audit.csproj"),
+            File("src/Audit/Bus.cs", Bus + events),
+            File("src/Audit/Handlers.cs", "public class OrderPlacedHandler : IIntegrationEventHandler<OrderPlacedIntegrationEvent> { public Task Handle(OrderPlacedIntegrationEvent e) => Task.CompletedTask; }\npublic static class Setup { public static void Wire(IEventBus bus) { bus.AddSubscription<OrderPlacedIntegrationEvent, OrderPlacedHandler>(); } }"),
+            Web("src/Billing/Billing.csproj"),
+            File("src/Billing/Bus.cs", Bus + events),
+            File("src/Billing/Handlers.cs", "public class OrderPlacedHandler : IIntegrationEventHandler<OrderPlacedIntegrationEvent> { public Task Handle(OrderPlacedIntegrationEvent e) { bus.Add(new AuditedIntegrationEvent(e.Id)); return Task.CompletedTask; } }\npublic static class Setup { public static void Wire(IEventBus bus) { bus.AddSubscription<OrderPlacedIntegrationEvent, OrderPlacedHandler>(); } }"));
+
+        inventory.Item("flow:endpoint:POST /orders").Attributes["hops"].Should().Contain("Billing -> (no consumer) : AuditedIntegrationEvent", "Billing's handler creates it, whatever Audit's handler of the same name does");
+    }
+
+    [Fact]
+    public void ANewOfAClassWithAPrimaryConstructor_DoesNotReachTheEventsOfItsMethods()
+    {
+        var inventory = Build(
+            Web("src/Shop/Shop.csproj"),
+            File("src/Shop/Bus.cs", Bus + "public record PaidIntegrationEvent(int Id) : IntegrationEvent;\n"),
+            File("src/Shop/Api.cs", "public static class Api { public static void Map(WebApplication app) { app.MapGet(\"/x\", Show); }\n static void Show() { var p = new Payer(1); } }\npublic class Payer(int id) { public void Pay(IEventBus bus) { bus.Publish(new PaidIntegrationEvent(id)); } }"));
+
+        inventory.Of(ItemKind.Flow).Should().BeEmpty("creating a Payer runs its constructor, not Pay");
+    }
 }

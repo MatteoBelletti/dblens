@@ -3159,7 +3159,7 @@
       "evidence": "extracted",
       "source": {
         "file": "src/OrderProcessor/Services/GracePeriodManagerService.cs",
-        "line": 7
+        "line": 43
       },
       "attributes": {
         "consumers": "Ordering.API",
@@ -3175,7 +3175,7 @@
       "evidence": "extracted",
       "source": {
         "file": "src/PaymentProcessor/IntegrationEvents/EventHandling/OrderStatusChangedToStockConfirmedIntegrationEventHandler.cs",
-        "line": 3
+        "line": 9
       },
       "attributes": {
         "consumers": "Ordering.API",
@@ -3191,7 +3191,7 @@
       "evidence": "extracted",
       "source": {
         "file": "src/PaymentProcessor/IntegrationEvents/EventHandling/OrderStatusChangedToStockConfirmedIntegrationEventHandler.cs",
-        "line": 3
+        "line": 9
       },
       "attributes": {
         "consumers": "Ordering.API",
@@ -3319,7 +3319,7 @@
       "evidence": "extracted",
       "source": {
         "file": "src/Catalog.API/IntegrationEvents/EventHandling/OrderStatusChangedToAwaitingValidationIntegrationEventHandler.cs",
-        "line": 3
+        "line": 9
       },
       "attributes": {
         "consumers": "Ordering.API",
@@ -3335,7 +3335,7 @@
       "evidence": "extracted",
       "source": {
         "file": "src/Catalog.API/IntegrationEvents/EventHandling/OrderStatusChangedToAwaitingValidationIntegrationEventHandler.cs",
-        "line": 3
+        "line": 9
       },
       "attributes": {
         "consumers": "Ordering.API",

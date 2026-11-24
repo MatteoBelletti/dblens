@@ -80,7 +80,7 @@ public sealed class DocsTools(DocsWorkspace workspace)
         Grouped(DocumentCheck.Check(workspace.Inventory(), workspace.Documents(), workspace.Options, strict, requireSlots));
 
     // Issues whose message differs per item (a problem found in a document, a slot's line count) stay one entry each.
-    private static readonly string[] OwnMessage = ["malformed", "slot-too-long"];
+    private static readonly string[] OwnMessage = ["malformed", "slot-too-long", "duplicate-item"];
 
     private static CoverageView Grouped(DocCheckResult result) => new(
         result.Ok, result.Errors, result.Warnings,
