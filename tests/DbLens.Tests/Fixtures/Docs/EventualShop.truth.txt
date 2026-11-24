@@ -1,0 +1,75 @@
+# Ground truth for the EventualShop subset (Contracts, Warehouse, ShoppingCart) at d63e424, from an independent regex pass, not from the inventory.
+# Definitions: an event is a record whose bases include IEvent or IDomainEvent; it is produced where it is created (new T, or RaiseEvent/Publish/Send with T as type argument) and consumed where IConsumer<T> or Consumer<T> names it.
+
+[macros]
+ShoppingCart/Command
+ShoppingCart/Query
+Warehouse/Command
+Warehouse/Query
+
+[shared]
+Contracts
+
+[producers]
+DomainEvent.BillingAddressAdded@ShoppingCart/Command
+DomainEvent.CartCheckedOut@ShoppingCart/Command
+DomainEvent.CartCreated@ShoppingCart/Command
+DomainEvent.CartDiscarded@ShoppingCart/Command
+DomainEvent.CartItemAdded@ShoppingCart/Command
+DomainEvent.CartItemDecreased@ShoppingCart/Command
+DomainEvent.CartItemIncreased@ShoppingCart/Command
+DomainEvent.CartItemRemoved@ShoppingCart/Command
+DomainEvent.CreditCardAdded@ShoppingCart/Command
+DomainEvent.DebitCardAdded@ShoppingCart/Command
+DomainEvent.InventoryAdjustmentDecreased@Warehouse/Command
+DomainEvent.InventoryAdjustmentIncreased@Warehouse/Command
+DomainEvent.InventoryAdjustmentNotDecreased@Warehouse/Command
+DomainEvent.InventoryCreated@Warehouse/Command
+DomainEvent.InventoryItemIncreased@Warehouse/Command
+DomainEvent.InventoryItemReceived@Warehouse/Command
+DomainEvent.InventoryNotReserved@Warehouse/Command
+DomainEvent.InventoryReserved@Warehouse/Command
+DomainEvent.PayPalAdded@ShoppingCart/Command
+DomainEvent.ShippingAddressAdded@ShoppingCart/Command
+DomainEvent.StockDepleted@Warehouse/Command
+NotificationEvent.CartProjectionRebuildRequested@ShoppingCart/Command
+
+[subscriptions]
+DomainEvent.CartCheckedOut@ShoppingCart/Command
+DomainEvent.CartCheckedOut@ShoppingCart/Query
+DomainEvent.CartCreated@ShoppingCart/Query
+DomainEvent.CartDiscarded@ShoppingCart/Query
+DomainEvent.CartItemAdded@ShoppingCart/Query
+DomainEvent.CartItemAdded@Warehouse/Command
+DomainEvent.CartItemDecreased@ShoppingCart/Query
+DomainEvent.CartItemIncreased@ShoppingCart/Query
+DomainEvent.CartItemRemoved@ShoppingCart/Query
+DomainEvent.CreditCardAdded@ShoppingCart/Query
+DomainEvent.DebitCardAdded@ShoppingCart/Query
+DomainEvent.InventoryAdjustmentDecreased@Warehouse/Query
+DomainEvent.InventoryAdjustmentIncreased@Warehouse/Query
+DomainEvent.InventoryCreated@Warehouse/Query
+DomainEvent.InventoryItemIncreased@Warehouse/Query
+DomainEvent.InventoryItemReceived@Warehouse/Query
+DomainEvent.PayPalAdded@ShoppingCart/Query
+NotificationEvent.CartProjectionRebuildRequested@ShoppingCart/Command
+
+[eventedges]
+ShoppingCart/Command->ShoppingCart/Command DomainEvent.CartCheckedOut
+ShoppingCart/Command->ShoppingCart/Command NotificationEvent.CartProjectionRebuildRequested
+ShoppingCart/Command->ShoppingCart/Query DomainEvent.CartCheckedOut
+ShoppingCart/Command->ShoppingCart/Query DomainEvent.CartCreated
+ShoppingCart/Command->ShoppingCart/Query DomainEvent.CartDiscarded
+ShoppingCart/Command->ShoppingCart/Query DomainEvent.CartItemAdded
+ShoppingCart/Command->ShoppingCart/Query DomainEvent.CartItemDecreased
+ShoppingCart/Command->ShoppingCart/Query DomainEvent.CartItemIncreased
+ShoppingCart/Command->ShoppingCart/Query DomainEvent.CartItemRemoved
+ShoppingCart/Command->ShoppingCart/Query DomainEvent.CreditCardAdded
+ShoppingCart/Command->ShoppingCart/Query DomainEvent.DebitCardAdded
+ShoppingCart/Command->ShoppingCart/Query DomainEvent.PayPalAdded
+ShoppingCart/Command->Warehouse/Command DomainEvent.CartItemAdded
+Warehouse/Command->Warehouse/Query DomainEvent.InventoryAdjustmentDecreased
+Warehouse/Command->Warehouse/Query DomainEvent.InventoryAdjustmentIncreased
+Warehouse/Command->Warehouse/Query DomainEvent.InventoryCreated
+Warehouse/Command->Warehouse/Query DomainEvent.InventoryItemIncreased
+Warehouse/Command->Warehouse/Query DomainEvent.InventoryItemReceived

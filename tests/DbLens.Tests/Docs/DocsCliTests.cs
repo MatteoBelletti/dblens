@@ -114,7 +114,7 @@ public sealed class DocsCliTests : IDisposable
     {
         Solution();
 
-        Run("inventory").Out.Should().StartWith("{\n  \"schemaVersion\": 1,").And.Contain("endpoint:GET /orders");
+        Run("inventory").Out.Should().StartWith("{\n  \"schemaVersion\": 2,").And.Contain("endpoint:GET /orders");
         Run("inventory", "--out", "inv.json").Code.Should().Be(0);
         File.ReadAllText(Path.Combine(_root.FullName, "inv.json")).Should().Contain("project:Api");
     }

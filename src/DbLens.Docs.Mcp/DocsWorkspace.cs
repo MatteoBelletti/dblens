@@ -20,7 +20,7 @@ public sealed class DocsWorkspace
 
     public DocsOptions Options { get; }
 
-    public ProjectInventory Inventory() => ProjectInventoryEngine.Build(SolutionReader.Read(Root));
+    public ProjectInventory Inventory() => ProjectInventoryEngine.Build(SolutionReader.Read(Root), DocsConfig.LoadInventory(Root));
 
     public IReadOnlyDictionary<string, string> Documents() => DocsFolder.Read(Root, Options);
 

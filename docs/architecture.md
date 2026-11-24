@@ -144,16 +144,26 @@ from the SQL those same tools wrote.
 2. `ProjectInventoryEngine.Build` is pure: the same files in any order give the same
    `ProjectInventory`. Its extractors (`ProjectExtractor`, `EntityExtractor`, `EndpointExtractor`,
    `ConfigExtractor`, `HttpClientExtractor`, `HostedServiceExtractor`) each return items and coverage notes.
-3. Every item has a stable id (`project:`, `entity:`, `endpoint:`, `config:`, `http:`, `hosted:`), a source
-   file and line, an evidence (`Extracted`, or `Unresolved` with its reason) and sorted attributes.
+3. Every item has a stable id (`project:`, `context:`, `entity:`, `endpoint:`, `config:`, `http:`, `hosted:`,
+   and, from schema 2, `component:`, `event:`, `link:`, `flow:`), a source file and line, an evidence (`Extracted`,
+   `Inferred` for a deduction from names, or `Unresolved` with its reason) and sorted attributes.
    `InventoryJson` writes it without a clock or an absolute path.
+4. **The overview** (`OverviewExtractor`, [docs-n1.md](roadmap/docs-n1.md)) turns the same syntax, the AppHost and the
+   compose files into what a newcomer needs first: `ComponentModel` groups the projects (an executable with the
+   libraries only it uses; a library several share is a component of its own); `EventAnalysis` finds the events, who
+   produces and who consumes them, and what a consumer or an entry point leads to, following calls by method name,
+   commands and domain events by type and stopping at the bus; `AppHostReader` and `ComposeReader` give the services,
+   their references and their infrastructure. The result is components, events, links (event, call, data, reference,
+   depends) and candidate flows. Presets cover the eShop bus and the MassTransit style; `dblens-docs.json` adds to
+   them (`InventoryOptions`).
 
 `DbLens.Docs.Documents` turns the inventory into five Markdown files with a region per item
 (`DocumentModel`, `Scaffolder`, `DocumentCheck`, `DocsFolder`), and `DbLens.Docs.Cli` is the
 `dblens-docs` command ([guide](dblens-docs.md)).
 
-The tests read a trimmed `dotnet/eShop` (`tests/DbLens.Tests/Fixtures/Docs/eShop`) and the repository's
-`samples/DemoShop.EfCore`, and compare the result with `tests/DbLens.Tests/Docs/Reference/*.inventory.json`
+The tests read a trimmed `dotnet/eShop` (`tests/DbLens.Tests/Fixtures/Docs/eShop`), all of its sources
+(`eShopFlows`), a subset of EventualShop and the repository's `samples/DemoShop.EfCore`, check the overview against a
+ground truth written by hand or found by a separate regex pass (`Fixtures/Docs/*.truth.txt`), and compare the result with `tests/DbLens.Tests/Docs/Reference/*.inventory.json`
 (refreshed with `DBLENS_UPDATE_DOCS_REFERENCE=1`).
 
 ## Server layer

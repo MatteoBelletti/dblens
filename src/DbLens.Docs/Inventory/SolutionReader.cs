@@ -117,6 +117,7 @@ public static class SolutionReader
                || name.EndsWith(".csproj", StringComparison.OrdinalIgnoreCase)
                || name.Equals("Directory.Build.props", StringComparison.OrdinalIgnoreCase)
                || name.Equals("Directory.Packages.props", StringComparison.OrdinalIgnoreCase)
+               || ComposeReader.IsCompose(name)
                || (name.StartsWith("appsettings", StringComparison.OrdinalIgnoreCase) && name.EndsWith(".json", StringComparison.OrdinalIgnoreCase));
     }
 

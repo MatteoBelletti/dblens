@@ -25,12 +25,15 @@ public sealed class SolutionReaderTests : IDisposable
         Write("src/App/secrets.json", "{ \"Key\": \"s3cret\" }");
         Write("src/App/.env", "TOKEN=abc");
         Write("src/App/notes.txt", "x");
+        Write("src/App/other.yml", "token: abc");
         Write("Directory.Packages.props", "<Project />");
+        Write("docker-compose.Staging.yaml", "services: {}");
+        Write("compose.yml", "services: {}");
 
         var read = SolutionReader.Read(_root.FullName);
 
         read.Files.Select(f => f.Path).Should().Equal(
-            "Directory.Packages.props", "src/App/App.csproj", "src/App/Program.cs", "src/App/appsettings.Production.json");
+            "Directory.Packages.props", "compose.yml", "docker-compose.Staging.yaml", "src/App/App.csproj", "src/App/Program.cs", "src/App/appsettings.Production.json");
         read.Files.Should().NotContain(f => f.Text.Contains("s3cret") || f.Text.Contains("TOKEN"));
     }
 

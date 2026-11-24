@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "items": [
     {
       "id": "project:Application.UnitTests",
@@ -14,6 +14,7 @@
         "outputType": "Exe",
         "outputTypeFrom": "file",
         "packages": "Microsoft.AspNetCore.TestHost@11.0.0, NSubstitute.Analyzers.CSharp@1.0.17, NSubstitute@6.2.0",
+        "projectReferenceIds": "project:Catalog.API, project:Identity.API, project:OrderProcessor, project:PaymentProcessor, project:WebhookClient, project:Webhooks.API",
         "projectReferences": "Catalog.API, Identity.API, OrderProcessor, PaymentProcessor, WebhookClient, Webhooks.API",
         "sdk": "MSTest.Sdk",
         "targetFrameworks": "net11.0",
@@ -34,6 +35,7 @@
         "outputType": "Exe",
         "outputTypeFrom": "sdk",
         "packages": "Aspire.StackExchange.Redis@17.0.0, Grpc.AspNetCore@2.85.0",
+        "projectReferenceIds": "project:EventBusRabbitMQ, project:eShop.ServiceDefaults",
         "projectReferences": "EventBusRabbitMQ, eShop.ServiceDefaults",
         "sdk": "Microsoft.NET.Sdk.Web",
         "targetFrameworks": "net11.0",
@@ -54,6 +56,7 @@
         "outputType": "Exe",
         "outputTypeFrom": "file",
         "packages": "Aspire.Hosting.AppHost@17.0.0, Aspire.Hosting.Redis@17.0.0, xunit.v3.mtp-v2@4.0.3",
+        "projectReferenceIds": "project:Basket.API",
         "projectReferences": "Basket.API",
         "sdk": "Microsoft.NET.Sdk",
         "targetFrameworks": "net11.0",
@@ -74,6 +77,7 @@
         "outputType": "Exe",
         "outputTypeFrom": "file",
         "packages": "Microsoft.AspNetCore.Mvc.Testing@11.0.0, Microsoft.Extensions.Identity.Stores@11.0.0, NSubstitute.Analyzers.CSharp@1.0.17, NSubstitute@6.2.0",
+        "projectReferenceIds": "project:Basket.API",
         "projectReferences": "Basket.API",
         "sdk": "MSTest.Sdk",
         "targetFrameworks": "net11.0",
@@ -94,6 +98,7 @@
         "outputType": "Exe",
         "outputTypeFrom": "sdk",
         "packages": "Asp.Versioning.Http@10.2.3, Aspire.Azure.AI.Extensions.OpenAI@17.0.0-preview.1.26567.5, Aspire.Npgsql.EntityFrameworkCore.PostgreSQL@17.0.0-preview.1.26567.5, CommunityToolkit.Aspire.OllamaSharp@13.6.1, Microsoft.EntityFrameworkCore.Tools@11.0.0-rc.3.26522.148, Microsoft.Extensions.ApiDescription.Server@11.0.0, Pgvector.EntityFrameworkCore@0.3.0, Pgvector@0.3.2",
+        "projectReferenceIds": "project:EventBusRabbitMQ, project:IntegrationEventLogEF, project:eShop.ServiceDefaults",
         "projectReferences": "EventBusRabbitMQ, IntegrationEventLogEF, eShop.ServiceDefaults",
         "sdk": "Microsoft.NET.Sdk.Web",
         "targetFrameworks": "net11.0",
@@ -114,6 +119,7 @@
         "outputType": "Exe",
         "outputTypeFrom": "file",
         "packages": "Asp.Versioning.Http.Client@10.2.0, Aspire.Hosting.AppHost@17.0.0, Aspire.Hosting.PostgreSQL@17.0.0, Microsoft.AspNetCore.Mvc.Testing@11.0.0, Microsoft.AspNetCore.TestHost@11.0.0, xunit.v3.mtp-v2@4.0.3",
+        "projectReferenceIds": "project:Catalog.API",
         "projectReferences": "Catalog.API",
         "sdk": "Microsoft.NET.Sdk",
         "targetFrameworks": "net11.0",
@@ -134,6 +140,7 @@
         "outputType": "Exe",
         "outputTypeFrom": "file",
         "packages": "CommunityToolkit.Maui@17.0.0, CommunityToolkit.Mvvm@8.4.2, Google.Protobuf@3.36.2, Grpc.Net.Client@2.85.0, Grpc.Tools@2.85.0, IdentityModel.OidcClient@6.0.0, IdentityModel@7.0.0, Microsoft.Extensions.Logging.Debug@11.0.0, Microsoft.Maui.Controls.Maps@11.0.10, Microsoft.Maui.Controls@11.0.10",
+        "projectReferenceIds": "",
         "projectReferences": "",
         "sdk": "Microsoft.NET.Sdk",
         "targetFrameworks": "net11.0-android;net11.0-ios;net11.0-maccatalyst;net11.0",
@@ -154,6 +161,7 @@
         "outputType": "Exe",
         "outputTypeFrom": "file",
         "packages": "Microsoft.Maui.Controls.Maps@11.0.10, Microsoft.Maui.Controls@11.0.10",
+        "projectReferenceIds": "project:ClientApp",
         "projectReferences": "ClientApp",
         "sdk": "MSTest.Sdk",
         "targetFrameworks": "net11.0",
@@ -174,6 +182,7 @@
         "outputType": "Library",
         "outputTypeFrom": "default",
         "packages": "",
+        "projectReferenceIds": "",
         "projectReferences": "",
         "sdk": "Microsoft.NET.Sdk",
         "targetFrameworks": "net11.0",
@@ -194,6 +203,7 @@
         "outputType": "Library",
         "outputTypeFrom": "default",
         "packages": "Aspire.RabbitMQ.Client@17.0.0",
+        "projectReferenceIds": "project:EventBus",
         "projectReferences": "EventBus",
         "sdk": "Microsoft.NET.Sdk",
         "targetFrameworks": "net11.0",
@@ -214,6 +224,7 @@
         "outputType": "Exe",
         "outputTypeFrom": "file",
         "packages": "Microsoft.AspNetCore.Components.WebView.Maui@11.0.10, Microsoft.Extensions.Http@11.0.0, Microsoft.Extensions.Logging.Debug@11.0.0, Microsoft.Maui.Controls@11.0.10",
+        "projectReferenceIds": "project:WebAppComponents",
         "projectReferences": "WebAppComponents",
         "sdk": "Microsoft.NET.Sdk.Razor",
         "targetFrameworks": "net11.0-android;net11.0-ios;net11.0-maccatalyst",
@@ -234,6 +245,7 @@
         "outputType": "Exe",
         "outputTypeFrom": "sdk",
         "packages": "Aspire.Npgsql.EntityFrameworkCore.PostgreSQL@17.0.0-preview.1.26567.5, Duende.IdentityServer.AspNetIdentity@8.0.11, Duende.IdentityServer.EntityFramework@8.0.11, Duende.IdentityServer.Storage@8.0.11, Duende.IdentityServer@8.0.11, Microsoft.AspNetCore.Identity.EntityFrameworkCore@11.0.0-rc.3.26522.148, Microsoft.AspNetCore.Identity.UI@11.0.0, Microsoft.EntityFrameworkCore.Design@11.0.0-rc.3.26522.148, Microsoft.EntityFrameworkCore.Tools@11.0.0-rc.3.26522.148, Microsoft.Web.LibraryManager.Build@3.0.114",
+        "projectReferenceIds": "project:eShop.ServiceDefaults",
         "projectReferences": "eShop.ServiceDefaults",
         "sdk": "Microsoft.NET.Sdk.Web",
         "targetFrameworks": "net11.0",
@@ -254,6 +266,7 @@
         "outputType": "Library",
         "outputTypeFrom": "default",
         "packages": "Npgsql.EntityFrameworkCore.PostgreSQL@11.0.0-rc.3",
+        "projectReferenceIds": "project:EventBus",
         "projectReferences": "EventBus",
         "sdk": "Microsoft.NET.Sdk",
         "targetFrameworks": "net11.0",
@@ -274,6 +287,7 @@
         "outputType": "Exe",
         "outputTypeFrom": "sdk",
         "packages": "Aspire.Npgsql@17.0.0",
+        "projectReferenceIds": "project:EventBusRabbitMQ, project:eShop.ServiceDefaults",
         "projectReferences": "EventBusRabbitMQ, eShop.ServiceDefaults",
         "sdk": "Microsoft.NET.Sdk.Worker",
         "targetFrameworks": "net11.0",
@@ -294,6 +308,7 @@
         "outputType": "Exe",
         "outputTypeFrom": "sdk",
         "packages": "Asp.Versioning.Http@10.2.3, Aspire.Npgsql.EntityFrameworkCore.PostgreSQL@17.0.0-preview.1.26567.5, FluentValidation.DependencyInjectionExtensions@12.2.0, FluentValidation@12.2.0, Microsoft.EntityFrameworkCore.Design@11.0.0-rc.3.26522.148, Microsoft.EntityFrameworkCore.Tools@11.0.0-rc.3.26522.148",
+        "projectReferenceIds": "project:EventBusRabbitMQ, project:IntegrationEventLogEF, project:Ordering.Domain, project:Ordering.Infrastructure, project:eShop.ServiceDefaults",
         "projectReferences": "EventBusRabbitMQ, IntegrationEventLogEF, Ordering.Domain, Ordering.Infrastructure, eShop.ServiceDefaults",
         "sdk": "Microsoft.NET.Sdk.Web",
         "targetFrameworks": "net11.0",
@@ -314,6 +329,7 @@
         "outputType": "Library",
         "outputTypeFrom": "default",
         "packages": "MediatR@13.1.0",
+        "projectReferenceIds": "",
         "projectReferences": "",
         "sdk": "Microsoft.NET.Sdk",
         "targetFrameworks": "net11.0",
@@ -334,6 +350,7 @@
         "outputType": "Exe",
         "outputTypeFrom": "file",
         "packages": "Asp.Versioning.Http.Client@10.2.0, Aspire.Hosting.AppHost@17.0.0, Aspire.Hosting.Dotnet@17.0.0, Aspire.Hosting.PostgreSQL@17.0.0, Microsoft.AspNetCore.Mvc.Testing@11.0.0, Microsoft.AspNetCore.TestHost@11.0.0, xunit.v3.mtp-v2@4.0.3",
+        "projectReferenceIds": "project:Ordering.API, project:Ordering.Domain, project:Ordering.Infrastructure",
         "projectReferences": "Ordering.API, Ordering.Domain, Ordering.Infrastructure",
         "sdk": "Microsoft.NET.Sdk",
         "targetFrameworks": "net11.0",
@@ -354,6 +371,7 @@
         "outputType": "Library",
         "outputTypeFrom": "default",
         "packages": "Npgsql.EntityFrameworkCore.PostgreSQL@11.0.0-rc.3",
+        "projectReferenceIds": "project:IntegrationEventLogEF, project:Ordering.Domain",
         "projectReferences": "IntegrationEventLogEF, Ordering.Domain",
         "sdk": "Microsoft.NET.Sdk",
         "targetFrameworks": "net11.0",
@@ -374,6 +392,7 @@
         "outputType": "Exe",
         "outputTypeFrom": "file",
         "packages": "NSubstitute.Analyzers.CSharp@1.0.17, NSubstitute@6.2.0",
+        "projectReferenceIds": "project:Ordering.API, project:Ordering.Domain, project:Ordering.Infrastructure",
         "projectReferences": "Ordering.API, Ordering.Domain, Ordering.Infrastructure",
         "sdk": "MSTest.Sdk",
         "targetFrameworks": "net11.0",
@@ -394,6 +413,7 @@
         "outputType": "Exe",
         "outputTypeFrom": "sdk",
         "packages": "",
+        "projectReferenceIds": "project:EventBusRabbitMQ, project:eShop.ServiceDefaults",
         "projectReferences": "EventBusRabbitMQ, eShop.ServiceDefaults",
         "sdk": "Microsoft.NET.Sdk.Web",
         "targetFrameworks": "net11.0",
@@ -414,6 +434,7 @@
         "outputType": "Exe",
         "outputTypeFrom": "sdk",
         "packages": "Asp.Versioning.Http.Client@10.2.0, Aspire.Azure.AI.Extensions.OpenAI@17.0.0-preview.1.26567.5, CommunityToolkit.Aspire.OllamaSharp@13.6.1, Google.Protobuf@3.36.2, Grpc.Net.ClientFactory@2.85.0, Grpc.Tools@2.85.0, Microsoft.AspNetCore.Authentication.OpenIdConnect@11.0.0, Microsoft.Extensions.ServiceDiscovery.Yarp@11.0.0",
+        "projectReferenceIds": "project:EventBusRabbitMQ, project:WebAppComponents, project:eShop.ServiceDefaults",
         "projectReferences": "EventBusRabbitMQ, WebAppComponents, eShop.ServiceDefaults",
         "sdk": "Microsoft.NET.Sdk.Web",
         "targetFrameworks": "net11.0",
@@ -434,6 +455,7 @@
         "outputType": "Library",
         "outputTypeFrom": "default",
         "packages": "Microsoft.AspNetCore.Components.Web@11.0.0",
+        "projectReferenceIds": "",
         "projectReferences": "",
         "sdk": "Microsoft.NET.Sdk.Razor",
         "targetFrameworks": "net11.0",
@@ -454,6 +476,7 @@
         "outputType": "Exe",
         "outputTypeFrom": "sdk",
         "packages": "Asp.Versioning.Http.Client@10.2.0, Microsoft.AspNetCore.Authentication.OpenIdConnect@11.0.0, Microsoft.AspNetCore.Components.QuickGrid@11.0.0",
+        "projectReferenceIds": "project:eShop.ServiceDefaults",
         "projectReferences": "eShop.ServiceDefaults",
         "sdk": "Microsoft.NET.Sdk.Web",
         "targetFrameworks": "net11.0",
@@ -474,6 +497,7 @@
         "outputType": "Exe",
         "outputTypeFrom": "sdk",
         "packages": "Asp.Versioning.Http@10.2.3, Aspire.Npgsql.EntityFrameworkCore.PostgreSQL@17.0.0-preview.1.26567.5, Microsoft.EntityFrameworkCore.Tools@11.0.0-rc.3.26522.148",
+        "projectReferenceIds": "project:EventBusRabbitMQ, project:IntegrationEventLogEF, project:eShop.ServiceDefaults",
         "projectReferences": "EventBusRabbitMQ, IntegrationEventLogEF, eShop.ServiceDefaults",
         "sdk": "Microsoft.NET.Sdk.Web",
         "targetFrameworks": "net11.0",
@@ -494,6 +518,7 @@
         "outputType": "Exe",
         "outputTypeFrom": "file",
         "packages": "Asp.Versioning.Http.Client@10.2.0, Aspire.Hosting.AppHost@17.0.0, Aspire.Hosting.PostgreSQL@17.0.0, Aspire.Hosting.RabbitMQ@17.0.0, Microsoft.AspNetCore.Mvc.Testing@11.0.0, Microsoft.AspNetCore.TestHost@11.0.0, xunit.v3.mtp-v2@4.0.3",
+        "projectReferenceIds": "project:Webhooks.API",
         "projectReferences": "Webhooks.API",
         "sdk": "Microsoft.NET.Sdk",
         "targetFrameworks": "net11.0",
@@ -514,6 +539,7 @@
         "outputType": "Exe",
         "outputTypeFrom": "file",
         "packages": "Aspire.Hosting.AppHost@17.0.0, Aspire.Hosting.Azure.AppContainers@17.0.0, Aspire.Hosting.Dotnet@17.0.0, Aspire.Hosting.Foundry@17.0.0-preview.1.26567.5, Aspire.Hosting.PostgreSQL@17.0.0, Aspire.Hosting.RabbitMQ@17.0.0, Aspire.Hosting.Redis@17.0.0, Aspire.Hosting.Yarp@17.0.0, CommunityToolkit.Aspire.Hosting.Ollama@13.6.1",
+        "projectReferenceIds": "",
         "projectReferences": "",
         "sdk": "Microsoft.NET.Sdk",
         "targetFrameworks": "net11.0",
@@ -534,6 +560,7 @@
         "outputType": "Exe",
         "outputTypeFrom": "file",
         "packages": "",
+        "projectReferenceIds": "project:eShop.AppHost",
         "projectReferences": "eShop.AppHost",
         "sdk": "MSTest.Sdk",
         "targetFrameworks": "net11.0",
@@ -554,6 +581,7 @@
         "outputType": "Library",
         "outputTypeFrom": "default",
         "packages": "Asp.Versioning.Mvc.ApiExplorer@10.2.1, Asp.Versioning.OpenApi@10.2.3, Microsoft.AspNetCore.Authentication.JwtBearer@11.0.0, Microsoft.AspNetCore.OpenApi@11.0.0, Microsoft.Extensions.Http.Resilience@11.0.0, Microsoft.Extensions.ServiceDiscovery@11.0.0, Microsoft.OpenApi@3.11.1, OpenTelemetry.Exporter.OpenTelemetryProtocol@1.21.0, OpenTelemetry.Extensions.Hosting@1.21.0, OpenTelemetry.Instrumentation.AspNetCore@1.21.0, OpenTelemetry.Instrumentation.GrpcNetClient@1.21.0-beta.1, OpenTelemetry.Instrumentation.Http@1.21.0, OpenTelemetry.Instrumentation.Runtime@1.21.0, Scalar.AspNetCore@2.21.0",
+        "projectReferenceIds": "",
         "projectReferences": "",
         "sdk": "Microsoft.NET.Sdk",
         "targetFrameworks": "net11.0",
@@ -2819,6 +2847,329 @@
         "abstract": "no",
         "bases": "IDisposable, IEventBus, IHostedService",
         "registeredWithAddHostedService": "no"
+      },
+      "alsoAt": []
+    },
+    {
+      "id": "component:Basket.API",
+      "kind": "component",
+      "name": "Basket.API",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/Basket.API/Basket.API.csproj",
+        "line": 1
+      },
+      "attributes": {
+        "executables": "project:Basket.API",
+        "infrastructure": "",
+        "libraries": "",
+        "role": "service",
+        "sdk": "Microsoft.NET.Sdk.Web",
+        "usedBy": ""
+      },
+      "alsoAt": []
+    },
+    {
+      "id": "component:Catalog.API",
+      "kind": "component",
+      "name": "Catalog.API",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/Catalog.API/Catalog.API.csproj",
+        "line": 1
+      },
+      "attributes": {
+        "executables": "project:Catalog.API",
+        "infrastructure": "",
+        "libraries": "",
+        "role": "service",
+        "sdk": "Microsoft.NET.Sdk.Web",
+        "usedBy": ""
+      },
+      "alsoAt": []
+    },
+    {
+      "id": "component:ClientApp",
+      "kind": "component",
+      "name": "ClientApp",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/ClientApp/ClientApp.csproj",
+        "line": 1
+      },
+      "attributes": {
+        "executables": "project:ClientApp",
+        "infrastructure": "",
+        "libraries": "",
+        "role": "application",
+        "sdk": "Microsoft.NET.Sdk",
+        "usedBy": ""
+      },
+      "alsoAt": []
+    },
+    {
+      "id": "component:EventBus",
+      "kind": "component",
+      "name": "EventBus",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/EventBus/EventBus.csproj",
+        "line": 1
+      },
+      "attributes": {
+        "executables": "",
+        "infrastructure": "",
+        "libraries": "project:EventBus",
+        "role": "shared-library",
+        "sdk": "Microsoft.NET.Sdk",
+        "usedBy": "Basket.API, Catalog.API, OrderProcessor, Ordering.API, PaymentProcessor, WebApp, Webhooks.API"
+      },
+      "alsoAt": []
+    },
+    {
+      "id": "component:EventBusRabbitMQ",
+      "kind": "component",
+      "name": "EventBusRabbitMQ",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/EventBusRabbitMQ/EventBusRabbitMQ.csproj",
+        "line": 1
+      },
+      "attributes": {
+        "executables": "",
+        "infrastructure": "",
+        "libraries": "project:EventBusRabbitMQ",
+        "role": "shared-library",
+        "sdk": "Microsoft.NET.Sdk",
+        "usedBy": "Basket.API, Catalog.API, OrderProcessor, Ordering.API, PaymentProcessor, WebApp, Webhooks.API"
+      },
+      "alsoAt": []
+    },
+    {
+      "id": "component:HybridApp",
+      "kind": "component",
+      "name": "HybridApp",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/HybridApp/HybridApp.csproj",
+        "line": 1
+      },
+      "attributes": {
+        "executables": "project:HybridApp",
+        "infrastructure": "",
+        "libraries": "",
+        "role": "application",
+        "sdk": "Microsoft.NET.Sdk.Razor",
+        "usedBy": ""
+      },
+      "alsoAt": []
+    },
+    {
+      "id": "component:Identity.API",
+      "kind": "component",
+      "name": "Identity.API",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/Identity.API/Identity.API.csproj",
+        "line": 1
+      },
+      "attributes": {
+        "executables": "project:Identity.API",
+        "infrastructure": "",
+        "libraries": "",
+        "role": "service",
+        "sdk": "Microsoft.NET.Sdk.Web",
+        "usedBy": ""
+      },
+      "alsoAt": []
+    },
+    {
+      "id": "component:IntegrationEventLogEF",
+      "kind": "component",
+      "name": "IntegrationEventLogEF",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/IntegrationEventLogEF/IntegrationEventLogEF.csproj",
+        "line": 1
+      },
+      "attributes": {
+        "executables": "",
+        "infrastructure": "",
+        "libraries": "project:IntegrationEventLogEF",
+        "role": "shared-library",
+        "sdk": "Microsoft.NET.Sdk",
+        "usedBy": "Catalog.API, Ordering.API, Webhooks.API"
+      },
+      "alsoAt": []
+    },
+    {
+      "id": "component:OrderProcessor",
+      "kind": "component",
+      "name": "OrderProcessor",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/OrderProcessor/OrderProcessor.csproj",
+        "line": 1
+      },
+      "attributes": {
+        "executables": "project:OrderProcessor",
+        "infrastructure": "",
+        "libraries": "",
+        "role": "service",
+        "sdk": "Microsoft.NET.Sdk.Worker",
+        "usedBy": ""
+      },
+      "alsoAt": []
+    },
+    {
+      "id": "component:Ordering.API",
+      "kind": "component",
+      "name": "Ordering.API",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/Ordering.API/Ordering.API.csproj",
+        "line": 1
+      },
+      "attributes": {
+        "executables": "project:Ordering.API",
+        "infrastructure": "",
+        "libraries": "project:Ordering.Domain, project:Ordering.Infrastructure",
+        "role": "service",
+        "sdk": "Microsoft.NET.Sdk.Web",
+        "usedBy": ""
+      },
+      "alsoAt": []
+    },
+    {
+      "id": "component:PaymentProcessor",
+      "kind": "component",
+      "name": "PaymentProcessor",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/PaymentProcessor/PaymentProcessor.csproj",
+        "line": 1
+      },
+      "attributes": {
+        "executables": "project:PaymentProcessor",
+        "infrastructure": "",
+        "libraries": "",
+        "role": "service",
+        "sdk": "Microsoft.NET.Sdk.Web",
+        "usedBy": ""
+      },
+      "alsoAt": []
+    },
+    {
+      "id": "component:WebApp",
+      "kind": "component",
+      "name": "WebApp",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/WebApp/WebApp.csproj",
+        "line": 1
+      },
+      "attributes": {
+        "executables": "project:WebApp",
+        "infrastructure": "",
+        "libraries": "",
+        "role": "service",
+        "sdk": "Microsoft.NET.Sdk.Web",
+        "usedBy": ""
+      },
+      "alsoAt": []
+    },
+    {
+      "id": "component:WebAppComponents",
+      "kind": "component",
+      "name": "WebAppComponents",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/WebAppComponents/WebAppComponents.csproj",
+        "line": 1
+      },
+      "attributes": {
+        "executables": "",
+        "infrastructure": "",
+        "libraries": "project:WebAppComponents",
+        "role": "shared-library",
+        "sdk": "Microsoft.NET.Sdk.Razor",
+        "usedBy": "HybridApp, WebApp"
+      },
+      "alsoAt": []
+    },
+    {
+      "id": "component:WebhookClient",
+      "kind": "component",
+      "name": "WebhookClient",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/WebhookClient/WebhookClient.csproj",
+        "line": 1
+      },
+      "attributes": {
+        "executables": "project:WebhookClient",
+        "infrastructure": "",
+        "libraries": "",
+        "role": "service",
+        "sdk": "Microsoft.NET.Sdk.Web",
+        "usedBy": ""
+      },
+      "alsoAt": []
+    },
+    {
+      "id": "component:Webhooks.API",
+      "kind": "component",
+      "name": "Webhooks.API",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/Webhooks.API/Webhooks.API.csproj",
+        "line": 1
+      },
+      "attributes": {
+        "executables": "project:Webhooks.API",
+        "infrastructure": "",
+        "libraries": "",
+        "role": "service",
+        "sdk": "Microsoft.NET.Sdk.Web",
+        "usedBy": ""
+      },
+      "alsoAt": []
+    },
+    {
+      "id": "component:eShop.AppHost",
+      "kind": "component",
+      "name": "eShop.AppHost",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/eShop.AppHost/eShop.AppHost.csproj",
+        "line": 1
+      },
+      "attributes": {
+        "executables": "project:eShop.AppHost",
+        "infrastructure": "",
+        "libraries": "",
+        "role": "application",
+        "sdk": "Microsoft.NET.Sdk",
+        "usedBy": ""
+      },
+      "alsoAt": []
+    },
+    {
+      "id": "component:eShop.ServiceDefaults",
+      "kind": "component",
+      "name": "eShop.ServiceDefaults",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/eShop.ServiceDefaults/eShop.ServiceDefaults.csproj",
+        "line": 1
+      },
+      "attributes": {
+        "executables": "",
+        "infrastructure": "",
+        "libraries": "project:eShop.ServiceDefaults",
+        "role": "shared-library",
+        "sdk": "Microsoft.NET.Sdk",
+        "usedBy": "Basket.API, Catalog.API, Identity.API, OrderProcessor, Ordering.API, PaymentProcessor, WebApp, WebhookClient, Webhooks.API"
       },
       "alsoAt": []
     }

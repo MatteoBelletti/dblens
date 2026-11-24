@@ -1,4 +1,5 @@
 using System.Text.Json;
+using DbLens.Docs.Inventory;
 
 namespace DbLens.Docs.Documents;
 
@@ -148,6 +149,57 @@ public static class DocsConfig
         {
             throw new ArgumentException($"{FileName} is not valid JSON: {ex.Message}");
         }
+    }
+
+    /// <summary>
+    /// What the file adds to the inventory's defaults: <c>"events": { "bases": [...], "producingMethods": [...] }</c> and
+    /// <c>"components": { "Account": ["Account/Command", "Account/Query"] }</c> (components joined under one name).
+    /// </summary>
+    public static InventoryOptions LoadInventory(string root)
+    {
+        var path = Path.Combine(root, FileName);
+        if (!File.Exists(path)) return InventoryOptions.Default;
+
+        try
+        {
+            using var document = JsonDocument.Parse(File.ReadAllText(path), new JsonDocumentOptions { CommentHandling = JsonCommentHandling.Skip, AllowTrailingCommas = true });
+            if (document.RootElement.ValueKind != JsonValueKind.Object) throw new ArgumentException($"{FileName} must hold a JSON object.");
+
+            var defaults = InventoryOptions.Default;
+            List<string> bases = [.. defaults.EventBases];
+            List<string> producing = [.. defaults.ProducingMethods];
+            Dictionary<string, IReadOnlyList<string>> merge = new(StringComparer.Ordinal);
+
+            if (document.RootElement.TryGetProperty("events", out var events) && events.ValueKind != JsonValueKind.Null)
+            {
+                if (events.ValueKind != JsonValueKind.Object) throw new ArgumentException($"{FileName}: \"events\" must be an object.");
+                bases.AddRange(Strings(events, "events", "bases"));
+                producing.AddRange(Strings(events, "events", "producingMethods"));
+            }
+
+            if (document.RootElement.TryGetProperty("components", out var components) && components.ValueKind != JsonValueKind.Null)
+            {
+                if (components.ValueKind != JsonValueKind.Object) throw new ArgumentException($"{FileName}: \"components\" must be an object of name to list of names.");
+                foreach (var property in components.EnumerateObject())
+                    merge[property.Name] = property.Value.ValueKind == JsonValueKind.Array && property.Value.EnumerateArray().All(v => v.ValueKind == JsonValueKind.String)
+                        ? [.. property.Value.EnumerateArray().Select(v => v.GetString()!)]
+                        : throw new ArgumentException($"{FileName}: \"components\".\"{property.Name}\" must be a list of names.");
+            }
+
+            return new InventoryOptions { EventBases = [.. bases.Distinct(StringComparer.Ordinal)], ProducingMethods = [.. producing.Distinct(StringComparer.Ordinal)], Merge = merge };
+        }
+        catch (JsonException ex)
+        {
+            throw new ArgumentException($"{FileName} is not valid JSON: {ex.Message}");
+        }
+    }
+
+    private static IEnumerable<string> Strings(JsonElement section, string sectionName, string name)
+    {
+        if (!section.TryGetProperty(name, out var value) || value.ValueKind == JsonValueKind.Null) return [];
+        return value.ValueKind == JsonValueKind.Array && value.EnumerateArray().All(v => v.ValueKind == JsonValueKind.String)
+            ? value.EnumerateArray().Select(v => v.GetString()!)
+            : throw new ArgumentException($"{FileName}: \"{sectionName}\".\"{name}\" must be a list of text.");
     }
 
     private static string? Text(JsonElement root, string name)

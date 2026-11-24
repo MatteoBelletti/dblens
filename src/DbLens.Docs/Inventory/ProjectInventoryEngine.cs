@@ -1,4 +1,5 @@
 using DbLens.Core.Analysis.EfCore;
+using Microsoft.CodeAnalysis;
 
 namespace DbLens.Docs.Inventory;
 
@@ -8,10 +9,11 @@ namespace DbLens.Docs.Inventory;
 /// </summary>
 public static class ProjectInventoryEngine
 {
-    public static ProjectInventory Build(SolutionRead read) => Build(read.Files, read.Models, read.Coverage, read.ModelSources);
+    public static ProjectInventory Build(SolutionRead read, InventoryOptions? options = null) => Build(read.Files, read.Models, read.Coverage, read.ModelSources, options);
 
     public static ProjectInventory Build(
-        IReadOnlyList<SourceFile> files, IReadOnlyList<EfModel> models, IReadOnlyList<CoverageNote>? reading = null, IReadOnlyList<string>? modelSources = null)
+        IReadOnlyList<SourceFile> files, IReadOnlyList<EfModel> models, IReadOnlyList<CoverageNote>? reading = null, IReadOnlyList<string>? modelSources = null,
+        InventoryOptions? options = null)
     {
         var ordered = files.OrderBy(f => f.Path, StringComparer.Ordinal).ToList();
         var csharp = ordered.Where(f => f.Path.EndsWith(".cs", StringComparison.OrdinalIgnoreCase)).ToList();
@@ -32,10 +34,18 @@ public static class ProjectInventoryEngine
         var hosted = HostedServiceExtractor.Extract(parsed);
 
         var index = EntityLinks.Index([.. entityItems.Where(i => i.Kind == ItemKind.Entity)]);
-        var endpointItems = EndpointItems(endpoints.Endpoints, index).ToList();
-        List<InventoryItem> items = [.. projects.Items, .. UsedBy(entityItems, endpointItems), .. endpointItems, .. config.Items, .. clients, .. hosted];
+        var endpointEntries = EndpointItems(endpoints.Endpoints, index).ToList();
+        var endpointItems = endpointEntries.Select(e => e.Item).ToList();
 
-        List<CoverageNote> coverage = [.. reading ?? [], .. projects.Coverage, .. entityCoverage, .. config.Coverage, .. clientCoverage];
+        // The overview: components, events, links and flows, from the same syntax and the compose and AppHost files.
+        List<FlowEntry> flowEntries = [.. endpointEntries.Select(e => new FlowEntry(e.Item, e.Body, null)), .. hosted.Select(h => new FlowEntry(h, null, h.Name.Split('<')[0]))];
+        var overview = OverviewExtractor.Extract(
+            projects.Items, [.. entityItems.Where(i => i.Kind == ItemKind.Context)], flowEntries,
+            [.. parsed.Where(f => !f.Path.Contains("/Migrations/", StringComparison.Ordinal))], ordered, options ?? InventoryOptions.Default);
+
+        List<InventoryItem> items = [.. projects.Items, .. UsedBy(entityItems, endpointItems), .. endpointItems, .. config.Items, .. clients, .. hosted, .. overview.Items];
+
+        List<CoverageNote> coverage = [.. reading ?? [], .. projects.Coverage, .. entityCoverage, .. config.Coverage, .. clientCoverage, .. overview.Coverage];
         if (entityItems.Count > 0 && endpointItems.Count > 0)
             coverage.Add(new CoverageNote(
                 "links",
@@ -85,7 +95,7 @@ public static class ProjectInventoryEngine
         });
     }
 
-    private static IEnumerable<InventoryItem> EndpointItems(IReadOnlyList<RawEndpoint> raws, Dictionary<string, List<string>> entityIndex)
+    private static IEnumerable<(InventoryItem Item, SyntaxNode? Body)> EndpointItems(IReadOnlyList<RawEndpoint> raws, Dictionary<string, List<string>> entityIndex)
     {
         var ordered = raws.OrderBy(r => r.At.File, StringComparer.Ordinal).ThenBy(r => r.At.Line).ToList();
         var keyed = ordered.Select(r => (Raw: r, Base: r.Route is null ? $"endpoint:{r.Verb} ?@{r.At.File}" : $"endpoint:{r.Verb} {r.Route}")).ToList();
@@ -105,7 +115,7 @@ public static class ProjectInventoryEngine
                 final = $"{id} #{seen[id]}";
             }
 
-            yield return new InventoryItem(
+            yield return (new InventoryItem(
                 final, ItemKind.Endpoint,
                 raw.Route is null ? $"{raw.Verb} (route not written as text)" : $"{raw.Verb} {raw.Route}",
                 raw.Route is null ? ItemEvidence.Unresolved : ItemEvidence.Extracted, raw.At,
@@ -118,7 +128,7 @@ public static class ProjectInventoryEngine
                     ["touches"] = string.Join(", ", EntityLinks.Touched(raw.Body, entityIndex)),
                     ["verb"] = raw.Verb,
                 },
-                [], raw.Reason);
+                [], raw.Reason), raw.Body);
         }
     }
 

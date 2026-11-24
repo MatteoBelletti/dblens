@@ -9,6 +9,18 @@ public enum ItemKind
     Config,
     HttpClient,
     HostedService,
+
+    /// <summary>A macro-component: an executable with the libraries only it uses, or a library several share.</summary>
+    Component,
+
+    /// <summary>A message that crosses components, with who produces and who consumes it.</summary>
+    Event,
+
+    /// <summary>A connection between two components: an event, a call, data read, a reference.</summary>
+    Link,
+
+    /// <summary>A candidate flow: what an entry point sets in motion, hop by hop.</summary>
+    Flow,
 }
 
 /// <summary>How an item was established: what the syntax says, or why it could not be read.</summary>
@@ -19,6 +31,9 @@ public enum ItemEvidence
 
     /// <summary>The element exists, but a part of it cannot be read from syntax; <see cref="InventoryItem.Reason"/> says which.</summary>
     Unresolved,
+
+    /// <summary>A deduction from names or shapes, not a statement of the code: wrong more often than <see cref="Extracted"/>.</summary>
+    Inferred,
 }
 
 /// <summary>A place in the solution: path relative to the root, with '/', and a 1-based line.</summary>
@@ -48,5 +63,5 @@ public sealed record ProjectInventory(
     IReadOnlyList<InventoryItem> Items,
     IReadOnlyList<CoverageNote> Coverage)
 {
-    public const int CurrentSchemaVersion = 1;
+    public const int CurrentSchemaVersion = 2;
 }

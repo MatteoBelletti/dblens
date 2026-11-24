@@ -9,12 +9,12 @@ graph LR
 ```
 <!-- dblens:end -->
 
-<!-- dblens:item project:ShopApi hash=fe5c4d54 gen=f4adc5a2 -->
+<!-- dblens:item project:ShopApi hash=a04d7755 gen=f4adc5a2 -->
 ### ShopApi
 
 | SDK | Output | Framework | Project references | Packages | File |
 | --- | --- | --- | --- | --- | --- |
 | Microsoft.NET.Sdk.Web | Exe (sdk) | net10.0 | (none) | (none) | ShopApi.csproj |
-<!-- dblens:slot project:ShopApi purpose max-lines=2 evidence=inferred hash=fe5c4d54 text=e8939786 -->
+<!-- dblens:slot project:ShopApi purpose max-lines=2 evidence=inferred hash=a04d7755 text=e8939786 -->
 Web application exposing minimal-API endpoints to create, read and cancel orders, held in an in-memory OrderStore, plus a /health endpoint. It also hosts a background OutboxPublisher that polls an outbox and publishes pending messages to a message broker.
 <!-- dblens:end -->

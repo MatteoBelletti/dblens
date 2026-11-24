@@ -83,7 +83,7 @@ public static class DocsCli
         var docs = new DocsOptions(options.GetValueOrDefault("--language") ?? config.Language, options.GetValueOrDefault("--docs") ?? config.Directory);
 
         var read = SolutionReader.Read(root);
-        var inventory = ProjectInventoryEngine.Build(read);
+        var inventory = ProjectInventoryEngine.Build(read, DocsConfig.LoadInventory(root));
 
         switch (command)
         {

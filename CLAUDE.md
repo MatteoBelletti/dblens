@@ -34,7 +34,7 @@ line (`scripts/generate-ef-fixtures.sh`); the EF tests apply the same file.
 | `DbLens.Core/Inspection/DatabaseInspectorBase*.cs` | orchestration, anything writable without dialect SQL |
 | `DbLens.Postgres` / `DbLens.SqlServer` (partial classes) | catalog SQL and dialect hooks only |
 | `DbLens.EfCore` | reading EF Core snapshots as text (Roslyn); referenced by `DbLens.Mcp` and `DbLens.Docs` only |
-| `DbLens.Docs` | the inventory of a .NET solution read from syntax (Roslyn, XML), a **pure engine** over files handed in; `SolutionReader` is its one I/O. Never referenced by `DbLens.Mcp`; its permission is in docs/safety.md |
+| `DbLens.Docs` | the inventory of a .NET solution read from syntax (Roslyn, XML, YAML for compose files) with its overview (components, events, links, flows), a **pure engine** over files handed in; `SolutionReader` is its one I/O. Never referenced by `DbLens.Mcp`; its permission is in docs/safety.md |
 | `DbLens.Docs/Documents/` | the generated Markdown (regions, slots, scaffold, check), pure over text; `DocsFolder` is its one disk access ([guide](docs/dblens-docs.md)) |
 | `DbLens.Docs.Cli`, `DbLens.Docs.Mcp` | the `dblens-docs` command; the MCP tools it serves with `dblens-docs mcp` (read inventory and slots, write one slot, no path parameter) |
 | `plugins/dblens-docs/` | the writer plugin: agents, `slot-rules`, the `fill-slots` workflow and its eval; not in the marketplace, no published pin |

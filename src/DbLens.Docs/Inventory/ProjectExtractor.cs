@@ -23,6 +23,7 @@ internal static class ProjectExtractor
         var unresolvedVersions = 0;
         var referencesOutside = 0;
         var noFramework = 0;
+        Dictionary<string, List<string>> resolvedReferences = new(StringComparer.Ordinal);
 
         foreach (var file in files.Where(f => f.Path.EndsWith(".csproj", StringComparison.OrdinalIgnoreCase)))
         {
@@ -57,6 +58,7 @@ internal static class ProjectExtractor
             }
 
             List<string> references = [];
+            List<string> resolved = [];
             foreach (var reference in project.Descendants("ProjectReference"))
             {
                 var include = reference.Attribute("Include")?.Value;
@@ -64,7 +66,10 @@ internal static class ProjectExtractor
                 var target = Resolve(file.Path, include);
                 references.Add(Path.GetFileNameWithoutExtension(include.Replace('\\', '/')));
                 if (include.Contains("$(", StringComparison.Ordinal) || !paths.Contains(target)) referencesOutside++;
+                else resolved.Add(target);
             }
+
+            resolvedReferences[file.Path] = resolved;
 
             List<string> packages = [];
             foreach (var package in project.Descendants("PackageReference"))
@@ -99,6 +104,17 @@ internal static class ProjectExtractor
         // The same project name in two folders (src/Web and samples/Web): the folder tells them apart.
         var repeated = items.GroupBy(i => i.Name, StringComparer.Ordinal).Where(g => g.Count() > 1).Select(g => g.Key).ToHashSet(StringComparer.Ordinal);
         items = [.. items.Select(i => repeated.Contains(i.Name) ? i with { Id = $"project:{i.Name} [{(Directory(i.Source.File) is { Length: > 0 } folder ? folder : ".")}]" } : i)];
+
+        // The names in projectReferences repeat when projects do: the ids say which project each one is.
+        var idOfFile = items.ToDictionary(i => i.Source.File, i => i.Id, StringComparer.Ordinal);
+        items = [.. items.Select(i =>
+        {
+            var attributes = new SortedDictionary<string, string>(i.Attributes.ToDictionary(a => a.Key, a => a.Value), StringComparer.Ordinal)
+            {
+                ["projectReferenceIds"] = string.Join(", ", (resolvedReferences.GetValueOrDefault(i.Source.File) ?? []).Where(idOfFile.ContainsKey).Select(f => idOfFile[f]).Order(StringComparer.Ordinal)),
+            };
+            return i with { Attributes = attributes };
+        })];
 
         List<CoverageNote> coverage = [];
         if (items.Count == 0 && unparsed == 0) coverage.Add(new CoverageNote("projects", "No .csproj file was found under the root.", 0));

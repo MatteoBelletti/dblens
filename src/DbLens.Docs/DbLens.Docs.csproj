@@ -7,6 +7,7 @@
     <ProjectReference Include="..\DbLens.Core\DbLens.Core.csproj" />
     <ProjectReference Include="..\DbLens.EfCore\DbLens.EfCore.csproj" />
     <PackageReference Include="Microsoft.CodeAnalysis.CSharp" />
+    <PackageReference Include="YamlDotNet" />
   </ItemGroup>
 
   <PropertyGroup>

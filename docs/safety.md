@@ -242,9 +242,15 @@ to give it, by pointing it at a folder. It opens:
 - `appsettings*.json`, of which **only the key names** are kept: a value in a settings file may be a
   secret, and the inventory never holds one (a test over eShop's settings, which carry placeholder
   passwords, checks it);
+- `docker-compose*.y(a)ml` and `compose*.y(a)ml`, parsed as YAML: the services, what each is built from, what it
+  `depends_on`, and which other services of the files its environment points at. **No value is kept.** An environment
+  variable can hold a password or a token, so each value is only looked at for the host of a URL, compared with the
+  names of the services, and dropped (a test over the compose files of EventualShop, which carry placeholder
+  passwords, checks that none reaches the inventory). The image name is used to guess what a service is, a broker or a
+  database, and is not kept either;
 - the EF Core snapshots, through `SnapshotReader`, as DBLens already does.
 
-Every file is parsed as syntax (Roslyn) or XML and **never compiled, loaded or run**: no MSBuild
+Every file is parsed as syntax (Roslyn), XML or YAML and **never compiled, loaded or run**: no MSBuild
 evaluation, no restore, no analyzer, no reflection over the user's assemblies. `bin`, `obj`,
 `node_modules`, `.git`, `.vs` and `.idea` are not entered; links are not followed; a file over 2 MB is
 not read and an inventory stops at 50,000 files, each said in the inventory's `coverage`. It connects to

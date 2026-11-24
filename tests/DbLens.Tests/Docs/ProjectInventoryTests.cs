@@ -62,7 +62,7 @@ public sealed class ProjectInventoryTests
                 """));
 
         inventory.Item("project:App").Attributes.Should().Contain("packages", "A, B").And.Contain("targetFrameworks", "unknown");
-        inventory.Coverage.Select(c => (c.Count, c.Note.Split(' ')[0])).Should().BeEquivalentTo([(2, "Package"), (2, "Project"), (1, "Projects")]);
+        inventory.Coverage.Select(c => (c.Count, c.Note.Split(' ')[0])).Should().BeEquivalentTo([(2, "Package"), (2, "Project"), (1, "Projects"), (1, "Libraries")]);
     }
 
     [Fact]

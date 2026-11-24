@@ -1,5 +1,8 @@
 # DbLens.Docs — N0: spike su macrocomponenti, eventi, chiamate e flussi
 
+> Il codice dello spike (`spikes/docs-n0`) è stato tolto in N1, che lo sostituisce con gli estrattori veri; le verità scritte a mano
+> sono ora in `tests/DbLens.Tests/Fixtures/Docs/*.truth.txt` e il rapporto resta com'era.
+
 Piano: [Piano 2](https://claude.ai/artifact/CY9So17wnufFQ4nWzfXFgF). Domanda dello spike: quanto del raggruppamento in
 macrocomponenti e dei collegamenti tra loro si ricava dalla sola sintassi? Codice in `spikes/docs-n0` (usa i file letti e
 l'inventario di `DbLens.Docs`, analizza con Roslyn, non compila né esegue niente; non è in `dblens.slnx` e lo rimpiazza N1).

@@ -49,7 +49,7 @@ internal static class DocPlan
         if (inventory.Items.Any(i => i.Kind == ItemKind.Project))
             byFile["architecture.md"].Add(new Desired(DocBlockKind.Generated, ProjectGraph.Id, "", ProjectGraph.Mermaid(inventory), null));
 
-        foreach (var item in inventory.Items.OrderBy(i => SortKey(i), StringComparer.Ordinal))
+        foreach (var item in inventory.Items.Where(i => i.Kind is not (ItemKind.Component or ItemKind.Event or ItemKind.Link or ItemKind.Flow)).OrderBy(i => SortKey(i), StringComparer.Ordinal))
             byFile[FileOf(item.Kind)].Add(new Desired(DocBlockKind.Item, item.Id, ItemHash.Of(item), FactsRenderer.Render(item, l), MaxLines(item.Kind)));
 
         return byFile;

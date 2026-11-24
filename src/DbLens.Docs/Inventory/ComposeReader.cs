@@ -1,0 +1,134 @@
+using System.Text.RegularExpressions;
+using YamlDotNet.Core;
+using YamlDotNet.RepresentationModel;
+
+namespace DbLens.Docs.Inventory;
+
+/// <param name="BuildDirectory">The folder the service is built from (its Dockerfile's, else its context), relative to the root; null for an image only.</param>
+/// <param name="Kind"><c>broker</c>, <c>database</c>, <c>cache</c>, <c>gateway</c>, <c>observability</c> or <c>service</c>, guessed from the image name.</param>
+/// <param name="Mentions">Other services of the same files whose name appears as the host of a URL in its environment. Only the names: no value is kept.</param>
+internal sealed record ComposeService(
+    string Name, string File, string? BuildDirectory, string Kind, IReadOnlyList<string> DependsOn, IReadOnlyList<string> Mentions);
+
+/// <summary>
+/// The services of <c>docker-compose*.yml</c> files: what each is built from, what it depends on, and which other
+/// services its environment points at. An environment value can be a secret and is never kept: it is matched against
+/// the names of the services and dropped.
+/// </summary>
+internal static partial class ComposeReader
+{
+    public static bool IsCompose(string path)
+    {
+        var name = path[(path.LastIndexOf('/') + 1)..];
+        return (name.StartsWith("docker-compose", StringComparison.OrdinalIgnoreCase) || name.StartsWith("compose", StringComparison.OrdinalIgnoreCase))
+               && (name.EndsWith(".yml", StringComparison.OrdinalIgnoreCase) || name.EndsWith(".yaml", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [GeneratedRegex(@"://(?:[^@/\s]*@)?([A-Za-z0-9._-]+)")]
+    private static partial Regex UrlHost();
+
+    public static (IReadOnlyList<ComposeService> Services, int Unreadable) Read(IReadOnlyList<SourceFile> files)
+    {
+        // Compose files are used together (-f a -f b): a service may depend on one that another file defines.
+        List<(string File, YamlMappingNode Section)> sections = [];
+        var unreadable = 0;
+        foreach (var file in files.Where(f => IsCompose(f.Path)).OrderBy(f => f.Path, StringComparer.Ordinal))
+        {
+            try
+            {
+                YamlStream stream = [];
+                stream.Load(new StringReader(file.Text));
+                if (stream.Documents.Count > 0 && stream.Documents[0].RootNode is YamlMappingNode root && Child(root, "services") is YamlMappingNode section)
+                    sections.Add((file.Path, section));
+            }
+            catch (YamlException)
+            {
+                unreadable++;
+            }
+        }
+
+        var names = sections.SelectMany(s => s.Section.Children.Select(c => (c.Key as YamlScalarNode)?.Value)).OfType<string>().ToHashSet(StringComparer.OrdinalIgnoreCase);
+        List<ComposeService> services = [];
+        foreach (var (file, section) in sections)
+            foreach (var (key, value) in section.Children)
+            {
+                if ((key as YamlScalarNode)?.Value is not { } name || value is not YamlMappingNode service) continue;
+
+                var image = (Child(service, "image") as YamlScalarNode)?.Value ?? "";
+                services.Add(new ComposeService(
+                    name, file, BuildDirectoryOf(file, service), KindOf(name, image),
+                    [.. DependsOn(Child(service, "depends_on")).Where(names.Contains).Order(StringComparer.Ordinal)],
+                    [.. EnvironmentHosts(Child(service, "environment")).Where(h => names.Contains(h) && !h.Equals(name, StringComparison.OrdinalIgnoreCase)).Distinct(StringComparer.OrdinalIgnoreCase).Order(StringComparer.Ordinal)]));
+            }
+
+        return ([.. services.OrderBy(s => s.File, StringComparer.Ordinal).ThenBy(s => s.Name, StringComparer.Ordinal)], unreadable);
+    }
+
+    private static YamlNode? Child(YamlMappingNode node, string key) =>
+        node.Children.FirstOrDefault(c => (c.Key as YamlScalarNode)?.Value == key).Value;
+
+    private static string? BuildDirectoryOf(string composeFile, YamlMappingNode service)
+    {
+        var folder = PathText.Directory(composeFile);
+        switch (Child(service, "build"))
+        {
+            case YamlScalarNode { Value: { Length: > 0 } context }:
+                return PathText.Combine(folder, context);
+            case YamlMappingNode build:
+                var contextDirectory = PathText.Combine(folder, (Child(build, "context") as YamlScalarNode)?.Value ?? ".");
+                return (Child(build, "dockerfile") as YamlScalarNode)?.Value is { Length: > 0 } dockerfile
+                    ? PathText.Directory(PathText.Combine(contextDirectory, dockerfile))
+                    : contextDirectory;
+            default:
+                return null;
+        }
+    }
+
+    private static IEnumerable<string> DependsOn(YamlNode? node) => node switch
+    {
+        YamlSequenceNode sequence => sequence.Children.OfType<YamlScalarNode>().Select(s => s.Value).OfType<string>(),
+        YamlMappingNode mapping => mapping.Children.Select(c => (c.Key as YamlScalarNode)?.Value).OfType<string>(),
+        _ => [],
+    };
+
+    private static IEnumerable<string> EnvironmentHosts(YamlNode? node)
+    {
+        IEnumerable<string> values = node switch
+        {
+            YamlMappingNode mapping => mapping.Children.Select(c => (c.Value as YamlScalarNode)?.Value).OfType<string>(),
+            YamlSequenceNode sequence => sequence.Children.OfType<YamlScalarNode>().Select(s => s.Value).OfType<string>(),
+            _ => [],
+        };
+        return values.SelectMany(v => UrlHost().Matches(v).Select(m => m.Groups[1].Value));
+    }
+
+    private static string KindOf(string name, string image)
+    {
+        var text = $"{image} {name}".ToLowerInvariant();
+        return text switch
+        {
+            _ when text.Contains("rabbitmq", StringComparison.Ordinal) || text.Contains("kafka", StringComparison.Ordinal) || text.Contains("activemq", StringComparison.Ordinal) || text.Contains("nats", StringComparison.Ordinal) => "broker",
+            _ when text.Contains("redis", StringComparison.Ordinal) || text.Contains("memcached", StringComparison.Ordinal) => "cache",
+            _ when text.Contains("postgres", StringComparison.Ordinal) || text.Contains("mssql", StringComparison.Ordinal) || text.Contains("sqlserver", StringComparison.Ordinal) || text.Contains("mysql", StringComparison.Ordinal) || text.Contains("mariadb", StringComparison.Ordinal) || text.Contains("mongo", StringComparison.Ordinal) || text.Contains("cassandra", StringComparison.Ordinal) => "database",
+            _ when text.Contains("jaeger", StringComparison.Ordinal) || text.Contains("zipkin", StringComparison.Ordinal) || text.Contains("prometheus", StringComparison.Ordinal) || text.Contains("grafana", StringComparison.Ordinal) || text.Contains("elasticsearch", StringComparison.Ordinal) || text.Contains("kibana", StringComparison.Ordinal) || text.Contains("logstash", StringComparison.Ordinal) || text.Contains("filebeat", StringComparison.Ordinal) || text.Contains("seq", StringComparison.Ordinal) => "observability",
+            _ when text.Contains("nginx", StringComparison.Ordinal) || text.Contains("traefik", StringComparison.Ordinal) || text.Contains("envoy", StringComparison.Ordinal) => "gateway",
+            _ => "service",
+        };
+    }
+}
+
+/// <summary>Relative paths with '/', as the inventory keeps them.</summary>
+internal static class PathText
+{
+    public static string Directory(string path) => path.Contains('/') ? path[..path.LastIndexOf('/')] : "";
+
+    /// <summary>"a/b" plus "../c/./d" is "a/c/d"; a leading "./" or "." is nothing.</summary>
+    public static string Combine(string folder, string relative)
+    {
+        List<string> parts = [.. folder.Split('/', StringSplitOptions.RemoveEmptyEntries)];
+        foreach (var part in relative.Replace('\\', '/').Split('/', StringSplitOptions.RemoveEmptyEntries))
+            if (part == "..") { if (parts.Count > 0) parts.RemoveAt(parts.Count - 1); }
+            else if (part != ".") parts.Add(part);
+        return string.Join('/', parts);
+    }
+}

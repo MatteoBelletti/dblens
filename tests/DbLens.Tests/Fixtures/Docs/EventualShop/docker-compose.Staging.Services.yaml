@@ -1,0 +1,425 @@
+﻿version: "3.9"
+
+services:
+  
+  account-command:
+    image: account-command:latest
+    build:
+      context: .
+      dockerfile: ./src/Services/Account/Command/WorkerService/Dockerfile
+    environment:
+      DOTNET_ENVIRONMENT: Staging
+    depends_on:
+      mssql:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - internal
+    deploy:
+      replicas: 2
+      resources:
+        limits:
+          cpus: '0.20'
+          memory: 200M
+      restart_policy:
+        condition: any
+
+  account-query:
+    image: account-query:latest
+    build:
+      context: .
+      dockerfile: ./src/Services/Account/Query/GrpcService/Dockerfile
+    environment:
+      ASPNETCORE_HTTP_PORTS: 80
+      ASPNETCORE_ENVIRONMENT: Staging
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+      mongodb:
+        condition: service_healthy
+    networks:
+      - internal
+    deploy:
+      replicas: 2
+      resources:
+        limits:
+          cpus: '0.20'
+          memory: 200M
+      restart_policy:
+        condition: any
+  
+  catalog-command:
+    image: catalog-command:latest
+    build:
+      context: .
+      dockerfile: ./src/Services/Catalog/Command/WorkerService/Dockerfile
+    environment:
+      DOTNET_ENVIRONMENT: Staging
+    depends_on:
+      mssql:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - internal
+    deploy:
+      replicas: 2
+      resources:
+        limits:
+          cpus: '0.20'
+          memory: 200M
+      restart_policy:
+        condition: any
+
+  catalog-query:
+    image: catalog-query:latest
+    build:
+      context: .
+      dockerfile: ./src/Services/Catalog/Query/GrpcService/Dockerfile
+    environment:
+      ASPNETCORE_HTTP_PORTS: 80
+      ASPNETCORE_ENVIRONMENT: Staging
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+      mongodb:
+        condition: service_healthy
+    networks:
+      - internal
+    deploy:
+      replicas: 2
+      resources:
+        limits:
+          cpus: '0.20'
+          memory: 200M
+      restart_policy:
+        condition: any
+  
+  communication-command:
+    image: communication-command:latest
+    build:
+      context: .
+      dockerfile: ./src/Services/Communication/Command/WorkerService/Dockerfile
+    environment:
+      DOTNET_ENVIRONMENT: Staging
+    depends_on:
+      mssql:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - internal
+    deploy:
+      replicas: 2
+      resources:
+        limits:
+          cpus: '0.20'
+          memory: 200M
+      restart_policy:
+        condition: any
+
+  communication-query:
+    image: communication-query:latest
+    build:
+      context: .
+      dockerfile: ./src/Services/Communication/Query/GrpcService/Dockerfile
+    environment:
+      ASPNETCORE_HTTP_PORTS: 80
+      ASPNETCORE_ENVIRONMENT: Staging
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+      mongodb:
+        condition: service_healthy
+    networks:
+      - internal
+    deploy:
+      replicas: 1
+      resources:
+        limits:
+          cpus: '0.20'
+          memory: 200M
+      restart_policy:
+        condition: any
+  
+  identity-command:
+    image: identity-command:latest
+    build:
+      context: .
+      dockerfile: ./src/Services/Identity/Command/WorkerService/Dockerfile
+    environment:
+      DOTNET_ENVIRONMENT: Staging
+    depends_on:
+      mssql:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - internal
+    deploy:
+      replicas: 2
+      resources:
+        limits:
+          cpus: '0.20'
+          memory: 200M
+      restart_policy:
+        condition: any
+
+  identity-query:
+    image: identity-query:latest
+    build:
+      context: .
+      dockerfile: ./src/Services/Identity/Query/GrpcService/Dockerfile
+    environment:
+      ASPNETCORE_HTTP_PORTS: 80
+      ASPNETCORE_ENVIRONMENT: Staging
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+      mongodb:
+        condition: service_healthy
+    networks:
+      - internal
+    deploy:
+      replicas: 2
+      resources:
+        limits:
+          cpus: '0.20'
+          memory: 200M
+      restart_policy:
+        condition: any
+  
+  order-command:
+    image: order-command:latest
+    build:
+      context: .
+      dockerfile: ./src/Services/Order/Command/WorkerService/Dockerfile
+    environment:
+      DOTNET_ENVIRONMENT: Staging
+    depends_on:
+      mssql:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - internal
+    deploy:
+      replicas: 2
+      resources:
+        limits:
+          cpus: '0.20'
+          memory: 200M
+      restart_policy:
+        condition: any
+  
+  order-query:
+    image: order-query:latest
+    build:
+      context: .
+      dockerfile: ./src/Services/Order/Query/GrpcService/Dockerfile
+    environment:
+      ASPNETCORE_HTTP_PORTS: 80
+      ASPNETCORE_ENVIRONMENT: Staging
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+      mongodb:
+        condition: service_healthy
+    networks:
+      - internal
+    deploy:
+      replicas: 2
+      resources:
+        limits:
+          cpus: '0.20'
+          memory: 200M
+      restart_policy:
+        condition: any
+  
+  payment-command:
+    image: payment-command:latest
+    build:
+      context: .
+      dockerfile: ./src/Services/Payment/Command/WorkerService/Dockerfile
+    environment:
+      DOTNET_ENVIRONMENT: Staging
+    depends_on:
+      mssql:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - internal
+    deploy:
+      replicas: 2
+      resources:
+        limits:
+          cpus: '0.20'
+          memory: 200M
+      restart_policy:
+        condition: any
+  
+  payment-query:
+    image: payment-query:latest
+    build:
+      context: .
+      dockerfile: ./src/Services/Payment/Query/GrpcService/Dockerfile
+    environment:
+      ASPNETCORE_HTTP_PORTS: 80
+      ASPNETCORE_ENVIRONMENT: Staging
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+      mongodb:
+        condition: service_healthy
+    networks:
+      - internal
+    deploy:
+      replicas: 2
+      resources:
+        limits:
+          cpus: '0.20'
+          memory: 200M
+      restart_policy:
+        condition: any
+
+  shopping-cart-command:
+    image: shopping-cart-command:latest
+    build:
+      context: .
+      dockerfile: ./src/Services/ShoppingCart/Command/WorkerService/Dockerfile
+    environment:
+      DOTNET_ENVIRONMENT: Staging
+    depends_on:
+      mssql:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - internal
+    deploy:
+      replicas: 2
+      resources:
+        limits:
+          cpus: '0.20'
+          memory: 200M
+      restart_policy:
+        condition: any
+  
+  shopping-cart-query:
+    image: shopping-cart-query:latest
+    build:
+      context: .
+      dockerfile: ./src/Services/ShoppingCart/Query/GrpcService/Dockerfile
+    environment:
+      ASPNETCORE_HTTP_PORTS: 80
+      ASPNETCORE_ENVIRONMENT: Staging
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+      mongodb:
+        condition: service_healthy
+    networks:
+      - internal
+    deploy:
+      replicas: 2
+      resources:
+        limits:
+          cpus: '0.20'
+          memory: 200M
+      restart_policy:
+        condition: any
+  
+  warehouse-command:
+    image: warehouse-command:latest
+    build:
+      context: .
+      dockerfile: ./src/Services/Warehouse/Command/WorkerService/Dockerfile
+    environment:
+      DOTNET_ENVIRONMENT: Staging
+    depends_on:
+      mssql:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - internal
+    deploy:
+      replicas: 2
+      resources:
+        limits:
+          cpus: '0.20'
+          memory: 200M
+      restart_policy:
+        condition: any
+  
+  warehouse-query:
+    image: warehouse-query:latest
+    build:
+      context: .
+      dockerfile: ./src/Services/Warehouse/Query/GrpcService/Dockerfile
+    environment:
+      ASPNETCORE_HTTP_PORTS: 80
+      ASPNETCORE_ENVIRONMENT: Staging
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+      mongodb:
+        condition: service_healthy
+    networks:
+      - internal
+    deploy:
+      replicas: 2
+      resources:
+        limits:
+          cpus: '0.20'
+          memory: 200M
+      restart_policy:
+        condition: any
+  
+  webapi:
+    image: webapi:latest
+    build:
+      context: .
+      dockerfile: ./src/Web/WebAPI/Dockerfile
+    environment:
+      ASPNETCORE_HTTP_PORTS: 80
+      ASPNETCORE_ENVIRONMENT: Staging
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://webapi/healthz" ]
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - internal
+    deploy:
+      replicas: 2
+      resources:
+        limits:
+          cpus: '0.20'
+          memory: 200M
+      restart_policy:
+        condition: any
+  
+  webapp:
+    image: webapp:latest
+    build:
+      context: .
+      dockerfile: ./src/Web/WebAPP/Dockerfile
+    environment:
+      ASPNETCORE_HTTP_PORTS: 80
+      ASPNETCORE_ENVIRONMENT: Staging
+    depends_on:
+      webapi:
+        condition: service_healthy
+    networks:
+      - internal
+    deploy:
+      replicas: 2
+      resources:
+        limits:
+          cpus: '0.25'
+          memory: 128M
+      restart_policy:
+        condition: any

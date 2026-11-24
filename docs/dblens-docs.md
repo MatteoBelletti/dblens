@@ -85,6 +85,33 @@ the diff of `docs/project` is part of the review.
 one agent per batch, has a second agent read each sentence against the code, and rewrites once what the code
 does not support. A person's slots are never touched.
 
+## The overview: components, events, links and flows
+
+The inventory (`dblens-docs inventory`) also says how the solution is put together, from the same syntax, the Aspire AppHost
+and the `docker-compose*.yml` files (never a value of them):
+
+| Item | What it is |
+|---|---|
+| `component:<name>` | An executable with the libraries only it uses (named by its folders when several share a name: `Account/Query`), or a library several executables share, with the list of its users and the infrastructure it uses (`rabbitmq (broker)`) |
+| `event:<name>` | A message that crosses components, with who produces it and who consumes it |
+| `link:<kind> <from> -> <to> (<via>)` | `event` (one per event and pair), `call` (a URL that names a service, `Inferred`), `data` (hand-written SQL on a schema another component owns, `Inferred`), `reference` (AppHost), `depends` (compose) |
+| `flow:<entry>` | What an endpoint or a background service sets in motion, hop by hop across components (`Inferred`) |
+
+Events are recognised by presets for the eShop bus (`IntegrationEvent`, `AddSubscription<E, H>`) and the MassTransit style
+(`IEvent`, `IDomainEvent`, `IConsumer<E>`, `Consumer<E>`, `RaiseEvent<E>`, `Publish<E>`). A home-grown bus is added in
+`dblens-docs.json`, and components can be joined:
+
+```json
+{
+  "events": { "bases": ["IMyEvent"], "producingMethods": ["Emit"] },
+  "components": { "Account": ["Account/Command", "Account/Query"] }
+}
+```
+
+A flow follows calls by method name, commands and domain events by type, and stops at the bus: what a consumer does is the
+next hop. It stops at an interface, at a base class and at a method name that several methods carry; the inventory's
+`coverage` says so. None of this is in the five documents yet: the overview document is the next step.
+
 ## Links between endpoints and entities
 
 When the solution has an EF Core model, an endpoint's table lists the entities its handler names and an entity's

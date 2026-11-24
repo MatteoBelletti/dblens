@@ -12,6 +12,12 @@ internal static class DocsFixtures
 
     public static SolutionRead EShop() => SolutionReader.Read(EShopFolder);
 
+    /// <summary>All the sources of dotnet/eShop at e5e24f0: components, events, links and flows are tested on it.</summary>
+    public static SolutionRead EShopFlows() => SolutionReader.Read(Path.Combine(AppContext.BaseDirectory, "Fixtures", "Docs", "eShopFlows"));
+
+    /// <summary>A subset of EventualShop: MassTransit-style consumers, one event store context per service, compose files.</summary>
+    public static SolutionRead EventualShop() => SolutionReader.Read(Path.Combine(AppContext.BaseDirectory, "Fixtures", "Docs", "EventualShop"));
+
     /// <summary>samples/DemoShop.EfCore, found from the test output up to the repository root.</summary>
     public static string DemoShopFolder => Path.Combine(RepositoryRoot, "samples", "DemoShop.EfCore");
 

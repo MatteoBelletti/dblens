@@ -30,15 +30,18 @@ public sealed class InventoryDeterminismTests
         var json = InventoryJson.Serialize(ProjectInventoryEngine.Build(DocsFixtures.EShop()));
 
         json.Should().NotContain(AppContext.BaseDirectory).And.NotContain("generatedAt").And.NotContain("\\\\");
-        json.Should().StartWith("{\n  \"schemaVersion\": 1,").And.EndWith("}\n");
+        json.Should().StartWith("{\n  \"schemaVersion\": 2,").And.EndWith("}\n");
     }
 
     [Theory]
-    [InlineData("eShop", false)]
-    [InlineData("DemoShop", true)]
-    public void TheInventory_MatchesItsReferenceFile(string name, bool demo)
+    [InlineData("eShop")]
+    [InlineData("DemoShop")]
+    [InlineData("eShopFlows")]
+    [InlineData("EventualShop")]
+    public void TheInventory_MatchesItsReferenceFile(string name)
     {
-        var current = InventoryJson.Serialize(ProjectInventoryEngine.Build(demo ? DocsFixtures.DemoShop() : DocsFixtures.EShop()));
+        var read = name switch { "DemoShop" => DocsFixtures.DemoShop(), "eShopFlows" => DocsFixtures.EShopFlows(), "EventualShop" => DocsFixtures.EventualShop(), _ => DocsFixtures.EShop() };
+        var current = InventoryJson.Serialize(ProjectInventoryEngine.Build(read));
         var reference = Path.Combine(DocsFixtures.ReferenceFolder, $"{name}.inventory.json");
 
         if (Environment.GetEnvironmentVariable("DBLENS_UPDATE_DOCS_REFERENCE") == "1") File.WriteAllText(reference, current);
