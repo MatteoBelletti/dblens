@@ -20,6 +20,9 @@ internal static partial class OverviewExtractor
 {
     private const int MaxFlowDepth = 12;
 
+    // Schemas every database has: naming one says nothing about whose it is.
+    private static readonly HashSet<string> GenericSchemas = new(StringComparer.OrdinalIgnoreCase) { "dbo", "public", "main", "sys", "information_schema" };
+
     [GeneratedRegex(@"^(?:https?\+?https?|https?|grpc)://([A-Za-z0-9._-]+)", RegexOptions.IgnoreCase)]
     private static partial Regex ServiceUrl();
 
@@ -98,7 +101,9 @@ internal static partial class OverviewExtractor
         var schemaOwner = contexts.Where(c => c.Attributes["defaultSchema"].Length > 0)
             .Select(c => (Schema: c.Attributes["defaultSchema"], Component: components.ComponentOfFile(c.Source.File)))
             .Where(x => x.Component is not null)
-            .GroupBy(x => x.Schema, StringComparer.OrdinalIgnoreCase).ToDictionary(g => g.Key, g => g.First().Component!, StringComparer.OrdinalIgnoreCase);
+            .GroupBy(x => x.Schema, StringComparer.OrdinalIgnoreCase)
+            .Where(g => g.Select(x => x.Component).Distinct(StringComparer.Ordinal).Count() == 1 && !GenericSchemas.Contains(g.Key))
+            .ToDictionary(g => g.Key, g => g.First().Component!, StringComparer.OrdinalIgnoreCase);
         foreach (var file in analyzed)
         {
             if (components.ComponentOfFile(file.Path) is not { } source) continue;
@@ -170,15 +175,17 @@ internal static partial class OverviewExtractor
         IReadOnlyList<string> ChainOf(EventConsumer consumer)
         {
             if (chains.TryGetValue((consumer.Handler, consumer.Event), out var known)) return known;
-            return chains[(consumer.Handler, consumer.Event)] = [.. analysis.Reach(analysis.StartsOfHandler(consumer.Handler)).Where(e => e != consumer.Event)];
+            return chains[(consumer.Handler, consumer.Event)] = [.. analysis.Reach(analysis.StartsOfHandler(consumer.Handler, consumer.Component)).Where(e => e != consumer.Event)];
         }
 
         var withoutStart = 0;
+        var cutShort = 0;
         foreach (var entry in entries)
         {
+            var entryComponent = components.ComponentOfFile(entry.Item.Source.File) ?? "";
             var starts = entry.HostedType is not null
-                ? analysis.StartsOfHostedService(entry.HostedType)
-                : entry.Body is null ? [] : [new CodeNode("(endpoint)", entry.Item.Name, entry.Item.Source.File, entry.Body)];
+                ? analysis.StartsOfHostedService(entry.HostedType, entryComponent)
+                : entry.Body is null ? [] : [new CodeNode("(endpoint)", entry.Item.Name, entry.Item.Source.File, entryComponent, entry.Body)];
             if (starts.Count == 0)
             {
                 if (entry.HostedType is null) withoutStart++;
@@ -215,6 +222,8 @@ internal static partial class OverviewExtractor
                 frontier = next;
             }
 
+            if (frontier.Count > 0) cutShort++;
+
             items.Add(new InventoryItem(
                 $"flow:{entry.Item.Id}", ItemKind.Flow, entry.Item.Name, ItemEvidence.Inferred, entry.Item.Source,
                 new SortedDictionary<string, string>(StringComparer.Ordinal)
@@ -240,6 +249,8 @@ internal static partial class OverviewExtractor
         if (items.Any(i => i.Kind == ItemKind.Flow))
         {
             coverage.Add(new CoverageNote("flows", "A flow follows calls by method name, commands and domain events by type; it stops at an interface, at a base class and at a method name that several methods carry.", items.Count(i => i.Kind == ItemKind.Flow)));
+            if (cutShort > 0)
+                coverage.Add(new CoverageNote("flows", $"Flows cut at {MaxFlowDepth} hops: what follows is not listed.", cutShort));
             if (withoutStart > 0)
                 coverage.Add(new CoverageNote("flows", "Endpoints whose handler could not be located, so no flow starts from them.", withoutStart));
         }

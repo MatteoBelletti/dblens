@@ -17,10 +17,11 @@ public sealed class DocsTools(DocsWorkspace workspace)
     private const int MaxItems = 200;
 
     [McpServerTool(ReadOnly = true), Description(
-        "The inventory of the .NET solution this server was started on, read from syntax: projects, DbContexts, entities, endpoints, configuration keys, HTTP clients, background services, each with its source file and line. " +
-        "IMPORTANT: nothing is compiled or run, so a route built at run time, a message handler or a convention-based controller is named in coverage, not guessed. Configuration values are never read.")]
+        "The inventory of the .NET solution this server was started on, read from syntax: projects, DbContexts, entities, endpoints, configuration keys, HTTP clients, background services, and the overview (components, the events that cross them, the links between components, and candidate flows), each with its source file and line. " +
+        "IMPORTANT: nothing is compiled or run, so a route built at run time or a convention-based controller is named in coverage, not guessed; links and flows are deductions from names (evidence Inferred). Configuration and compose values are never read. " +
+        "An unfiltered call returns the first 200 of total: ask by kind.")]
     public InventoryView GetProjectInventory(
-        [Description("Only items of this kind: Project, Context, Entity, Endpoint, Config, HttpClient or HostedService. Omit for all.")]
+        [Description("Only items of this kind: Project, Context, Entity, Endpoint, Config, HttpClient, HostedService, Component, Event, Link or Flow. Omit for all.")]
         string? kind = null,
         [Description("Only items whose id starts with this text, e.g. 'endpoint:GET /orders'.")]
         string? idPrefix = null)

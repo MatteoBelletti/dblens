@@ -74,7 +74,7 @@ internal sealed class ComponentModel
             directories.Where(d => d.Item1.Length == 0 || path.StartsWith(d.Item1 + "/", StringComparison.Ordinal)).OrderByDescending(d => d.Item1.Length).Select(d => d.Item2).FirstOrDefault();
 
         var orchestrators = files
-            .Where(f => f.Root.ToFullString().Contains("DistributedApplication", StringComparison.Ordinal))
+            .Where(f => f.Root.DescendantNodes().OfType<Microsoft.CodeAnalysis.CSharp.Syntax.IdentifierNameSyntax>().Any(i => i.Identifier.Text == "DistributedApplication"))
             .Select(f => ProjectOf(f.Path))
             .OfType<string>()
             .ToHashSet(StringComparer.Ordinal);
@@ -125,12 +125,21 @@ internal sealed class ComponentModel
             raw.Add((names[library], "shared-library", [], [library], [.. executables.Where(e => closures[e].Contains(library)).Select(e => names[e])], byId[library].Attributes["sdk"]));
 
         // Components the configuration joins under one name.
+        Dictionary<string, string> listedUnder = new(StringComparer.Ordinal);
+        foreach (var (target, joined) in options.Merge.OrderBy(m => m.Key, StringComparer.Ordinal))
+            foreach (var name in joined)
+                if (!listedUnder.TryAdd(name, target))
+                    throw new ArgumentException($"{name} is listed under both {listedUnder[name]} and {target} in the components of dblens-docs.json.");
+
         foreach (var (target, joined) in options.Merge.OrderBy(m => m.Key, StringComparer.Ordinal))
         {
             var members = raw.Where(r => r.Name == target || joined.Contains(r.Name)).ToList();
             if (members.Count == 0) continue;
             foreach (var m in members) raw.Remove(m);
-            raw.Add((target, members[0].Role, [.. members.SelectMany(m => m.Executables).Distinct(StringComparer.Ordinal)], [.. members.SelectMany(m => m.Libraries).Distinct(StringComparer.Ordinal)], [], members[0].Sdk));
+
+            // A merged component is a service if any member is one, else an application, else a shared library.
+            var (_, role, _, _, _, sdk) = members.OrderBy(m => m.Role switch { "service" => 0, "application" => 1, _ => 2 }).ThenBy(m => m.Name, StringComparer.Ordinal).First();
+            raw.Add((target, role, [.. members.SelectMany(m => m.Executables).Distinct(StringComparer.Ordinal)], [.. members.SelectMany(m => m.Libraries).Distinct(StringComparer.Ordinal)], [.. members.SelectMany(m => m.UsedBy).Distinct(StringComparer.Ordinal)], sdk));
         }
 
         // Users of a shared library are named after the merge too.

@@ -63,3 +63,22 @@ duplicati. Il JSON è identico a ogni run, anche con i file in un altro ordine; 
 - Gli eventi si abbinano per nome (`Contenitore.Nome`): due eventi con lo stesso nome in servizi diversi si confondono.
 - Le chiamate sincrone si abbinano solo se il nome di host è quello di una risorsa dell'AppHost o di un servizio compose.
 - Una verità scritta a mano c'è per le catene di una sola soluzione.
+
+## Review
+
+Un primo giro di review (dieci segnalazioni, tutte corrette, ciascuna con un test in `OverviewReviewTests`):
+
+- l'attributo `projectReferenceIds` non entra nell'hash di un progetto (nessun documento lo mostra): senza, ogni progetto di una
+  documentazione già generata sarebbe risultato cambiato;
+- un arco per nome non esce dal componente (più le librerie condivise che usa), e i nomi che ogni collezione ha (`Add`, `Remove`,
+  `Save`, `Send`…) non sono chiamate; la ricerca è in ampiezza, così il limite di profondità non toglie ciò che un percorso
+  breve raggiunge;
+- unire componenti conserva gli utenti di una libreria condivisa e sceglie il ruolo in modo deterministico; un nome elencato
+  sotto due unioni è un errore chiaro;
+- un servizio compose descritto in più file (base e override) è uno solo, col tipo del file che ha l'immagine; il tipo si legge
+  dalle parole dell'immagine e non da sottostringhe del nome; le chiavi di unione YAML (`<<: *comune`) si seguono; un file
+  troppo annidato o troppo grande si salta invece di far cadere il processo;
+- uno schema generico (`dbo`, `public`) o condiviso da due componenti non è una fonte di collegamenti di dati;
+- un flusso interrotto al limite dei passi lo dice in `Coverage`;
+- un progetto è l'orchestratore solo se usa `DistributedApplication` nel codice, non in un commento o in `…TestingBuilder`;
+- la descrizione dello strumento MCP elenca i nuovi tipi e dice di chiedere per `kind`.

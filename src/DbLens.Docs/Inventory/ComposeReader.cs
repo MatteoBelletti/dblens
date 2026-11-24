@@ -1,5 +1,6 @@
 using System.Text.RegularExpressions;
 using YamlDotNet.Core;
+using YamlDotNet.Core.Events;
 using YamlDotNet.RepresentationModel;
 
 namespace DbLens.Docs.Inventory;
@@ -27,6 +28,27 @@ internal static partial class ComposeReader
     [GeneratedRegex(@"://(?:[^@/\s]*@)?([A-Za-z0-9._-]+)")]
     private static partial Regex UrlHost();
 
+    private const int MaxBytes = 512 * 1024;
+    private const int MaxDepth = 64;
+
+    // YamlStream.Load is recursive: a file nested far enough would overflow the stack, which nothing can catch.
+    private static bool ShallowEnough(string text)
+    {
+        var depth = 0;
+        var parser = new Parser(new StringReader(text));
+        while (parser.MoveNext())
+            switch (parser.Current)
+            {
+                case SequenceStart or MappingStart when ++depth > MaxDepth:
+                    return false;
+                case SequenceEnd or MappingEnd:
+                    depth--;
+                    break;
+            }
+
+        return true;
+    }
+
     public static (IReadOnlyList<ComposeService> Services, int Unreadable) Read(IReadOnlyList<SourceFile> files)
     {
         // Compose files are used together (-f a -f b): a service may depend on one that another file defines.
@@ -36,6 +58,12 @@ internal static partial class ComposeReader
         {
             try
             {
+                if (file.Text.Length > MaxBytes || !ShallowEnough(file.Text))
+                {
+                    unreadable++;
+                    continue;
+                }
+
                 YamlStream stream = [];
                 stream.Load(new StringReader(file.Text));
                 if (stream.Documents.Count > 0 && stream.Documents[0].RootNode is YamlMappingNode root && Child(root, "services") is YamlMappingNode section)
@@ -56,16 +84,31 @@ internal static partial class ComposeReader
 
                 var image = (Child(service, "image") as YamlScalarNode)?.Value ?? "";
                 services.Add(new ComposeService(
-                    name, file, BuildDirectoryOf(file, service), KindOf(name, image),
+                    name, file, BuildDirectoryOf(file, service), KindOf(image),
                     [.. DependsOn(Child(service, "depends_on")).Where(names.Contains).Order(StringComparer.Ordinal)],
                     [.. EnvironmentHosts(Child(service, "environment")).Where(h => names.Contains(h) && !h.Equals(name, StringComparison.OrdinalIgnoreCase)).Distinct(StringComparer.OrdinalIgnoreCase).Order(StringComparer.Ordinal)]));
             }
 
-        return ([.. services.OrderBy(s => s.File, StringComparer.Ordinal).ThenBy(s => s.Name, StringComparer.Ordinal)], unreadable);
+        // One service may be spread over several files (a base and an override): the override often has no image.
+        var merged = services.OrderBy(s => s.File, StringComparer.Ordinal).GroupBy(s => s.Name, StringComparer.OrdinalIgnoreCase)
+            .Select(g => new ComposeService(
+                g.First().Name, g.First().File, g.Select(s => s.BuildDirectory).FirstOrDefault(b => b is not null),
+                g.Select(s => s.Kind).FirstOrDefault(k => k != "service") ?? "service",
+                [.. g.SelectMany(s => s.DependsOn).Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal)],
+                [.. g.SelectMany(s => s.Mentions).Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal)]))
+            .OrderBy(s => s.File, StringComparer.Ordinal).ThenBy(s => s.Name, StringComparer.Ordinal);
+        return ([.. merged], unreadable);
     }
 
-    private static YamlNode? Child(YamlMappingNode node, string key) =>
-        node.Children.FirstOrDefault(c => (c.Key as YamlScalarNode)?.Value == key).Value;
+    // A key of the mapping, or of what it merges in (<<: *common).
+    private static YamlNode? Child(YamlMappingNode node, string key, int depth = 0)
+    {
+        if (node.Children.FirstOrDefault(c => (c.Key as YamlScalarNode)?.Value == key).Value is { } own) return own;
+        if (depth > 4 || node.Children.FirstOrDefault(c => (c.Key as YamlScalarNode)?.Value == "<<").Value is not { } merged) return null;
+
+        IEnumerable<YamlNode> sources = merged is YamlSequenceNode sequence ? sequence.Children : [merged];
+        return sources.OfType<YamlMappingNode>().Select(s => Child(s, key, depth + 1)).FirstOrDefault(c => c is not null);
+    }
 
     private static string? BuildDirectoryOf(string composeFile, YamlMappingNode service)
     {
@@ -102,16 +145,19 @@ internal static partial class ComposeReader
         return values.SelectMany(v => UrlHost().Matches(v).Select(m => m.Groups[1].Value));
     }
 
-    private static string KindOf(string name, string image)
+    private static readonly char[] TokenSeparators = ['/', ':', '-', '_', '.', '@'];
+
+    // What a service is, from the words of its image (a service built from a project has none, and is a service).
+    private static string KindOf(string image)
     {
-        var text = $"{image} {name}".ToLowerInvariant();
-        return text switch
+        var tokens = image.ToLowerInvariant().Split(TokenSeparators, StringSplitOptions.RemoveEmptyEntries).ToHashSet(StringComparer.Ordinal);
+        return tokens switch
         {
-            _ when text.Contains("rabbitmq", StringComparison.Ordinal) || text.Contains("kafka", StringComparison.Ordinal) || text.Contains("activemq", StringComparison.Ordinal) || text.Contains("nats", StringComparison.Ordinal) => "broker",
-            _ when text.Contains("redis", StringComparison.Ordinal) || text.Contains("memcached", StringComparison.Ordinal) => "cache",
-            _ when text.Contains("postgres", StringComparison.Ordinal) || text.Contains("mssql", StringComparison.Ordinal) || text.Contains("sqlserver", StringComparison.Ordinal) || text.Contains("mysql", StringComparison.Ordinal) || text.Contains("mariadb", StringComparison.Ordinal) || text.Contains("mongo", StringComparison.Ordinal) || text.Contains("cassandra", StringComparison.Ordinal) => "database",
-            _ when text.Contains("jaeger", StringComparison.Ordinal) || text.Contains("zipkin", StringComparison.Ordinal) || text.Contains("prometheus", StringComparison.Ordinal) || text.Contains("grafana", StringComparison.Ordinal) || text.Contains("elasticsearch", StringComparison.Ordinal) || text.Contains("kibana", StringComparison.Ordinal) || text.Contains("logstash", StringComparison.Ordinal) || text.Contains("filebeat", StringComparison.Ordinal) || text.Contains("seq", StringComparison.Ordinal) => "observability",
-            _ when text.Contains("nginx", StringComparison.Ordinal) || text.Contains("traefik", StringComparison.Ordinal) || text.Contains("envoy", StringComparison.Ordinal) => "gateway",
+            _ when tokens.Overlaps(["rabbitmq", "kafka", "activemq", "nats", "mosquitto"]) => "broker",
+            _ when tokens.Overlaps(["redis", "memcached", "valkey"]) => "cache",
+            _ when tokens.Overlaps(["postgres", "postgresql", "mssql", "sqlserver", "mysql", "mariadb", "mongo", "mongodb", "cassandra"]) => "database",
+            _ when tokens.Overlaps(["jaeger", "zipkin", "prometheus", "grafana", "elasticsearch", "kibana", "logstash", "filebeat", "seq", "otel"]) => "observability",
+            _ when tokens.Overlaps(["nginx", "traefik", "envoy"]) => "gateway",
             _ => "service",
         };
     }

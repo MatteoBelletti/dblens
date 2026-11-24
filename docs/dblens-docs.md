@@ -109,8 +109,9 @@ Events are recognised by presets for the eShop bus (`IntegrationEvent`, `AddSubs
 ```
 
 A flow follows calls by method name, commands and domain events by type, and stops at the bus: what a consumer does is the
-next hop. It stops at an interface, at a base class and at a method name that several methods carry; the inventory's
-`coverage` says so. None of this is in the five documents yet: the overview document is the next step.
+next hop. A name counts only if one method of the component (or of the libraries it shares) carries it, and not the names
+every collection has (`Add`, `Save`, `Send`…). It stops at an interface, at a base class and at a name that several methods
+carry; the inventory's `coverage` says so. None of this is in the five documents yet: the overview document is the next step.
 
 ## Links between endpoints and entities
 
