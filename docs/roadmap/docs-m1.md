@@ -34,11 +34,13 @@ empty inventory is never an all-clear.
 - **No value of a settings file ever enters the inventory**, only its keys.
 - **A builder handed to a method is followed to its call sites.** `MapCatalogApi(this IEndpointRouteBuilder app)`
   takes the prefix of every `x.MapCatalogApi()` and `Class.Map(group)` in the files read, when they agree;
-  a method called from nowhere in them is unresolved (its group is not known). The exception is a
-  parameter typed `WebApplication`, always the root. A group variable is the nearest declaration before the
+  a method called from nowhere in them, or with a call that cannot be followed, is unresolved (its group is
+  not known) and keeps the route it writes in `relativeRoute`; inventory the host solution, not a library
+  subfolder. The exception is a parameter typed `WebApplication`, always the root. A group variable is the nearest declaration before the
   use, so two variables of the same name in one method keep their own prefix.
 - **Two project files in one folder** share it: the first by path owns the source files there. Two
-  projects of the same name in different folders are told apart by folder in the id.
+  projects of the same name in different folders are told apart by folder in the id (which means adding a
+  second project of a name renames the first: the one id that is not independent of the rest of the solution).
 - **Tests are not scanned** (a path segment `tests`, `test`, `e2e`, or ending `.Tests`/`.UnitTests`/…),
   and the coverage says how many files were left out. Test *projects* are still projects.
 - **One I/O class.** `SolutionReader` reads the folder; the engine takes files and EF models, so it is

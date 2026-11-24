@@ -77,18 +77,11 @@ internal static class HttpClientExtractor
 
     private static (string Name, bool Resolved) NameOf(InvocationExpressionSyntax call, GenericNameSyntax? generic, IReadOnlyDictionary<string, string> constants)
     {
-        if (generic is { TypeArgumentList.Arguments.Count: > 0 } g) return (SimpleName(g.TypeArgumentList.Arguments[0].ToString()), true);
+        if (generic is { TypeArgumentList.Arguments.Count: > 0 } g) return (TypeNames.Simple(g.TypeArgumentList.Arguments[0].ToString()), true);
         var first = call.ArgumentList.Arguments.FirstOrDefault()?.Expression;
         if (first is null) return ("(default)", true);
         var text = RouteText.Of(first, constants, out _);
         return text is null ? ($"(computed at {call.SyntaxTree.FilePath}:{call.GetLocation().GetLineSpan().StartLinePosition.Line + 1})", false) : (text, true);
-    }
-
-    private static string SimpleName(string type)
-    {
-        var generic = type.IndexOf('<', StringComparison.Ordinal);
-        var bare = generic >= 0 ? type[..generic] : type;
-        return bare[(bare.LastIndexOf('.') + 1)..];
     }
 
     // BaseAddress is assigned inside the lambda of AddHttpClient or of a ConfigureHttpClient chained to it.
@@ -133,7 +126,7 @@ internal static class HostedServiceExtractor
         List<(ParsedFile File, TypeDeclarationSyntax Type, List<string> Bases)> types = [];
         foreach (var file in files)
             foreach (var type in file.Root.DescendantNodes().OfType<TypeDeclarationSyntax>().Where(t => t is ClassDeclarationSyntax or RecordDeclarationSyntax))
-                types.Add((file, type, [.. (type.BaseList?.Types ?? []).Select(b => Simple(b.Type.ToString()))]));
+                types.Add((file, type, [.. (type.BaseList?.Types ?? []).Select(b => TypeNames.Simple(b.Type.ToString()))]));
 
         var byName = types.GroupBy(t => t.Type.Identifier.Text, StringComparer.Ordinal).ToDictionary(g => g.Key, g => g.ToList(), StringComparer.Ordinal);
         Dictionary<string, bool> memo = new(StringComparer.Ordinal);
@@ -153,10 +146,10 @@ internal static class HostedServiceExtractor
             {
                 var generic = (call.Expression as MemberAccessExpressionSyntax)?.Name as GenericNameSyntax ?? call.Expression as GenericNameSyntax;
                 if (generic is { Identifier.Text: "AddHostedService", TypeArgumentList.Arguments.Count: 1 } g)
-                    registered.Add(Simple(g.TypeArgumentList.Arguments[0].ToString()));
+                    registered.Add(TypeNames.Simple(g.TypeArgumentList.Arguments[0].ToString()));
                 else if ((call.Expression as MemberAccessExpressionSyntax)?.Name.Identifier.Text == "AddHostedService")
                     foreach (var created in call.DescendantNodes().OfType<ObjectCreationExpressionSyntax>())
-                        registered.Add(Simple(created.Type.ToString()));
+                        registered.Add(TypeNames.Simple(created.Type.ToString()));
             }
 
         List<InventoryItem> items = [];
@@ -183,7 +176,12 @@ internal static class HostedServiceExtractor
     private static string Display(TypeDeclarationSyntax type) =>
         type.TypeParameterList is { } parameters ? $"{type.Identifier.Text}<{string.Join(", ", parameters.Parameters.Select(p => p.Identifier.Text))}>" : type.Identifier.Text;
 
-    private static string Simple(string type)
+}
+
+internal static class TypeNames
+{
+    /// <summary>"Ns.Outer.Client&lt;T&gt;" as "Client": the name a registration or a base list is matched by.</summary>
+    public static string Simple(string type)
     {
         var generic = type.IndexOf('<', StringComparison.Ordinal);
         var bare = generic >= 0 ? type[..generic] : type;

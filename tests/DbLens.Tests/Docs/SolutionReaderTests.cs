@@ -66,6 +66,17 @@ public sealed class SolutionReaderTests : IDisposable
         read.Coverage.Should().ContainSingle(c => c.Note.Contains("first 3 files, by path") && c.Count == 2);
     }
 
+    [Fact]
+    public void AFileThatIsTooLarge_DoesNotUseAPlaceOfTheCap()
+    {
+        Write("src/a.cs", "class A {}", padTo: SolutionReader.MaxFileBytes);
+        foreach (var name in new[] { "b", "c", "d" }) Write($"src/{name}.cs", "class X {}");
+
+        var read = SolutionReader.Read(_root.FullName, maxFiles: 2);
+
+        read.Files.Select(f => f.Path).Should().Equal("src/b.cs", "src/c.cs");
+    }
+
     [SkippableFact]
     public void ALinkIsNotFollowed()
     {

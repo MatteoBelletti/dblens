@@ -287,4 +287,72 @@ public sealed class EndpointInventoryTests
 
         inventory.Items.Select(i => i.Id).Should().OnlyHaveUniqueItems();
     }
+
+    [Fact]
+    public void ACallThatCannotBeFollowed_MakesTheMethodUnresolved_NotTheOthersPrefix()
+    {
+        var endpoints = Endpoints("""
+            public static class Orders
+            {
+                public static void MapOrders(this RouteGroupBuilder g, bool secure = false) { g.MapGet("/{id}", One); }
+            }
+            """, """
+            var app = builder.Build();
+            app.MapGroup("/a").MapOrders();
+            Orders.MapOrders(Build());
+            """);
+
+        var endpoint = endpoints.Should().ContainSingle().Subject;
+        endpoint.Evidence.Should().Be(ItemEvidence.Unresolved);
+        endpoint.Attributes["relativeRoute"].Should().Be("/{id}", "the route written in the code is kept");
+    }
+
+    [Fact]
+    public void ExtensionsWithOptionalParameters_AndNamedArguments_AreFollowed()
+    {
+        var endpoints = Endpoints("""
+            public static class Orders
+            {
+                public static void MapOrders(this RouteGroupBuilder g, bool secure = false) { g.MapGet("/{id}", One); }
+            }
+            """, """
+            var app = builder.Build();
+            app.MapGroup("/a").MapOrders();
+            Orders.MapOrders(g: app.MapGroup("/a"), secure: true);
+            """);
+
+        endpoints.Should().ContainSingle().Which.Id.Should().Be("endpoint:GET /a/{id}");
+    }
+
+    [Fact]
+    public void ANamedTemplate_IsATemplate()
+    {
+        var endpoints = Endpoints("""
+            [Route(template: "api/[controller]")]
+            public class FooController : ControllerBase
+            {
+                [HttpGet(template: "{id}")] public IActionResult One(int id) => Ok();
+            }
+            """);
+
+        endpoints.Should().ContainSingle().Which.Id.Should().Be("endpoint:GET /api/Foo/{id}");
+    }
+
+    [Fact]
+    public void AGroupInAnotherBlock_DoesNotShadowTheOneInScope()
+    {
+        var endpoints = Endpoints("""
+            public static class Api
+            {
+                public static void Map(WebApplication app)
+                {
+                    var g = app.MapGroup("/a");
+                    app.MapGet("/other", () => { var g = app.MapGroup("/b"); return 1; });
+                    g.MapGet("/y", Y);
+                }
+            }
+            """);
+
+        endpoints.Select(e => e.Id).Should().Contain("endpoint:GET /a/y");
+    }
 }

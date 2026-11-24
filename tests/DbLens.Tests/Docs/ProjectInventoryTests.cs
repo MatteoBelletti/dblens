@@ -100,6 +100,9 @@ public sealed class ProjectInventoryTests
         var inventory = Build(Project("src/Web/Web.csproj"), Project("samples/Web/Web.csproj"), Project("src/Core/Core.csproj"));
 
         inventory.Of(ItemKind.Project).Select(i => i.Id).Should().Equal("project:Core", "project:Web [samples/Web]", "project:Web [src/Web]");
+
+        Build(Project("Web.csproj"), Project("src/Web/Web.csproj")).Of(ItemKind.Project).Select(i => i.Id)
+            .Should().Equal("project:Web [.]", "project:Web [src/Web]");
     }
 
     [Fact]

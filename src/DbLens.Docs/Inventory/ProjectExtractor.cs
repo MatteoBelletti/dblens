@@ -98,7 +98,7 @@ internal static class ProjectExtractor
 
         // The same project name in two folders (src/Web and samples/Web): the folder tells them apart.
         var repeated = items.GroupBy(i => i.Name, StringComparer.Ordinal).Where(g => g.Count() > 1).Select(g => g.Key).ToHashSet(StringComparer.Ordinal);
-        items = [.. items.Select(i => repeated.Contains(i.Name) ? i with { Id = $"project:{i.Name} [{Directory(i.Source.File)}]" } : i)];
+        items = [.. items.Select(i => repeated.Contains(i.Name) ? i with { Id = $"project:{i.Name} [{(Directory(i.Source.File) is { Length: > 0 } folder ? folder : ".")}]" } : i)];
 
         List<CoverageNote> coverage = [];
         if (items.Count == 0 && unparsed == 0) coverage.Add(new CoverageNote("projects", "No .csproj file was found under the root.", 0));

@@ -36,6 +36,7 @@ public static class SolutionReader
         List<CoverageNote> coverage = [];
         var tooLarge = 0;
         var unreadable = 0;
+        var skippedByCap = 0;
 
         // Candidates first, ordered, then the cap: which files are kept must not depend on the file system's enumeration order.
         List<string> candidates = [];
@@ -56,9 +57,17 @@ public static class SolutionReader
             }
         }
 
-        var overLimit = candidates.Count > maxFiles;
-        foreach (var path in candidates.OrderBy(p => Path.GetRelativePath(full, p).Replace('\\', '/'), StringComparer.Ordinal).Take(maxFiles))
+        // In path order, so which files fit does not depend on the file system; a file that is too large does not use a place.
+        var overLimit = false;
+        foreach (var path in candidates.OrderBy(p => Path.GetRelativePath(full, p).Replace('\\', '/'), StringComparer.Ordinal))
         {
+            if (files.Count >= maxFiles)
+            {
+                overLimit = true;
+                skippedByCap++;
+                continue;
+            }
+
             try
             {
                 if (new FileInfo(path).Length > MaxFileBytes)
@@ -77,7 +86,7 @@ public static class SolutionReader
 
         if (tooLarge > 0) coverage.Add(new CoverageNote("reading", $"Files over {MaxFileBytes / (1024 * 1024)} MB were not read.", tooLarge));
         if (unreadable > 0) coverage.Add(new CoverageNote("reading", "Folders or files that could not be read.", unreadable));
-        if (overLimit) coverage.Add(new CoverageNote("reading", $"Only the first {maxFiles} files, by path, were read.", candidates.Count - maxFiles));
+        if (overLimit) coverage.Add(new CoverageNote("reading", $"Only the first {maxFiles} files, by path, were read.", skippedByCap));
 
         List<EfModel> models = [];
         foreach (var snapshot in files.Where(f => f.Path.EndsWith("ModelSnapshot.cs", StringComparison.Ordinal)).OrderBy(f => f.Path, StringComparer.Ordinal))

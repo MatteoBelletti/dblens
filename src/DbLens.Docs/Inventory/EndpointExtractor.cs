@@ -6,7 +6,7 @@ namespace DbLens.Docs.Inventory;
 
 /// <summary>An endpoint declaration as read; the id is assigned once every one is known.</summary>
 internal sealed record RawEndpoint(
-    string Verb, string? Route, string? Reason, SourceLocation At, string? Handler, string Style);
+    string Verb, string? Route, string? Reason, SourceLocation At, string? Handler, string Style, string? RelativeRoute = null);
 
 internal sealed record EndpointExtraction(
     IReadOnlyList<RawEndpoint> Endpoints,
@@ -128,7 +128,8 @@ internal sealed class EndpointExtractor
 
         return prefix is not null && route is not null
             ? new RawEndpoint(verb, RouteText.Join(prefix, route), null, at, handler, "minimal")
-            : new RawEndpoint(verb, null, routeReason ?? why.GetValueOrDefault("reason") ?? "the group it belongs to is not written as text", at, handler, "minimal");
+            : new RawEndpoint(verb, null, routeReason ?? why.GetValueOrDefault("reason") ?? "the group it belongs to is not written as text", at, handler, "minimal",
+                RelativeRoute: route is null ? null : RouteText.Join("", route));
     }
 
     private IEnumerable<RawEndpoint> MapMethods(ParsedFile file, InvocationExpressionSyntax call, MemberAccessExpressionSyntax access)
@@ -192,7 +193,7 @@ internal sealed class EndpointExtractor
         switch (receiver)
         {
             case IdentifierNameSyntax id:
-                var declared = Locals(scope).GetValueOrDefault(id.Identifier.Text)?.LastOrDefault(d => d.Start < id.SpanStart);
+                var declared = Locals(scope).GetValueOrDefault(id.Identifier.Text)?.LastOrDefault(d => d.Start < id.SpanStart && (d.Block is null || d.Block.Span.Contains(id.Span)));
                 if (declared is { } local)
                 {
                     if (local.Prefix is null) why["reason"] = $"the group {id.Identifier.Text} is not written as text";
@@ -249,6 +250,7 @@ internal sealed class EndpointExtractor
         var parameters = declaration.ParameterList.Parameters;
         var index = parameters.IndexOf(p => p.Identifier.Text == parameter);
         var isExtension = parameters.Count > 0 && parameters[0].Modifiers.Any(SyntaxKind.ThisKeyword);
+        var owner = (declaration.Parent as TypeDeclarationSyntax)?.Identifier.Text;
 
         if (!_calls.TryGetValue(name, out var sites))
         {
@@ -259,33 +261,46 @@ internal sealed class EndpointExtractor
         HashSet<string?> found = [];
         foreach (var (_, call) in sites)
         {
-            var argument = ArgumentFor(call, index, parameters.Count, isExtension);
-            if (argument is null) continue;
+            var argument = ArgumentFor(call, parameter, index, isExtension, owner);
+            if (argument is null)
+            {
+                why["reason"] = $"a call of {name} passes its group in a way that cannot be followed";
+                found.Add(null);
+                continue;
+            }
             found.Add(PrefixOf(argument, ScopeOf(call), why, depth + 1));
         }
 
-        if (found.Count == 0)
-        {
-            why["reason"] = $"no call of {name} passes its group in a way that can be followed";
-            return null;
-        }
-
         if (found.Count == 1) return found.First();
-        why["reason"] = $"{name} is called on groups with different prefixes";
+        if (found.Contains(null) && !why.ContainsKey("reason")) why["reason"] = $"{name} is called on groups that are not all written as text";
+        else if (!found.Contains(null)) why["reason"] = $"{name} is called on groups with different prefixes";
         return null;
     }
 
-    // The expression a call passes for parameter number `index`: the receiver for the first parameter of an extension method
-    // called as x.M(), else the argument at the same position (shifted by one when the receiver stands for the first parameter).
-    private static ExpressionSyntax? ArgumentFor(InvocationExpressionSyntax call, int index, int parameterCount, bool isExtension)
+    // The expression a call passes for a parameter: found by name when the call names it, else by position. An extension method
+    // called as x.M() takes x for its first parameter; called as Owner.M(x) (the receiver is its own class) it is positional.
+    private static ExpressionSyntax? ArgumentFor(InvocationExpressionSyntax call, string parameter, int index, bool isExtension, string? owner)
     {
         var arguments = call.ArgumentList.Arguments;
-        var receiverStyle = isExtension && call.Expression is MemberAccessExpressionSyntax && arguments.Count == parameterCount - 1;
-        if (receiverStyle) return index == 0 ? ((MemberAccessExpressionSyntax)call.Expression).Expression : index - 1 < arguments.Count ? arguments[index - 1].Expression : null;
-        return index < arguments.Count ? arguments[index].Expression : null;
+        if (arguments.FirstOrDefault(a => a.NameColon?.Name.Identifier.Text == parameter) is { } named) return named.Expression;
+
+        var receiverStyle = isExtension && call.Expression is MemberAccessExpressionSyntax access && !IsTypeNamed(access.Expression, owner);
+        if (receiverStyle && index == 0) return ((MemberAccessExpressionSyntax)call.Expression).Expression;
+
+        var position = receiverStyle ? index - 1 : index;
+        var positional = arguments.Where(a => a.NameColon is null).ToList();
+        return position >= 0 && position < positional.Count ? positional[position].Expression : null;
     }
 
-    private sealed record Declared(int Start, string? Prefix);
+    private static bool IsTypeNamed(ExpressionSyntax receiver, string? owner) =>
+        owner is not null && receiver switch
+        {
+            IdentifierNameSyntax id => id.Identifier.Text == owner,
+            MemberAccessExpressionSyntax m => m.Name.Identifier.Text == owner,
+            _ => false,
+        };
+
+    private sealed record Declared(int Start, string? Prefix, SyntaxNode? Block);
 
     // The group variables of a scope, by name, each with where it is declared: a use sees the nearest declaration before it.
     private Dictionary<string, List<Declared>> Locals(SyntaxNode scope)
@@ -301,7 +316,7 @@ internal sealed class EndpointExtractor
             {
                 var name = declarator.Identifier.Text;
                 if (!map.TryGetValue(name, out var list)) map[name] = list = [];
-                list.Add(new Declared(init.Span.End, PrefixOf(init, scope, [], 1)));
+                list.Add(new Declared(init.Span.End, PrefixOf(init, scope, [], 1), declarator.Ancestors().OfType<BlockSyntax>().FirstOrDefault(b => b != (scope as BaseMethodDeclarationSyntax)?.Body)));
             }
         return map;
     }
@@ -377,7 +392,7 @@ internal sealed class EndpointExtractor
     private static ExpressionSyntax? AttributeArgument(SyntaxList<AttributeListSyntax> lists, string name) =>
         Template(lists.SelectMany(l => l.Attributes).FirstOrDefault(a => AttributeName(a) == name));
 
-    // The template is the first positional argument: [HttpGet(Name = "x")] and [HttpGet(Order = 1)] carry none.
+    // The template is the first positional argument, or the one named "template": [HttpGet(Name = "x")] and [HttpGet(Order = 1)] carry none.
     private static ExpressionSyntax? Template(AttributeSyntax? attribute) =>
-        attribute?.ArgumentList?.Arguments.FirstOrDefault(a => a.NameEquals is null && a.NameColon is null)?.Expression;
+        attribute?.ArgumentList?.Arguments.FirstOrDefault(a => a.NameEquals is null && (a.NameColon is null || a.NameColon.Name.Identifier.Text == "template"))?.Expression;
 }

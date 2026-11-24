@@ -84,6 +84,7 @@ public static class ProjectInventoryEngine
                 new SortedDictionary<string, string>(StringComparer.Ordinal)
                 {
                     ["handler"] = raw.Handler ?? "",
+                    ["relativeRoute"] = raw.RelativeRoute ?? "",
                     ["route"] = raw.Route ?? "",
                     ["style"] = raw.Style,
                     ["verb"] = raw.Verb,
