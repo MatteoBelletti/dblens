@@ -1,0 +1,16 @@
+{
+  "name": "dblens-docs",
+  "displayName": "dblens-docs",
+  "version": "0.1.0",
+  "description": "Writes the words of the project documents that dblens-docs generates: one purpose per project, endpoint, entity or service, in the slots the tool leaves, never in the facts it generates. Reads code, writes only slots.",
+  "author": {
+    "name": "Matteo Belletti"
+  },
+  "repository": "https://github.com/MatteoBelletti/dblens",
+  "license": "MIT",
+  "keywords": [
+    "dotnet",
+    "documentation",
+    "architecture"
+  ]
+}

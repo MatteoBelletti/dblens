@@ -1,0 +1,80 @@
+schema_version: "1.0"
+name: fill
+description: "A small API scaffolded by dblens-docs: every slot gets words the code supports, and the person's slot is left alone"
+runs: 1
+context:
+  scaffold_script: scaffold.sh
+execution:
+  model: sonnet
+  max_turns: 20
+  timeout_seconds: 900
+  allowed_tools:
+    - "Skill"
+    - "Workflow"
+    - "Read"
+    - "Write"
+    - "Glob"
+    - "Grep"
+    - "ToolSearch"
+    - "mcp__plugin_dblens-docs_docs__get_project_inventory"
+    - "mcp__plugin_dblens-docs_docs__get_doc_slots"
+    - "mcp__plugin_dblens-docs_docs__check_doc_coverage"
+    - "mcp__plugin_dblens-docs_docs__set_doc_slot"
+  prompt: "Fill the documentation slots of this solution with the dblens-docs:fill-slots skill. When it has finished, call check_doc_coverage with requireSlots true and write its JSON answer, exactly as returned, to check.json in the current working directory."
+graders:
+  # The check passes with every slot required.
+  - name: check-passes
+    type: regex
+    target:
+      source: file
+      path: check.json
+    pattern: '"ok":\s*true'
+    match: contains
+  # No slot is left empty.
+  - name: no-empty-slot
+    type: regex
+    target:
+      source: file
+      path: docs/project/api.md
+    pattern: '^(?![\s\S]*text=[0-9a-f]+ -->\r?\n<!-- dblens:end -->)[\s\S]+'
+    match: contains
+  # The order lookup is scoped to the customer in the header, which only the code says.
+  - name: order-scoped
+    type: regex
+    target:
+      source: file
+      path: docs/project/api.md
+    pattern: '[Cc]ustomer'
+    match: contains
+  # Cancelling an order keeps it, with a status, which only the code says.
+  - name: cancel-keeps
+    type: regex
+    target:
+      source: file
+      path: docs/project/api.md
+    pattern: '[Cc]ancel'
+    match: contains
+  # The background service publishes pending outbox messages to the broker.
+  - name: outbox-words
+    type: regex
+    target:
+      source: file
+      path: docs/project/integrations.md
+    pattern: '[Bb]roker'
+    match: contains
+  # The person's slot is untouched.
+  - name: human-slot-kept
+    type: regex
+    target:
+      source: file
+      path: docs/project/api.md
+    pattern: 'evidence=human[^\n]*-->\nWritten by a person\.\n<!-- dblens:end -->'
+    match: contains
+  # The generated facts are still what the code says: the check would fail otherwise.
+  - name: no-edited-facts
+    type: regex
+    target:
+      source: file
+      path: check.json
+    pattern: '^(?![\s\S]*generated-edited)[\s\S]+'
+    match: contains

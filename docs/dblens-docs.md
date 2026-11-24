@@ -21,6 +21,7 @@ dblens-docs check             # exit code 1 when the documents and the code disa
 | `scaffold [root] [--docs DIR] [--language en\|it]` | Rewrites the generated regions; keeps the text you wrote outside them and the words in every slot |
 | `check [root] [--docs DIR] [--strict] [--require-slots] [--json]` | Compares the documents with the code. Exit code 0, 1 (failed) or 2 (wrong command or folder) |
 | `confirm <id> [root]` | A slot, as it reads now, becomes yours and current |
+| `mcp [root]` | An MCP server (stdio) on that folder: `get_project_inventory`, `get_doc_slots`, `check_doc_coverage`, `set_doc_slot` |
 
 Settings, if any, are in `dblens-docs.json` at the root: `{ "language": "it", "docs": "docs/project" }`.
 
@@ -75,6 +76,14 @@ before anyone writes a word; `--require-slots` and `--strict` make them errors.
 [`examples/dblens-docs/docs-check.yml`](../examples/dblens-docs/docs-check.yml) is a workflow that runs
 `dblens-docs check` on a pull request. The author runs `dblens-docs scaffold` and commits the documents:
 the diff of `docs/project` is part of the review.
+
+## Words, written by a model
+
+`dblens-docs mcp` lets a model read the slots that need words and write them, and nothing else
+([what it may write](safety.md#dblensdocs-reads-source-code)). The `dblens-docs` plugin
+([plugins/dblens-docs](../plugins/dblens-docs/README.md)) wraps it: `/dblens-docs:fill-slots` writes the slots with
+one agent per batch, has a second agent read each sentence against the code, and rewrites once what the code
+does not support. A person's slots are never touched.
 
 ## What it does not read
 

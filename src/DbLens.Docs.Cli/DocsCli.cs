@@ -19,6 +19,7 @@ public static class DocsCli
           check      [root] [--docs DIR] [--strict] [--require-slots] [--json]
                                                          fail when the documents and the code disagree
           confirm    <id> [root] [--docs DIR]            confirm a slot as it reads now (it becomes yours)
+          mcp        [root]                              serve the inventory and the slots over MCP (stdio)
 
         root is the folder of the solution (default: the current folder). The settings are in dblens-docs.json
         ({ "language": "en" | "it", "docs": "docs/project" }); the options override them.

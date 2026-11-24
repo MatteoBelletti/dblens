@@ -254,6 +254,13 @@ no database: the data model comes from the EF snapshots alone.
 must be inside the root, never through a link, each through a temporary file; `check` and `inventory` write
 nothing (but `--out`).
 
+`dblens-docs mcp` serves the same folder to a model, and **fixed when it starts**: no tool takes a path.
+Three tools read; `set_doc_slot` writes the words of one slot of those five files, and nothing else. It
+refuses a slot that holds a person's words (also when the item has since changed), a document whose item
+changed since it was generated, more lines than the slot allows, a line over 300 characters, blank
+lines, and any text with an HTML comment, which is how the regions are marked. The words are marked
+`inferred`; a person editing them makes them `human`. A model cannot confirm, delete or empty a slot.
+
 What the inventory carries is names and text the code states: project names and references, package ids
 and versions, route templates, configuration keys, the class names of background services, the
 base-address text of an HTTP client when it is a literal. Never a settings value, never a secret.

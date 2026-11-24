@@ -35,6 +35,9 @@ line (`scripts/generate-ef-fixtures.sh`); the EF tests apply the same file.
 | `DbLens.Postgres` / `DbLens.SqlServer` (partial classes) | catalog SQL and dialect hooks only |
 | `DbLens.EfCore` | reading EF Core snapshots as text (Roslyn); referenced by `DbLens.Mcp` and `DbLens.Docs` only |
 | `DbLens.Docs` | the inventory of a .NET solution read from syntax (Roslyn, XML), a **pure engine** over files handed in; `SolutionReader` is its one I/O. Never referenced by `DbLens.Mcp`; its permission is in docs/safety.md |
+| `DbLens.Docs/Documents/` | the generated Markdown (regions, slots, scaffold, check), pure over text; `DocsFolder` is its one disk access ([guide](docs/dblens-docs.md)) |
+| `DbLens.Docs.Cli`, `DbLens.Docs.Mcp` | the `dblens-docs` command; the MCP tools it serves with `dblens-docs mcp` (read inventory and slots, write one slot, no path parameter) |
+| `plugins/dblens-docs/` | the writer plugin: agents, `slot-rules`, the `fill-slots` workflow and its eval; not in the marketplace, no published pin |
 | `DbLens.Mcp/Tools/` | thin tools deriving from `InspectorTool` |
 | `plugins/dblens/` | the optional Claude Code plugin: agents, the `audit` workflow, skills, evals ([decisions](docs/roadmap/decisions.md)) — prompts only, no logic the server lacks; its one command, `dotnet ef migrations script`, runs only when the audit's `efScript` allows it |
 | `plugins/dotnet-review/` | the second plugin (depends on `dblens`): the `review` workflow for a .NET / EF Core branch, its agents, the `review-rules` skill, and evals for the workflow (`evals/`) and for one agent with the same rules (`evals-solo/`) |
