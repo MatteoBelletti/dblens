@@ -6,7 +6,7 @@ compiled, loaded or run), measured on `dotnet/eShop`. Gate: the resolution rate 
 written; whether to go on is decided afterwards. Run on 2026-11-24, commit `669682e` of eShop
 (`Remove stored credit card data from checkout and ordering`), 547 `.cs` and 28 `.csproj` files.
 
-The code is `spikes/docs-m0` (throwaway, not in `dblens.slnx`, replaced by `DbLens.Docs` in M1).
+The spike was throwaway code (commit `84b0165`, `spikes/docs-m0`); M1 replaced it with `src/DbLens.Docs`.
 
 ## What was measured
 
@@ -49,7 +49,7 @@ declarations that carry their route in the code.
    level of prefix, and the same prefix at every site); a method that receives a group from a field, a
    service or a lambda is unresolved, with its reason.
 5. **Attribute-routed controllers are not exercised by eShop** (it has none). Checked on a synthetic
-   controller (`spikes/docs-m0/SyntheticController.cs.txt`: `[Route("api/[controller]")]`, `{id:int}`,
+   controller (`[Route("api/[controller]")]`, `{id:int}`,
    `[action]`, a same-class constant resolve; a constant of another class and an interpolation do not),
    so the path works, but its rate on a real code base is not measured.
 6. **Tests are skipped** by path (`tests`, `e2e`); a repository with another layout would list them.

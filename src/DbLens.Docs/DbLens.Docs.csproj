@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- The inventory of a .NET solution, read from syntax only: Roslyn parses, nothing is compiled,
+       loaded or run. Pure engines over files handed in; SolutionReader is the one place that reads a
+       folder. Referenced by the CLI and the MCP server of DbLens.Docs, never by DbLens.Mcp. -->
+  <ItemGroup>
+    <ProjectReference Include="..\DbLens.Core\DbLens.Core.csproj" />
+    <ProjectReference Include="..\DbLens.EfCore\DbLens.EfCore.csproj" />
+    <PackageReference Include="Microsoft.CodeAnalysis.CSharp" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="DbLens.Tests" />
+  </ItemGroup>
+
+</Project>

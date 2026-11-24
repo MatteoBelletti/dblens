@@ -232,6 +232,28 @@ that name; only the id column is read, and the ids come back in `Migrations` and
 other table's rows are read, and no operator setting is needed: the ids are names EF generated, the
 same ones the code's migration files carry.
 
+## DbLens.Docs reads source code
+
+`DbLens.Docs` (the project inventory) is a separate package because it asks for a different permission:
+DBLens opens only `*ModelSnapshot.cs` and `*.Designer.cs`, DbLens.Docs reads a solution. The user chooses
+to give it, by pointing it at a folder. It opens:
+
+- `*.cs`, `*.csproj`, `Directory.Build.props` and `Directory.Packages.props`;
+- `appsettings*.json`, of which **only the key names** are kept: a value in a settings file may be a
+  secret, and the inventory never holds one (a test over eShop's settings, which carry placeholder
+  passwords, checks it);
+- the EF Core snapshots, through `SnapshotReader`, as DBLens already does.
+
+Every file is parsed as syntax (Roslyn) or XML and **never compiled, loaded or run**: no MSBuild
+evaluation, no restore, no analyzer, no reflection over the user's assemblies. `bin`, `obj`,
+`node_modules`, `.git`, `.vs` and `.idea` are not entered; links are not followed; a file over 2 MB is
+not read and an inventory stops at 50,000 files, each said in the inventory's `coverage`. It connects to
+no database: the data model comes from the EF snapshots alone.
+
+What the inventory carries is names and text the code states: project names and references, package ids
+and versions, route templates, configuration keys, the class names of background services, the
+base-address text of an HTTP client when it is a literal. Never a settings value, never a secret.
+
 ## Planner statistics
 
 `analyze_table_hygiene` reads what the planner knows of a column, not the column. On PostgreSQL that

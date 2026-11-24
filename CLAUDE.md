@@ -34,6 +34,7 @@ line (`scripts/generate-ef-fixtures.sh`); the EF tests apply the same file.
 | `DbLens.Core/Inspection/DatabaseInspectorBase*.cs` | orchestration, anything writable without dialect SQL |
 | `DbLens.Postgres` / `DbLens.SqlServer` (partial classes) | catalog SQL and dialect hooks only |
 | `DbLens.EfCore` | reading EF Core snapshots as text (Roslyn); referenced by `DbLens.Mcp` only |
+| `DbLens.Docs` | the inventory of a .NET solution read from syntax (Roslyn, XML), a **pure engine** over files handed in; `SolutionReader` is its one I/O. Never referenced by `DbLens.Mcp`; its permission is in docs/safety.md |
 | `DbLens.Mcp/Tools/` | thin tools deriving from `InspectorTool` |
 | `plugins/dblens/` | the optional Claude Code plugin: agents, the `audit` workflow, skills, evals ([decisions](docs/roadmap/decisions.md)) — prompts only, no logic the server lacks; its one command, `dotnet ef migrations script`, runs only when the audit's `efScript` allows it |
 | `plugins/dotnet-review/` | the second plugin (depends on `dblens`): the `review` workflow for a .NET / EF Core branch, its agents, the `review-rules` skill, and evals for the workflow (`evals/`) and for one agent with the same rules (`evals-solo/`) |

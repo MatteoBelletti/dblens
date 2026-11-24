@@ -1,6 +1,7 @@
 <Solution>
   <Folder Name="/src/">
     <Project Path="src/DbLens.Core/DbLens.Core.csproj" />
+    <Project Path="src/DbLens.Docs/DbLens.Docs.csproj" />
     <Project Path="src/DbLens.EfCore/DbLens.EfCore.csproj" />
     <Project Path="src/DbLens.Mcp/DbLens.Mcp.csproj" />
     <Project Path="src/DbLens.Postgres/DbLens.Postgres.csproj" />

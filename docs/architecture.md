@@ -7,6 +7,7 @@ DbLens.Core        interfaces, models, pure analysis engines, DatabaseInspectorB
 DbLens.Postgres    PostgresInspector  : DatabaseInspectorBase                          (Npgsql)
 DbLens.SqlServer   SqlServerInspector : DatabaseInspectorBase                          (Microsoft.Data.SqlClient)
 DbLens.EfCore      SnapshotReader: an EF Core snapshot read as C# text with Roslyn         (no build)
+DbLens.Docs        ProjectInventory of a .NET solution, from syntax only: pure engines + SolutionReader (no DB, no build)
 DbLens.Mcp         MCP server: Program.cs, tools, DI wiring
 DbLens.Tests       xUnit: pure engine tests + integration tests against both demo databases
 ```
@@ -131,6 +132,25 @@ so `dotnet ef migrations script` runs there, and writes the first migration's SQ
 `shop` schema (`db/<dialect>/04-shop.sql`), above the drift that file keeps by hand. The EF
 integration tests build `dblens_ef` from that file and `dblens_ef_clean` (every migration, no drift)
 from the SQL those same tools wrote.
+
+## Project inventory (DbLens.Docs)
+
+`DbLens.Docs` lists what a solution has to document, read from syntax only — see
+[docs/roadmap/docs-m1.md](roadmap/docs-m1.md) and the permission it asks for in
+[safety.md](safety.md#dblensdocs-reads-source-code).
+
+1. `SolutionReader` is the only code that touches a folder: it returns the files (relative paths with
+   `/`, ordered), the EF models its `SnapshotReader` read, and what it could not read.
+2. `ProjectInventoryEngine.Build` is pure: the same files in any order give the same
+   `ProjectInventory`. Its extractors (`ProjectExtractor`, `EntityExtractor`, `EndpointExtractor`,
+   `ConfigExtractor`, `HttpClientExtractor`, `HostedServiceExtractor`) each return items and coverage notes.
+3. Every item has a stable id (`project:`, `entity:`, `endpoint:`, `config:`, `http:`, `hosted:`), a source
+   file and line, an evidence (`Extracted`, or `Unresolved` with its reason) and sorted attributes.
+   `InventoryJson` writes it without a clock or an absolute path.
+
+The tests read a trimmed `dotnet/eShop` (`tests/DbLens.Tests/Fixtures/Docs/eShop`) and the repository's
+`samples/DemoShop.EfCore`, and compare the result with `tests/DbLens.Tests/Docs/Reference/*.inventory.json`
+(refreshed with `DBLENS_UPDATE_DOCS_REFERENCE=1`).
 
 ## Server layer
 
