@@ -57,6 +57,30 @@ public sealed class DetailDocumentTests : IDisposable
     }
 
     [Fact]
+    public void TheDetailDocumentOfAComponentThatIsGone_IsEmptiedByScaffold_AndCheckPasses()
+    {
+        var inventory = Solution();
+        var files = Started(inventory, "Ordering");
+        var gone = ProjectInventoryEngine.Build([], []);
+
+        var again = Scaffolder.Scaffold(gone, files, Options);
+
+        again.Report.Removed.Should().Contain(r => r.StartsWith("detail:Ordering", StringComparison.Ordinal));
+        again.Files[DetailPath].Should().NotContain("dblens:slot");
+        DocumentCheck.Check(gone, again.Files.ToDictionary(f => f.Key, f => f.Value), Options).Issues.Where(i => i.Severity == IssueSeverity.Error).Should().BeEmpty();
+    }
+
+    [Fact]
+    public void TwoComponentsWithTheSameDocumentName_AreRefused()
+    {
+        var inventory = InventoryTestSupport.Build(
+            InventoryTestSupport.Web("src/Ordering.API/Ordering.API.csproj"), InventoryTestSupport.Web("src/Ordering-API/Ordering-API.csproj"));
+
+        new Action(() => Scaffolder.Scaffold(inventory, new Dictionary<string, string>(), Options, ["Ordering.API"]))
+            .Should().Throw<ArgumentException>().WithMessage("*would share the document*");
+    }
+
+    [Fact]
     public void ANarrativeSlot_MayHaveParagraphsAndHeadings_ACaptionMayNot()
     {
         var inventory = Solution();

@@ -66,7 +66,7 @@ public sealed class DocsTools(DocsWorkspace workspace)
         var chosen = all.Where(s => ids is { Length: > 0 } || state switch { "all" => true, "needed" => s.State != "current", _ => s.State == state })
             .Select(s => brief ? s with { Facts = new Dictionary<string, string>(), Text = "", Source = "", Name = "" } : s).ToList();
         var note = all.Count == 0 ? "No slots: the documents do not exist yet (run dblens-docs scaffold) or nothing matches." : "";
-        return new SlotList(chosen.Count, Math.Min(chosen.Count, MaxItems), [.. chosen.Take(MaxItems)], note, workspace.Options.Language);
+        return new SlotList(chosen.Count, Math.Min(chosen.Count, MaxItems), [.. chosen.Take(MaxItems)], note, DocLabels.Language(workspace.Options.Language));
     }
 
     [McpServerTool(ReadOnly = true), Description(
@@ -79,10 +79,14 @@ public sealed class DocsTools(DocsWorkspace workspace)
         bool requireSlots = false) =>
         Grouped(DocumentCheck.Check(workspace.Inventory(), workspace.Documents(), workspace.Options, strict, requireSlots));
 
+    // Issues whose message differs per item (a problem found in a document, a slot's line count) stay one entry each.
+    private static readonly string[] OwnMessage = ["malformed", "slot-too-long"];
+
     private static CoverageView Grouped(DocCheckResult result) => new(
         result.Ok, result.Errors, result.Warnings,
-        [.. result.Issues.GroupBy(i => (i.Code, i.Severity, i.File)).Select(g => new IssueGroup(
-            g.Key.Code, g.Key.Severity.ToString(), g.Key.File, [.. g.Select(i => i.Id).Where(id => id.Length > 0)], g.First().Message))]);
+        [.. result.Issues.GroupBy(i => OwnMessage.Contains(i.Code) ? (i.Code, i.Severity, i.File, i.Message) : (i.Code, i.Severity, i.File, "")).Select(g =>
+            new IssueGroup(g.Key.Code, g.Key.Severity.ToString(), g.Key.File, [.. g.Select(i => i.Id).Where(id => id.Length > 0)],
+                OwnMessage.Contains(g.Key.Code) ? g.First().Message : g.First().Message.Replace(g.First().Id, "{id}", StringComparison.Ordinal)))]);
 
     [McpServerTool(Destructive = false, Idempotent = true), Description(
         "Writes the words of one slot of the project documents at most the slot's max lines; a caption (2 to 4 lines) is plain text with no blank lines, a narrative slot (a `detail:` one) takes Markdown with paragraphs. The only thing this server writes. " +

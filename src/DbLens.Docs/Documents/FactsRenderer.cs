@@ -12,7 +12,9 @@ public sealed class DocLabels
 
     public string this[string key] => _words.GetValueOrDefault(key, key);
 
-    public static DocLabels For(string? language) => language?.ToLowerInvariant() == "it" ? Italian : English;
+    public static string Language(string? language) => language?.ToLowerInvariant() == "it" ? "it" : "en";
+
+    public static DocLabels For(string? language) => Language(language) == "it" ? Italian : English;
 
     private static readonly DocLabels English = new(new()
     {

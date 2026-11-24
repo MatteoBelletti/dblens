@@ -24,12 +24,8 @@ public static class DocsFolder
 
         var details = Path.Combine(folder, DocPlan.DetailFolder);
         if (Directory.Exists(details) && !IsLink(details))
-            foreach (var path in Directory.GetFiles(details, "*.md").Order(StringComparer.Ordinal).Take(MaxDetailDocuments))
-            {
-                var file = $"{DocPlan.DetailFolder}/{Path.GetFileName(path)}";
-                if (DocPlan.IsDetailFile(file) && !IsLink(path))
-                    documents[$"{options.Folder}/{file}"] = File.ReadAllText(path);
-            }
+            foreach (var path in Directory.GetFiles(details, "*.md").Where(p => DocPlan.IsDetailFile($"{DocPlan.DetailFolder}/{Path.GetFileName(p)}") && !IsLink(p)).Order(StringComparer.Ordinal).Take(MaxDetailDocuments))
+                documents[$"{options.Folder}/{DocPlan.DetailFolder}/{Path.GetFileName(path)}"] = File.ReadAllText(path);
 
         return documents;
     }

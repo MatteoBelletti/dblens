@@ -124,7 +124,7 @@ internal static class OverviewRenderer
                 .Select(i => new[] { i.Name, OrNone(i.Attributes["producers"], l), string.Join(", ", Names(i.Attributes["handlers"]).Where(h => h.StartsWith(name + ".", StringComparison.Ordinal)).Select(h => h[(name.Length + 1)..])) }));
         Section(l["backgroundTitle"], [l["class"], l["file"]],
             inventory.Items.Where(i => i.Kind == ItemKind.HostedService && Mine(i)).OrderBy(i => i.Name, StringComparer.Ordinal).Select(i => new[] { i.Name, i.Source.File }));
-        Section(l["dataTitle"], [l["context"], l["entities"], l["table"]],
+        Section(l["dataTitle"], [l["context"], l["entities"], l["schema"]],
             inventory.Items.Where(i => i.Kind == ItemKind.Context && Mine(i)).OrderBy(i => i.Id, StringComparer.Ordinal)
                 .Select(i => new[] { i.Name, i.Attributes["entities"], i.Attributes["defaultSchema"].Length > 0 ? i.Attributes["defaultSchema"] : l["none"] }));
         Section(l["connectionsTitle"], [l["from"], l["to"], l["kindWord"], l["via"]],
