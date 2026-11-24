@@ -18,16 +18,16 @@ public static class DocsFolder
         foreach (var file in DocPlan.Files)
         {
             var path = Path.Combine(folder, file);
-            if (File.Exists(path) && !File.GetAttributes(path).HasFlag(FileAttributes.ReparsePoint))
+            if (File.Exists(path) && !IsLink(path))
                 documents[$"{options.Folder}/{file}"] = File.ReadAllText(path);
         }
 
         var details = Path.Combine(folder, DocPlan.DetailFolder);
-        if (Directory.Exists(details) && !new DirectoryInfo(details).Attributes.HasFlag(FileAttributes.ReparsePoint))
+        if (Directory.Exists(details) && !IsLink(details))
             foreach (var path in Directory.GetFiles(details, "*.md").Order(StringComparer.Ordinal).Take(MaxDetailDocuments))
             {
                 var file = $"{DocPlan.DetailFolder}/{Path.GetFileName(path)}";
-                if (DocPlan.IsDetailFile(file) && !File.GetAttributes(path).HasFlag(FileAttributes.ReparsePoint))
+                if (DocPlan.IsDetailFile(file) && !IsLink(path))
                     documents[$"{options.Folder}/{file}"] = File.ReadAllText(path);
             }
 
@@ -54,12 +54,12 @@ public static class DocsFolder
                 if (DocPlan.IsDetailFile(name))
                 {
                     var details = Path.GetDirectoryName(target)!;
-                    if (Directory.Exists(details) && new DirectoryInfo(details).Attributes.HasFlag(FileAttributes.ReparsePoint))
+                    if (Directory.Exists(details) && IsLink(details))
                         throw new ArgumentException($"{DocPlan.DetailFolder} is a link: the documents are not written through links.");
                     Directory.CreateDirectory(details);
                 }
 
-                if (File.Exists(target) && File.GetAttributes(target).HasFlag(FileAttributes.ReparsePoint))
+                if (File.Exists(target) && IsLink(target))
                     throw new ArgumentException($"{path} is a link and was not written.");
 
                 // A name nobody could have planted: CreateNew fails on anything that already exists, a link included.
@@ -122,6 +122,17 @@ public static class DocsFolder
         }
     }
 
+    /// <summary>Scaffolds the documents under the lock: reads them, writes the result, and starts the detail documents of <paramref name="newDetails"/>.</summary>
+    public static ScaffoldResult Scaffold(string root, DocsOptions options, ProjectInventory inventory, IEnumerable<string>? newDetails = null) =>
+        Locked(root, options, () =>
+        {
+            var scaffolded = Scaffolder.Scaffold(inventory, Read(root, options), options, newDetails);
+            Write(root, options, scaffolded.Files);
+            return scaffolded;
+        });
+
+    internal static bool IsLink(string path) => File.GetAttributes(path).HasFlag(FileAttributes.ReparsePoint);
+
     /// <summary>The full path of the docs folder, inside the root.</summary>
     public static string Resolve(string root, DocsOptions options)
     {
@@ -138,7 +149,7 @@ public static class DocsFolder
         foreach (var segment in folder.Split('/', StringSplitOptions.RemoveEmptyEntries))
         {
             walk = Path.Combine(walk, segment);
-            if (Directory.Exists(walk) && new DirectoryInfo(walk).Attributes.HasFlag(FileAttributes.ReparsePoint))
+            if (Directory.Exists(walk) && IsLink(walk))
                 throw new ArgumentException($"{segment} in the docs folder is a link: the documents are not written through links.");
         }
 
@@ -151,61 +162,52 @@ public static class DocsConfig
 {
     public const string FileName = "dblens-docs.json";
 
-    public static DocsOptions Load(string root)
+    public static DocsOptions Load(string root) => Read(root, new DocsOptions(), config =>
     {
-        var path = Path.Combine(root, FileName);
-        if (!File.Exists(path)) return new DocsOptions();
-
-        try
-        {
-            using var document = JsonDocument.Parse(File.ReadAllText(path), new JsonDocumentOptions { CommentHandling = JsonCommentHandling.Skip, AllowTrailingCommas = true });
-            if (document.RootElement.ValueKind != JsonValueKind.Object) throw new ArgumentException($"{FileName} must hold a JSON object.");
-
-            var defaults = new DocsOptions();
-            return new DocsOptions(Text(document.RootElement, "language") ?? defaults.Language, Text(document.RootElement, "docs") ?? defaults.Directory);
-        }
-        catch (JsonException ex)
-        {
-            throw new ArgumentException($"{FileName} is not valid JSON: {ex.Message}");
-        }
-    }
+        var defaults = new DocsOptions();
+        return new DocsOptions(Text(config, "language") ?? defaults.Language, Text(config, "docs") ?? defaults.Directory);
+    });
 
     /// <summary>
     /// What the file adds to the inventory's defaults: <c>"events": { "bases": [...], "producingMethods": [...] }</c> and
     /// <c>"components": { "Account": ["Account/Command", "Account/Query"] }</c> (components joined under one name).
     /// </summary>
-    public static InventoryOptions LoadInventory(string root)
+    public static InventoryOptions LoadInventory(string root) => Read(root, InventoryOptions.Default, config =>
+    {
+        var defaults = InventoryOptions.Default;
+        List<string> bases = [.. defaults.EventBases];
+        List<string> producing = [.. defaults.ProducingMethods];
+        Dictionary<string, IReadOnlyList<string>> merge = new(StringComparer.Ordinal);
+
+        if (config.TryGetProperty("events", out var events) && events.ValueKind != JsonValueKind.Null)
+        {
+            if (events.ValueKind != JsonValueKind.Object) throw new ArgumentException($"{FileName}: \"events\" must be an object.");
+            bases.AddRange(Strings(events, "events", "bases"));
+            producing.AddRange(Strings(events, "events", "producingMethods"));
+        }
+
+        if (config.TryGetProperty("components", out var components) && components.ValueKind != JsonValueKind.Null)
+        {
+            if (components.ValueKind != JsonValueKind.Object) throw new ArgumentException($"{FileName}: \"components\" must be an object of name to list of names.");
+            foreach (var property in components.EnumerateObject())
+                merge[property.Name] = property.Value.ValueKind == JsonValueKind.Array && property.Value.EnumerateArray().All(v => v.ValueKind == JsonValueKind.String)
+                    ? [.. property.Value.EnumerateArray().Select(v => v.GetString()!)]
+                    : throw new ArgumentException($"{FileName}: \"components\".\"{property.Name}\" must be a list of names.");
+        }
+
+        return new InventoryOptions { EventBases = [.. bases.Distinct(StringComparer.Ordinal)], ProducingMethods = [.. producing.Distinct(StringComparer.Ordinal)], Merge = merge };
+    });
+
+    private static T Read<T>(string root, T whenMissing, Func<JsonElement, T> build)
     {
         var path = Path.Combine(root, FileName);
-        if (!File.Exists(path)) return InventoryOptions.Default;
+        if (!File.Exists(path)) return whenMissing;
 
         try
         {
             using var document = JsonDocument.Parse(File.ReadAllText(path), new JsonDocumentOptions { CommentHandling = JsonCommentHandling.Skip, AllowTrailingCommas = true });
             if (document.RootElement.ValueKind != JsonValueKind.Object) throw new ArgumentException($"{FileName} must hold a JSON object.");
-
-            var defaults = InventoryOptions.Default;
-            List<string> bases = [.. defaults.EventBases];
-            List<string> producing = [.. defaults.ProducingMethods];
-            Dictionary<string, IReadOnlyList<string>> merge = new(StringComparer.Ordinal);
-
-            if (document.RootElement.TryGetProperty("events", out var events) && events.ValueKind != JsonValueKind.Null)
-            {
-                if (events.ValueKind != JsonValueKind.Object) throw new ArgumentException($"{FileName}: \"events\" must be an object.");
-                bases.AddRange(Strings(events, "events", "bases"));
-                producing.AddRange(Strings(events, "events", "producingMethods"));
-            }
-
-            if (document.RootElement.TryGetProperty("components", out var components) && components.ValueKind != JsonValueKind.Null)
-            {
-                if (components.ValueKind != JsonValueKind.Object) throw new ArgumentException($"{FileName}: \"components\" must be an object of name to list of names.");
-                foreach (var property in components.EnumerateObject())
-                    merge[property.Name] = property.Value.ValueKind == JsonValueKind.Array && property.Value.EnumerateArray().All(v => v.ValueKind == JsonValueKind.String)
-                        ? [.. property.Value.EnumerateArray().Select(v => v.GetString()!)]
-                        : throw new ArgumentException($"{FileName}: \"components\".\"{property.Name}\" must be a list of names.");
-            }
-
-            return new InventoryOptions { EventBases = [.. bases.Distinct(StringComparer.Ordinal)], ProducingMethods = [.. producing.Distinct(StringComparer.Ordinal)], Merge = merge };
+            return build(document.RootElement);
         }
         catch (JsonException ex)
         {

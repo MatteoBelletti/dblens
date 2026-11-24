@@ -103,7 +103,7 @@ internal static class ProjectExtractor
 
         // The same project name in two folders (src/Web and samples/Web): the folder tells them apart.
         var repeated = items.GroupBy(i => i.Name, StringComparer.Ordinal).Where(g => g.Count() > 1).Select(g => g.Key).ToHashSet(StringComparer.Ordinal);
-        items = [.. items.Select(i => repeated.Contains(i.Name) ? i with { Id = $"project:{i.Name} [{(Directory(i.Source.File) is { Length: > 0 } folder ? folder : ".")}]" } : i)];
+        items = [.. items.Select(i => repeated.Contains(i.Name) ? i with { Id = $"project:{i.Name} [{(PathText.Directory(i.Source.File) is { Length: > 0 } folder ? folder : ".")}]" } : i)];
 
         // The names in projectReferences repeat when projects do: the ids say which project each one is.
         var idOfFile = items.ToDictionary(i => i.Source.File, i => i.Id, StringComparer.Ordinal);
@@ -140,28 +140,18 @@ internal static class ProjectExtractor
 
     private static string FileName(string path) => path[(path.LastIndexOf('/') + 1)..];
 
-    private static string Directory(string path) => path.Contains('/') ? path[..path.LastIndexOf('/')] : "";
-
-    /// <summary>"a/b/x.csproj" plus "..\c\y.csproj" → "a/c/y.csproj".</summary>
-    private static string Resolve(string from, string relative)
-    {
-        List<string> segments = [.. Directory(from).Split('/', StringSplitOptions.RemoveEmptyEntries)];
-        foreach (var part in relative.Replace('\\', '/').Split('/', StringSplitOptions.RemoveEmptyEntries))
-            if (part == "..") { if (segments.Count > 0) segments.RemoveAt(segments.Count - 1); }
-            else if (part != ".") segments.Add(part);
-        return string.Join('/', segments);
-    }
+    private static string Resolve(string from, string relative) => PathText.Combine(PathText.Directory(from), relative);
 
     // The props files at or above the project's folder, nearest first.
     private static IEnumerable<KeyValuePair<string, XDocument?>> Above(string path, Dictionary<string, XDocument?> props)
     {
-        var directory = Directory(path);
+        var directory = PathText.Directory(path);
         while (true)
         {
-            foreach (var pair in props.Where(p => Directory(p.Key) == directory))
+            foreach (var pair in props.Where(p => PathText.Directory(p.Key) == directory))
                 yield return pair;
             if (directory.Length == 0) yield break;
-            directory = Directory(directory);
+            directory = PathText.Directory(directory);
         }
     }
 

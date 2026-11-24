@@ -23,7 +23,7 @@ public static class ProjectInventoryEngine
         // Two project files in one folder (Foo.csproj and Foo.Net48.csproj) share it: the first by path owns the files there.
         var projectDirectories = ordered
             .Where(f => f.Path.EndsWith(".csproj", StringComparison.OrdinalIgnoreCase))
-            .GroupBy(f => DirectoryOf(f.Path), StringComparer.Ordinal)
+            .GroupBy(f => PathText.Directory(f.Path), StringComparer.Ordinal)
             .ToDictionary(g => g.Key, g => Path.GetFileNameWithoutExtension(g.First().Path), StringComparer.Ordinal);
 
         var projects = ProjectExtractor.Extract(ordered);
@@ -143,17 +143,16 @@ public static class ProjectInventoryEngine
             || s.EndsWith(".IntegrationTests", StringComparison.OrdinalIgnoreCase));
     }
 
-    private static string DirectoryOf(string path) => path.Contains('/') ? path[..path.LastIndexOf('/')] : "";
 
     // The project whose folder is the nearest at or above the file.
     private static string ProjectOf(string path, Dictionary<string, string> projectDirectories)
     {
-        var directory = DirectoryOf(path);
+        var directory = PathText.Directory(path);
         while (true)
         {
             if (projectDirectories.TryGetValue(directory, out var name)) return name;
             if (directory.Length == 0) return "(no project)";
-            directory = DirectoryOf(directory);
+            directory = PathText.Directory(directory);
         }
     }
 }

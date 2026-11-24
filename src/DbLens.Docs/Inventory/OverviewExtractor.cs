@@ -91,7 +91,7 @@ internal static partial class OverviewExtractor
                 if (ServiceUrl().Match(literal.Token.ValueText) is { Success: true } match && componentOfResource.TryGetValue(match.Groups[1].Value, out var target) && target != source)
                 {
                     var via = literal.Ancestors().OfType<InvocationExpressionSyntax>()
-                        .Select(i => i.Expression switch { MemberAccessExpressionSyntax m => m.Name.Identifier.Text, SimpleNameSyntax s => s.Identifier.Text, _ => "" })
+                        .Select(ParsedFile.CalledName)
                         .FirstOrDefault(n => n is "AddHttpClient" or "AddGrpcClient" or "MapForwarder") ?? "url";
                     links.Add(("call", source, target, via, ItemEvidence.Inferred, new SourceLocation(file.Path, file.LineOf(literal))));
                 }

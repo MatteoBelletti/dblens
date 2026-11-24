@@ -8,22 +8,12 @@ namespace DbLens.Tests.Docs;
 /// <summary>The cases a review of the overview raised, each with the behaviour it asked for.</summary>
 public sealed class OverviewReviewTests
 {
-    private static SourceFile Csproj(string path, string sdk, params string[] references) =>
-        File(path, $"<Project Sdk=\"{sdk}\"><PropertyGroup><TargetFramework>net10.0</TargetFramework></PropertyGroup><ItemGroup>"
-                   + string.Concat(references.Select(r => $"<ProjectReference Include=\"{r}\" />")) + "</ItemGroup></Project>");
-
-    private static SourceFile Web(string path, params string[] references) => Csproj(path, "Microsoft.NET.Sdk.Web", references);
-
-    private static SourceFile Lib(string path) => Csproj(path, "Microsoft.NET.Sdk");
-
-    private static ProjectInventory Solution(params SourceFile[] files) => ProjectInventoryEngine.Build(files, []);
-
     private const string Bus = "public abstract record IntegrationEvent;\npublic interface IIntegrationEventHandler<T> { Task Handle(T e); }\n";
 
     [Fact]
     public void AProjectsHash_DoesNotChangeWithReferencesNoDocumentShows()
     {
-        var project = Solution(Web("src/A/A.csproj")).Item("project:A");
+        var project = Build(Web("src/A/A.csproj")).Item("project:A");
         var changed = project with { Attributes = new SortedDictionary<string, string>(project.Attributes.ToDictionary(a => a.Key, a => a.Key == "projectReferenceIds" ? "project:Other" : a.Value), StringComparer.Ordinal) };
 
         ItemHash.Of(changed).Should().Be(ItemHash.Of(project));
@@ -32,7 +22,7 @@ public sealed class OverviewReviewTests
     [Fact]
     public void ACallByName_DoesNotLeaveTheComponent_AndACommonNameIsNotACall()
     {
-        var inventory = Solution(
+        var inventory = Build(
             Web("src/Basket/Basket.csproj"),
             File("src/Basket/Bus.cs", Bus),
             File("src/Basket/Basket.cs", "public record ItemAddedIntegrationEvent(int Id) : IntegrationEvent;\npublic class Basket { public void Add(int id) { events.Raise(new ItemAddedIntegrationEvent(id)); } public void PutIn(int id) { events.Raise(new ItemAddedIntegrationEvent(id)); } }"),
@@ -46,7 +36,7 @@ public sealed class OverviewReviewTests
     [Fact]
     public void ACallByName_InsideAComponent_IsFollowed_WhenTheNameIsUnique()
     {
-        var inventory = Solution(
+        var inventory = Build(
             Web("src/Shop/Shop.csproj"),
             File("src/Shop/Bus.cs", Bus),
             File("src/Shop/Api.cs", "public record PlacedIntegrationEvent(int Id) : IntegrationEvent;\npublic static class Api { public static void Map(WebApplication app) { app.MapPost(\"/p\", Place); }\n static void Place() { Announce(); }\n static void Announce() { events.Raise(new PlacedIntegrationEvent(1)); } }"));
@@ -59,7 +49,7 @@ public sealed class OverviewReviewTests
     {
         // The long chain is met first by a depth-first walk; the helper must be reached by its short path as well.
         var chain = string.Concat(Enumerable.Range(1, 18).Select(i => $"static void M{i}() {{ {(i < 18 ? $"M{i + 1}();" : "Helper();")} }}\n"));
-        var inventory = Solution(
+        var inventory = Build(
             Web("src/Shop/Shop.csproj"),
             File("src/Shop/Bus.cs", Bus),
             File("src/Shop/Api.cs", "public record DeepIntegrationEvent(int Id) : IntegrationEvent;\npublic static class Api { public static void Map(WebApplication app) { app.MapPost(\"/d\", Entry); }\n static void Entry() { Helper(); M1(); }\n"
@@ -75,7 +65,7 @@ public sealed class OverviewReviewTests
                        + "public record E14IntegrationEvent(int Id) : IntegrationEvent;\n"
                        + "public static class Setup { public static void Wire(IEventBus bus) { " + string.Concat(Enumerable.Range(0, 14).Select(i => $"bus.AddSubscription<E{i}IntegrationEvent, H{i}>(); ")) + "}\n"
                        + "public static void Map(WebApplication app) { app.MapPost(\"/go\", Go); }\n static void Go() { events.Raise(new E0IntegrationEvent(1)); } }";
-        var inventory = Solution(Web("src/Chain/Chain.csproj"), File("src/Chain/Bus.cs", Bus), File("src/Chain/Chain.cs", handlers));
+        var inventory = Build(Web("src/Chain/Chain.csproj"), File("src/Chain/Bus.cs", Bus), File("src/Chain/Chain.cs", handlers));
 
         inventory.Coverage.Should().Contain(c => c.Area == "flows" && c.Note.Contains("cut at 12 hops"));
     }
@@ -106,7 +96,7 @@ public sealed class OverviewReviewTests
     [Fact]
     public void AServiceSpreadOverABaseAndAnOverrideFile_IsOneService_WithTheKindOfTheFileThatHasTheImage()
     {
-        var inventory = Solution(
+        var inventory = Build(
             Web("src/Shop/Shop.csproj"),
             File("docker-compose.override.yml", "services:\n  db:\n    environment:\n      A: b\n"),
             File("docker-compose.yml", "services:\n  db:\n    image: postgres:16\n  shop:\n    build: ./src/Shop\n    depends_on: [db]\n"));
@@ -120,7 +110,7 @@ public sealed class OverviewReviewTests
     [InlineData("bitnami/kafka", "db (broker)")]
     public void TheKindOfAService_IsReadFromTheWordsOfItsImage_NotFromSubstrings(string image, string expected)
     {
-        var inventory = Solution(
+        var inventory = Build(
             Web("src/Shop/Shop.csproj"),
             File("docker-compose.yml", $"services:\n  db:\n    image: {image}\n  shop:\n    build: ./src/Shop\n    depends_on: [db]\n"));
 
@@ -130,7 +120,7 @@ public sealed class OverviewReviewTests
     [Fact]
     public void AServiceThatInheritsItsDependenciesFromAnAnchor_HasThem()
     {
-        var inventory = Solution(
+        var inventory = Build(
             Web("src/Shop/Shop.csproj"),
             File("docker-compose.yml", "x-common: &common\n  depends_on: [rabbitmq]\nservices:\n  rabbitmq:\n    image: rabbitmq:3\n  shop:\n    <<: *common\n    build: ./src/Shop\n"));
 
@@ -143,7 +133,7 @@ public sealed class OverviewReviewTests
         var deep = "services: " + new string('[', 5000) + new string(']', 5000);
         var large = "services:\n  a:\n    image: x\n" + string.Concat(Enumerable.Repeat("# padding padding padding padding padding padding\n", 12000));
 
-        var inventory = Solution(Web("src/Shop/Shop.csproj"), File("docker-compose.yml", deep), File("compose.yml", large));
+        var inventory = Build(Web("src/Shop/Shop.csproj"), File("docker-compose.yml", deep), File("compose.yml", large));
 
         inventory.Coverage.Should().Contain(c => c.Area == "components" && c.Note.Contains("YAML") && c.Count == 2);
     }
@@ -170,7 +160,7 @@ public sealed class OverviewReviewTests
     [Fact]
     public void AProjectThatOnlyMentionsDistributedApplicationInACommentOrATestingBuilder_IsStillAComponent()
     {
-        var inventory = Solution(
+        var inventory = Build(
             Web("src/Shop/Shop.csproj"),
             File("src/Shop/Health.cs", "// the AppHost is a DistributedApplication elsewhere\npublic class Health { string T = \"DistributedApplication\"; object B = DistributedApplicationTestingBuilder.CreateAsync(); }"));
 

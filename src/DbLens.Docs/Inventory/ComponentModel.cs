@@ -37,25 +37,15 @@ internal sealed class ComponentModel
     public string? ComponentOfProject(string projectId) => _componentOfProject.GetValueOrDefault(projectId);
 
     /// <summary>The component that owns a file: the one of the nearest project above it. Null for a file in no project or in an orchestrator.</summary>
-    public string? ComponentOfFile(string path)
+    public string? ComponentOfFile(string path) => ProjectOfFile(path) is { } id ? _componentOfProject.GetValueOrDefault(id) : null;
+
+    public string? ProjectOfFile(string path) => Nearest(_directories, path);
+
+    private static string? Nearest(IEnumerable<(string Directory, string Id)> directories, string path)
     {
         string? best = null;
         var length = -1;
-        foreach (var (directory, id) in _directories)
-            if ((directory.Length == 0 || path.StartsWith(directory + "/", StringComparison.Ordinal)) && directory.Length > length)
-            {
-                best = id;
-                length = directory.Length;
-            }
-
-        return best is null ? null : _componentOfProject.GetValueOrDefault(best);
-    }
-
-    public string? ProjectOfFile(string path)
-    {
-        string? best = null;
-        var length = -1;
-        foreach (var (directory, id) in _directories)
+        foreach (var (directory, id) in directories)
             if ((directory.Length == 0 || path.StartsWith(directory + "/", StringComparison.Ordinal)) && directory.Length > length)
             {
                 best = id;
@@ -68,10 +58,9 @@ internal sealed class ComponentModel
     public static ComponentModel Build(IReadOnlyList<InventoryItem> allProjects, IReadOnlyList<ParsedFile> files, InventoryOptions options)
     {
         var projects = allProjects.Where(p => !ProjectInventoryEngine.IsTestPath(p.Source.File)).ToList();
-        var directories = projects.Select(p => (Dir(p.Source.File), p.Id)).ToList();
+        var directories = projects.Select(p => (PathText.Directory(p.Source.File), p.Id)).ToList();
 
-        string? ProjectOf(string path) =>
-            directories.Where(d => d.Item1.Length == 0 || path.StartsWith(d.Item1 + "/", StringComparison.Ordinal)).OrderByDescending(d => d.Item1.Length).Select(d => d.Item2).FirstOrDefault();
+        string? ProjectOf(string path) => Nearest(directories, path);
 
         var orchestrators = files
             .Where(f => f.Root.DescendantNodes().OfType<Microsoft.CodeAnalysis.CSharp.Syntax.IdentifierNameSyntax>().Any(i => i.Identifier.Text == "DistributedApplication"))
@@ -158,7 +147,6 @@ internal sealed class ComponentModel
         return new ComponentModel(components, ownerOfProject, [.. directories], [.. orchestrators.Order(StringComparer.Ordinal)], unused);
     }
 
-    private static string Dir(string path) => path.Contains('/') ? path[..path.LastIndexOf('/')] : "";
 
     // The project's name; when several executables or libraries share one, the folders that tell them apart ("Account/Query").
     private static Dictionary<string, string> Names(IReadOnlyList<InventoryItem> projects, List<string> executables, Dictionary<string, InventoryItem> byId)
@@ -173,22 +161,22 @@ internal sealed class ComponentModel
                 continue;
             }
 
-            var paths = members.Select(m => Dir(m.Source.File).Split('/')).ToList();
+            var paths = members.Select(m => PathText.Directory(m.Source.File).Split('/')).ToList();
             foreach (var m in members)
             {
-                var mine = Dir(m.Source.File).Split('/');
+                var mine = PathText.Directory(m.Source.File).Split('/');
                 var common = 0;
                 // Keep at least two folders when there are that many: "Cart/Command", not "Command".
                 while (common < mine.Length - 1 && mine.Length - 1 - common > 2 && paths.All(o => o.Length > common && o[common] == mine[common])) common++;
                 var tail = mine[common..^1];
-                names[m.Id] = tail.Length > 0 && executables.Contains(m.Id) ? string.Join('/', tail) : $"{group.Key} [{Dir(m.Source.File)}]";
+                names[m.Id] = tail.Length > 0 && executables.Contains(m.Id) ? string.Join('/', tail) : $"{group.Key} [{PathText.Directory(m.Source.File)}]";
             }
         }
 
         // Two components that still share a name keep their folders.
         var duplicated = names.GroupBy(n => n.Value, StringComparer.Ordinal).Where(g => g.Count() > 1).Select(g => g.Key).ToHashSet(StringComparer.Ordinal);
         foreach (var id in names.Where(n => duplicated.Contains(n.Value)).Select(n => n.Key).ToList())
-            names[id] = $"{byId[id].Name} [{Dir(byId[id].Source.File)}]";
+            names[id] = $"{byId[id].Name} [{PathText.Directory(byId[id].Source.File)}]";
         return names;
     }
 }

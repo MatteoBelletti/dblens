@@ -14,11 +14,17 @@ public static class SlotWriter
     public const int MaxLineLength = 300;
     private const int NarrativeLineLength = 800;
 
-        /// <summary>The slots, with the item each one is about, in document order.</summary>
-    public static IReadOnlyList<SlotInfo> List(ProjectInventory inventory, IReadOnlyDictionary<string, string> documents, DocsOptions options)
+    // A narrative slot (a page) may have paragraphs; a caption may not have blank lines.
+    private const int NarrativeLines = 10;
+
+    /// <summary>The slots, with the item each one is about, in document order.</summary>
+    public static IReadOnlyList<SlotInfo> List(ProjectInventory inventory, IReadOnlyDictionary<string, string> documents, DocsOptions options) =>
+        List(inventory, documents, options, Wanted(inventory, options, DocPlan.Present(documents.Keys, options)));
+
+    private static IReadOnlyList<SlotInfo> List(
+        ProjectInventory inventory, IReadOnlyDictionary<string, string> documents, DocsOptions options, Dictionary<string, Desired> wanted)
     {
         var present = DocPlan.Present(documents.Keys, options);
-        var wanted = Wanted(inventory, options, present);
         var items = inventory.Items.GroupBy(i => i.Id, StringComparer.Ordinal).ToDictionary(g => g.Key, g => g.First(), StringComparer.Ordinal);
         List<SlotInfo> slots = [];
         foreach (var file in present)
@@ -40,7 +46,7 @@ public static class SlotWriter
     }
 
     private static Dictionary<string, Desired> Wanted(ProjectInventory inventory, DocsOptions options, IReadOnlyList<string> present) =>
-        DocPlan.For(inventory, options, present.Where(DocPlan.IsDetailFile))
+        DocPlan.For(inventory, options, present)
             .SelectMany(p => p.Value).Where(d => d.Kind == DocBlockKind.Item)
             .GroupBy(d => d.Id, StringComparer.Ordinal).ToDictionary(g => g.Key, g => g.First(), StringComparer.Ordinal);
 
@@ -53,14 +59,15 @@ public static class SlotWriter
         ProjectInventory inventory, IReadOnlyDictionary<string, string> documents, DocsOptions options, string id, string words)
     {
         if (!inventory.Items.Any(i => i.Id == id)) throw new ArgumentException($"{id} is not in the inventory.");
-        var path = List(inventory, documents, options).FirstOrDefault(s => s.Id == id)?.File
+        var wanted = Wanted(inventory, options, DocPlan.Present(documents.Keys, options));
+        var path = List(inventory, documents, options, wanted).FirstOrDefault(s => s.Id == id)?.File
                    ?? throw new ArgumentException($"{id} has no slot in the documents: it may not need one, or dblens-docs scaffold has not run.");
         var parsed = DocumentModel.Parse(documents[path]);
         if (parsed.Problems.Count > 0) throw new ArgumentException($"{path} is not well formed: {parsed.Problems[0]}.");
 
         var block = parsed.Blocks.First(b => b.Id == id);
         var slot = block.Slot!;
-        var hash = Wanted(inventory, options, DocPlan.Present(documents.Keys, options))[id].Hash;
+        var hash = wanted[id].Hash;
         if (block.Hash != hash) throw new ArgumentException($"{id} changed since the document was generated: run dblens-docs scaffold first.");
         if (IsPersons(slot))
             throw new ArgumentException($"The slot of {id} holds words written by a person; a model does not replace them. Ask the person to edit or delete it.");
@@ -76,9 +83,6 @@ public static class SlotWriter
     /// </summary>
     public static bool IsPersons(DocSlot slot) =>
         slot.Text.Length > 0 && (slot.Evidence == "human" || slot is { Evidence: "stale", Was: "human" } || ItemHash.OfText(slot.Text) != slot.TextHash);
-
-    // A narrative slot (a page) may have paragraphs; a caption may not have blank lines.
-    private const int NarrativeLines = 10;
 
     internal static string Validate(string words, int maxLines)
     {

@@ -40,20 +40,13 @@ internal static class AppHostReader
 
                 if (node is VariableDeclaratorSyntax declarator) variables[declarator.Identifier.Text] = owner;
                 for (var cur = chain; cur is InvocationExpressionSyntax inv; cur = (inv.Expression as MemberAccessExpressionSyntax)?.Expression)
-                    if (MethodName(inv) == "WithReference" && inv.ArgumentList.Arguments.FirstOrDefault()?.Expression is IdentifierNameSyntax id && variables.TryGetValue(id.Identifier.Text, out var target))
+                    if (ParsedFile.CalledName(inv) == "WithReference" && inv.ArgumentList.Arguments.FirstOrDefault()?.Expression is IdentifierNameSyntax id && variables.TryGetValue(id.Identifier.Text, out var target))
                         references.Add((owner, target));
             }
         }
 
         return new AppHostRead([.. resources.Values.OrderBy(r => r.Name, StringComparer.Ordinal)], [.. references.Distinct().OrderBy(r => r.From, StringComparer.Ordinal).ThenBy(r => r.To, StringComparer.Ordinal)]);
     }
-
-    private static string? MethodName(InvocationExpressionSyntax call) => call.Expression switch
-    {
-        MemberAccessExpressionSyntax { Name: { } name } => name.Identifier.Text,
-        SimpleNameSyntax name => name.Identifier.Text,
-        _ => null,
-    };
 
     private static string? FirstLiteral(InvocationExpressionSyntax call) =>
         call.ArgumentList.Arguments.FirstOrDefault()?.Expression is LiteralExpressionSyntax l ? l.Token.ValueText : null;
@@ -65,7 +58,7 @@ internal static class AppHostReader
         var cur = expression;
         while (cur is InvocationExpressionSyntax inv)
         {
-            if (MethodName(inv) is { } name && name.StartsWith("Add", StringComparison.Ordinal) && FirstLiteral(inv) is { } literal) return literal;
+            if (ParsedFile.CalledName(inv) is { } name && name.StartsWith("Add", StringComparison.Ordinal) && FirstLiteral(inv) is { } literal) return literal;
             if (inv.Expression is not MemberAccessExpressionSyntax member) return null;
             if (member.Expression is IdentifierNameSyntax id && variables.TryGetValue(id.Identifier.Text, out var known)) return known;
             cur = member.Expression;
@@ -76,7 +69,7 @@ internal static class AppHostReader
 
     private static AppHostResource? Resource(InvocationExpressionSyntax call, string file, Dictionary<string, string> byName, Dictionary<string, string> byDirectory)
     {
-        var method = MethodName(call);
+        var method = ParsedFile.CalledName(call);
         if (method is null || !method.StartsWith("Add", StringComparison.Ordinal) || FirstLiteral(call) is not { } name) return null;
 
         if (call.Expression is MemberAccessExpressionSyntax { Name: GenericNameSyntax { Identifier.Text: "AddProject" } generic } && generic.TypeArgumentList.Arguments.FirstOrDefault()?.ToString() is { } type)

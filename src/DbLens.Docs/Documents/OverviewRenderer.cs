@@ -101,7 +101,7 @@ internal static class OverviewRenderer
         var name = detail.Name;
         var component = inventory.Items.First(i => i.Id == $"component:{name}");
         var projectIds = Names(component.Attributes["executables"]).Concat(Names(component.Attributes["libraries"])).ToHashSet(StringComparer.Ordinal);
-        var directories = inventory.Items.Where(i => i.Kind == ItemKind.Project && projectIds.Contains(i.Id)).Select(i => i.Source.File.Contains('/') ? i.Source.File[..i.Source.File.LastIndexOf('/')] : "").ToList();
+        var directories = inventory.Items.Where(i => i.Kind == ItemKind.Project && projectIds.Contains(i.Id)).Select(i => PathText.Directory(i.Source.File)).ToList();
         bool Mine(InventoryItem i) => directories.Any(d => d.Length == 0 || i.Source.File.StartsWith(d + "/", StringComparison.Ordinal));
 
         StringBuilder text = new();

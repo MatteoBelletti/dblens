@@ -1,5 +1,6 @@
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
+using Microsoft.CodeAnalysis.CSharp.Syntax;
 
 namespace DbLens.Docs.Inventory;
 
@@ -18,4 +19,12 @@ internal sealed class ParsedFile(SourceFile file)
     public int LineOf(SyntaxNode node) => node.GetLocation().GetLineSpan().StartLinePosition.Line + 1;
 
     public SourceLocation Locate(SyntaxNode node) => new(Path, LineOf(node));
+
+    /// <summary>The name a call goes by: <c>Add</c> for <c>x.Add(…)</c>, <c>Add&lt;T&gt;</c> and <c>Add(…)</c>.</summary>
+    public static string? CalledName(InvocationExpressionSyntax call) => call.Expression switch
+    {
+        MemberAccessExpressionSyntax { Name: { } name } => name.Identifier.Text,
+        SimpleNameSyntax name => name.Identifier.Text,
+        _ => null,
+    };
 }

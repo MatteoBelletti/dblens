@@ -26,8 +26,7 @@ public static class Scaffolder
         ProjectInventory inventory, IReadOnlyDictionary<string, string> existing, DocsOptions options, IEnumerable<string>? newDetails = null)
     {
         var labels = DocLabels.For(options.Language);
-        var detailFiles = DocPlan.Present(existing.Keys, options).Where(DocPlan.IsDetailFile).Concat((newDetails ?? []).Select(DocPlan.DetailFile));
-        var plan = DocPlan.For(inventory, options, detailFiles);
+        var plan = DocPlan.For(inventory, options, DocPlan.Present(existing.Keys, options).Concat((newDetails ?? []).Select(DocPlan.DetailFile)));
         Dictionary<string, string> files = new(StringComparer.Ordinal);
         List<string> added = [], removed = [], stale = [], human = [], changed = [];
 

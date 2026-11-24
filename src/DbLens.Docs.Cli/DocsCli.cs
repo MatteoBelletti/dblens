@@ -95,12 +95,7 @@ public static class DocsCli
                 return 0;
 
             case "scaffold":
-                var result = DocsFolder.Locked(root, docs, () =>
-                {
-                    var scaffolded = Scaffolder.Scaffold(inventory, DocsFolder.Read(root, docs), docs);
-                    DocsFolder.Write(root, docs, scaffolded.Files);
-                    return scaffolded;
-                });
+                var result = DocsFolder.Scaffold(root, docs, inventory);
                 var r = result.Report;
                 output.WriteLine($"{result.Files.Count} documents in {docs.Folder}: {r.Added.Count} added, {r.Changed.Count} changed, {r.Removed.Count} removed, {r.Stale.Count} slots stale, {r.MarkedHuman.Count} slots marked human.");
                 foreach (var id in r.Removed) output.WriteLine($"  removed: {id}");
@@ -110,12 +105,7 @@ public static class DocsCli
             case "detail":
                 var wanted = inventory.Items.FirstOrDefault(i => i.Kind == ItemKind.Detail && (i.Name.Equals(positional[0], StringComparison.OrdinalIgnoreCase) || i.Id.Equals(positional[0], StringComparison.OrdinalIgnoreCase)))
                              ?? throw new ArgumentException($"{positional[0]} is not a component with a detail document. Components: {string.Join(", ", inventory.Items.Where(i => i.Kind == ItemKind.Detail).Select(i => i.Name))}.");
-                var started = DocsFolder.Locked(root, docs, () =>
-                {
-                    var scaffolded = Scaffolder.Scaffold(inventory, DocsFolder.Read(root, docs), docs, [wanted.Name]);
-                    DocsFolder.Write(root, docs, scaffolded.Files);
-                    return scaffolded;
-                });
+                var started = DocsFolder.Scaffold(root, docs, inventory, [wanted.Name]);
                 output.WriteLine($"{Scaffolder.DetailPath(docs, wanted.Name)}: {started.Report.Added.Count} regions added; its narrative slot is {Scaffolder.DetailLines} lines (id {wanted.Id}).");
                 return 0;
 

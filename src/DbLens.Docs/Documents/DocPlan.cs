@@ -10,7 +10,10 @@ public sealed record DocsOptions(string Language = "en", string Directory = "doc
 }
 
 /// <summary>What a document should hold, derived from the inventory alone: the scaffold writes it and the check compares with it.</summary>
-internal sealed record Desired(DocBlockKind Kind, string Id, string Hash, string Generated, int? MaxLines);
+internal sealed record Desired(DocBlockKind Kind, string Id, string Hash, string Generated, int? MaxLines)
+{
+    public static Desired Text(string id, string generated) => new(DocBlockKind.Generated, id, "", generated, null);
+}
 
 internal static class DocPlan
 {
@@ -42,13 +45,14 @@ internal static class DocPlan
         return [.. Files.Concat(relative.Where(IsDetailFile).Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal))];
     }
 
-    public static string FileOf(ItemKind kind) => kind switch
+    private static readonly ItemKind[] OverviewKinds = [ItemKind.Component, ItemKind.Event, ItemKind.Link, ItemKind.Flow, ItemKind.Detail];
+
+    private static string FileOf(ItemKind kind) => kind switch
     {
         ItemKind.Project => "architecture.md",
         ItemKind.Context or ItemKind.Entity => "data-model.md",
         ItemKind.Endpoint => "api.md",
         ItemKind.Config => "configuration.md",
-        ItemKind.Component or ItemKind.Flow => "overview.md",
         _ => "integrations.md",
     };
 
@@ -84,22 +88,21 @@ internal static class DocPlan
         };
     }
 
-    /// <param name="detailFiles">The detail documents that exist or are being started, relative to the docs folder.</param>
-    public static IReadOnlyDictionary<string, List<Desired>> For(ProjectInventory inventory, DocsOptions options, IEnumerable<string>? detailFiles = null)
+    /// <param name="files">The documents that exist or are being started, relative to the docs folder: the detail documents among them are planned.</param>
+    public static IReadOnlyDictionary<string, List<Desired>> For(ProjectInventory inventory, DocsOptions options, IEnumerable<string>? files = null)
     {
         var l = DocLabels.For(options.Language);
         var byFile = Files.ToDictionary(f => f, _ => new List<Desired>(), StringComparer.Ordinal);
-        var overviewKinds = new[] { ItemKind.Component, ItemKind.Event, ItemKind.Link, ItemKind.Flow, ItemKind.Detail };
 
         if (inventory.Items.Any(i => i.Kind == ItemKind.Project))
-            byFile["architecture.md"].Add(new Desired(DocBlockKind.Generated, ProjectGraph.Id, "", ProjectGraph.Mermaid(inventory), null));
+            byFile["architecture.md"].Add(Desired.Text(ProjectGraph.Id, ProjectGraph.Mermaid(inventory)));
 
-        foreach (var item in inventory.Items.Where(i => !overviewKinds.Contains(i.Kind)).OrderBy(i => SortKey(i), StringComparer.Ordinal))
+        foreach (var item in inventory.Items.Where(i => !OverviewKinds.Contains(i.Kind)).OrderBy(i => SortKey(i), StringComparer.Ordinal))
             byFile[FileOf(item.Kind)].Add(new Desired(DocBlockKind.Item, item.Id, ItemHash.Of(item), FactsRenderer.Render(item, l), MaxLines(item.Kind)));
 
         Overview(inventory, l, byFile["overview.md"]);
 
-        foreach (var file in (detailFiles ?? []).Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal))
+        foreach (var file in (files ?? []).Where(IsDetailFile).Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal))
         {
             var detail = inventory.Items.FirstOrDefault(i => i.Kind == ItemKind.Detail && DetailFile(i.Name) == file);
             if (detail is null) continue;
@@ -107,7 +110,7 @@ internal static class DocPlan
             var facts = OverviewRenderer.Detail(inventory, detail, l);
             byFile[file] =
             [
-                new Desired(DocBlockKind.Generated, $"detail-facts:{detail.Name}", "", facts, null),
+                Desired.Text($"detail-facts:{detail.Name}", facts),
                 new Desired(DocBlockKind.Item, detail.Id, ItemHash.OfText($"{ItemHash.Of(detail)}|{facts}"), $"### {l["narrative"]}", DetailLines),
             ];
         }
@@ -120,22 +123,22 @@ internal static class DocPlan
         var components = inventory.Items.Where(OverviewRenderer.IsComponent).OrderBy(c => c.Name, StringComparer.Ordinal).ToList();
         if (components.Count == 0) return;
 
-        blocks.Add(new Desired(DocBlockKind.Generated, OverviewRenderer.GraphId, "", OverviewRenderer.Graph(inventory, l), null));
+        blocks.Add(Desired.Text(OverviewRenderer.GraphId, OverviewRenderer.Graph(inventory, l)));
         foreach (var c in components)
             blocks.Add(new Desired(DocBlockKind.Item, c.Id, ItemHash.Of(c), OverviewRenderer.ComponentFacts(c, l), MaxLines(c.Kind)));
 
         var flows = inventory.Items.Where(i => i.Kind == ItemKind.Flow).OrderBy(i => i.Id, StringComparer.Ordinal).ToList();
         if (flows.Count > 0)
         {
-            blocks.Add(new Desired(DocBlockKind.Generated, OverviewRenderer.FlowsId, "", $"## {l["flows"]}\n\n{l["flowsIntro"]}", null));
+            blocks.Add(Desired.Text(OverviewRenderer.FlowsId, $"## {l["flows"]}\n\n{l["flowsIntro"]}"));
             foreach (var f in flows)
                 blocks.Add(new Desired(DocBlockKind.Item, f.Id, ItemHash.Of(f), OverviewRenderer.Flow(f, l), MaxLines(f.Kind)));
         }
 
         if (inventory.Items.Any(i => i.Kind == ItemKind.Event))
-            blocks.Add(new Desired(DocBlockKind.Generated, OverviewRenderer.EventsId, "", OverviewRenderer.Events(inventory, l), null));
+            blocks.Add(Desired.Text(OverviewRenderer.EventsId, OverviewRenderer.Events(inventory, l)));
         if (inventory.Items.Any(i => i.Kind == ItemKind.Component && i.Attributes["role"] == "shared-library"))
-            blocks.Add(new Desired(DocBlockKind.Generated, OverviewRenderer.SharedId, "", OverviewRenderer.Shared(inventory, l), null));
+            blocks.Add(Desired.Text(OverviewRenderer.SharedId, OverviewRenderer.Shared(inventory, l)));
     }
 
     // Contexts before the entities of their own context; endpoints by route, then verb; the rest by id.

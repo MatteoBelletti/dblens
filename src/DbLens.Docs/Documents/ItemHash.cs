@@ -7,13 +7,13 @@ namespace DbLens.Docs.Documents;
 /// <summary>Short stable hashes: of an inventory item (what a slot is written about) and of text (what a region held).</summary>
 public static class ItemHash
 {
+    // Attributes no document shows: a change in them must not make the words written about the item stale.
+    private static readonly HashSet<string> NotShown = new(StringComparer.Ordinal) { "projectReferenceIds" };
+
     /// <summary>
     /// What the item says, not where it sits: a line number is left out, so an unrelated edit above a
     /// declaration does not make the text written about it stale.
     /// </summary>
-    // Attributes no document shows: a change in them must not make the words written about the item stale.
-    private static readonly HashSet<string> NotShown = new(StringComparer.Ordinal) { "projectReferenceIds" };
-
     public static string Of(InventoryItem item)
     {
         var text = new StringBuilder()

@@ -8,18 +8,6 @@ namespace DbLens.Tests.Docs;
 
 public sealed class OverviewTests
 {
-    private static SourceFile Csproj(string path, string sdk, params string[] references) =>
-        File(path, $"<Project Sdk=\"{sdk}\"><PropertyGroup><TargetFramework>net10.0</TargetFramework></PropertyGroup><ItemGroup>"
-                   + string.Concat(references.Select(r => $"<ProjectReference Include=\"{r}\" />")) + "</ItemGroup></Project>");
-
-    private static SourceFile Web(string path, params string[] references) => Csproj(path, "Microsoft.NET.Sdk.Web", references);
-
-    private static SourceFile Lib(string path, params string[] references) => Csproj(path, "Microsoft.NET.Sdk", references);
-
-    private static ProjectInventory Solution(params SourceFile[] files) => ProjectInventoryEngine.Build(files, []);
-
-    private static IEnumerable<InventoryItem> Of(ProjectInventory inventory, ItemKind kind) => inventory.Items.Where(i => i.Kind == kind);
-
     private static string[] Hops(ProjectInventory inventory, string flowId) => inventory.Item(flowId).Attributes["hops"].Split(" | ");
 
     private const string Bus = """
@@ -31,7 +19,7 @@ public sealed class OverviewTests
         """;
 
     // Ordering: an endpoint places an order through a command, an aggregate and a domain event; Billing consumes it and bills; Shipping consumes that.
-    internal static ProjectInventory OrderFlow() => Solution(
+    internal static ProjectInventory OrderFlow() => Build(
         Web("src/Ordering/Ordering.csproj"),
         File("src/Ordering/Bus.cs", Bus),
         File("src/Ordering/Api.cs", """
@@ -82,7 +70,7 @@ public sealed class OverviewTests
 
         inventory.Item("event:OrderPlacedIntegrationEvent").Attributes.Should().Contain("producers", "Ordering").And.Contain("consumers", "Billing");
         inventory.Item("event:OrderShippedIntegrationEvent").Reason.Should().Contain("nothing in the solution consumes it");
-        Of(inventory, ItemKind.Link).Where(l => l.Attributes["kind"] == "event").Select(l => l.Id).Should().Equal(
+        inventory.Of(ItemKind.Link).Where(l => l.Attributes["kind"] == "event").Select(l => l.Id).Should().Equal(
             "link:event Billing -> Shipping (OrderBilledIntegrationEvent)", "link:event Ordering -> Billing (OrderPlacedIntegrationEvent)");
     }
 
@@ -110,7 +98,7 @@ public sealed class OverviewTests
     [Fact]
     public void AHandlerThatReachesAnAggregateMethodThatRaisesNothing_LeadsToNoEvent()
     {
-        var inventory = Solution(
+        var inventory = Build(
             Web("src/Stock/Stock.csproj"),
             File("src/Stock/Bus.cs", Bus),
             File("src/Stock/Rejected.cs", """
@@ -151,7 +139,7 @@ public sealed class OverviewTests
     [Fact]
     public void AnEventThatIsOnlyConsumed_IsUnresolvedWithItsReason()
     {
-        var inventory = Solution(
+        var inventory = Build(
             Web("src/Billing/Billing.csproj"),
             File("src/Billing/Handlers.cs", """
                 public record PaymentReceivedIntegrationEvent : IntegrationEvent;
@@ -166,7 +154,7 @@ public sealed class OverviewTests
     [Fact]
     public void MassTransitStyle_ConsumersByBaseClass_AndEventsRaisedWithAGenericCall_AreRead()
     {
-        var inventory = Solution(
+        var inventory = Build(
             Lib("src/Contracts/Contracts.csproj"),
             File("src/Contracts/Events.cs", """
                 public static class DomainEvent
@@ -204,7 +192,7 @@ public sealed class OverviewTests
     [Fact]
     public void AnExecutableAndItsPrivateLibraries_AreOneComponent_AndASharedLibraryIsListedWithItsUsers()
     {
-        var inventory = Solution(
+        var inventory = Build(
             Web("src/Orders/Orders.csproj", "..\\Orders.Domain\\Orders.Domain.csproj", "..\\Shared\\Shared.csproj"),
             Lib("src/Orders.Domain/Orders.Domain.csproj"),
             Web("src/Billing/Billing.csproj", "..\\Shared\\Shared.csproj"),
@@ -215,7 +203,7 @@ public sealed class OverviewTests
         orders.Attributes.Should().Contain("role", "service").And.Contain("libraries", "project:Orders.Domain");
         var shared = inventory.Item("component:Shared");
         shared.Attributes.Should().Contain("role", "shared-library").And.Contain("usedBy", "Billing, Orders");
-        Of(inventory, ItemKind.Component).Select(c => c.Name).Should().Equal("Billing", "Orders", "Shared");
+        inventory.Of(ItemKind.Component).Select(c => c.Name).Should().Equal("Billing", "Orders", "Shared");
     }
 
     [Fact]
@@ -228,18 +216,18 @@ public sealed class OverviewTests
             Csproj("src/Services/Order/Command/WorkerService/WorkerService.csproj", "Microsoft.NET.Sdk.Worker"),
         ];
 
-        Of(Solution(files), ItemKind.Component).Select(c => c.Name).Should().Equal("Account/Command", "Account/Query", "Order/Command");
+        Build(files).Of(ItemKind.Component).Select(c => c.Name).Should().Equal("Account/Command", "Account/Query", "Order/Command");
 
         var merged = ProjectInventoryEngine.Build(files, [], null, null, new InventoryOptions { Merge = new Dictionary<string, IReadOnlyList<string>> { ["Account"] = ["Account/Command", "Account/Query"] } });
 
-        Of(merged, ItemKind.Component).Select(c => c.Name).Should().Equal("Account", "Order/Command");
+        merged.Of(ItemKind.Component).Select(c => c.Name).Should().Equal("Account", "Order/Command");
         merged.Item("component:Account").Attributes["executables"].Should().Contain("Account/Command").And.Contain("Account/Query");
     }
 
     [Fact]
     public void ProjectReferences_AreResolvedToIds_WhenNamesRepeat()
     {
-        var inventory = Solution(
+        var inventory = Build(
             Web("src/A/Api/Api.csproj", "..\\Domain\\Domain.csproj"),
             Lib("src/A/Domain/Domain.csproj"),
             Web("src/B/Api/Api.csproj", "..\\Domain\\Domain.csproj"),
@@ -252,7 +240,7 @@ public sealed class OverviewTests
     [Fact]
     public void AnAspireAppHost_NamesTheServices_InBothForms_AndWhatReferencesWhat()
     {
-        var inventory = Solution(
+        var inventory = Build(
             Lib("src/AppHost/AppHost.csproj"),
             File("src/AppHost/AppHost.cs", """
                 var builder = DistributedApplication.CreateBuilder(args);
@@ -264,29 +252,29 @@ public sealed class OverviewTests
             Web("src/Orders/Orders.csproj"),
             Web("src/Web.Shop/Web.Shop.csproj"));
 
-        Of(inventory, ItemKind.Link).Select(l => l.Id).Should().Equal("link:reference Web.Shop -> Orders (AppHost)");
+        inventory.Of(ItemKind.Link).Select(l => l.Id).Should().Equal("link:reference Web.Shop -> Orders (AppHost)");
         inventory.Item("component:Orders").Attributes.Should().Contain("infrastructure", "eventbus (broker)");
         inventory.Item("component:Web.Shop").Attributes.Should().Contain("infrastructure", "eventbus (broker)");
-        Of(inventory, ItemKind.Component).Select(c => c.Name).Should().NotContain("AppHost", "the orchestrator is not a component");
+        inventory.Of(ItemKind.Component).Select(c => c.Name).Should().NotContain("AppHost", "the orchestrator is not a component");
     }
 
     [Fact]
     public void ACallWhoseUrlNamesAService_IsALink_AndAnUnknownHostIsNot()
     {
-        var inventory = Solution(
+        var inventory = Build(
             Lib("src/AppHost/AppHost.csproj"),
             File("src/AppHost/AppHost.cs", "var b = DistributedApplication.CreateBuilder(args);\nb.AddDotnetProject(\"orders-api\", \"../Orders\");\nb.AddDotnetProject(\"shop\", \"../Shop\");"),
             Web("src/Orders/Orders.csproj"),
             Web("src/Shop/Shop.csproj"),
             File("src/Shop/Setup.cs", "public static class S { public static void M(IServices s) { s.AddHttpClient<OrderingClient>(o => o.BaseAddress = new(\"https+http://orders-api\")); s.AddHttpClient<Other>(o => o.BaseAddress = new(\"https://api.example.com\")); } }"));
 
-        Of(inventory, ItemKind.Link).Where(l => l.Attributes["kind"] == "call").Select(l => (l.Id, l.Evidence)).Should().Equal(("link:call Shop -> Orders (AddHttpClient)", ItemEvidence.Inferred));
+        inventory.Of(ItemKind.Link).Where(l => l.Attributes["kind"] == "call").Select(l => (l.Id, l.Evidence)).Should().Equal(("link:call Shop -> Orders (AddHttpClient)", ItemEvidence.Inferred));
     }
 
     [Fact]
     public void ComposeServices_BuiltFromAProject_GiveDependenciesAndInfrastructure_AndNoValueIsKept()
     {
-        var inventory = Solution(
+        var inventory = Build(
             Web("src/Orders/Orders.csproj"),
             Web("src/Shop/Shop.csproj"),
             File("docker-compose.yaml", """
@@ -312,7 +300,7 @@ public sealed class OverviewTests
                       - TOKEN=amqp://guest:Another-Secret@rabbit:5672
                 """));
 
-        Of(inventory, ItemKind.Link).Select(l => l.Id).Should().Equal(
+        inventory.Of(ItemKind.Link).Select(l => l.Id).Should().Equal(
             "link:call Shop -> Orders (compose environment)", "link:depends Shop -> Orders (compose)");
         inventory.Item("component:Orders").Attributes.Should().Contain("infrastructure", "rabbit (broker)");
         InventoryJson.Serialize(inventory).Should().NotContain("S3cret-Rabbit-Pass").And.NotContain("Sup3r-Secret-Db-Pass").And.NotContain("Another-Secret");
@@ -321,7 +309,7 @@ public sealed class OverviewTests
     [Fact]
     public void AComposeFileThatIsNotYaml_IsSkipped_AndSaysSo()
     {
-        var inventory = Solution(Web("src/Orders/Orders.csproj"), File("docker-compose.yml", "services: [unclosed"));
+        var inventory = Build(Web("src/Orders/Orders.csproj"), File("docker-compose.yml", "services: [unclosed"));
 
         inventory.Coverage.Should().Contain(c => c.Area == "components" && c.Note.Contains("not valid YAML"));
     }
@@ -339,7 +327,7 @@ public sealed class OverviewTests
             ],
             [model], null, ["src/Orders/Migrations/ShopContextModelSnapshot.cs"]);
 
-        var link = Of(inventory, ItemKind.Link).Single();
+        var link = inventory.Of(ItemKind.Link).Single();
 
         link.Id.Should().Be("link:data Worker -> Orders (ordering.orders)");
         link.Evidence.Should().Be(ItemEvidence.Inferred);
@@ -349,7 +337,7 @@ public sealed class OverviewTests
     public void TheSameFilesInAnotherOrder_GiveTheSameInventory()
     {
         var files = OrderFlow();
-        var again = Solution(
+        var again = Build(
             Web("src/Shipping/Shipping.csproj"), Web("src/Billing/Billing.csproj"), Web("src/Ordering/Ordering.csproj"));
 
         InventoryJson.Serialize(OrderFlow()).Should().Be(InventoryJson.Serialize(files));

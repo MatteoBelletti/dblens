@@ -69,7 +69,7 @@ internal static class EntityExtractor
     // The folder of the project that holds the snapshot: the migrations folder is not part of its name.
     private static string FolderOf(string path)
     {
-        var directory = path.Contains('/') ? path[..path.LastIndexOf('/')] : "";
+        var directory = PathText.Directory(path);
         return directory.EndsWith("/Migrations", StringComparison.Ordinal) ? directory[..^"/Migrations".Length] : directory;
     }
 

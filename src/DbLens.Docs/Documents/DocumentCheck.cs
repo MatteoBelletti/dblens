@@ -31,7 +31,7 @@ public static class DocumentCheck
         ProjectInventory inventory, IReadOnlyDictionary<string, string> documents, DocsOptions options, bool strict = false, bool requireSlots = false)
     {
         var present = DocPlan.Present(documents.Keys, options);
-        var plan = DocPlan.For(inventory, options, present.Where(DocPlan.IsDetailFile));
+        var plan = DocPlan.For(inventory, options, present);
         List<DocIssue> issues = [];
 
         Dictionary<string, (string File, DocBlock Block)> found = new(StringComparer.Ordinal);

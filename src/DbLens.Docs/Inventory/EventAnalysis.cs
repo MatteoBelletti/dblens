@@ -48,15 +48,13 @@ internal sealed class EventAnalysis
 
         foreach (var file in files)
             foreach (var type in file.Root.DescendantNodes().OfType<TypeDeclarationSyntax>())
+            {
                 if (type.BaseList?.Types.Any(b => eventBases.Contains(Last(b.Type.ToString()))) == true)
                 {
                     _eventKeys.Add(type.Parent is TypeDeclarationSyntax outer ? $"{outer.Identifier.Text}.{type.Identifier.Text}" : type.Identifier.Text);
                     _eventSimpleNames.Add(type.Identifier.Text);
                 }
 
-        foreach (var file in files)
-            foreach (var type in file.Root.DescendantNodes().OfType<TypeDeclarationSyntax>())
-            {
                 var owner = components.ComponentOfFile(file.Path) ?? "";
                 foreach (var b in type.BaseList?.Types ?? [])
                     if (b.Type is GenericNameSyntax generic)
@@ -78,15 +76,13 @@ internal sealed class EventAnalysis
             }
 
         foreach (var list in _nodesByType.Values) list.Sort(static (a, b) => string.CompareOrdinal($"{a.File}|{a.Method}", $"{b.File}|{b.Method}"));
-        Producers = ProducerSites(files, components);
+        Producers = ProducerSites(components);
         Consumers = ConsumerSites(files, components);
     }
 
     public IReadOnlyList<EventSite> Producers { get; }
 
     public IReadOnlyList<EventConsumer> Consumers { get; }
-
-    public IReadOnlyCollection<string> EventKeys => _eventKeys;
 
     private void Add(CodeNode node)
     {
@@ -122,15 +118,10 @@ internal sealed class EventAnalysis
 
     private static IEnumerable<string> Invoked(SyntaxNode node) =>
         node.DescendantNodes().OfType<InvocationExpressionSyntax>()
-            .Select(i => i.Expression switch
-            {
-                MemberAccessExpressionSyntax m => m.Name.Identifier.Text,
-                SimpleNameSyntax s => s.Identifier.Text,
-                _ => "",
-            })
-            .Where(n => n.Length > 0);
+            .Select(ParsedFile.CalledName)
+            .OfType<string>();
 
-    private List<EventSite> ProducerSites(IReadOnlyList<ParsedFile> files, ComponentModel components)
+    private List<EventSite> ProducerSites(ComponentModel components)
     {
         HashSet<EventSite> sites = [];
         foreach (var node in _nodesByType.Values.SelectMany(n => n).Where(n => !_eventSimpleNames.Contains(n.Type)))
@@ -165,11 +156,12 @@ internal sealed class EventAnalysis
     private bool InScope(CodeNode from, CodeNode candidate) => candidate.Component == from.Component || _sharedComponents.Contains(candidate.Component);
 
     /// <summary>The start nodes of a consumer: the handling methods of its class, in its component.</summary>
-    public IReadOnlyList<CodeNode> StartsOfHandler(string handlerType, string component) =>
-        [.. _nodesByType.GetValueOrDefault(handlerType)?.Where(n => n.Component == component && HandlerMethods.Contains(n.Method)) ?? []];
+    public IReadOnlyList<CodeNode> StartsOfHandler(string handlerType, string component) => StartsOf(handlerType, component, HandlerMethods);
 
-    public IReadOnlyList<CodeNode> StartsOfHostedService(string typeName, string component) =>
-        [.. _nodesByType.GetValueOrDefault(typeName)?.Where(n => n.Component == component && HostedMethods.Contains(n.Method)) ?? []];
+    public IReadOnlyList<CodeNode> StartsOfHostedService(string typeName, string component) => StartsOf(typeName, component, HostedMethods);
+
+    private IReadOnlyList<CodeNode> StartsOf(string type, string component, IReadOnlyCollection<string> methods) =>
+        [.. _nodesByType.GetValueOrDefault(type)?.Where(n => n.Component == component && methods.Contains(n.Method)) ?? []];
 
     /// <summary>The events that code leads to, in order, counting only what happens in the same component.</summary>
     public IReadOnlyList<string> Reach(IEnumerable<CodeNode> starts)
