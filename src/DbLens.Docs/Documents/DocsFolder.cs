@@ -28,6 +28,7 @@ public static class DocsFolder
         Directory.CreateDirectory(folder);
         foreach (var (path, text) in files)
         {
+            if (!path.StartsWith(options.Folder + "/", StringComparison.Ordinal)) throw new ArgumentException($"{path} is not in the docs folder {options.Folder}.");
             var name = path[(options.Folder.Length + 1)..];
             if (!DocPlan.Files.Contains(name, StringComparer.Ordinal)) throw new ArgumentException($"{path} is not one of the project documents.");
 
@@ -46,7 +47,15 @@ public static class DocsFolder
             }
             catch
             {
-                if (File.Exists(temporary)) File.Delete(temporary);
+                try
+                {
+                    File.Delete(temporary);
+                }
+                catch (IOException)
+                {
+                    // The error that matters is the one being thrown.
+                }
+
                 throw;
             }
         }

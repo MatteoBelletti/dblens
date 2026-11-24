@@ -23,6 +23,6 @@ jobs:
 
       # A missing item, an item that left the code, a changed item whose region was not regenerated, a
       # generated region edited by hand, or a slot over its limit: exit code 1. Empty and stale slots are
-      # warnings here; add --strict to fail on stale ones, --require-slots to fail on empty ones.
+      # warnings here; add --strict to fail on stale or missing ones, --require-slots on empty or missing ones.
       - name: Check the project documents
         run: dblens-docs check

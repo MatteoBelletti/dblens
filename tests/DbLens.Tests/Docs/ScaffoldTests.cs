@@ -161,6 +161,24 @@ public sealed class ScaffoldTests
         gone.Files["docs/project/api.md"].Should().Contain("A note about /a.");
     }
 
+    [Theory]
+    [InlineData("x")]
+    [InlineData("elsewhere/api.md")]
+    [InlineData("docs/api.md")]
+    public void APathOutsideTheDocsFolder_IsRefusedWithAnArgumentError(string path)
+    {
+        var root = Path.Combine(Path.GetTempPath(), $"dblens-docs-prefix-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(root);
+        try
+        {
+            new Action(() => DocsFolder.Write(root, new DocsOptions(), new Dictionary<string, string> { [path] = "x" })).Should().Throw<ArgumentException>();
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
     [Fact]
     public void ADocsFolderThatIsALink_IsRefused_AndSoIsAnyFolderAboveIt()
     {

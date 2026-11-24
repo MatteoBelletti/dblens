@@ -21,7 +21,7 @@ on a missing item, a vanished one, and a region touched by hand. Guide: [../dble
   asks for. The inventory's schema gains `ItemKind.Context`.
 - **A configuration key has a place, not a slot**: forty `Logging:LogLevel:*` slots would be noise.
 - **Empty and stale slots are warnings, not errors.** M2 is a release without AI: failing a build because
-  nobody has written yet would make it useless. `--require-slots` and `--strict` raise them.
+  nobody has written yet would make it useless. `--require-slots` raises the empty ones and `--strict` the stale ones; a region without its slot (`slot-missing`, added in review) is raised by either.
 - **The generated text holds no line number**, so an unrelated edit above a declaration changes neither the
   document nor the slot's state.
 - **Vanished items are removed by `scaffold`**, and the report says which of them held words (the diff

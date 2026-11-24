@@ -101,7 +101,7 @@ public sealed class DocumentCheckTests
     }
 
     [Fact]
-    public void ARegionWhoseSlotWasDeleted_IsAWarning_AndAnErrorWhenSlotsAreRequired()
+    public void ARegionWhoseSlotWasDeleted_IsAWarning_AndAnErrorWithRequireSlotsOrStrict()
     {
         var inventory = Solution("/a");
         var documents = Written(inventory);
@@ -111,6 +111,20 @@ public sealed class DocumentCheckTests
         Check(inventory, documents).Issues.Should().Contain(i => i.Code == "slot-missing" && i.Severity == IssueSeverity.Warning);
         Check(inventory, documents, requireSlots: true).Ok.Should().BeFalse();
         Check(inventory, documents, strict: true).Ok.Should().BeFalse();
+    }
+
+    [Fact]
+    public void StrictAlone_DoesNotMakeAnEmptySlotAnError_AndRequireSlotsAloneDoesNotMakeAStaleOne()
+    {
+        var inventory = Solution("/a");
+        var documents = Written(inventory);
+
+        Check(inventory, documents, strict: true).Ok.Should().BeTrue();
+
+        var written = Fill(documents["docs/project/api.md"], "endpoint:GET /a", "Lists a.");
+        var changed = inventory.WithAttribute("endpoint:GET /a", "handler", "Other");
+        var stale = Scaffolder.Scaffold(changed, new Dictionary<string, string>(documents) { ["docs/project/api.md"] = written }, Options).Files.ToDictionary(f => f.Key, f => f.Value);
+        Check(changed, stale, requireSlots: true).Issues.Should().Contain(i => i.Code == "slot-stale" && i.Severity == IssueSeverity.Warning);
     }
 
     [Fact]

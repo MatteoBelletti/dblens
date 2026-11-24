@@ -60,9 +60,9 @@ public sealed class DocsTools(DocsWorkspace workspace)
         "Compares the project documents with the code, as dblens-docs check does: missing items, items gone from the code, items changed, generated text edited by hand, slots too long, empty or stale. " +
         "IMPORTANT: it fixes nothing; a missing or outdated item is fixed by running dblens-docs scaffold.")]
     public DocCheckResult CheckDocCoverage(
-        [Description("Stale slots are errors.")]
+        [Description("Stale slots, and regions without their slot, are errors.")]
         bool strict = false,
-        [Description("Empty slots are errors.")]
+        [Description("Empty slots, and regions without their slot, are errors.")]
         bool requireSlots = false) =>
         DocumentCheck.Check(workspace.Inventory(), workspace.Documents(), workspace.Options, strict, requireSlots);
 
