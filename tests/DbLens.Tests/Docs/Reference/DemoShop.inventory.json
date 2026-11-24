@@ -22,6 +22,40 @@
       "alsoAt": []
     },
     {
+      "id": "context:ShopPostgresContext",
+      "kind": "context",
+      "name": "ShopPostgresContext",
+      "evidence": "extracted",
+      "source": {
+        "file": "Migrations/PostgreSql/ShopPostgresContextModelSnapshot.cs",
+        "line": 14
+      },
+      "attributes": {
+        "defaultSchema": "shop",
+        "efVersion": "10.0.15",
+        "entities": "9",
+        "migrations": "3"
+      },
+      "alsoAt": []
+    },
+    {
+      "id": "context:ShopSqlServerContext",
+      "kind": "context",
+      "name": "ShopSqlServerContext",
+      "evidence": "extracted",
+      "source": {
+        "file": "Migrations/SqlServer/ShopSqlServerContextModelSnapshot.cs",
+        "line": 14
+      },
+      "attributes": {
+        "defaultSchema": "shop",
+        "efVersion": "10.0.15",
+        "entities": "9",
+        "migrations": "3"
+      },
+      "alsoAt": []
+    },
+    {
       "id": "entity:ShopPostgresContext.DemoShop.EfCore.BankTransfer",
       "kind": "entity",
       "name": "DemoShop.EfCore.BankTransfer",

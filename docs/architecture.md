@@ -148,6 +148,10 @@ from the SQL those same tools wrote.
    file and line, an evidence (`Extracted`, or `Unresolved` with its reason) and sorted attributes.
    `InventoryJson` writes it without a clock or an absolute path.
 
+`DbLens.Docs.Documents` turns the inventory into five Markdown files with a region per item
+(`DocumentModel`, `Scaffolder`, `DocumentCheck`, `DocsFolder`), and `DbLens.Docs.Cli` is the
+`dblens-docs` command ([guide](dblens-docs.md)).
+
 The tests read a trimmed `dotnet/eShop` (`tests/DbLens.Tests/Fixtures/Docs/eShop`) and the repository's
 `samples/DemoShop.EfCore`, and compare the result with `tests/DbLens.Tests/Docs/Reference/*.inventory.json`
 (refreshed with `DBLENS_UPDATE_DOCS_REFERENCE=1`).

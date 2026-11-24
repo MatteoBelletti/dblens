@@ -9,6 +9,7 @@
     <ProjectReference Include="..\..\src\DbLens.Postgres\DbLens.Postgres.csproj" />
     <ProjectReference Include="..\..\src\DbLens.EfCore\DbLens.EfCore.csproj" />
     <ProjectReference Include="..\..\src\DbLens.Docs\DbLens.Docs.csproj" />
+    <ProjectReference Include="..\..\src\DbLens.Docs.Cli\DbLens.Docs.Cli.csproj" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" />
     <PackageReference Include="xunit" />
     <PackageReference Include="xunit.runner.visualstudio" />

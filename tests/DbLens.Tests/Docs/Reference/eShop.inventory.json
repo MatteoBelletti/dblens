@@ -562,6 +562,74 @@
       "alsoAt": []
     },
     {
+      "id": "context:ApplicationDbContext",
+      "kind": "context",
+      "name": "ApplicationDbContext",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/Identity.API/Data/Migrations/ApplicationDbContextModelSnapshot.cs",
+        "line": 14
+      },
+      "attributes": {
+        "defaultSchema": "",
+        "efVersion": "11.0.0-rc.3.26522.148",
+        "entities": "7",
+        "migrations": "0"
+      },
+      "alsoAt": []
+    },
+    {
+      "id": "context:CatalogContext",
+      "kind": "context",
+      "name": "CatalogContext",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/Catalog.API/Infrastructure/Migrations/CatalogContextModelSnapshot.cs",
+        "line": 15
+      },
+      "attributes": {
+        "defaultSchema": "",
+        "efVersion": "8.0.0-rtm.23512.13",
+        "entities": "4",
+        "migrations": "0"
+      },
+      "alsoAt": []
+    },
+    {
+      "id": "context:OrderingContext",
+      "kind": "context",
+      "name": "OrderingContext",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/Ordering.Infrastructure/Migrations/OrderingContextModelSnapshot.cs",
+        "line": 14
+      },
+      "attributes": {
+        "defaultSchema": "ordering",
+        "efVersion": "11.0.0-rc.3.26522.148",
+        "entities": "7",
+        "migrations": "0"
+      },
+      "alsoAt": []
+    },
+    {
+      "id": "context:WebhooksContext",
+      "kind": "context",
+      "name": "WebhooksContext",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/Webhooks.API/Migrations/WebhooksContextModelSnapshot.cs",
+        "line": 14
+      },
+      "attributes": {
+        "defaultSchema": "",
+        "efVersion": "8.0.0-rc.2.23480.1",
+        "entities": "1",
+        "migrations": "0"
+      },
+      "alsoAt": []
+    },
+    {
       "id": "entity:ApplicationDbContext.Microsoft.AspNetCore.Identity.IdentityRole",
       "kind": "entity",
       "name": "Microsoft.AspNetCore.Identity.IdentityRole",

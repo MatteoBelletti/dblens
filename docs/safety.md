@@ -250,6 +250,10 @@ evaluation, no restore, no analyzer, no reflection over the user's assemblies. `
 not read and an inventory stops at 50,000 files, each said in the inventory's `coverage`. It connects to
 no database: the data model comes from the EF snapshots alone.
 
+`dblens-docs scaffold` and `confirm` **write**: only the five known Markdown files of the docs folder, which
+must be inside the root, never through a link, each through a temporary file; `check` and `inventory` write
+nothing (but `--out`).
+
 What the inventory carries is names and text the code states: project names and references, package ids
 and versions, route templates, configuration keys, the class names of background services, the
 base-address text of an HTTP client when it is a literal. Never a settings value, never a secret.

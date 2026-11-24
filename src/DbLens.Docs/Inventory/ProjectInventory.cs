@@ -3,6 +3,7 @@ namespace DbLens.Docs.Inventory;
 public enum ItemKind
 {
     Project,
+    Context,
     Entity,
     Endpoint,
     Config,

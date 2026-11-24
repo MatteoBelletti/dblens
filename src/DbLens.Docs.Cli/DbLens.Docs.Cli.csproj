@@ -1,0 +1,26 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- dblens-docs: the command line of DbLens.Docs. A dotnet tool; the logic is in DbLens.Docs. -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <AssemblyName>dblens-docs</AssemblyName>
+    <RootNamespace>DbLens.Docs.Cli</RootNamespace>
+    <PackAsTool>true</PackAsTool>
+    <ToolCommandName>dblens-docs</ToolCommandName>
+    <PackageId>DbLens.Docs.Cli</PackageId>
+    <Version>0.1.0</Version>
+    <Description>Project documentation for a .NET solution where completeness is guaranteed by code: an inventory read from syntax, a generated skeleton, and a check for CI.</Description>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageProjectUrl>https://github.com/MatteoBelletti/dblens</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/MatteoBelletti/dblens</RepositoryUrl>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\DbLens.Docs\DbLens.Docs.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="DbLens.Tests" />
+  </ItemGroup>
+
+</Project>

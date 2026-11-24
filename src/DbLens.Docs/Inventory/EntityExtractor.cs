@@ -14,9 +14,20 @@ internal static class EntityExtractor
         foreach (var model in models.OrderBy(m => m.ContextName, StringComparer.Ordinal))
         {
             var snapshot = files.FirstOrDefault(f => f.Text.Contains($"class {model.ContextName}ModelSnapshot", StringComparison.Ordinal));
+            items.Add(new InventoryItem(
+                $"context:{model.ContextName}", ItemKind.Context, model.ContextName, ItemEvidence.Extracted,
+                new SourceLocation(snapshot?.Path ?? $"({model.ContextName} snapshot)", snapshot is null ? 1 : LineOfText(snapshot.Text, $"class {model.ContextName}ModelSnapshot")),
+                new SortedDictionary<string, string>(StringComparer.Ordinal)
+                {
+                    ["defaultSchema"] = model.DefaultSchema ?? "",
+                    ["efVersion"] = model.ProductVersion ?? "",
+                    ["entities"] = model.Entities.Count.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                    ["migrations"] = model.MigrationIds.Count.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                },
+                [], null));
             foreach (var entity in model.Entities.OrderBy(e => e.Name, StringComparer.Ordinal))
             {
-                var at = new SourceLocation(snapshot?.Path ?? $"({model.ContextName} snapshot)", snapshot is null ? 1 : LineOf(snapshot.Text, entity.Name));
+                var at = new SourceLocation(snapshot?.Path ?? $"({model.ContextName} snapshot)", snapshot is null ? 1 : LineOfText(snapshot.Text, $"Entity(\"{entity.Name}\""));
                 var schema = entity.Schema ?? model.DefaultSchema;
                 items.Add(new InventoryItem(
                     $"entity:{model.ContextName}.{entity.Name}", ItemKind.Entity, entity.Name, ItemEvidence.Extracted, at,
@@ -39,9 +50,9 @@ internal static class EntityExtractor
         return (items, coverage);
     }
 
-    private static int LineOf(string text, string entityName)
+    private static int LineOfText(string text, string needle)
     {
-        var index = text.IndexOf($"Entity(\"{entityName}\"", StringComparison.Ordinal);
+        var index = text.IndexOf(needle, StringComparison.Ordinal);
         return index < 0 ? 1 : 1 + text.AsSpan(0, index).Count('\n');
     }
 }
