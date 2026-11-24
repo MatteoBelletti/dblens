@@ -18,9 +18,11 @@ public static class ProjectInventoryEngine
         var tests = csharp.Where(f => IsTestPath(f.Path)).ToList();
         var parsed = csharp.Except(tests).Select(f => new ParsedFile(f)).ToList();
 
+        // Two project files in one folder (Foo.csproj and Foo.Net48.csproj) share it: the first by path owns the files there.
         var projectDirectories = ordered
             .Where(f => f.Path.EndsWith(".csproj", StringComparison.OrdinalIgnoreCase))
-            .ToDictionary(f => DirectoryOf(f.Path), f => Path.GetFileNameWithoutExtension(f.Path), StringComparer.Ordinal);
+            .GroupBy(f => DirectoryOf(f.Path), StringComparer.Ordinal)
+            .ToDictionary(g => g.Key, g => Path.GetFileNameWithoutExtension(g.First().Path), StringComparer.Ordinal);
 
         var projects = ProjectExtractor.Extract(ordered);
         var (entityItems, entityCoverage) = EntityExtractor.Extract(models, ordered);

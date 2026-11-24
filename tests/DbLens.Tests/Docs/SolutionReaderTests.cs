@@ -55,6 +55,17 @@ public sealed class SolutionReaderTests : IDisposable
         read.Coverage.Should().ContainSingle(c => c.Area == "reading" && c.Count == 1);
     }
 
+    [Fact]
+    public void TheFileCap_KeepsTheFirstFilesByPath_WhateverTheFileSystemEnumeratesFirst()
+    {
+        foreach (var name in new[] { "e", "b", "d", "a", "c" }) Write($"src/{name}.cs", "class X {}");
+
+        var read = SolutionReader.Read(_root.FullName, maxFiles: 3);
+
+        read.Files.Select(f => f.Path).Should().Equal("src/a.cs", "src/b.cs", "src/c.cs");
+        read.Coverage.Should().ContainSingle(c => c.Note.Contains("first 3 files, by path") && c.Count == 2);
+    }
+
     [SkippableFact]
     public void ALinkIsNotFollowed()
     {

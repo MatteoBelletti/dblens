@@ -69,7 +69,7 @@ internal static class ProjectExtractor
             List<string> packages = [];
             foreach (var package in project.Descendants("PackageReference"))
             {
-                var id = package.Attribute("Include")?.Value ?? package.Attribute("Update")?.Value;
+                var id = package.Attribute("Include")?.Value; // an Update only changes a reference declared elsewhere
                 if (id is null) continue;
                 var version = (package.Attribute("Version")?.Value ?? package.Attribute("VersionOverride")?.Value ?? package.Element("Version")?.Value).NullIfBlank();
                 version ??= CentralVersion(file.Path, id, props);
@@ -95,6 +95,10 @@ internal static class ProjectExtractor
                 },
                 [], null));
         }
+
+        // The same project name in two folders (src/Web and samples/Web): the folder tells them apart.
+        var repeated = items.GroupBy(i => i.Name, StringComparer.Ordinal).Where(g => g.Count() > 1).Select(g => g.Key).ToHashSet(StringComparer.Ordinal);
+        items = [.. items.Select(i => repeated.Contains(i.Name) ? i with { Id = $"project:{i.Name} [{Directory(i.Source.File)}]" } : i)];
 
         List<CoverageNote> coverage = [];
         if (items.Count == 0 && unparsed == 0) coverage.Add(new CoverageNote("projects", "No .csproj file was found under the root.", 0));

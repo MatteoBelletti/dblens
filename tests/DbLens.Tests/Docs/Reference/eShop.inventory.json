@@ -2654,8 +2654,8 @@
     },
     {
       "area": "endpoints",
-      "note": "Map… calls that declare something this inventory does not list: MapDefaultControllerRoute x1, MapForwarder x1, MapGrpcService x1, MapRazorComponents x1, MapScalarApiReference x1.",
-      "count": 5
+      "note": "Map… calls that declare something this inventory does not list: MapDefaultControllerRoute x1, MapForwarder x1, MapGrpcService x1, MapRazorComponents x2, MapScalarApiReference x1.",
+      "count": 6
     },
     {
       "area": "http clients",

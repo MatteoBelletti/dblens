@@ -82,4 +82,38 @@ public sealed class ProjectInventoryTests
         inventory.Items.Should().BeEmpty();
         inventory.Coverage.Should().Contain(c => c.Note == "No .csproj file was found under the root.");
     }
+
+    [Fact]
+    public void TwoProjectFilesInOneFolder_AreBothProjects_AndDoNotBreakTheInventory()
+    {
+        var inventory = Build(
+            Project("src/Tools/Foo.csproj"), Project("src/Tools/Foo.Net48.csproj"),
+            InventoryTestSupport.Code("src/Tools/Client.cs", "class C { void M() { services.AddHttpClient<X>(); } }"));
+
+        inventory.Of(ItemKind.Project).Select(i => i.Id).Should().Equal("project:Foo", "project:Foo.Net48");
+        inventory.Item("http:X").Attributes["project"].Should().Be("Foo.Net48", "the first project file by path owns the folder");
+    }
+
+    [Fact]
+    public void TheSameProjectNameInTwoFolders_IsToldApartByFolder()
+    {
+        var inventory = Build(Project("src/Web/Web.csproj"), Project("samples/Web/Web.csproj"), Project("src/Core/Core.csproj"));
+
+        inventory.Of(ItemKind.Project).Select(i => i.Id).Should().Equal("project:Core", "project:Web [samples/Web]", "project:Web [src/Web]");
+    }
+
+    [Fact]
+    public void APackageUpdate_IsNotAPackageOfTheProject()
+    {
+        var inventory = Build(File("src/App/App.csproj", """
+            <Project Sdk="Microsoft.NET.Sdk">
+              <ItemGroup>
+                <PackageReference Include="Real" Version="1.0.0" />
+                <PackageReference Update="Other" PrivateAssets="all" />
+              </ItemGroup>
+            </Project>
+            """));
+
+        inventory.Item("project:App").Attributes["packages"].Should().Be("Real@1.0.0");
+    }
 }

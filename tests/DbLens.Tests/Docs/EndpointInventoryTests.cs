@@ -80,7 +80,7 @@ public sealed class EndpointInventoryTests
             public static class Api
             {
                 private const string Base = "api/things";
-                public static void Map(IEndpointRouteBuilder app)
+                public static void Map(WebApplication app)
                 {
                     app.MapGet(Base + "/{id}", One);
                     app.MapGet(Routes.Other, Two);
@@ -100,7 +100,7 @@ public sealed class EndpointInventoryTests
         var endpoints = Endpoints("""
             public static class Api
             {
-                public static void Map(IEndpointRouteBuilder app) =>
+                public static void Map(WebApplication app) =>
                     app.MapMethods("/check", [HttpMethods.Options, "head"], Check);
             }
             """);
@@ -114,7 +114,7 @@ public sealed class EndpointInventoryTests
         var endpoints = Endpoints("""
             public static class Api
             {
-                public static void Map(IEndpointRouteBuilder app)
+                public static void Map(WebApplication app)
                 {
                     var v1 = app.MapGroup("/api");
                     var v2 = app.MapGroup("/api");
@@ -218,11 +218,73 @@ public sealed class EndpointInventoryTests
     public void CodeUnderTestFolders_IsNotRead_AndSaysSo()
     {
         var inventory = Build(
-            Code("src/Api/Api.cs", "public static class A { public static void M(IEndpointRouteBuilder app) => app.MapGet(\"/real\", H); }"),
-            Code("tests/Api.Tests/Fake.cs", "public static class T { public static void M(IEndpointRouteBuilder app) => app.MapGet(\"/fake\", H); }"),
-            Code("src/Web.FunctionalTests/Fake2.cs", "public static class T2 { public static void M(IEndpointRouteBuilder app) => app.MapGet(\"/fake2\", H); }"));
+            Code("src/Api/Api.cs", "public static class A { public static void M(WebApplication app) => app.MapGet(\"/real\", H); }"),
+            Code("tests/Api.Tests/Fake.cs", "public static class T { public static void M(WebApplication app) => app.MapGet(\"/fake\", H); }"),
+            Code("src/Web.FunctionalTests/Fake2.cs", "public static class T2 { public static void M(WebApplication app) => app.MapGet(\"/fake2\", H); }"));
 
         inventory.Of(ItemKind.Endpoint).Should().ContainSingle().Which.Id.Should().Be("endpoint:GET /real");
         inventory.Coverage.Should().Contain(c => c.Area == "source" && c.Count == 2);
+    }
+
+    [Fact]
+    public void NamedAttributeArguments_AreNotTheTemplate()
+    {
+        var endpoints = Endpoints("""
+            [Route("api/[controller]")]
+            public class FooController : ControllerBase
+            {
+                [HttpGet(Name = "GetAll")] public IActionResult All() => Ok();
+                [HttpPost(Order = 1)] public IActionResult Create() => Ok();
+                [HttpGet("{id}", Name = "GetOne")] public IActionResult One(int id) => Ok();
+            }
+            """);
+
+        endpoints.Select(e => e.Id).Should().BeEquivalentTo("endpoint:GET /api/Foo", "endpoint:POST /api/Foo", "endpoint:GET /api/Foo/{id}");
+    }
+
+    [Fact]
+    public void ABuilderPassedAsAnArgument_TakesThePrefixOfTheCallSites_AndWithoutOneIsUnresolved()
+    {
+        var endpoints = Endpoints("""
+            public static class Orders
+            {
+                public static void MapOrders(RouteGroupBuilder g) { g.MapGet("/{id}", One); }
+            }
+            public static class Lost
+            {
+                public static void MapLost(RouteGroupBuilder g) { g.MapGet("/x", Two); }
+            }
+            """, """
+            var app = builder.Build();
+            Orders.MapOrders(app.MapGroup("/api/orders"));
+            """);
+
+        endpoints.Single(e => e.Attributes["handler"] == "One").Id.Should().Be("endpoint:GET /api/orders/{id}");
+        endpoints.Single(e => e.Attributes["handler"] == "Two").Reason.Should().Be("MapLost is called from nowhere in the files read, so its group is not known");
+    }
+
+    [Fact]
+    public void TwoGroupsWithTheSameVariableName_KeepTheirOwnPrefix()
+    {
+        var endpoints = Endpoints("""
+            public static class Api
+            {
+                public static void Map(WebApplication app)
+                {
+                    { var g = app.MapGroup("/a"); g.MapGet("/x", X); }
+                    { var g = app.MapGroup("/b"); g.MapGet("/y", Y); }
+                }
+            }
+            """);
+
+        endpoints.Select(e => e.Id).Should().Equal("endpoint:GET /a/x", "endpoint:GET /b/y");
+    }
+
+    [Fact]
+    public void EveryIdOfAnInventory_IsUnique()
+    {
+        var inventory = ProjectInventoryEngine.Build(DocsFixtures.EShop());
+
+        inventory.Items.Select(i => i.Id).Should().OnlyHaveUniqueItems();
     }
 }

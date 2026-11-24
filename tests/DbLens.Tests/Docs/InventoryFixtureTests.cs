@@ -44,7 +44,7 @@ public sealed class InventoryFixtureTests
         var coverage = EShop.Coverage;
 
         coverage.Should().Contain(c => c.Area == "endpoints" && c.Count == 14);
-        coverage.Should().Contain(c => c.Note.Contains("MapForwarder x1") && c.Note.Contains("MapGrpcService x1") && c.Note.Contains("MapRazorComponents x1"));
+        coverage.Should().Contain(c => c.Note.Contains("MapForwarder x1") && c.Note.Contains("MapGrpcService x1") && c.Note.Contains("MapRazorComponents x2"));
         coverage.Should().Contain(c => c.Area == "http clients" && c.Count == 1);
         coverage.Should().Contain(c => c.Area == "source" && c.Note.Contains("test folders"));
     }

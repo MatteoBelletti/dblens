@@ -26,7 +26,7 @@ public static class SolutionReader
         "bin", "obj", "node_modules", ".git", ".vs", ".idea", ".vscode",
     };
 
-    public static SolutionRead Read(string root)
+    public static SolutionRead Read(string root, int maxFiles = MaxFiles)
     {
         if (string.IsNullOrWhiteSpace(root) || !Directory.Exists(root))
             throw new ArgumentException("root must be an existing folder.");
@@ -36,10 +36,11 @@ public static class SolutionReader
         List<CoverageNote> coverage = [];
         var tooLarge = 0;
         var unreadable = 0;
-        var overLimit = false;
 
+        // Candidates first, ordered, then the cap: which files are kept must not depend on the file system's enumeration order.
+        List<string> candidates = [];
         Stack<string> pending = new([full]);
-        while (pending.Count > 0 && !overLimit)
+        while (pending.Count > 0)
         {
             var directory = pending.Pop();
             try
@@ -47,22 +48,26 @@ public static class SolutionReader
                 foreach (var sub in Directory.EnumerateDirectories(directory))
                     if (!SkippedFolders.Contains(Path.GetFileName(sub)) && !IsLink(sub)) pending.Push(sub);
 
-                foreach (var path in Directory.EnumerateFiles(directory).Where(IsRead).Where(p => !IsLink(p)))
+                candidates.AddRange(Directory.EnumerateFiles(directory).Where(IsRead).Where(p => !IsLink(p)));
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                unreadable++;
+            }
+        }
+
+        var overLimit = candidates.Count > maxFiles;
+        foreach (var path in candidates.OrderBy(p => Path.GetRelativePath(full, p).Replace('\\', '/'), StringComparer.Ordinal).Take(maxFiles))
+        {
+            try
+            {
+                if (new FileInfo(path).Length > MaxFileBytes)
                 {
-                    if (files.Count >= MaxFiles)
-                    {
-                        overLimit = true;
-                        break;
-                    }
-
-                    if (new FileInfo(path).Length > MaxFileBytes)
-                    {
-                        tooLarge++;
-                        continue;
-                    }
-
-                    files.Add(new SourceFile(Path.GetRelativePath(full, path).Replace('\\', '/'), File.ReadAllText(path)));
+                    tooLarge++;
+                    continue;
                 }
+
+                files.Add(new SourceFile(Path.GetRelativePath(full, path).Replace('\\', '/'), File.ReadAllText(path)));
             }
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
             {
@@ -72,7 +77,7 @@ public static class SolutionReader
 
         if (tooLarge > 0) coverage.Add(new CoverageNote("reading", $"Files over {MaxFileBytes / (1024 * 1024)} MB were not read.", tooLarge));
         if (unreadable > 0) coverage.Add(new CoverageNote("reading", "Folders or files that could not be read.", unreadable));
-        if (overLimit) coverage.Add(new CoverageNote("reading", $"Only the first {MaxFiles} files were read.", MaxFiles));
+        if (overLimit) coverage.Add(new CoverageNote("reading", $"Only the first {maxFiles} files, by path, were read.", candidates.Count - maxFiles));
 
         List<EfModel> models = [];
         foreach (var snapshot in files.Where(f => f.Path.EndsWith("ModelSnapshot.cs", StringComparison.Ordinal)).OrderBy(f => f.Path, StringComparer.Ordinal))
@@ -81,7 +86,7 @@ public static class SolutionReader
             {
                 models.Add(SnapshotReader.Read(Path.Combine(full, snapshot.Path)));
             }
-            catch (ArgumentException ex)
+            catch (Exception ex) when (ex is ArgumentException or IOException or UnauthorizedAccessException)
             {
                 coverage.Add(new CoverageNote("data model", $"The EF Core snapshot {snapshot.Path} was not read: {ex.Message}", 1));
             }

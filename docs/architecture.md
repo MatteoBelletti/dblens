@@ -123,7 +123,7 @@ See [safety.md](safety.md#signal-verification) for the guarantees.
 3. `EfModelMatcher` pairs entities with tables and properties with columns; `EfDriftEngine` turns the
    pairs into findings — both pure.
 
-Roslyn stays out of Core: only `DbLens.Mcp` references `DbLens.EfCore`. The test snapshots under
+Roslyn stays out of Core: only `DbLens.Mcp` and `DbLens.Docs` reference `DbLens.EfCore`. The test snapshots under
 `tests/DbLens.Tests/Fixtures/EfSnapshots/ef{8,9,10}` are written by the real `dotnet ef` of each major
 from `samples/DemoShop.EfCore` (`scripts/generate-ef-fixtures.sh`), because the snapshot format may
 change between versions; the fixtures are copied to the test output and never compiled. The same

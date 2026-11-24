@@ -32,6 +32,13 @@ empty inventory is never an all-clear.
   (`/{controller}/{action}`), but the inventory states only what the code writes; a later milestone may
   add it as `Inferred`, with a confidence.
 - **No value of a settings file ever enters the inventory**, only its keys.
+- **A builder handed to a method is followed to its call sites.** `MapCatalogApi(this IEndpointRouteBuilder app)`
+  takes the prefix of every `x.MapCatalogApi()` and `Class.Map(group)` in the files read, when they agree;
+  a method called from nowhere in them is unresolved (its group is not known). The exception is a
+  parameter typed `WebApplication`, always the root. A group variable is the nearest declaration before the
+  use, so two variables of the same name in one method keep their own prefix.
+- **Two project files in one folder** share it: the first by path owns the source files there. Two
+  projects of the same name in different folders are told apart by folder in the id.
 - **Tests are not scanned** (a path segment `tests`, `test`, `e2e`, or ending `.Tests`/`.UnitTests`/…),
   and the coverage says how many files were left out. Test *projects* are still projects.
 - **One I/O class.** `SolutionReader` reads the folder; the engine takes files and EF models, so it is
@@ -41,7 +48,7 @@ empty inventory is never an all-clear.
 
 | Test | Holds |
 |---|---|
-| `EndpointInventoryTests` | routes through groups, versioned builders, extensions called from top-level statements, constants, `MapMethods`, controllers (tokens, absolute templates, `[NonAction]`), conventional routing, id collisions and stability, what is only counted |
+| `EndpointInventoryTests` | named attribute arguments, builders passed as arguments, groups sharing a name, routes through groups, versioned builders, extensions called from top-level statements, constants, `MapMethods`, controllers (tokens, absolute templates, `[NonAction]`), conventional routing, id collisions and stability, what is only counted |
 | `HostingInventoryTests` | configuration keys and sections, settings files without values, clients, background services, cycles |
 | `ProjectInventoryTests` | SDK, output type, frameworks, references, central versions, what MSBuild would resolve, invalid XML, no project |
 | `InventoryFixtureTests` | eShop: 28 projects, 19 entities, 45 endpoints (31 extracted, 14 unresolved), 4 clients, 3 background services; DemoShop's two contexts |

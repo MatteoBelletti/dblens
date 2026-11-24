@@ -47,7 +47,7 @@ internal sealed class EndpointExtractor
 
     private readonly Dictionary<string, Dictionary<string, string>> _constants = new(StringComparer.Ordinal);
     private readonly Dictionary<string, List<(ParsedFile File, InvocationExpressionSyntax Call)>> _calls = new(StringComparer.Ordinal);
-    private readonly Dictionary<SyntaxNode, Dictionary<string, string?>> _locals = [];
+    private readonly Dictionary<SyntaxNode, Dictionary<string, List<Declared>>> _locals = [];
     private readonly HashSet<string> _declaredHere = new(StringComparer.Ordinal);
 
     private EndpointExtractor(IReadOnlyList<ParsedFile> files)
@@ -61,12 +61,17 @@ internal sealed class EndpointExtractor
                 _declaredHere.Add(method.Identifier.Text);
 
             foreach (var call in file.Root.DescendantNodes().OfType<InvocationExpressionSyntax>())
-                if (call.Expression is MemberAccessExpressionSyntax access)
+            {
+                var name = call.Expression switch
                 {
-                    var name = access.Name.Identifier.Text;
-                    if (!_calls.TryGetValue(name, out var list)) _calls[name] = list = [];
-                    list.Add((file, call));
-                }
+                    MemberAccessExpressionSyntax access => access.Name.Identifier.Text,
+                    IdentifierNameSyntax id => id.Identifier.Text,
+                    _ => null,
+                };
+                if (name is null) continue;
+                if (!_calls.TryGetValue(name, out var list)) _calls[name] = list = [];
+                list.Add((file, call));
+            }
         }
     }
 
@@ -187,14 +192,18 @@ internal sealed class EndpointExtractor
         switch (receiver)
         {
             case IdentifierNameSyntax id:
-                var locals = Locals(scope);
-                if (locals.TryGetValue(id.Identifier.Text, out var local))
+                var declared = Locals(scope).GetValueOrDefault(id.Identifier.Text)?.LastOrDefault(d => d.Start < id.SpanStart);
+                if (declared is { } local)
                 {
-                    if (local is null) why["reason"] = $"the group {id.Identifier.Text} is not written as text";
-                    return local;
+                    if (local.Prefix is null) why["reason"] = $"the group {id.Identifier.Text} is not written as text";
+                    return local.Prefix;
                 }
-                if ((scope as BaseMethodDeclarationSyntax)?.ParameterList.Parameters.Any(p => p.Identifier.Text == id.Identifier.Text) == true)
-                    return ExtensionPrefix((BaseMethodDeclarationSyntax)scope, why, depth);
+                if ((scope as BaseMethodDeclarationSyntax)?.ParameterList.Parameters.FirstOrDefault(p => p.Identifier.Text == id.Identifier.Text) is { } parameter)
+                {
+                    // The application itself is always the root; an IEndpointRouteBuilder or a RouteGroupBuilder may be a group.
+                    if (parameter.Type?.ToString() is "WebApplication" or "Microsoft.AspNetCore.Builder.WebApplication") return "";
+                    return BuilderParameterPrefix((BaseMethodDeclarationSyntax)scope, id.Identifier.Text, why, depth);
+                }
                 if (RootBuilders.Contains(id.Identifier.Text)) return "";
                 why["reason"] = $"the receiver {id.Identifier.Text} is not a known builder";
                 return null;
@@ -226,9 +235,9 @@ internal sealed class EndpointExtractor
         }
     }
 
-    // A builder parameter of an extension method (MapCatalogApi(this IEndpointRouteBuilder app)):
-    // the prefix of its call sites, when they all agree.
-    private string? ExtensionPrefix(BaseMethodDeclarationSyntax method, Dictionary<string, string> why, int depth)
+    // A builder that is a parameter of a method (MapCatalogApi(this IEndpointRouteBuilder app), or MapOrders(RouteGroupBuilder g)):
+    // the prefix of the argument at each call site, when they all agree. A method called from nowhere in the files read is unresolved.
+    private string? BuilderParameterPrefix(BaseMethodDeclarationSyntax method, string parameter, Dictionary<string, string> why, int depth)
     {
         if (method is not MethodDeclarationSyntax declaration)
         {
@@ -237,28 +246,63 @@ internal sealed class EndpointExtractor
         }
 
         var name = declaration.Identifier.Text;
-        if (!_calls.TryGetValue(name, out var sites)) return ""; // handed in from outside the files read: taken as the root
+        var parameters = declaration.ParameterList.Parameters;
+        var index = parameters.IndexOf(p => p.Identifier.Text == parameter);
+        var isExtension = parameters.Count > 0 && parameters[0].Modifiers.Any(SyntaxKind.ThisKeyword);
+
+        if (!_calls.TryGetValue(name, out var sites))
+        {
+            why["reason"] = $"{name} is called from nowhere in the files read, so its group is not known";
+            return null;
+        }
 
         HashSet<string?> found = [];
         foreach (var (_, call) in sites)
-            found.Add(PrefixOf(((MemberAccessExpressionSyntax)call.Expression).Expression, ScopeOf(call), why, depth + 1));
+        {
+            var argument = ArgumentFor(call, index, parameters.Count, isExtension);
+            if (argument is null) continue;
+            found.Add(PrefixOf(argument, ScopeOf(call), why, depth + 1));
+        }
+
+        if (found.Count == 0)
+        {
+            why["reason"] = $"no call of {name} passes its group in a way that can be followed";
+            return null;
+        }
 
         if (found.Count == 1) return found.First();
         why["reason"] = $"{name} is called on groups with different prefixes";
         return null;
     }
 
-    private Dictionary<string, string?> Locals(SyntaxNode scope)
+    // The expression a call passes for parameter number `index`: the receiver for the first parameter of an extension method
+    // called as x.M(), else the argument at the same position (shifted by one when the receiver stands for the first parameter).
+    private static ExpressionSyntax? ArgumentFor(InvocationExpressionSyntax call, int index, int parameterCount, bool isExtension)
+    {
+        var arguments = call.ArgumentList.Arguments;
+        var receiverStyle = isExtension && call.Expression is MemberAccessExpressionSyntax && arguments.Count == parameterCount - 1;
+        if (receiverStyle) return index == 0 ? ((MemberAccessExpressionSyntax)call.Expression).Expression : index - 1 < arguments.Count ? arguments[index - 1].Expression : null;
+        return index < arguments.Count ? arguments[index].Expression : null;
+    }
+
+    private sealed record Declared(int Start, string? Prefix);
+
+    // The group variables of a scope, by name, each with where it is declared: a use sees the nearest declaration before it.
+    private Dictionary<string, List<Declared>> Locals(SyntaxNode scope)
     {
         if (_locals.TryGetValue(scope, out var cached)) return cached;
 
-        var map = new Dictionary<string, string?>(StringComparer.Ordinal);
+        var map = new Dictionary<string, List<Declared>>(StringComparer.Ordinal);
         _locals[scope] = map; // before resolving, so a variable that refers to itself ends instead of looping
         foreach (var declarator in scope.DescendantNodes().OfType<VariableDeclaratorSyntax>())
             if (declarator.Initializer?.Value is InvocationExpressionSyntax { Expression: MemberAccessExpressionSyntax } init
                 && init.DescendantNodesAndSelf().OfType<InvocationExpressionSyntax>().Any(i =>
                     i.Expression is MemberAccessExpressionSyntax m && m.Name.Identifier.Text is "MapGroup" or "NewVersionedApi"))
-                map[declarator.Identifier.Text] = PrefixOf(init, scope, [], 1);
+            {
+                var name = declarator.Identifier.Text;
+                if (!map.TryGetValue(name, out var list)) map[name] = list = [];
+                list.Add(new Declared(init.Span.End, PrefixOf(init, scope, [], 1)));
+            }
         return map;
     }
 
@@ -286,8 +330,7 @@ internal sealed class EndpointExtractor
                 {
                     var verb = AttributeName(attribute)[4..].ToUpperInvariant();
                     var at = file.Locate(method);
-                    var templateExpression = attribute.ArgumentList?.Arguments.FirstOrDefault()?.Expression
-                                             ?? AttributeArgument(method.AttributeLists, "Route");
+                    var templateExpression = Template(attribute) ?? AttributeArgument(method.AttributeLists, "Route");
                     var template = templateExpression is null ? null : RouteText.Of(templateExpression, constants, out _);
 
                     if (classRouteExpression is null && templateExpression is null)
@@ -332,5 +375,9 @@ internal sealed class EndpointExtractor
         lists.SelectMany(l => l.Attributes).Any(a => AttributeName(a) == name);
 
     private static ExpressionSyntax? AttributeArgument(SyntaxList<AttributeListSyntax> lists, string name) =>
-        lists.SelectMany(l => l.Attributes).FirstOrDefault(a => AttributeName(a) == name)?.ArgumentList?.Arguments.FirstOrDefault()?.Expression;
+        Template(lists.SelectMany(l => l.Attributes).FirstOrDefault(a => AttributeName(a) == name));
+
+    // The template is the first positional argument: [HttpGet(Name = "x")] and [HttpGet(Order = 1)] carry none.
+    private static ExpressionSyntax? Template(AttributeSyntax? attribute) =>
+        attribute?.ArgumentList?.Arguments.FirstOrDefault(a => a.NameEquals is null && a.NameColon is null)?.Expression;
 }
