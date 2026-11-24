@@ -26,26 +26,35 @@ public static class DocsFolder
     {
         var folder = Resolve(root, options);
         Directory.CreateDirectory(folder);
-        foreach (var (path, text) in files)
+
+        // Every file is written under a temporary name first, and only then moved into place: a failure while
+        // writing leaves every document as it was; one while moving leaves the earlier ones replaced.
+        List<(string Temporary, string Target)> staged = [];
+        try
         {
-            if (!path.StartsWith(options.Folder + "/", StringComparison.Ordinal)) throw new ArgumentException($"{path} is not in the docs folder {options.Folder}.");
-            var name = path[(options.Folder.Length + 1)..];
-            if (!DocPlan.Files.Contains(name, StringComparer.Ordinal)) throw new ArgumentException($"{path} is not one of the project documents.");
-
-            var target = Path.Combine(folder, name);
-            if (File.Exists(target) && File.GetAttributes(target).HasFlag(FileAttributes.ReparsePoint))
-                throw new ArgumentException($"{path} is a link and was not written.");
-
-            // A name nobody could have planted: CreateNew fails on anything that already exists, a link included.
-            var temporary = $"{target}.{Guid.NewGuid():N}.tmp";
-            try
+            foreach (var (path, text) in files)
             {
-                using (var stream = new FileStream(temporary, FileMode.CreateNew, FileAccess.Write))
-                using (var writer = new StreamWriter(stream, new System.Text.UTF8Encoding(false)))
-                    writer.Write(text);
-                File.Move(temporary, target, overwrite: true);
+                if (!path.StartsWith(options.Folder + "/", StringComparison.Ordinal)) throw new ArgumentException($"{path} is not in the docs folder {options.Folder}.");
+                var name = path[(options.Folder.Length + 1)..];
+                if (!DocPlan.Files.Contains(name, StringComparer.Ordinal)) throw new ArgumentException($"{path} is not one of the project documents.");
+
+                var target = Path.Combine(folder, name);
+                if (File.Exists(target) && File.GetAttributes(target).HasFlag(FileAttributes.ReparsePoint))
+                    throw new ArgumentException($"{path} is a link and was not written.");
+
+                // A name nobody could have planted: CreateNew fails on anything that already exists, a link included.
+                var temporary = $"{target}.{Guid.NewGuid():N}.tmp";
+                staged.Add((temporary, target));
+                using var stream = new FileStream(temporary, FileMode.CreateNew, FileAccess.Write);
+                using var writer = new StreamWriter(stream, new System.Text.UTF8Encoding(false));
+                writer.Write(text);
             }
-            catch
+
+            foreach (var (temporary, target) in staged) File.Move(temporary, target, overwrite: true);
+        }
+        catch
+        {
+            foreach (var (temporary, _) in staged)
             {
                 try
                 {
@@ -55,9 +64,41 @@ public static class DocsFolder
                 {
                     // The error that matters is the one being thrown.
                 }
-
-                throw;
             }
+
+            throw;
+        }
+    }
+
+    /// <summary>
+    /// Runs <paramref name="work"/> while holding the lock of this docs folder, which every process that reads
+    /// the documents in order to write them takes (the command line and the MCP server): two of them never read
+    /// the same text and write one after the other, losing the first's. The lock file is in the temporary folder, not in the repository.
+    /// </summary>
+    public static T Locked<T>(string root, DocsOptions options, Func<T> work, TimeSpan? wait = null)
+    {
+        var name = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(Resolve(root, options))))[..16];
+        var path = Path.Combine(Path.GetTempPath(), $"dblens-docs-{name}.lock");
+        var until = DateTime.UtcNow + (wait ?? TimeSpan.FromSeconds(30));
+
+        while (true)
+        {
+            FileStream? held = null;
+            try
+            {
+                held = new FileStream(path, FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None, 1, FileOptions.DeleteOnClose);
+            }
+            catch (IOException) when (DateTime.UtcNow < until)
+            {
+                Thread.Sleep(50);
+                continue;
+            }
+            catch (IOException)
+            {
+                throw new IOException("Another dblens-docs is writing these documents: try again in a moment.");
+            }
+
+            using (held) return work();
         }
     }
 

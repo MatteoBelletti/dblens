@@ -180,6 +180,62 @@ public sealed class ScaffoldTests
     }
 
     [Fact]
+    public void AWriteThatFailsWhileStaging_ChangesNoDocument_AndLeavesNoTemporaryFile()
+    {
+        var root = Path.Combine(Path.GetTempPath(), $"dblens-docs-atomic-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(Path.Combine(root, "docs", "project"));
+        var api = Path.Combine(root, "docs", "project", "api.md");
+        System.IO.File.WriteAllText(api, "old");
+        try
+        {
+            var files = new Dictionary<string, string> { ["docs/project/api.md"] = "new", ["docs/project/notes.md"] = "not a project document" };
+
+            new Action(() => DocsFolder.Write(root, new DocsOptions(), files)).Should().Throw<ArgumentException>();
+
+            System.IO.File.ReadAllText(api).Should().Be("old");
+            Directory.GetFiles(Path.Combine(root, "docs", "project")).Should().Equal(api);
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void TheFolderLock_LetsOneWriterIn_AtATime_AndSaysSoWhenItCannotWait()
+    {
+        var root = Path.Combine(Path.GetTempPath(), $"dblens-docs-lock-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(root);
+        try
+        {
+            var options = new DocsOptions();
+            var inside = 0;
+            var overlapped = false;
+            var counter = 0;
+
+            Parallel.For(0, 8, _ => DocsFolder.Locked(root, options, () =>
+            {
+                if (Interlocked.Increment(ref inside) > 1) overlapped = true;
+                var seen = counter;
+                Thread.Sleep(5);
+                counter = seen + 1;
+                Interlocked.Decrement(ref inside);
+                return 0;
+            }));
+
+            overlapped.Should().BeFalse();
+            counter.Should().Be(8, "no increment started from a stale value");
+
+            DocsFolder.Locked(root, options, () =>
+                new Action(() => DocsFolder.Locked(root, options, () => 0, TimeSpan.FromMilliseconds(200))).Should().Throw<IOException>().WithMessage("*Another dblens-docs*"));
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
+    [Fact]
     public void ADocsFolderThatIsALink_IsRefused_AndSoIsAnyFolderAboveIt()
     {
         var root = Path.Combine(Path.GetTempPath(), $"dblens-docs-link-{Guid.NewGuid():N}");

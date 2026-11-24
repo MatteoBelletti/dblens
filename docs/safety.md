@@ -253,7 +253,7 @@ no database: the data model comes from the EF snapshots alone.
 `dblens-docs scaffold` and `confirm` **write**: only the five known Markdown files of the docs folder, which
 must be inside the root, never through a link (neither the files nor any folder of the docs path below the
 root), each through a temporary file with a name that cannot already exist; two writes of the MCP server never
-overlap (the command-line `scaffold` and `confirm` are other processes and are not part of that lock: run them while no agent is writing; several documents are written one after the other, not as one transaction, so a failure part-way leaves the earlier ones written and `scaffold` run again finishes the job); `check` and `inventory` write
+overlap, and neither do those of a command-line `scaffold` or `confirm` running at the same time: each takes a lock of the docs folder (a file in the temporary folder, so nothing is added to the repository) and waits up to 30 seconds for it. A write stages every file under a temporary name before moving any into place, so a failure while writing changes no document; `check` and `inventory` write
 nothing (but `--out`).
 
 `dblens-docs mcp` serves the same folder to a model, and **fixed when it starts**: no tool takes a path.

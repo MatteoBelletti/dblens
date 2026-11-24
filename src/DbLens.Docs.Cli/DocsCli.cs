@@ -94,8 +94,12 @@ public static class DocsCli
                 return 0;
 
             case "scaffold":
-                var result = Scaffolder.Scaffold(inventory, DocsFolder.Read(root, docs), docs);
-                DocsFolder.Write(root, docs, result.Files);
+                var result = DocsFolder.Locked(root, docs, () =>
+                {
+                    var scaffolded = Scaffolder.Scaffold(inventory, DocsFolder.Read(root, docs), docs);
+                    DocsFolder.Write(root, docs, scaffolded.Files);
+                    return scaffolded;
+                });
                 var r = result.Report;
                 output.WriteLine($"{result.Files.Count} documents in {docs.Folder}: {r.Added.Count} added, {r.Changed.Count} changed, {r.Removed.Count} removed, {r.Stale.Count} slots stale, {r.MarkedHuman.Count} slots marked human.");
                 foreach (var id in r.Removed) output.WriteLine($"  removed: {id}");
@@ -104,11 +108,15 @@ public static class DocsCli
 
             case "confirm":
                 var id2 = positional[0];
-                var documents = DocsFolder.Read(root, docs);
                 var item = inventory.Items.FirstOrDefault(i => i.Id == id2) ?? throw new ArgumentException($"{id2} is not in the inventory.");
-                var (path, text) = documents.FirstOrDefault(d => DocumentModel.Parse(d.Value).Blocks.Any(b => b.Id == id2 && b.Slot is not null));
-                if (path is null) throw new ArgumentException($"No slot for {id2} in the documents.");
-                DocsFolder.Write(root, docs, new Dictionary<string, string> { [path] = Scaffolder.Confirm(text, id2, ItemHash.Of(item)) });
+                DocsFolder.Locked(root, docs, () =>
+                {
+                    var documents = DocsFolder.Read(root, docs);
+                    var (path, text) = documents.FirstOrDefault(d => DocumentModel.Parse(d.Value).Blocks.Any(b => b.Id == id2 && b.Slot is not null));
+                    if (path is null) throw new ArgumentException($"No slot for {id2} in the documents.");
+                    DocsFolder.Write(root, docs, new Dictionary<string, string> { [path] = Scaffolder.Confirm(text, id2, ItemHash.Of(item)) });
+                    return 0;
+                });
                 output.WriteLine($"{id2} is confirmed as human.");
                 return 0;
 
