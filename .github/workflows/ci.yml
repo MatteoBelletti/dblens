@@ -31,6 +31,7 @@ jobs:
           claude plugin validate --strict .
           claude plugin validate --strict ./plugins/dblens
           claude plugin validate --strict ./plugins/dotnet-review
+          claude plugin validate ./plugins/dblens-dev
 
   build:
     name: Build and test

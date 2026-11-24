@@ -29,7 +29,7 @@ execution:
     - "mcp__plugin_dblens_dblens__compare_ef_model"
     - "mcp__plugin_dblens_dblens__check_migration_safety"
     - "mcp__plugin_dblens_dblens__scan_gdpr"
-  prompt: "Run the dblens audit workflow with args {\"dialect\": \"PostgreSql\", \"schema\": \"shop\", \"efSnapshot\": \"<the absolute path of DemoShop.EfCore/Migrations/PostgreSql in the current working directory>\", \"efScript\": true, \"outDir\": \"./dblens-audit\", \"runLabel\": \"eval-ef\"}: building that project is allowed. When it finishes, Read the Markdown report it wrote and print it in full."
+  prompt: "Run the dblens audit workflow (dblens:run-audit) with args {\"dialect\": \"PostgreSql\", \"connection\": \"eval-demo-pg\", \"expectedDatabase\": \"dblens_demo\", \"schema\": \"shop\", \"efSnapshot\": \"<the absolute path of DemoShop.EfCore/Migrations/PostgreSql in the current working directory>\", \"efScript\": true, \"outDir\": \"./dblens-audit\", \"runLabel\": \"eval-ef\"}: building that project is allowed. When it finishes, Read the Markdown report it wrote and print it in full."
 graders:
   # Every analyst agent returned its findings.
   - name: all-ran

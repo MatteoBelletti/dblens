@@ -1,0 +1,42 @@
+schema_version: "1.0"
+name: wrong-database
+description: "The audit is told to expect another database than the server reaches: it stops, nothing is audited"
+runs: 1
+context:
+  scaffold_script: scaffold.sh
+execution:
+  max_turns: 6
+  timeout_seconds: 300
+  allowed_tools:
+    - "Skill"
+    - "Workflow"
+    - "Read"
+    - "Write"
+    - "Glob"
+    - "ToolSearch"
+    - "mcp__plugin_dblens_dblens__ping"
+    - "mcp__plugin_dblens_dblens__get_schema"
+    - "mcp__plugin_dblens_dblens__get_table_details"
+    - "mcp__plugin_dblens_dblens__analyze_indexes"
+    - "mcp__plugin_dblens_dblens__analyze_fragmentation"
+    - "mcp__plugin_dblens_dblens__analyze_table_hygiene"
+    - "mcp__plugin_dblens_dblens__analyze_denormalization"
+    - "mcp__plugin_dblens_dblens__infer_relationships"
+    - "mcp__plugin_dblens_dblens__check_cascade_paths"
+    - "mcp__plugin_dblens_dblens__find_hot_queries"
+    - "mcp__plugin_dblens_dblens__explain_query"
+    - "mcp__plugin_dblens_dblens__compare_ef_model"
+    - "mcp__plugin_dblens_dblens__check_migration_safety"
+    - "mcp__plugin_dblens_dblens__scan_gdpr"
+  prompt: "Run the dblens audit workflow (dblens:run-audit) with args {\"dialect\": \"PostgreSql\", \"connection\": \"eval-demo-pg\", \"expectedDatabase\": \"something_else\", \"schema\": \"public\", \"outDir\": \"./dblens-audit\", \"runLabel\": \"eval-wrong\"}. Report what happened in one sentence; do not retry or change the args."
+graders:
+  # No report was written.
+  - name: no-report
+    type: "file_exists"
+    path: "dblens-audit/dblens-audit-eval-wrong.md"
+    exists: false
+  # The error names the database it reached and the one expected.
+  - name: says-which
+    type: "regex"
+    pattern: 'not the expected'
+    match: "contains"
