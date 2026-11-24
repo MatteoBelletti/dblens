@@ -70,7 +70,8 @@
         "key": "Id",
         "properties": "1",
         "sharesTableWith": "DemoShop.EfCore.Payment",
-        "table": "shop.payments"
+        "table": "shop.payments",
+        "usedBy": ""
       },
       "alsoAt": []
     },
@@ -89,7 +90,8 @@
         "key": "Id",
         "properties": "1",
         "sharesTableWith": "DemoShop.EfCore.Payment",
-        "table": "shop.payments"
+        "table": "shop.payments",
+        "usedBy": ""
       },
       "alsoAt": []
     },
@@ -108,7 +110,8 @@
         "key": "Id",
         "properties": "3",
         "sharesTableWith": "",
-        "table": "shop.categories"
+        "table": "shop.categories",
+        "usedBy": ""
       },
       "alsoAt": []
     },
@@ -127,7 +130,8 @@
         "key": "Id",
         "properties": "5",
         "sharesTableWith": "",
-        "table": "shop.orders"
+        "table": "shop.orders",
+        "usedBy": ""
       },
       "alsoAt": []
     },
@@ -146,7 +150,8 @@
         "key": "Id",
         "properties": "5",
         "sharesTableWith": "",
-        "table": "shop.order_items"
+        "table": "shop.order_items",
+        "usedBy": ""
       },
       "alsoAt": []
     },
@@ -165,7 +170,8 @@
         "key": "Id",
         "properties": "4",
         "sharesTableWith": "",
-        "table": "shop.payments"
+        "table": "shop.payments",
+        "usedBy": ""
       },
       "alsoAt": []
     },
@@ -184,7 +190,8 @@
         "key": "Id",
         "properties": "2",
         "sharesTableWith": "DemoShop.EfCore.User",
-        "table": "shop.users"
+        "table": "shop.users",
+        "usedBy": ""
       },
       "alsoAt": []
     },
@@ -203,7 +210,8 @@
         "key": "Id",
         "properties": "6",
         "sharesTableWith": "",
-        "table": "shop.products"
+        "table": "shop.products",
+        "usedBy": ""
       },
       "alsoAt": []
     },
@@ -222,7 +230,8 @@
         "key": "Id",
         "properties": "6",
         "sharesTableWith": "",
-        "table": "shop.users"
+        "table": "shop.users",
+        "usedBy": ""
       },
       "alsoAt": []
     },
@@ -241,7 +250,8 @@
         "key": "Id",
         "properties": "1",
         "sharesTableWith": "DemoShop.EfCore.Payment",
-        "table": "shop.payments"
+        "table": "shop.payments",
+        "usedBy": ""
       },
       "alsoAt": []
     },
@@ -260,7 +270,8 @@
         "key": "Id",
         "properties": "1",
         "sharesTableWith": "DemoShop.EfCore.Payment",
-        "table": "shop.payments"
+        "table": "shop.payments",
+        "usedBy": ""
       },
       "alsoAt": []
     },
@@ -279,7 +290,8 @@
         "key": "Id",
         "properties": "3",
         "sharesTableWith": "",
-        "table": "shop.categories"
+        "table": "shop.categories",
+        "usedBy": ""
       },
       "alsoAt": []
     },
@@ -298,7 +310,8 @@
         "key": "Id",
         "properties": "5",
         "sharesTableWith": "",
-        "table": "shop.orders"
+        "table": "shop.orders",
+        "usedBy": ""
       },
       "alsoAt": []
     },
@@ -317,7 +330,8 @@
         "key": "Id",
         "properties": "5",
         "sharesTableWith": "",
-        "table": "shop.order_items"
+        "table": "shop.order_items",
+        "usedBy": ""
       },
       "alsoAt": []
     },
@@ -336,7 +350,8 @@
         "key": "Id",
         "properties": "4",
         "sharesTableWith": "",
-        "table": "shop.payments"
+        "table": "shop.payments",
+        "usedBy": ""
       },
       "alsoAt": []
     },
@@ -355,7 +370,8 @@
         "key": "Id",
         "properties": "2",
         "sharesTableWith": "DemoShop.EfCore.User",
-        "table": "shop.users"
+        "table": "shop.users",
+        "usedBy": ""
       },
       "alsoAt": []
     },
@@ -374,7 +390,8 @@
         "key": "Id",
         "properties": "6",
         "sharesTableWith": "",
-        "table": "shop.products"
+        "table": "shop.products",
+        "usedBy": ""
       },
       "alsoAt": []
     },
@@ -393,7 +410,8 @@
         "key": "Id",
         "properties": "6",
         "sharesTableWith": "",
-        "table": "shop.users"
+        "table": "shop.users",
+        "usedBy": ""
       },
       "alsoAt": []
     }

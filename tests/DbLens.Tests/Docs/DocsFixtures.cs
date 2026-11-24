@@ -15,6 +15,9 @@ internal static class DocsFixtures
     /// <summary>samples/DemoShop.EfCore, found from the test output up to the repository root.</summary>
     public static string DemoShopFolder => Path.Combine(RepositoryRoot, "samples", "DemoShop.EfCore");
 
+    /// <summary>examples/dblens-docs/shop-api: a small API with its generated documents, words included.</summary>
+    public static string ExampleFolder => Path.Combine(RepositoryRoot, "examples", "dblens-docs", "shop-api");
+
     private static string RepositoryRoot
     {
         get

@@ -6,7 +6,9 @@ namespace DbLens.Docs.Inventory;
 
 /// <summary>An endpoint declaration as read; the id is assigned once every one is known.</summary>
 internal sealed record RawEndpoint(
-    string Verb, string? Route, string? Reason, SourceLocation At, string? Handler, string Style, string? RelativeRoute = null);
+    string Verb, string? Route, string? Reason, SourceLocation At, string? Handler, string Style, string? RelativeRoute = null,
+    /// <summary>The syntax of the handler (a lambda, or the method it names), when it could be found: what links an endpoint to the entities its code names.</summary>
+    SyntaxNode? Body = null);
 
 internal sealed record EndpointExtraction(
     IReadOnlyList<RawEndpoint> Endpoints,
@@ -87,7 +89,30 @@ internal sealed class EndpointExtractor
             run.Controllers(file, endpoints);
         }
 
-        return new EndpointExtraction(endpoints, other);
+        return new EndpointExtraction(ResolveBodies(files, endpoints), other);
+    }
+
+    // A handler written as a method name: the method of that name in the endpoint's own file, or the only one in the solution.
+    private static List<RawEndpoint> ResolveBodies(IReadOnlyList<ParsedFile> files, List<RawEndpoint> endpoints)
+    {
+        var byFile = files.ToDictionary(f => f.Path, f => f.Root.DescendantNodes().Where(n => n is MethodDeclarationSyntax or LocalFunctionStatementSyntax).ToList(), StringComparer.Ordinal);
+
+        static string? NameOf(SyntaxNode n) => n switch
+        {
+            MethodDeclarationSyntax m => m.Identifier.Text,
+            LocalFunctionStatementSyntax l => l.Identifier.Text,
+            _ => null,
+        };
+
+        return [.. endpoints.Select(e =>
+        {
+            if (e.Body is not null || e.Handler is null || e.Style != "minimal") return e;
+            var local = byFile.GetValueOrDefault(e.At.File)?.Where(n => NameOf(n) == e.Handler).ToList() ?? [];
+            if (local.Count == 1) return e with { Body = local[0] };
+            if (local.Count > 1) return e;
+            var everywhere = byFile.Values.SelectMany(v => v).Where(n => NameOf(n) == e.Handler).ToList();
+            return everywhere.Count == 1 ? e with { Body = everywhere[0] } : e;
+        })];
     }
 
     // ── Minimal APIs ────────────────────────────────────────────────────────────
@@ -124,12 +149,13 @@ internal sealed class EndpointExtractor
         var prefix = PrefixOf(access.Expression, scope, why, 0);
         var route = RouteText.Of(Arg(call, routeAt), _constants[file.Path], out var routeReason);
         var handler = HandlerName(Arg(call, handlerAt));
+        var body = Arg(call, handlerAt) is AnonymousFunctionExpressionSyntax lambda ? lambda : null;
         var at = file.Locate(call);
 
         return prefix is not null && route is not null
-            ? new RawEndpoint(verb, RouteText.Join(prefix, route), null, at, handler, "minimal")
+            ? new RawEndpoint(verb, RouteText.Join(prefix, route), null, at, handler, "minimal", Body: body)
             : new RawEndpoint(verb, null, routeReason ?? why.GetValueOrDefault("reason") ?? "the group it belongs to is not written as text", at, handler, "minimal",
-                RelativeRoute: route is null ? null : RouteText.Join("", route));
+                RelativeRoute: route is null ? null : RouteText.Join("", route), Body: body);
     }
 
     private IEnumerable<RawEndpoint> MapMethods(ParsedFile file, InvocationExpressionSyntax call, MemberAccessExpressionSyntax access)
@@ -350,13 +376,13 @@ internal sealed class EndpointExtractor
 
                     if (classRouteExpression is null && templateExpression is null)
                     {
-                        endpoints.Add(new RawEndpoint(verb, null, "conventional routing: no [Route] and no template", at, handler, "controller"));
+                        endpoints.Add(new RawEndpoint(verb, null, "conventional routing: no [Route] and no template", at, handler, "controller", Body: method));
                         continue;
                     }
 
                     if ((classRouteExpression is not null && classRoute is null) || (templateExpression is not null && template is null))
                     {
-                        endpoints.Add(new RawEndpoint(verb, null, "the route template is not written as text", at, handler, "controller"));
+                        endpoints.Add(new RawEndpoint(verb, null, "the route template is not written as text", at, handler, "controller", Body: method));
                         continue;
                     }
 
@@ -364,7 +390,7 @@ internal sealed class EndpointExtractor
                     var full = absolute ? template!.TrimStart('~') : RouteText.Join(classRoute ?? "", template ?? "");
                     full = full.Replace("[controller]", controller, StringComparison.OrdinalIgnoreCase)
                                .Replace("[action]", method.Identifier.Text, StringComparison.OrdinalIgnoreCase);
-                    endpoints.Add(new RawEndpoint(verb, RouteText.Join("", full), null, at, handler, "controller"));
+                    endpoints.Add(new RawEndpoint(verb, RouteText.Join("", full), null, at, handler, "controller", Body: method));
                 }
             }
         }

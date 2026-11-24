@@ -31,9 +31,16 @@ public static class ProjectInventoryEngine
         var (clients, clientCoverage) = HttpClientExtractor.Extract(parsed, path => ProjectOf(path, projectDirectories));
         var hosted = HostedServiceExtractor.Extract(parsed);
 
-        List<InventoryItem> items = [.. projects.Items, .. entityItems, .. EndpointItems(endpoints.Endpoints), .. config.Items, .. clients, .. hosted];
+        var index = EntityLinks.Index([.. entityItems.Where(i => i.Kind == ItemKind.Entity)]);
+        var endpointItems = EndpointItems(endpoints.Endpoints, index).ToList();
+        List<InventoryItem> items = [.. projects.Items, .. UsedBy(entityItems, endpointItems), .. endpointItems, .. config.Items, .. clients, .. hosted];
 
         List<CoverageNote> coverage = [.. reading ?? [], .. projects.Coverage, .. entityCoverage, .. config.Coverage, .. clientCoverage];
+        if (entityItems.Count > 0 && endpointItems.Count > 0)
+            coverage.Add(new CoverageNote(
+                "links",
+                "Which entities an endpoint touches is inferred from the entity names in its handler's signature and body: a handler that delegates to a service, or reaches an entity through a DbSet property or var, shows none.",
+                endpointItems.Count(i => i.Attributes["touches"].Length == 0)));
         var withoutRoute = endpoints.Endpoints.Count(e => e.Route is null);
         if (withoutRoute > 0)
             coverage.Add(new CoverageNote("endpoints", "Endpoints whose route is not written as text (conventional routing, a route built at run time, a group that cannot be followed).", withoutRoute));
@@ -57,7 +64,28 @@ public static class ProjectInventoryEngine
     /// handler's name added; the same handler twice, an ordinal. A route that is not text is keyed by its
     /// file and its handler.
     /// </summary>
-    private static IEnumerable<InventoryItem> EndpointItems(IReadOnlyList<RawEndpoint> raws)
+    // An entity lists the endpoints that name it, as the inverse of the endpoints' own attribute.
+    private static IEnumerable<InventoryItem> UsedBy(IReadOnlyList<InventoryItem> entities, IReadOnlyList<InventoryItem> endpoints)
+    {
+        var only = entities.Where(e => e.Kind == ItemKind.Entity).ToList();
+        var users = only.ToDictionary(e => e.Id, _ => new List<string>(), StringComparer.Ordinal);
+        foreach (var endpoint in endpoints)
+            foreach (var touched in endpoint.Attributes["touches"].Split(", ", StringSplitOptions.RemoveEmptyEntries))
+                foreach (var entity in only.Where(e => $"{e.Attributes["context"]}.{EntityLinks.Simple(e.Name)}" == touched || (!touched.Contains('.') && EntityLinks.Simple(e.Name) == touched)))
+                    users[entity.Id].Add(endpoint.Name);
+
+        return entities.Select(e =>
+        {
+            if (e.Kind != ItemKind.Entity) return e;
+            var attributes = new SortedDictionary<string, string>(e.Attributes.ToDictionary(a => a.Key, a => a.Value), StringComparer.Ordinal)
+            {
+                ["usedBy"] = string.Join(", ", users[e.Id].Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal)),
+            };
+            return e with { Attributes = attributes };
+        });
+    }
+
+    private static IEnumerable<InventoryItem> EndpointItems(IReadOnlyList<RawEndpoint> raws, Dictionary<string, List<string>> entityIndex)
     {
         var ordered = raws.OrderBy(r => r.At.File, StringComparer.Ordinal).ThenBy(r => r.At.Line).ToList();
         var keyed = ordered.Select(r => (Raw: r, Base: r.Route is null ? $"endpoint:{r.Verb} ?@{r.At.File}" : $"endpoint:{r.Verb} {r.Route}")).ToList();
@@ -87,6 +115,7 @@ public static class ProjectInventoryEngine
                     ["relativeRoute"] = raw.RelativeRoute ?? "",
                     ["route"] = raw.Route ?? "",
                     ["style"] = raw.Style,
+                    ["touches"] = string.Join(", ", EntityLinks.Touched(raw.Body, entityIndex)),
                     ["verb"] = raw.Verb,
                 },
                 [], raw.Reason);

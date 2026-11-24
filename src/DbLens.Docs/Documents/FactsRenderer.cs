@@ -21,7 +21,7 @@ public sealed class DocLabels
         ["context"] = "DbContext", ["entities"] = "Entities", ["schema"] = "Default schema", ["efVersion"] = "EF Core", ["migrations"] = "Migrations",
         ["entity"] = "Entity", ["table"] = "Table", ["key"] = "Key", ["properties"] = "Properties", ["foreignKeys"] = "Foreign keys", ["sharesTable"] = "Shares a table with",
         ["client"] = "Client", ["baseAddress"] = "Base address", ["addressFrom"] = "Address read from", ["class"] = "Class", ["bases"] = "Bases", ["registered"] = "Registered with AddHostedService",
-        ["readIn"] = "read in", ["unresolved"] = "Not written as text", ["none"] = "(none)",
+        ["touches"] = "Entities named in the handler (inferred)", ["usedBy"] = "Named by endpoints (inferred)", ["readIn"] = "read in", ["unresolved"] = "Not written as text", ["none"] = "(none)",
         ["architecture"] = "Architecture", ["architectureIntro"] = "Projects of the solution and how they reference each other. The tables are generated; the text under each is for a person.",
         ["dataModel"] = "Data model", ["dataModelIntro"] = "The DbContexts and their entities, read from the EF Core snapshots.",
         ["api"] = "API", ["apiIntro"] = "Endpoints declared in the code.", ["configuration"] = "Configuration", ["configurationIntro"] = "Configuration keys the code reads or a settings file defines. Values are never listed.",
@@ -35,7 +35,7 @@ public sealed class DocLabels
         ["context"] = "DbContext", ["entities"] = "Entità", ["schema"] = "Schema predefinito", ["efVersion"] = "EF Core", ["migrations"] = "Migration",
         ["entity"] = "Entità", ["table"] = "Tabella", ["key"] = "Chiave", ["properties"] = "Proprietà", ["foreignKeys"] = "Chiavi esterne", ["sharesTable"] = "Condivide la tabella con",
         ["client"] = "Client", ["baseAddress"] = "Indirizzo base", ["addressFrom"] = "Indirizzo letto da", ["class"] = "Classe", ["bases"] = "Basi", ["registered"] = "Registrato con AddHostedService",
-        ["readIn"] = "letta in", ["unresolved"] = "Non scritto come testo", ["none"] = "(nessuno)",
+        ["touches"] = "Entità nominate nell'handler (dedotto)", ["usedBy"] = "Nominata da endpoint (dedotto)", ["readIn"] = "letta in", ["unresolved"] = "Non scritto come testo", ["none"] = "(nessuno)",
         ["architecture"] = "Architettura", ["architectureIntro"] = "I progetti della soluzione e come si riferiscono tra loro. Le tabelle sono generate; il testo sotto ciascuna è per una persona.",
         ["dataModel"] = "Modello dati", ["dataModelIntro"] = "I DbContext e le loro entità, letti dagli snapshot di EF Core.",
         ["api"] = "API", ["apiIntro"] = "Gli endpoint dichiarati nel codice.", ["configuration"] = "Configurazione", ["configurationIntro"] = "Le chiavi di configurazione che il codice legge o che un file di impostazioni definisce. I valori non sono mai elencati.",
@@ -60,10 +60,10 @@ internal static class FactsRenderer
                 [("schema", Or(a["defaultSchema"], l)), ("efVersion", Or(a["efVersion"], l)), ("entities", a["entities"]), ("migrations", a["migrations"]), ("file", item.Source.File)]),
             ItemKind.Entity => Table(heading, item, l,
                 [("context", a["context"]), ("table", a["table"]), ("key", Or(a["key"], l)), ("properties", a["properties"]), ("foreignKeys", a["foreignKeys"]),
-                 ("sharesTable", Or(a["sharesTableWith"], l))]),
+                 ("sharesTable", Or(a["sharesTableWith"], l)), .. Linked("usedBy", a["usedBy"])]),
             ItemKind.Endpoint => Table(heading, item, l,
                 [("verb", a["verb"]), ("route", a["route"].Length > 0 ? a["route"] : a["relativeRoute"].Length > 0 ? $"{a["relativeRoute"]} ({l["unresolved"]})" : l["unresolved"]),
-                 ("handler", Or(a["handler"], l)), ("style", a["style"]), ("file", item.Source.File)]),
+                 ("handler", Or(a["handler"], l)), ("style", a["style"]), .. Linked("touches", a["touches"]), ("file", item.Source.File)]),
             ItemKind.HttpClient => Table(heading, item, l,
                 [("project", a["project"]), ("baseAddress", Or(a["baseAddress"], l)), ("addressFrom", a["baseAddressFrom"]), ("file", item.Source.File)]),
             ItemKind.HostedService => Table(heading, item, l,
@@ -72,6 +72,9 @@ internal static class FactsRenderer
             _ => heading,
         };
     }
+
+    // A link column only where there is a link: a solution without a data model has no empty column.
+    private static IEnumerable<(string, string)> Linked(string label, string value) => value.Length == 0 ? [] : [(label, value)];
 
     private static string Table(string heading, InventoryItem item, DocLabels l, (string Label, string Value)[] rows)
     {

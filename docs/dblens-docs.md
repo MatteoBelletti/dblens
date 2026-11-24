@@ -85,8 +85,14 @@ the diff of `docs/project` is part of the review.
 one agent per batch, has a second agent read each sentence against the code, and rewrites once what the code
 does not support. A person's slots are never touched.
 
+## Links between endpoints and entities
+
+When the solution has an EF Core model, an endpoint's table lists the entities its handler names and an entity's
+table the endpoints that name it, both labelled *inferred*: the links come from names in the handler's signature
+and body, so a handler that delegates to a service shows none. The inventory's `coverage` counts them.
+
 ## What it does not read
 
-Messaging, conventional MVC routes (`MapDefaultControllerRoute`), a route built at run time and a group
+Messaging (integration events, queues, handlers: not recognised yet), conventional MVC routes (`MapDefaultControllerRoute`), a route built at run time and a group
 passed through several layers are named in the inventory's `coverage`, not guessed.
-See [roadmap/docs-m0.md](roadmap/docs-m0.md), [docs-m1.md](roadmap/docs-m1.md) and [docs-m2.md](roadmap/docs-m2.md).
+See [roadmap/docs-m0.md](roadmap/docs-m0.md), [docs-m1.md](roadmap/docs-m1.md), [docs-m2.md](roadmap/docs-m2.md), [docs-m3.md](roadmap/docs-m3.md) and [docs-m4-m5.md](roadmap/docs-m4-m5.md).

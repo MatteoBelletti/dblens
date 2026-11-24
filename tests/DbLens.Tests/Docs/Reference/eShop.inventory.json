@@ -644,7 +644,8 @@
         "key": "Id",
         "properties": "4",
         "sharesTableWith": "",
-        "table": "AspNetRoles"
+        "table": "AspNetRoles",
+        "usedBy": ""
       },
       "alsoAt": []
     },
@@ -663,7 +664,8 @@
         "key": "Id",
         "properties": "3",
         "sharesTableWith": "",
-        "table": "AspNetRoleClaims"
+        "table": "AspNetRoleClaims",
+        "usedBy": ""
       },
       "alsoAt": []
     },
@@ -682,7 +684,8 @@
         "key": "Id",
         "properties": "3",
         "sharesTableWith": "",
-        "table": "AspNetUserClaims"
+        "table": "AspNetUserClaims",
+        "usedBy": ""
       },
       "alsoAt": []
     },
@@ -701,7 +704,8 @@
         "key": "LoginProvider, ProviderKey",
         "properties": "4",
         "sharesTableWith": "",
-        "table": "AspNetUserLogins"
+        "table": "AspNetUserLogins",
+        "usedBy": ""
       },
       "alsoAt": []
     },
@@ -720,7 +724,8 @@
         "key": "UserId, RoleId",
         "properties": "2",
         "sharesTableWith": "",
-        "table": "AspNetUserRoles"
+        "table": "AspNetUserRoles",
+        "usedBy": ""
       },
       "alsoAt": []
     },
@@ -739,7 +744,8 @@
         "key": "UserId, LoginProvider, Name",
         "properties": "4",
         "sharesTableWith": "",
-        "table": "AspNetUserTokens"
+        "table": "AspNetUserTokens",
+        "usedBy": ""
       },
       "alsoAt": []
     },
@@ -758,7 +764,8 @@
         "key": "Id",
         "properties": "22",
         "sharesTableWith": "",
-        "table": "AspNetUsers"
+        "table": "AspNetUsers",
+        "usedBy": ""
       },
       "alsoAt": []
     },
@@ -777,7 +784,8 @@
         "key": "Id",
         "properties": "2",
         "sharesTableWith": "",
-        "table": "CatalogBrand"
+        "table": "CatalogBrand",
+        "usedBy": ""
       },
       "alsoAt": []
     },
@@ -796,7 +804,8 @@
         "key": "Id",
         "properties": "12",
         "sharesTableWith": "",
-        "table": "Catalog"
+        "table": "Catalog",
+        "usedBy": "GET /api/catalog/items, GET /api/catalog/items/by, GET /api/catalog/items/by/{name:minlength(1)}, GET /api/catalog/items/facets, GET /api/catalog/items/type/all/brand/{brandId:int?}, GET /api/catalog/items/type/{typeId}/brand/{brandId?}, GET /api/catalog/items/withsemanticrelevance, GET /api/catalog/items/withsemanticrelevance/{text:minlength(1)}, GET /api/catalog/items/{id:int}, POST /api/catalog/items, PUT /api/catalog/items, PUT /api/catalog/items/{id:int}"
       },
       "alsoAt": []
     },
@@ -815,7 +824,8 @@
         "key": "Id",
         "properties": "2",
         "sharesTableWith": "",
-        "table": "CatalogType"
+        "table": "CatalogType",
+        "usedBy": ""
       },
       "alsoAt": []
     },
@@ -834,7 +844,8 @@
         "key": "EventId",
         "properties": "7",
         "sharesTableWith": "",
-        "table": "IntegrationEventLog"
+        "table": "IntegrationEventLog",
+        "usedBy": ""
       },
       "alsoAt": []
     },
@@ -853,7 +864,8 @@
         "key": "EventId",
         "properties": "7",
         "sharesTableWith": "",
-        "table": "ordering.IntegrationEventLog"
+        "table": "ordering.IntegrationEventLog",
+        "usedBy": ""
       },
       "alsoAt": []
     },
@@ -872,7 +884,8 @@
         "key": "Id",
         "properties": "2",
         "sharesTableWith": "",
-        "table": "ordering.buyers"
+        "table": "ordering.buyers",
+        "usedBy": ""
       },
       "alsoAt": []
     },
@@ -891,7 +904,8 @@
         "key": "Id",
         "properties": "3",
         "sharesTableWith": "",
-        "table": "ordering.paymentmethods"
+        "table": "ordering.paymentmethods",
+        "usedBy": ""
       },
       "alsoAt": []
     },
@@ -910,7 +924,8 @@
         "key": "Id",
         "properties": "5",
         "sharesTableWith": "eShop.Ordering.Domain.AggregatesModel.OrderAggregate.Order",
-        "table": "ordering.orders"
+        "table": "ordering.orders",
+        "usedBy": ""
       },
       "alsoAt": []
     },
@@ -929,7 +944,8 @@
         "key": "Id",
         "properties": "5",
         "sharesTableWith": "",
-        "table": "ordering.orders"
+        "table": "ordering.orders",
+        "usedBy": "GET /api/orders/{orderId:int}"
       },
       "alsoAt": []
     },
@@ -948,7 +964,8 @@
         "key": "Id",
         "properties": "7",
         "sharesTableWith": "",
-        "table": "ordering.orderItems"
+        "table": "ordering.orderItems",
+        "usedBy": ""
       },
       "alsoAt": []
     },
@@ -967,7 +984,8 @@
         "key": "Id",
         "properties": "3",
         "sharesTableWith": "",
-        "table": "ordering.requests"
+        "table": "ordering.requests",
+        "usedBy": ""
       },
       "alsoAt": []
     },
@@ -986,7 +1004,8 @@
         "key": "Id",
         "properties": "6",
         "sharesTableWith": "",
-        "table": "Subscriptions"
+        "table": "Subscriptions",
+        "usedBy": "GET /api/webhooks/{id:int}, POST /api/webhooks"
       },
       "alsoAt": []
     },
@@ -1004,6 +1023,7 @@
         "relativeRoute": "",
         "route": "/api/catalog/items/{id:int}",
         "style": "minimal",
+        "touches": "",
         "verb": "DELETE"
       },
       "alsoAt": []
@@ -1022,6 +1042,7 @@
         "relativeRoute": "",
         "route": "/api/webhooks/{id:int}",
         "style": "minimal",
+        "touches": "",
         "verb": "DELETE"
       },
       "alsoAt": []
@@ -1040,6 +1061,7 @@
         "relativeRoute": "",
         "route": "/",
         "style": "minimal",
+        "touches": "",
         "verb": "GET"
       },
       "alsoAt": []
@@ -1058,6 +1080,7 @@
         "relativeRoute": "",
         "route": "/api/catalog/catalogbrands",
         "style": "minimal",
+        "touches": "",
         "verb": "GET"
       },
       "alsoAt": []
@@ -1076,6 +1099,7 @@
         "relativeRoute": "",
         "route": "/api/catalog/catalogtypes",
         "style": "minimal",
+        "touches": "",
         "verb": "GET"
       },
       "alsoAt": []
@@ -1094,6 +1118,7 @@
         "relativeRoute": "",
         "route": "/api/catalog/items",
         "style": "minimal",
+        "touches": "CatalogItem",
         "verb": "GET"
       },
       "alsoAt": []
@@ -1112,6 +1137,7 @@
         "relativeRoute": "",
         "route": "/api/catalog/items",
         "style": "minimal",
+        "touches": "CatalogItem",
         "verb": "GET"
       },
       "alsoAt": []
@@ -1130,6 +1156,7 @@
         "relativeRoute": "",
         "route": "/api/catalog/items/by",
         "style": "minimal",
+        "touches": "CatalogItem",
         "verb": "GET"
       },
       "alsoAt": []
@@ -1148,6 +1175,7 @@
         "relativeRoute": "",
         "route": "/api/catalog/items/by/{name:minlength(1)}",
         "style": "minimal",
+        "touches": "CatalogItem",
         "verb": "GET"
       },
       "alsoAt": []
@@ -1166,6 +1194,7 @@
         "relativeRoute": "",
         "route": "/api/catalog/items/facets",
         "style": "minimal",
+        "touches": "CatalogItem",
         "verb": "GET"
       },
       "alsoAt": []
@@ -1184,6 +1213,7 @@
         "relativeRoute": "",
         "route": "/api/catalog/items/type/all/brand/{brandId:int?}",
         "style": "minimal",
+        "touches": "CatalogItem",
         "verb": "GET"
       },
       "alsoAt": []
@@ -1202,6 +1232,7 @@
         "relativeRoute": "",
         "route": "/api/catalog/items/type/{typeId}/brand/{brandId?}",
         "style": "minimal",
+        "touches": "CatalogItem",
         "verb": "GET"
       },
       "alsoAt": []
@@ -1220,6 +1251,7 @@
         "relativeRoute": "",
         "route": "/api/catalog/items/withsemanticrelevance",
         "style": "minimal",
+        "touches": "CatalogItem",
         "verb": "GET"
       },
       "alsoAt": []
@@ -1238,6 +1270,7 @@
         "relativeRoute": "",
         "route": "/api/catalog/items/withsemanticrelevance/{text:minlength(1)}",
         "style": "minimal",
+        "touches": "CatalogItem",
         "verb": "GET"
       },
       "alsoAt": []
@@ -1256,6 +1289,7 @@
         "relativeRoute": "",
         "route": "/api/catalog/items/{id:int}",
         "style": "minimal",
+        "touches": "CatalogItem",
         "verb": "GET"
       },
       "alsoAt": []
@@ -1274,6 +1308,7 @@
         "relativeRoute": "",
         "route": "/api/catalog/items/{id:int}/pic",
         "style": "minimal",
+        "touches": "",
         "verb": "GET"
       },
       "alsoAt": []
@@ -1292,6 +1327,7 @@
         "relativeRoute": "",
         "route": "/api/orders",
         "style": "minimal",
+        "touches": "",
         "verb": "GET"
       },
       "alsoAt": []
@@ -1310,6 +1346,7 @@
         "relativeRoute": "",
         "route": "/api/orders/{orderId:int}",
         "style": "minimal",
+        "touches": "Order",
         "verb": "GET"
       },
       "alsoAt": []
@@ -1328,6 +1365,7 @@
         "relativeRoute": "",
         "route": "/api/webhooks",
         "style": "minimal",
+        "touches": "",
         "verb": "GET"
       },
       "alsoAt": []
@@ -1346,6 +1384,7 @@
         "relativeRoute": "",
         "route": "/api/webhooks/{id:int}",
         "style": "minimal",
+        "touches": "WebhookSubscription",
         "verb": "GET"
       },
       "alsoAt": []
@@ -1364,6 +1403,7 @@
         "relativeRoute": "",
         "route": "",
         "style": "controller",
+        "touches": "",
         "verb": "GET"
       },
       "alsoAt": [],
@@ -1383,6 +1423,7 @@
         "relativeRoute": "",
         "route": "",
         "style": "controller",
+        "touches": "",
         "verb": "GET"
       },
       "alsoAt": [],
@@ -1402,6 +1443,7 @@
         "relativeRoute": "",
         "route": "",
         "style": "controller",
+        "touches": "",
         "verb": "GET"
       },
       "alsoAt": [],
@@ -1421,6 +1463,7 @@
         "relativeRoute": "",
         "route": "",
         "style": "controller",
+        "touches": "",
         "verb": "GET"
       },
       "alsoAt": [],
@@ -1440,6 +1483,7 @@
         "relativeRoute": "",
         "route": "",
         "style": "controller",
+        "touches": "",
         "verb": "GET"
       },
       "alsoAt": [],
@@ -1459,6 +1503,7 @@
         "relativeRoute": "",
         "route": "",
         "style": "controller",
+        "touches": "",
         "verb": "GET"
       },
       "alsoAt": [],
@@ -1478,6 +1523,7 @@
         "relativeRoute": "",
         "route": "",
         "style": "controller",
+        "touches": "",
         "verb": "GET"
       },
       "alsoAt": [],
@@ -1497,6 +1543,7 @@
         "relativeRoute": "",
         "route": "",
         "style": "controller",
+        "touches": "",
         "verb": "GET"
       },
       "alsoAt": [],
@@ -1516,6 +1563,7 @@
         "relativeRoute": "",
         "route": "/check",
         "style": "minimal",
+        "touches": "",
         "verb": "OPTIONS"
       },
       "alsoAt": []
@@ -1534,6 +1582,7 @@
         "relativeRoute": "",
         "route": "/api/catalog/items",
         "style": "minimal",
+        "touches": "CatalogItem",
         "verb": "POST"
       },
       "alsoAt": []
@@ -1552,6 +1601,7 @@
         "relativeRoute": "",
         "route": "/api/orders",
         "style": "minimal",
+        "touches": "",
         "verb": "POST"
       },
       "alsoAt": []
@@ -1570,6 +1620,7 @@
         "relativeRoute": "",
         "route": "/api/orders/draft",
         "style": "minimal",
+        "touches": "",
         "verb": "POST"
       },
       "alsoAt": []
@@ -1588,6 +1639,7 @@
         "relativeRoute": "",
         "route": "/api/webhooks",
         "style": "minimal",
+        "touches": "WebhookSubscription",
         "verb": "POST"
       },
       "alsoAt": []
@@ -1606,6 +1658,7 @@
         "relativeRoute": "",
         "route": "/logout",
         "style": "minimal",
+        "touches": "",
         "verb": "POST"
       },
       "alsoAt": []
@@ -1624,6 +1677,7 @@
         "relativeRoute": "",
         "route": "/webhook-received",
         "style": "minimal",
+        "touches": "",
         "verb": "POST"
       },
       "alsoAt": []
@@ -1642,6 +1696,7 @@
         "relativeRoute": "",
         "route": "",
         "style": "controller",
+        "touches": "",
         "verb": "POST"
       },
       "alsoAt": [],
@@ -1661,6 +1716,7 @@
         "relativeRoute": "",
         "route": "",
         "style": "controller",
+        "touches": "",
         "verb": "POST"
       },
       "alsoAt": [],
@@ -1680,6 +1736,7 @@
         "relativeRoute": "",
         "route": "",
         "style": "controller",
+        "touches": "",
         "verb": "POST"
       },
       "alsoAt": [],
@@ -1699,6 +1756,7 @@
         "relativeRoute": "",
         "route": "",
         "style": "controller",
+        "touches": "",
         "verb": "POST"
       },
       "alsoAt": [],
@@ -1718,6 +1776,7 @@
         "relativeRoute": "",
         "route": "",
         "style": "controller",
+        "touches": "",
         "verb": "POST"
       },
       "alsoAt": [],
@@ -1737,6 +1796,7 @@
         "relativeRoute": "",
         "route": "",
         "style": "controller",
+        "touches": "",
         "verb": "POST"
       },
       "alsoAt": [],
@@ -1756,6 +1816,7 @@
         "relativeRoute": "",
         "route": "/api/catalog/items",
         "style": "minimal",
+        "touches": "CatalogItem",
         "verb": "PUT"
       },
       "alsoAt": []
@@ -1774,6 +1835,7 @@
         "relativeRoute": "",
         "route": "/api/catalog/items/{id:int}",
         "style": "minimal",
+        "touches": "CatalogItem",
         "verb": "PUT"
       },
       "alsoAt": []
@@ -1792,6 +1854,7 @@
         "relativeRoute": "",
         "route": "/api/orders/cancel",
         "style": "minimal",
+        "touches": "",
         "verb": "PUT"
       },
       "alsoAt": []
@@ -1810,6 +1873,7 @@
         "relativeRoute": "",
         "route": "/api/orders/ship",
         "style": "minimal",
+        "touches": "",
         "verb": "PUT"
       },
       "alsoAt": []
@@ -2774,6 +2838,11 @@
       "area": "http clients",
       "note": "HTTP clients whose base address is not written as text (a variable, a call, or set elsewhere).",
       "count": 1
+    },
+    {
+      "area": "links",
+      "note": "Which entities an endpoint touches is inferred from the entity names in its handler's signature and body: a handler that delegates to a service, or reaches an entity through a DbSet property or var, shows none.",
+      "count": 29
     },
     {
       "area": "source",

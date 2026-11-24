@@ -11,6 +11,8 @@
     <Version>0.1.0</Version>
     <Description>Project documentation for a .NET solution where completeness is guaranteed by code: an inventory read from syntax, a generated skeleton, and a check for CI.</Description>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PackageTags>dotnet;documentation;roslyn;architecture;mcp;ci</PackageTags>
     <PackageProjectUrl>https://github.com/MatteoBelletti/dblens</PackageProjectUrl>
     <RepositoryUrl>https://github.com/MatteoBelletti/dblens</RepositoryUrl>
   </PropertyGroup>
@@ -19,6 +21,10 @@
     <ProjectReference Include="..\DbLens.Docs\DbLens.Docs.csproj" />
     <ProjectReference Include="..\DbLens.Docs.Mcp\DbLens.Docs.Mcp.csproj" />
     <PackageReference Include="Microsoft.Extensions.Hosting" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="README.md" Pack="true" PackagePath="/" />
   </ItemGroup>
 
   <ItemGroup>
