@@ -5,7 +5,7 @@ runs: 1
 context:
   scaffold_script: scaffold.sh
 execution:
-  max_turns: 6
+  max_turns: 14
   timeout_seconds: 300
   allowed_tools:
     - "Skill"
@@ -28,15 +28,14 @@ execution:
     - "mcp__plugin_dblens_dblens__compare_ef_model"
     - "mcp__plugin_dblens_dblens__check_migration_safety"
     - "mcp__plugin_dblens_dblens__scan_gdpr"
-  prompt: "Run the dblens audit workflow (dblens:run-audit) with args {\"dialect\": \"PostgreSql\", \"connection\": \"eval-demo-pg\", \"expectedDatabase\": \"something_else\", \"schema\": \"public\", \"outDir\": \"./dblens-audit\", \"runLabel\": \"eval-wrong\"}. Report what happened in one sentence; do not retry or change the args."
+  prompt: "First call the dblens ping tool with dialect PostgreSql and connection \"eval-demo-pg\", and call it again until it answers: the server may still be starting. Then run the dblens audit workflow (dblens:run-audit) with args {\"dialect\": \"PostgreSql\", \"connection\": \"eval-demo-pg\", \"expectedDatabase\": \"something_else\", \"schema\": \"public\", \"outDir\": \"./dblens-audit\", \"runLabel\": \"eval-wrong\"}. Report what happened in one sentence; do not retry or change the args."
 graders:
   # No report was written.
   - name: no-report
     type: "file_exists"
     path: "dblens-audit/dblens-audit-eval-wrong.md"
     exists: false
-  # The error names the database it reached and the one expected.
+  # The run stopped on the database check
   - name: says-which
-    type: "regex"
-    pattern: 'not the expected'
-    match: "contains"
+    type: llm
+    criteria: "Pass if the answer says the audit stopped, or was refused, because the database the server reached is not the expected one (something_else), and that nothing was audited. Fail if it says the audit ran or produced findings, or blames something unrelated (a missing tool, a timeout)."

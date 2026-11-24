@@ -56,12 +56,15 @@ server with `dnx`) and dynamic workflows enabled in `/config`.
 /plugin install dblens --marketplace MatteoBelletti/dblens
 ```
 
-Then `/dblens:setup` checks the connection and runs a first audit; `/dblens:audit` runs one with
-`dialect`, `outDir` and `runLabel`, and optionally `schema`, `efSnapshot` (an EF Core migrations
-snapshot), `efScript` (lets it script the pending migrations with `dotnet ef`, which builds the
-project), `queriesFile` (SQL to plan) and `privacy`. Set the connection strings in the
-plugin's settings, never in the chat. Keep one registration: if `dblens` was also added with
-`claude mcp add`, remove one of the two.
+Then `/dblens:setup` checks the connection and hands over to `/dblens:audit`. The audit never picks
+the database: it asks which one (a local Docker container, the database set in the plugin's settings,
+or the demo only if you name it), connects, shows "database on host:port, how it was reached, server
+version, number of tables" and starts only after your yes. For a container it saves a named
+connection from the container's own settings without printing a password, so none ever reaches the
+chat or an agent. Options: `schema`, `efSnapshot` (an EF Core migrations snapshot), `efScript`,
+`queriesFile` and `privacy`. The report opens with the database it audited, and is never
+overwritten. Put the connection strings of a remote database in the plugin's settings, never in the
+chat. Keep one registration: if `dblens` was also added with `claude mcp add`, remove one of the two.
 
 ### Reviewing a .NET branch (optional)
 

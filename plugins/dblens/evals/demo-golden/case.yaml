@@ -28,36 +28,54 @@ execution:
     - "mcp__plugin_dblens_dblens__compare_ef_model"
     - "mcp__plugin_dblens_dblens__check_migration_safety"
     - "mcp__plugin_dblens_dblens__scan_gdpr"
-  prompt: "Run the dblens audit workflow (dblens:run-audit) with args {\"dialect\": \"PostgreSql\", \"connection\": \"eval-demo-pg\", \"expectedDatabase\": \"dblens_demo\", \"schema\": \"public\", \"privacy\": true, \"outDir\": \"./dblens-audit\", \"runLabel\": \"eval\"}. When it finishes, Read the Markdown report it wrote and print it in full."
+  prompt: "First call the dblens ping tool with dialect PostgreSql and connection \"eval-demo-pg\", and call it again until it answers: the server may still be starting. Then run the dblens audit workflow (dblens:run-audit) with args {\"dialect\": \"PostgreSql\", \"connection\": \"eval-demo-pg\", \"expectedDatabase\": \"dblens_demo\", \"schema\": \"public\", \"privacy\": true, \"outDir\": \"./dblens-audit\", \"runLabel\": \"eval\"}. When it finishes, Read the Markdown report it wrote and print it in full."
 graders:
   # Every analyst agent returned its findings.
   - name: all-ran
     type: "regex"
+    target:
+      source: file
+      path: dblens-audit/dblens-audit-eval.md
     pattern: 'agents failed: 0'
     match: "contains"
   # A cascade chain blocked by NO ACTION / RESTRICT is reported.
   - name: cascade-restrict
     type: "regex"
+    target:
+      source: file
+      path: dblens-audit/dblens-audit-eval.md
     pattern: 'cascade-breaks-with-restrict'
     match: "contains"
   # The demo flaws give confirmed findings.
   - name: confirmed
     type: "regex"
+    target:
+      source: file
+      path: dblens-audit/dblens-audit-eval.md
     pattern: 'Confirmed findings: [1-9]'
     match: "contains"
   # A cached aggregate or derived value is reported.
   - name: derived
     type: "regex"
+    target:
+      source: file
+      path: dblens-audit/dblens-audit-eval.md
     pattern: 'denorm-derived-column'
     match: "contains"
   # Unindexed foreign keys are reported.
   - name: fk-without-index
     type: "regex"
+    target:
+      source: file
+      path: dblens-audit/dblens-audit-eval.md
     pattern: 'fk-without-index'
     match: "contains"
   # LLM-checked
   - name: pii-signals
     type: "llm"
+    focus:
+      source: file
+      path: dblens-audit/dblens-audit-eval.md
     criteria: "Pass if no rule id starting with `pii-` is presented as a confirmed finding: `pii-` items may appear only under \"To verify\" or \"Not covered\", or not at all. Fail if a `pii-` rule is listed under \"Do first\", among the confirmed findings, or in the confirmed count by severity."
   # The report is written to the output folder.
   - name: report-file
@@ -66,15 +84,24 @@ graders:
   # The reference seen only through the shipment_destinations view is reported.
   - name: ship-to
     type: "regex"
+    target:
+      source: file
+      path: dblens-audit/dblens-audit-eval.md
     pattern: 'ship_to'
     match: "contains"
   # An undeclared reference on shipments is reported.
   - name: undeclared-fk
     type: "regex"
+    target:
+      source: file
+      path: dblens-audit/dblens-audit-eval.md
     pattern: 'relationship-undeclared-fk'
     match: "contains"
   # The report opens with the database it audited.
   - name: names-the-target
     type: "regex"
+    target:
+      source: file
+      path: dblens-audit/dblens-audit-eval.md
     pattern: 'dblens_demo'
     match: "contains"

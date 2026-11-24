@@ -111,3 +111,39 @@ Smoke test on 2026-11-20, each in an empty Claude Code configuration: `claude pl
 `claude mcp add dblens -- dnx DbLens.Mcp@0.6.0 --yes`, without the plugin, connects too, and
 `get_schema` and `analyze_indexes` on `public` return the demo's 12 tables and 9 `fk-without-index`.
 The `.mcpb` in Claude Desktop is not covered: there is no desktop in the cloud container.
+
+## Silent targets (0.7.0, not released)
+
+The server or the plugin worked on a database, an engine or a version other than the one the user
+meant, without saying so. Decisions of 2026-11-21, each with a test:
+
+| Point | Decision |
+|---|---|
+| Demo fallback | `DbLens:DemoFallback`, default **false**: no connection string for a dialect is an error naming the setting. `appsettings.Development.json`, the Makefile and the tests turn it on. [D] |
+| Default dialect | The one configured dialect; two configured and no `dialect`, or a `connectionString` without `dialect`, is an error. The schema keeps `dialect = PostgreSql` (contract); the call filter records which arguments were sent. |
+| Target | `target` (dialect, host, port, database, login, `isLocal`, `source`) in every answer, from the driver's connection string builder, never the password. `ping` connects and returns it with the server version. |
+| Passwords | The audit passes a connection **name** (`connection`), never a connection string: a file `<name>.conn` in `DbLens:ConnectionsPath` that the audit skill writes from a container's own environment (mode 0600). The plan's `args.connectionString` would have put the password in every agent prompt. [D] |
+| Localhost | A caveat, not a new key: the existing `DbLens:ReadOnlyLoginOnLocalhost=true` is the switch. [D] |
+| Development server | `plugins/dblens-dev`: same name, agents, workflow and skills (symlinks), the server run from the working tree; `run-evals.sh` copies the evals in, because the runner refuses an evals link that leaves the plugin. [D] |
+| Certified queries | Keyed by dialect, server (`host:port`) and database; old entries without a server still apply and carry a caveat. |
+| Reports | Never overwritten: `-2`, `-3`. |
+
+The workflow `audit` is now `run-audit` and requires `expectedDatabase`; `/dblens:audit` is the skill
+that asks and confirms.
+
+Evals against the working tree (`plugins/dblens-dev/run-evals.sh`, 2026-11-24): `demo-golden` 10 of 10
+($1.00) and `demo-good` 4 of 4 ($0.31) on a named connection; `target` 4 of 4 ($0.25): a second PostgreSQL
+(`target_db`, a copy of `demo_good`) is named by the report and the report never mentions `dblens_demo`;
+`no-configuration` 3 of 3: the skill asks and starts nothing. Two cases failed their first runs on the
+evals, not on the product: the development server was still starting when the first agent called `ping`
+(it now starts from the built DLL, and an eval pings first, as the skill does), and graders that read the
+model's closing message now read the report file. `wrong-database` and `ef-golden` were last run
+with those graders unfixed (the first, 6 turns used up on waiting for the server; the second, a summary
+printed instead of the report), so their graders are untested against the final cases; the check
+itself, that the workflow refuses a server that reaches another database than `expectedDatabase`, is
+exercised by running the script with a stubbed `agent()`. The pending-migration step of `ef-golden`
+still lands in "Not covered" inside the eval sandbox of a root container.
+
+The plugin now needs a server that has `connection`, `DbLens:DemoFallback` and the connecting `ping`:
+0.7.0. Merging this to `master` without releasing 0.7.0 would leave the marketplace plugin pinned to a
+package that lacks them, so the two go together.

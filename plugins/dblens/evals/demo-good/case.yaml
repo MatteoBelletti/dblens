@@ -28,16 +28,22 @@ execution:
     - "mcp__plugin_dblens_dblens__compare_ef_model"
     - "mcp__plugin_dblens_dblens__check_migration_safety"
     - "mcp__plugin_dblens_dblens__scan_gdpr"
-  prompt: "Run the dblens audit workflow (dblens:run-audit) with args {\"dialect\": \"PostgreSql\", \"connection\": \"eval-demo-pg\", \"expectedDatabase\": \"dblens_demo\", \"schema\": \"demo_good\", \"outDir\": \"./dblens-audit\", \"runLabel\": \"eval-good\"}. When it finishes, Read the Markdown report it wrote and print it in full."
+  prompt: "First call the dblens ping tool with dialect PostgreSql and connection \"eval-demo-pg\", and call it again until it answers: the server may still be starting. Then run the dblens audit workflow (dblens:run-audit) with args {\"dialect\": \"PostgreSql\", \"connection\": \"eval-demo-pg\", \"expectedDatabase\": \"dblens_demo\", \"schema\": \"demo_good\", \"outDir\": \"./dblens-audit\", \"runLabel\": \"eval-good\"}. When it finishes, Read the Markdown report it wrote and print it in full."
 graders:
   # Every agent ran and every finding was re-checked: a zero from an audit that did nothing is not a pass.
   - name: all-ran
     type: "regex"
+    target:
+      source: file
+      path: dblens-audit/dblens-audit-eval-good.md
     pattern: 'unverified: 0, agents failed: 0'
     match: "contains"
   # demo_good has no confirmed finding.
   - name: confirmed-zero
     type: "regex"
+    target:
+      source: file
+      path: dblens-audit/dblens-audit-eval-good.md
     pattern: 'Confirmed findings: 0\b'
     match: "contains"
   # The report is written to the output folder.
@@ -47,5 +53,8 @@ graders:
   # The report opens with the database it audited.
   - name: names-the-target
     type: "regex"
+    target:
+      source: file
+      path: dblens-audit/dblens-audit-eval-good.md
     pattern: 'dblens_demo'
     match: "contains"

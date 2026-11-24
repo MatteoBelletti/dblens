@@ -29,41 +29,62 @@ execution:
     - "mcp__plugin_dblens_dblens__compare_ef_model"
     - "mcp__plugin_dblens_dblens__check_migration_safety"
     - "mcp__plugin_dblens_dblens__scan_gdpr"
-  prompt: "Run the dblens audit workflow (dblens:run-audit) with args {\"dialect\": \"PostgreSql\", \"connection\": \"eval-demo-pg\", \"expectedDatabase\": \"dblens_demo\", \"schema\": \"shop\", \"efSnapshot\": \"<the absolute path of DemoShop.EfCore/Migrations/PostgreSql in the current working directory>\", \"efScript\": true, \"outDir\": \"./dblens-audit\", \"runLabel\": \"eval-ef\"}: building that project is allowed. When it finishes, Read the Markdown report it wrote and print it in full."
+  prompt: "First call the dblens ping tool with dialect PostgreSql and connection \"eval-demo-pg\", and call it again until it answers: the server may still be starting. Then run the dblens audit workflow (dblens:run-audit) with args {\"dialect\": \"PostgreSql\", \"connection\": \"eval-demo-pg\", \"expectedDatabase\": \"dblens_demo\", \"schema\": \"shop\", \"efSnapshot\": \"<the absolute path of DemoShop.EfCore/Migrations/PostgreSql in the current working directory>\", \"efScript\": true, \"outDir\": \"./dblens-audit\", \"runLabel\": \"eval-ef\"}: building that project is allowed. When it finishes, Read the Markdown report it wrote and print it in full."
 graders:
   # Every analyst agent returned its findings.
   - name: all-ran
     type: regex
+    target:
+      source: file
+      path: dblens-audit/dblens-audit-eval-ef.md
     pattern: 'agents failed: 0'
     match: contains
   # The column users.phone the model maps and the database dropped is reported.
   - name: column-missing
     type: regex
+    target:
+      source: file
+      path: dblens-audit/dblens-audit-eval-ef.md
     pattern: 'ef-column-missing'
     match: contains
   # The narrowed first_name, the nullable total and the non-unique email index are reported.
   - name: drift-shapes
     type: regex
+    target:
+      source: file
+      path: dblens-audit/dblens-audit-eval-ef.md
     pattern: '^(?=[\s\S]*ef-column-type)(?=[\s\S]*ef-column-nullability)[\s\S]*ef-index-uniqueness'
     match: contains
   # The order_items → products foreign key dropped by hand is reported.
   - name: fk-missing
     type: regex
+    target:
+      source: file
+      path: dblens-audit/dblens-audit-eval-ef.md
     pattern: 'ef-fk-missing'
     match: contains
   # The index added by hand, ix_orders_created_manual, is reported.
   - name: index-unmodeled
     type: regex
+    target:
+      source: file
+      path: dblens-audit/dblens-audit-eval-ef.md
     pattern: 'ef-index-unmodeled'
     match: contains
   # The hotfix migration applied but absent from the code is reported.
   - name: migration-unknown
     type: regex
+    target:
+      source: file
+      path: dblens-audit/dblens-audit-eval-ef.md
     pattern: 'ef-migration-unknown'
     match: contains
   # The pending DropUserDateOfBirth migration, scripted and checked, is reported as destructive.
   - name: pending-drop
     type: regex
+    target:
+      source: file
+      path: dblens-audit/dblens-audit-eval-ef.md
     pattern: 'migration-destructive'
     match: contains
   # The report is written to the output folder.
@@ -73,5 +94,8 @@ graders:
   # The table legacy_notes the model does not map is reported.
   - name: unmapped-table
     type: regex
+    target:
+      source: file
+      path: dblens-audit/dblens-audit-eval-ef.md
     pattern: 'ef-unmapped-table'
     match: contains

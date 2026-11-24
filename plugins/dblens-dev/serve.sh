@@ -5,4 +5,5 @@
 set -euo pipefail
 project="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../src/DbLens.Mcp" && pwd)"
 dotnet build "$project" -nologo -v q -c Debug 1>&2
-exec dotnet run --project "$project" --no-build --no-launch-profile -c Debug
+# The built DLL, not `dotnet run`: the server must answer within a second or two of the client starting.
+exec dotnet "$project/bin/Debug/net10.0/DbLens.Mcp.dll"

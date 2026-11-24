@@ -43,3 +43,4 @@ Thumbs.db
 # Claude Code plugin eval runs
 plugins/*/evals/results/
 plugins/dblens-dev/connections/
+plugins/dblens-dev/evals/
