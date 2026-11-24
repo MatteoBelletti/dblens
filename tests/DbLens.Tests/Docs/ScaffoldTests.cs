@@ -31,8 +31,8 @@ public sealed class ScaffoldTests
     {
         var result = Scaffolder.Scaffold(Solution(), new Dictionary<string, string>(), Options);
 
-        result.Files.Keys.Should().BeEquivalentTo("docs/project/architecture.md", "docs/project/api.md", "docs/project/configuration.md");
-        result.Report.Added.Should().Contain(["project:Api", "project:Core", "endpoint:GET /items", "config:Mail:From", ProjectGraph.Id]);
+        result.Files.Keys.Should().BeEquivalentTo("docs/project/overview.md", "docs/project/architecture.md", "docs/project/api.md", "docs/project/configuration.md");
+        result.Report.Added.Should().Contain(["project:Api", "project:Core", "endpoint:GET /items", "config:Mail:From", ProjectGraph.Id, "component:Api"]);
         result.Files["docs/project/architecture.md"].Should().Contain("```mermaid\ngraph LR").And.Contain("p1 --> p0");
         Api(result).Should().StartWith("# API\n\nEndpoints declared in the code.").And.Contain("<!-- dblens:slot endpoint:GET /items purpose max-lines=2 evidence=inferred");
         result.Files["docs/project/configuration.md"].Should().NotContain("dblens:slot", "a configuration key has its place but no words");

@@ -31,7 +31,7 @@ public sealed class OverviewTests
         """;
 
     // Ordering: an endpoint places an order through a command, an aggregate and a domain event; Billing consumes it and bills; Shipping consumes that.
-    private static ProjectInventory OrderFlow() => Solution(
+    internal static ProjectInventory OrderFlow() => Solution(
         Web("src/Ordering/Ordering.csproj"),
         File("src/Ordering/Bus.cs", Bus),
         File("src/Ordering/Api.cs", """
@@ -382,12 +382,14 @@ public sealed class OverviewTests
     }
 
     [Fact]
-    public void TheNewKinds_ArePartOfTheInventory_ButNotOfTheFiveDocuments()
+    public void TheOverviewDocument_HoldsTheComponentsAndTheFlows_AndNoRegionForAnEventOrALink()
     {
         var inventory = OrderFlow();
         var documents = Scaffolder.Scaffold(inventory, new Dictionary<string, string>(), new DocsOptions()).Files;
+        var overview = documents["docs/project/overview.md"];
 
-        Of(inventory, ItemKind.Component).Should().NotBeEmpty();
-        string.Concat(documents.Values).Should().NotContain("dblens:item component:").And.NotContain("dblens:item event:").And.NotContain("dblens:item flow:");
+        overview.Should().Contain("dblens:item component:Ordering").And.Contain("dblens:item flow:endpoint:POST /orders").And.Contain("```mermaid\nsequenceDiagram")
+            .And.Contain("dblens:generated graph:components").And.Contain("dblens:generated table:events");
+        string.Concat(documents.Values).Should().NotContain("dblens:item event:").And.NotContain("dblens:item link:").And.NotContain("dblens:item detail:");
     }
 }

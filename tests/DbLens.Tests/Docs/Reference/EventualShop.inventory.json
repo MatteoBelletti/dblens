@@ -2280,6 +2280,62 @@
         "via": "DomainEvent.InventoryItemReceived"
       },
       "alsoAt": []
+    },
+    {
+      "id": "detail:ShoppingCart/Command",
+      "kind": "detail",
+      "name": "ShoppingCart/Command",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/Services/ShoppingCart/Command/WorkerService/WorkerService.csproj",
+        "line": 1
+      },
+      "attributes": {
+        "component": "ShoppingCart/Command"
+      },
+      "alsoAt": []
+    },
+    {
+      "id": "detail:ShoppingCart/Query",
+      "kind": "detail",
+      "name": "ShoppingCart/Query",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/Services/ShoppingCart/Query/GrpcService/GrpcService.csproj",
+        "line": 1
+      },
+      "attributes": {
+        "component": "ShoppingCart/Query"
+      },
+      "alsoAt": []
+    },
+    {
+      "id": "detail:Warehouse/Command",
+      "kind": "detail",
+      "name": "Warehouse/Command",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/Services/Warehouse/Command/WorkerService/WorkerService.csproj",
+        "line": 1
+      },
+      "attributes": {
+        "component": "Warehouse/Command"
+      },
+      "alsoAt": []
+    },
+    {
+      "id": "detail:Warehouse/Query",
+      "kind": "detail",
+      "name": "Warehouse/Query",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/Services/Warehouse/Query/GrpcService/GrpcService.csproj",
+        "line": 1
+      },
+      "attributes": {
+        "component": "Warehouse/Query"
+      },
+      "alsoAt": []
     }
   ],
   "coverage": [

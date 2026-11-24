@@ -21,6 +21,9 @@ public enum ItemKind
 
     /// <summary>A candidate flow: what an entry point sets in motion, hop by hop.</summary>
     Flow,
+
+    /// <summary>The place for the narrative about one component: its detail document, when someone asks for one.</summary>
+    Detail,
 }
 
 /// <summary>How an item was established: what the syntax says, or why it could not be read.</summary>

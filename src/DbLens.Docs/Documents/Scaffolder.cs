@@ -15,12 +15,19 @@ public sealed record ScaffoldResult(IReadOnlyDictionary<string, string> Files, S
 /// </summary>
 public static class Scaffolder
 {
+    public const int DetailLines = DocPlan.DetailLines;
+
+    /// <summary>Where the detail document of a component is: "docs/project/components/ordering-api.md".</summary>
+    public static string DetailPath(DocsOptions options, string component) => $"{options.Folder}/{DocPlan.DetailFile(component)}";
+
     /// <param name="existing">The documents already there, by path from the repository root ("docs/project/api.md").</param>
-    public static ScaffoldResult Scaffold(ProjectInventory inventory, IReadOnlyDictionary<string, string> existing, DocsOptions options)
+    /// <param name="newDetails">Components whose detail document is to be started: the ones that exist already are kept up to date without asking.</param>
+    public static ScaffoldResult Scaffold(
+        ProjectInventory inventory, IReadOnlyDictionary<string, string> existing, DocsOptions options, IEnumerable<string>? newDetails = null)
     {
         var labels = DocLabels.For(options.Language);
-        var plan = DocPlan.For(inventory, options);
-        var hashes = inventory.Items.ToDictionary(i => i.Id, ItemHash.Of, StringComparer.Ordinal);
+        var detailFiles = DocPlan.Present(existing.Keys, options).Where(DocPlan.IsDetailFile).Concat((newDetails ?? []).Select(DocPlan.DetailFile));
+        var plan = DocPlan.For(inventory, options, detailFiles);
         Dictionary<string, string> files = new(StringComparer.Ordinal);
         List<string> added = [], removed = [], stale = [], human = [], changed = [];
 
@@ -63,7 +70,7 @@ public static class Scaffolder
             if (kept.Count > 0 && blocks.Count > 0)
                 blocks[^1] = blocks[^1] with { Trailing = string.Join("\n\n", [blocks[^1].Trailing, .. kept]).Trim('\n') };
 
-            var (title, intro) = DocPlan.Header(file, labels);
+            var (title, intro) = DocPlan.Header(file, labels, inventory);
             var leading = parsed is null ? $"# {title}\n\n{intro}" : parsed.Leading;
             if (blocks.Count == 0 && kept.Count > 0) leading = string.Join("\n\n", [leading, .. kept]).Trim('\n');
             files[path] = DocumentModel.Render(new ParsedDocument(leading, blocks, []));

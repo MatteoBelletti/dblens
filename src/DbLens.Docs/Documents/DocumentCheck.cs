@@ -30,11 +30,12 @@ public static class DocumentCheck
     public static DocCheckResult Check(
         ProjectInventory inventory, IReadOnlyDictionary<string, string> documents, DocsOptions options, bool strict = false, bool requireSlots = false)
     {
-        var plan = DocPlan.For(inventory, options);
+        var present = DocPlan.Present(documents.Keys, options);
+        var plan = DocPlan.For(inventory, options, present.Where(DocPlan.IsDetailFile));
         List<DocIssue> issues = [];
 
         Dictionary<string, (string File, DocBlock Block)> found = new(StringComparer.Ordinal);
-        foreach (var file in DocPlan.Files)
+        foreach (var file in present)
         {
             var path = $"{options.Folder}/{file}";
             if (!documents.TryGetValue(path, out var text)) continue;

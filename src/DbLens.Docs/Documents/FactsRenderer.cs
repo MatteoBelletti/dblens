@@ -26,6 +26,15 @@ public sealed class DocLabels
         ["dataModel"] = "Data model", ["dataModelIntro"] = "The DbContexts and their entities, read from the EF Core snapshots.",
         ["api"] = "API", ["apiIntro"] = "Endpoints declared in the code.", ["configuration"] = "Configuration", ["configurationIntro"] = "Configuration keys the code reads or a settings file defines. Values are never listed.",
         ["integrations"] = "Integrations", ["integrationsIntro"] = "External HTTP clients and services that run in the background.",
+        ["overview"] = "Overview", ["overviewIntro"] = "How the solution is put together: its components, how they talk to each other, and the main flows. The diagrams and tables are generated from the code; the text under each is for a person.",
+        ["components"] = "Components", ["flows"] = "Flows", ["flowsIntro"] = "What an entry point sets in motion, hop by hop. A deduction from names: the code is read, not run.",
+        ["eventsTitle"] = "Events", ["sharedTitle"] = "Shared libraries", ["role"] = "Role", ["infrastructure"] = "Infrastructure", ["privateLibraries"] = "Private libraries",
+        ["producers"] = "Produced by", ["consumers"] = "Consumed by", ["sharedUsedBy"] = "Used by", ["caller"] = "Caller", ["background"] = "in the background", ["noConsumer"] = "no consumer",
+        ["involved"] = "Components involved", ["eventsWord"] = "events", ["callWord"] = "call", ["dataWord"] = "data", ["dependsWord"] = "depends on", ["event"] = "Event", ["library"] = "Library",
+        ["service"] = "service", ["application"] = "application", ["endpointsTitle"] = "Endpoints", ["publishesTitle"] = "Events it publishes", ["consumesTitle"] = "Events it consumes",
+        ["backgroundTitle"] = "Background services", ["dataTitle"] = "Data", ["connectionsTitle"] = "Connections", ["relatedFlows"] = "Flows it takes part in",
+        ["from"] = "From", ["to"] = "To", ["kindWord"] = "Kind", ["via"] = "Via", ["flowWord"] = "Flow",
+        ["narrative"] = "Narrative", ["detailIntro"] = "The detail of one component: what it exposes, publishes, consumes and takes part in, generated from the code, and below the narrative.",
     });
 
     private static readonly DocLabels Italian = new(new()
@@ -40,6 +49,15 @@ public sealed class DocLabels
         ["dataModel"] = "Modello dati", ["dataModelIntro"] = "I DbContext e le loro entità, letti dagli snapshot di EF Core.",
         ["api"] = "API", ["apiIntro"] = "Gli endpoint dichiarati nel codice.", ["configuration"] = "Configurazione", ["configurationIntro"] = "Le chiavi di configurazione che il codice legge o che un file di impostazioni definisce. I valori non sono mai elencati.",
         ["integrations"] = "Integrazioni", ["integrationsIntro"] = "Client HTTP esterni e servizi che girano in background.",
+        ["overview"] = "Panoramica", ["overviewIntro"] = "Come è fatta la soluzione: i componenti, come si parlano e i flussi principali. I diagrammi e le tabelle sono generati dal codice; il testo sotto ciascuno è per una persona.",
+        ["components"] = "Componenti", ["flows"] = "Flussi", ["flowsIntro"] = "Cosa mette in moto un punto d'ingresso, passo per passo. Una deduzione dai nomi: il codice è letto, non eseguito.",
+        ["eventsTitle"] = "Eventi", ["sharedTitle"] = "Librerie condivise", ["role"] = "Ruolo", ["infrastructure"] = "Infrastruttura", ["privateLibraries"] = "Librerie private",
+        ["producers"] = "Prodotto da", ["consumers"] = "Consumato da", ["sharedUsedBy"] = "Usata da", ["caller"] = "Chiamante", ["background"] = "in background", ["noConsumer"] = "nessun consumatore",
+        ["involved"] = "Componenti coinvolti", ["eventsWord"] = "eventi", ["callWord"] = "chiamata", ["dataWord"] = "dati", ["dependsWord"] = "dipende da", ["event"] = "Evento", ["library"] = "Libreria",
+        ["service"] = "servizio", ["application"] = "applicazione", ["endpointsTitle"] = "Endpoint", ["publishesTitle"] = "Eventi che pubblica", ["consumesTitle"] = "Eventi che consuma",
+        ["backgroundTitle"] = "Servizi in background", ["dataTitle"] = "Dati", ["connectionsTitle"] = "Collegamenti", ["relatedFlows"] = "Flussi a cui partecipa",
+        ["from"] = "Da", ["to"] = "A", ["kindWord"] = "Tipo", ["via"] = "Tramite", ["flowWord"] = "Flusso",
+        ["narrative"] = "Narrazione", ["detailIntro"] = "Il dettaglio di un componente: cosa espone, pubblica, consuma e a cosa partecipa, generato dal codice, e sotto la narrazione.",
     });
 }
 

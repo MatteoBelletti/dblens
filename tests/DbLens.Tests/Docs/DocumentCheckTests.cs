@@ -32,7 +32,7 @@ public sealed class DocumentCheckTests
 
         result.Ok.Should().BeTrue();
         Codes(result, IssueSeverity.Warning).Should().Equal("slot-empty");
-        result.Warnings.Should().Be(3, "the project and two endpoints");
+        result.Warnings.Should().Be(4, "the project, its component and two endpoints");
     }
 
     [Fact]
@@ -155,7 +155,7 @@ public sealed class DocumentCheckTests
         documents["docs/project/api.md"] = Fill(documents["docs/project/api.md"], "endpoint:GET /a", "Lists a.");
         var stale = Scaffolder.Scaffold(inventory.WithAttribute("endpoint:GET /a", "handler", "Other"), documents, Options);
 
-        Check(inventory, documents).Warnings.Should().Be(1, "only the project slot is empty");
+        Check(inventory, documents).Warnings.Should().Be(2, "only the project and component slots are empty");
         Check(inventory, documents, requireSlots: true).Issues.Should().Contain(i => i.Code == "slot-empty" && i.Severity == IssueSeverity.Error);
 
         // The slot is stale against the new item, whatever the generated text says.
@@ -193,7 +193,7 @@ public sealed class DocumentCheckTests
     {
         var result = Check(Solution("/a"), []);
 
-        result.Issues.Where(i => i.Code == "missing-item").Select(i => i.Id).Should().BeEquivalentTo("project:Api", "endpoint:GET /a", ProjectGraph.Id);
+        result.Issues.Where(i => i.Code == "missing-item").Select(i => i.Id).Should().BeEquivalentTo("project:Api", "component:Api", "endpoint:GET /a", ProjectGraph.Id, OverviewRenderer.GraphId);
     }
 
     internal static string Fill(string document, string id, string words)

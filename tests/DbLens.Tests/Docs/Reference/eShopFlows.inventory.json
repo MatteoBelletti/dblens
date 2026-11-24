@@ -4045,6 +4045,160 @@
       },
       "alsoAt": [],
       "reason": "a deduction from names: calls are followed by method name, commands and domain events by type"
+    },
+    {
+      "id": "detail:Basket.API",
+      "kind": "detail",
+      "name": "Basket.API",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/Basket.API/Basket.API.csproj",
+        "line": 1
+      },
+      "attributes": {
+        "component": "Basket.API"
+      },
+      "alsoAt": []
+    },
+    {
+      "id": "detail:Catalog.API",
+      "kind": "detail",
+      "name": "Catalog.API",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/Catalog.API/Catalog.API.csproj",
+        "line": 1
+      },
+      "attributes": {
+        "component": "Catalog.API"
+      },
+      "alsoAt": []
+    },
+    {
+      "id": "detail:ClientApp",
+      "kind": "detail",
+      "name": "ClientApp",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/ClientApp/ClientApp.csproj",
+        "line": 1
+      },
+      "attributes": {
+        "component": "ClientApp"
+      },
+      "alsoAt": []
+    },
+    {
+      "id": "detail:HybridApp",
+      "kind": "detail",
+      "name": "HybridApp",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/HybridApp/HybridApp.csproj",
+        "line": 1
+      },
+      "attributes": {
+        "component": "HybridApp"
+      },
+      "alsoAt": []
+    },
+    {
+      "id": "detail:Identity.API",
+      "kind": "detail",
+      "name": "Identity.API",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/Identity.API/Identity.API.csproj",
+        "line": 1
+      },
+      "attributes": {
+        "component": "Identity.API"
+      },
+      "alsoAt": []
+    },
+    {
+      "id": "detail:OrderProcessor",
+      "kind": "detail",
+      "name": "OrderProcessor",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/OrderProcessor/OrderProcessor.csproj",
+        "line": 1
+      },
+      "attributes": {
+        "component": "OrderProcessor"
+      },
+      "alsoAt": []
+    },
+    {
+      "id": "detail:Ordering.API",
+      "kind": "detail",
+      "name": "Ordering.API",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/Ordering.API/Ordering.API.csproj",
+        "line": 1
+      },
+      "attributes": {
+        "component": "Ordering.API"
+      },
+      "alsoAt": []
+    },
+    {
+      "id": "detail:PaymentProcessor",
+      "kind": "detail",
+      "name": "PaymentProcessor",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/PaymentProcessor/PaymentProcessor.csproj",
+        "line": 1
+      },
+      "attributes": {
+        "component": "PaymentProcessor"
+      },
+      "alsoAt": []
+    },
+    {
+      "id": "detail:WebApp",
+      "kind": "detail",
+      "name": "WebApp",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/WebApp/WebApp.csproj",
+        "line": 1
+      },
+      "attributes": {
+        "component": "WebApp"
+      },
+      "alsoAt": []
+    },
+    {
+      "id": "detail:WebhookClient",
+      "kind": "detail",
+      "name": "WebhookClient",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/WebhookClient/WebhookClient.csproj",
+        "line": 1
+      },
+      "attributes": {
+        "component": "WebhookClient"
+      },
+      "alsoAt": []
+    },
+    {
+      "id": "detail:Webhooks.API",
+      "kind": "detail",
+      "name": "Webhooks.API",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/Webhooks.API/Webhooks.API.csproj",
+        "line": 1
+      },
+      "attributes": {
+        "component": "Webhooks.API"
+      },
+      "alsoAt": []
     }
   ],
   "coverage": [

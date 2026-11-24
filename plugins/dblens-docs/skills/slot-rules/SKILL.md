@@ -19,6 +19,22 @@ code and says what the item *is*; the slot says what it is *for*.
   DbContext's slot says which part of the domain it holds and which store it targets. A configuration key has
   no slot.
 
+## A narrative slot: the detail of a component
+
+A slot with id `detail:<component>` holds a page (up to 80 lines) of Markdown: paragraphs, `##` headings, lists, and one
+Mermaid sequence diagram if it makes a flow clearer. The generated tables above it (endpoints, events, flows) already say
+what exists; the page says how it works. In this order, and only what the code shows:
+
+1. What it does and for whom, in three or four lines.
+2. How it works: the main flow step by step, each step with its file and method (`path/File.cs: Method`).
+3. States and timing, if there are any: a status enum and its transitions, delays, schedules.
+4. When something goes wrong: error paths, what the caller sees, what is retried and what is not.
+5. What to know before touching it: surprising behaviour, failures that are silent, coupling to other components. Each with file and method.
+6. Where to change it for the usual changes.
+7. What you did not check, as a short list. An interpretation is marked as one.
+
+Read the code the tables point at (the handlers, the aggregate, the background service); a name is not a description.
+
 ## What it may rest on
 
 Only on the item's `facts` and on the source you read at its `source` (the file and line), with its

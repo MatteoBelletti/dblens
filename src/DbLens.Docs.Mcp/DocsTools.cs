@@ -68,7 +68,7 @@ public sealed class DocsTools(DocsWorkspace workspace)
         DocumentCheck.Check(workspace.Inventory(), workspace.Documents(), workspace.Options, strict, requireSlots);
 
     [McpServerTool(Destructive = false, Idempotent = true), Description(
-        "Writes the words of one slot of the project documents (one purpose, at most the slot's max lines, plain text, no blank lines). The only thing this server writes. " +
+        "Writes the words of one slot of the project documents at most the slot's max lines; a caption (2 to 4 lines) is plain text with no blank lines, a narrative slot (a `detail:` one) takes Markdown with paragraphs. The only thing this server writes. " +
         "IMPORTANT: it refuses a slot that holds a person's words, a document whose item changed since it was generated, text with an HTML comment, and any id without a slot. The slot is marked inferred: a person confirms it by editing it.")]
     public SlotWritten SetDocSlot(
         [Description("The item id, as get_doc_slots lists it, e.g. 'endpoint:GET /orders/{id}'.")]

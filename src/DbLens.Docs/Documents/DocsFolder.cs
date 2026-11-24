@@ -9,6 +9,8 @@ namespace DbLens.Docs.Documents;
 /// </summary>
 public static class DocsFolder
 {
+    private const int MaxDetailDocuments = 200;
+
     public static IReadOnlyDictionary<string, string> Read(string root, DocsOptions options)
     {
         var folder = Resolve(root, options);
@@ -19,6 +21,15 @@ public static class DocsFolder
             if (File.Exists(path) && !File.GetAttributes(path).HasFlag(FileAttributes.ReparsePoint))
                 documents[$"{options.Folder}/{file}"] = File.ReadAllText(path);
         }
+
+        var details = Path.Combine(folder, DocPlan.DetailFolder);
+        if (Directory.Exists(details) && !new DirectoryInfo(details).Attributes.HasFlag(FileAttributes.ReparsePoint))
+            foreach (var path in Directory.GetFiles(details, "*.md").Order(StringComparer.Ordinal).Take(MaxDetailDocuments))
+            {
+                var file = $"{DocPlan.DetailFolder}/{Path.GetFileName(path)}";
+                if (DocPlan.IsDetailFile(file) && !File.GetAttributes(path).HasFlag(FileAttributes.ReparsePoint))
+                    documents[$"{options.Folder}/{file}"] = File.ReadAllText(path);
+            }
 
         return documents;
     }
@@ -37,9 +48,17 @@ public static class DocsFolder
             {
                 if (!path.StartsWith(options.Folder + "/", StringComparison.Ordinal)) throw new ArgumentException($"{path} is not in the docs folder {options.Folder}.");
                 var name = path[(options.Folder.Length + 1)..];
-                if (!DocPlan.Files.Contains(name, StringComparer.Ordinal)) throw new ArgumentException($"{path} is not one of the project documents.");
+                if (!DocPlan.Files.Contains(name, StringComparer.Ordinal) && !DocPlan.IsDetailFile(name)) throw new ArgumentException($"{path} is not one of the project documents.");
 
                 var target = Path.Combine(folder, name);
+                if (DocPlan.IsDetailFile(name))
+                {
+                    var details = Path.GetDirectoryName(target)!;
+                    if (Directory.Exists(details) && new DirectoryInfo(details).Attributes.HasFlag(FileAttributes.ReparsePoint))
+                        throw new ArgumentException($"{DocPlan.DetailFolder} is a link: the documents are not written through links.");
+                    Directory.CreateDirectory(details);
+                }
+
                 if (File.Exists(target) && File.GetAttributes(target).HasFlag(FileAttributes.ReparsePoint))
                     throw new ArgumentException($"{path} is a link and was not written.");
 

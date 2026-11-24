@@ -20,7 +20,7 @@ Show the user: "<n> slots need words: <count per kind>; <p> hold a person's word
 
 ## 2. Write them
 
-Group the slots by `file`, at most 8 ids per batch, and run the workflow `dblens-docs:fill-slots` with
+Group the slots by `file`, at most 8 ids per batch (a `detail:` slot is a page: it goes alone in its batch), and run the workflow `dblens-docs:fill-slots` with
 `{"batches": [[<ids>], …]}`. It writes, has each slot's words read against the code, and rewrites once what the
 code does not support.
 

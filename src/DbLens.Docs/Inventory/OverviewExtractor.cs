@@ -138,6 +138,11 @@ internal static partial class OverviewExtractor
                 [], null));
         }
 
+        foreach (var component in components.Components.Where(c => c.Role != "shared-library"))
+            items.Add(new InventoryItem(
+                $"detail:{component.Name}", ItemKind.Detail, component.Name, ItemEvidence.Extracted, items.First(i => i.Id == $"component:{component.Name}").Source,
+                new SortedDictionary<string, string>(StringComparer.Ordinal) { ["component"] = component.Name }, [], null));
+
         foreach (var name in analysis.Producers.Select(p => p.Event).Concat(analysis.Consumers.Select(c => c.Event)).Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal))
         {
             var producers = producersOf.GetValueOrDefault(name) ?? [];

@@ -19,6 +19,7 @@ public static class DocsCli
           check      [root] [--docs DIR] [--strict] [--require-slots] [--json]
                                                          fail when the documents and the code disagree
           confirm    <id> [root] [--docs DIR]            confirm a slot as it reads now (it becomes yours)
+          detail     <component> [root] [--docs DIR]     start the detail document of one component (components/<name>.md)
           mcp        [root]                              serve the inventory and the slots over MCP (stdio)
 
         root is the folder of the solution (default: the current folder). The settings are in dblens-docs.json
@@ -72,10 +73,10 @@ public static class DocsCli
             else positional.Add(args[i]);
         }
 
-        if (command is not ("inventory" or "scaffold" or "check" or "confirm")) throw new ArgumentException($"Unknown command {command}.\n\n{Usage}");
-        if (command == "confirm" && positional.Count == 0) throw new ArgumentException("confirm needs the id of the item.");
+        if (command is not ("inventory" or "scaffold" or "check" or "confirm" or "detail")) throw new ArgumentException($"Unknown command {command}.\n\n{Usage}");
+        if (command is "confirm" or "detail" && positional.Count == 0) throw new ArgumentException($"{command} needs the {(command == "confirm" ? "id of the item" : "name of the component")}.");
 
-        var rootArgument = command == "confirm" ? positional.ElementAtOrDefault(1) : positional.FirstOrDefault();
+        var rootArgument = command is "confirm" or "detail" ? positional.ElementAtOrDefault(1) : positional.FirstOrDefault();
         var root = Path.GetFullPath(rootArgument ?? currentDirectory, currentDirectory);
         if (!Directory.Exists(root)) throw new ArgumentException($"{root} is not a folder.");
 
@@ -104,6 +105,18 @@ public static class DocsCli
                 output.WriteLine($"{result.Files.Count} documents in {docs.Folder}: {r.Added.Count} added, {r.Changed.Count} changed, {r.Removed.Count} removed, {r.Stale.Count} slots stale, {r.MarkedHuman.Count} slots marked human.");
                 foreach (var id in r.Removed) output.WriteLine($"  removed: {id}");
                 foreach (var id in r.Stale) output.WriteLine($"  stale slot: {id}");
+                return 0;
+
+            case "detail":
+                var wanted = inventory.Items.FirstOrDefault(i => i.Kind == ItemKind.Detail && (i.Name.Equals(positional[0], StringComparison.OrdinalIgnoreCase) || i.Id.Equals(positional[0], StringComparison.OrdinalIgnoreCase)))
+                             ?? throw new ArgumentException($"{positional[0]} is not a component with a detail document. Components: {string.Join(", ", inventory.Items.Where(i => i.Kind == ItemKind.Detail).Select(i => i.Name))}.");
+                var started = DocsFolder.Locked(root, docs, () =>
+                {
+                    var scaffolded = Scaffolder.Scaffold(inventory, DocsFolder.Read(root, docs), docs, [wanted.Name]);
+                    DocsFolder.Write(root, docs, scaffolded.Files);
+                    return scaffolded;
+                });
+                output.WriteLine($"{Scaffolder.DetailPath(docs, wanted.Name)}: {started.Report.Added.Count} regions added; its narrative slot is {Scaffolder.DetailLines} lines (id {wanted.Id}).");
                 return 0;
 
             case "confirm":
