@@ -24,10 +24,13 @@ public static class FragmentationAnalysisEngine
         "sp_BlitzIndex and Ola Hallengren's maintenance solution on SQL Server, PgHero and " +
         "pganalyze on PostgreSQL.";
 
+    private const int MaxNamedNotMeasured = 10;
+
     public static AnalyzeFragmentationResult Analyze(
         IndexFragmentationStats stats,
         AnalyzeFragmentationRequest request,
-        DatabaseDialect dialect)
+        DatabaseDialect dialect,
+        StatsWindow? window = null)
     {
         List<string> caveats = [];
 
@@ -36,7 +39,7 @@ public static class FragmentationAnalysisEngine
             caveats.Add(stats.UnavailableReason
                 ?? "Physical index statistics are not available on this database.");
 
-            return Build(FindingSplit.Empty, caveats, 0, 0, 0, statsAvailable: false);
+            return Build(FindingSplit.Empty, caveats, 0, 0, 0, 0, statsAvailable: false);
         }
 
         var eligible = stats.Indexes.Where(i => i.PageCount >= request.MinPageCount).ToList();
@@ -57,6 +60,20 @@ public static class FragmentationAnalysisEngine
 
         caveats.Add(stats.SourceDescription);
 
+        var notMeasured = stats.NotMeasured ?? [];
+        if (notMeasured.Count > 0)
+            caveats.Add(
+                $"{notMeasured.Count} index(es) were not measured, so they are neither reported nor cleared: " +
+                string.Join("; ", notMeasured.Take(MaxNamedNotMeasured).Select(n => $"'{n.IndexName}' on '{n.Schema}.{n.Table}' ({n.Reason})")) +
+                (notMeasured.Count > MaxNamedNotMeasured ? $"; and {notMeasured.Count - MaxNamedNotMeasured} more" : "") +
+                ". Narrow the scope to the tables that matter and run it again.");
+
+        if (window is { Since: StatsWindowStart.DatabaseCreated or StatsWindowStart.DatabaseRestored } && window.Days < request.RecentRestoreDays)
+            caveats.Add(
+                $"The database was {(window.Since == StatsWindowStart.DatabaseRestored ? "restored" : "created")} {Num.F0(window.Days)} day(s) ago, " +
+                "and a restore rebuilds its indexes: the fragmentation measured here reflects the restore, not production. " +
+                "Measure it on production or on a replica.");
+
         if (skipped > 0)
             caveats.Add(
                 $"{skipped} index(es) were skipped because they are smaller than " +
@@ -75,23 +92,24 @@ public static class FragmentationAnalysisEngine
 
         var maxFragmentation = eligible.Count > 0 ? eligible.Max(i => i.FragmentationPercent) : 0;
 
-        return Build(split, caveats, eligible.Count, skipped, maxFragmentation, statsAvailable: true);
+        return Build(split, caveats, eligible.Count, skipped, notMeasured.Count, maxFragmentation, statsAvailable: true);
     }
 
     public static AnalyzeFragmentationResult Empty() =>
-        Build(FindingSplit.Empty, [], 0, 0, 0, statsAvailable: true);
+        Build(FindingSplit.Empty, [], 0, 0, 0, 0, statsAvailable: true);
 
     private static AnalyzeFragmentationResult Build(
         FindingSplit split,
         IReadOnlyList<string> caveats,
         int indexesAnalyzed,
         int indexesSkipped,
+        int indexesNotMeasured,
         double maxFragmentation,
         bool statsAvailable) =>
         new(
             Findings: split.Findings,
             Signals: split.Signals,
-            Summary: BuildSummary(split, indexesAnalyzed, indexesSkipped, maxFragmentation),
+            Summary: BuildSummary(split, indexesAnalyzed, indexesSkipped, indexesNotMeasured, maxFragmentation),
             Caveats: caveats,
             Truncated: split.Truncated,
             StatsAvailable: statsAvailable,
@@ -182,12 +200,14 @@ public static class FragmentationAnalysisEngine
         FindingSplit split,
         int indexesAnalyzed,
         int indexesSkipped,
+        int indexesNotMeasured,
         double maxFragmentation) =>
         new(
             TotalFindings: split.Findings.Count,
             TotalSignals: split.Signals.Count,
             IndexesAnalyzed: indexesAnalyzed,
             IndexesSkippedTooSmall: indexesSkipped,
+            IndexesNotMeasured: indexesNotMeasured,
             MaxFragmentationPercent: Math.Round(maxFragmentation, 2),
             BySeverity: split.BySeverity(),
             ByRule: split.ByRule(FragmentationRuleIds.All));

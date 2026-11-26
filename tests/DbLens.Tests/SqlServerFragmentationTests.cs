@@ -143,4 +143,18 @@ public sealed class SqlServerFragmentationTests(SqlServerFixture fixture) : ICla
 
         result.Disclaimer.Should().NotBeNullOrWhiteSpace();
     }
+
+    [SkippableFact]
+    [Trait("Category", "Integration")]
+    public async Task AnalyzeFragmentation_WhenTheTimeBudgetIsSpent_EveryIndexLeftIsNamed()
+    {
+        Skip.If(ShouldSkip, TestSkip.Reason);
+
+        var result = await _fixture.Inspector!.AnalyzeFragmentationAsync(
+            new AnalyzeFragmentationRequest(Schema: "dbo", MinPageCount: 0, TotalBudgetSeconds: 0));
+
+        result.Summary.IndexesAnalyzed.Should().Be(0);
+        result.Summary.IndexesNotMeasured.Should().BeGreaterThan(0);
+        result.Caveats.Should().Contain(c => c.Contains("over the time budget"));
+    }
 }

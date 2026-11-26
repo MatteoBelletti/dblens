@@ -1,5 +1,6 @@
 using DbLens.Core.Analysis;
 using DbLens.Core.Analysis.Fragmentation;
+using DbLens.Core.Analysis.Indexes;
 using DbLens.Core.Models;
 using FluentAssertions;
 
@@ -30,11 +31,13 @@ public sealed class FragmentationAnalysisTests
     private static AnalyzeFragmentationResult Analyze(
         IndexFragmentationStats stats,
         AnalyzeFragmentationRequest? request = null,
-        DatabaseDialect dialect = DatabaseDialect.PostgreSql) =>
+        DatabaseDialect dialect = DatabaseDialect.PostgreSql,
+        StatsWindow? window = null) =>
         FragmentationAnalysisEngine.Analyze(
             stats,
             request ?? new AnalyzeFragmentationRequest(),
-            dialect);
+            dialect,
+            window);
 
     private static IEnumerable<Finding> OfRule(AnalyzeFragmentationResult r, string ruleId) =>
         r.Findings.Where(f => f.RuleId == ruleId);
@@ -246,5 +249,41 @@ public sealed class FragmentationAnalysisTests
         result.Truncated.Should().BeTrue();
         result.Findings.Should().HaveCount(DiagnosticLimits.MaxFindingCount);
         result.Caveats.Should().Contain(c => c.Contains("truncated", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
+    public void IndexesThatWereNotMeasured_AreCountedAndNamedInACaveat()
+    {
+        var stats = Stats(Index("idx_a", 5)) with
+        {
+            NotMeasured = [new NotMeasuredIndex("public", "orders", "idx_big", "canceling statement due to statement timeout"), new NotMeasuredIndex("public", "lines", "idx_late", "over the time budget")],
+        };
+
+        var result = Analyze(stats);
+
+        result.Summary.IndexesNotMeasured.Should().Be(2);
+        result.Caveats.Should().Contain(c => c.Contains("2 index(es) were not measured") && c.Contains("'idx_big' on 'public.orders' (canceling statement due to statement timeout)") && c.Contains("'idx_late' on 'public.lines' (over the time budget)"));
+    }
+
+    [Fact]
+    public void ManyIndexesNotMeasured_AreNamedUpToALimit_AndTheRestCounted()
+    {
+        var stats = Stats() with { NotMeasured = [.. Enumerable.Range(0, 13).Select(i => new NotMeasuredIndex("public", "t", $"idx_{i:00}", "over the time budget"))] };
+
+        var caveat = Analyze(stats).Caveats.Single(c => c.Contains("not measured"));
+
+        caveat.Should().Contain("13 index(es)").And.Contain("'idx_09'").And.NotContain("'idx_10'").And.Contain("and 3 more");
+    }
+
+    [Theory]
+    [InlineData(StatsWindowStart.DatabaseRestored, 2, true)]
+    [InlineData(StatsWindowStart.DatabaseCreated, 2, true)]
+    [InlineData(StatsWindowStart.DatabaseRestored, 90, false)]
+    [InlineData(StatsWindowStart.ServerStart, 2, false)]
+    public void ARecentRestore_SaysTheFragmentationReflectsIt(StatsWindowStart since, double days, bool expected)
+    {
+        var result = Analyze(Stats(Index("idx_a", 5)), window: new StatsWindow(days, since, RestoreVisible: true));
+
+        (result.Caveats.Any(c => c.Contains("reflects the restore, not production"))).Should().Be(expected);
     }
 }

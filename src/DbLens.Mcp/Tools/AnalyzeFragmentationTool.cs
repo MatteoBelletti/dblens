@@ -13,8 +13,9 @@ public sealed class AnalyzeFragmentationTool(IServiceProvider services, IDatabas
     [McpServerTool, Description(
         "Reports index fragmentation (rebuild from 30%, reorganize from 10%) and optionally page density, with the " +
         "REINDEX / ALTER INDEX statement for each. IMPORTANT: PostgreSQL needs pgstattuple and covers btree only; SQL " +
-        "Server needs VIEW DATABASE STATE. StatsAvailable false means not measured, NOT healthy. Indexes under 1,000 " +
-        "pages are skipped. One input to a maintenance decision, not a plan: fill factor, split history and access " +
+        "Server needs VIEW DATABASE STATE. StatsAvailable false means not measured, NOT healthy; an index that took too " +
+        "long or failed is named in the caveats, neither reported nor cleared. Indexes under 1,000 " +
+        "pages are skipped. On a freshly restored database the numbers reflect the restore. One input to a maintenance decision, not a plan: fill factor, split history and access " +
         "patterns are not considered. Do NOT infer beyond the response.")]
     public Task<AnalyzeFragmentationResult> AnalyzeFragmentation(
         [Description(DialectHelp)]
