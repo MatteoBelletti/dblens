@@ -15,8 +15,7 @@ Call `get_doc_slots` (state `needed`, `brief` true, with `idPrefix` if the user 
 the documents do not exist, tell the user to run `dblens-docs scaffold` and stop. If nothing is needed, run
 `check_doc_coverage` and report its result.
 
-Show the user: "<n> slots need words: <count per kind>; <p> hold a person's words and will be left alone."
-(`protected` slots are never written). Then continue, unless the user asked to be asked first.
+Tell the user how many slots need words, per kind, and how many hold a person's words (`protected`: never written). Then continue, unless they asked to be asked first.
 
 ## 2. Write them
 

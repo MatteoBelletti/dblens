@@ -13,7 +13,7 @@ Then `/dblens-docs:fill-slots` in that folder. It lists the slots that are empty
 written slot against the source; one rewrite of what is not supported) and runs the check with every slot
 required.
 
-- `skills/slot-rules`: what a purpose says and may rest on.
+- `skills/slot-rules`: what a caption or a page says and may rest on (the writer).
 - `agents/writer`, `agents/reviewer`: what each may call (the MCP tools, Read, Grep, Glob).
 - `evals/fill`: a small API with one slot already a person's; run with `run-evals.sh` (the working tree's
   build; at most $2).

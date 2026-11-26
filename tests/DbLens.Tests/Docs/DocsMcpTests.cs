@@ -89,6 +89,8 @@ public sealed class DocsMcpTests : IAsyncLifetime
         var endpoints = JsonDocument.Parse((await Call("get_project_inventory", ("kind", "endpoint"))).Text).RootElement;
 
         all.GetProperty("total").GetInt32().Should().BeGreaterThan(endpoints.GetProperty("total").GetInt32());
+        all.TryGetProperty("items", out _).Should().BeFalse("an unfiltered call is the counts only");
+        all.GetProperty("byKind").GetProperty("Endpoint").GetInt32().Should().Be(1);
         endpoints.GetProperty("items").EnumerateArray().Select(i => i.GetProperty("id").GetString()).Should().Equal("endpoint:GET /a");
         (await Call("get_project_inventory", ("kind", "nonsense"))).Should().Match<(bool IsError, string Text)>(r => r.IsError && r.Text.Contains("Unknown kind"));
     }

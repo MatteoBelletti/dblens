@@ -5,7 +5,10 @@ using ModelContextProtocol.Server;
 
 namespace DbLens.Docs.Mcp;
 
-public sealed record InventoryView(IReadOnlyList<InventoryItem> Items, IReadOnlyList<CoverageNote> Coverage, int Total);
+/// <summary>The inventory as a model reads it: no empty attribute, the source as one text. Without a filter, only the counts.</summary>
+public sealed record InventoryView(int Total, IReadOnlyDictionary<string, int>? ByKind, IReadOnlyList<ItemView>? Items, IReadOnlyList<CoverageNote> Coverage);
+
+public sealed record ItemView(string Id, string Name, string Evidence, string Source, IReadOnlyDictionary<string, string> Attributes, string? Reason, IReadOnlyList<string>? AlsoAt);
 
 /// <param name="Language">The language the words are written in: the one of the documents (<c>it</c> or <c>en</c>).</param>
 public sealed record SlotList(int Total, int Returned, IReadOnlyList<SlotInfo> Slots, string Note, string Language);
@@ -25,9 +28,9 @@ public sealed class DocsTools(DocsWorkspace workspace)
     [McpServerTool(ReadOnly = true), Description(
         "The inventory of the .NET solution this server was started on, read from syntax: projects, DbContexts, entities, endpoints, configuration keys, HTTP clients, background services, and the overview (components, the events that cross them, the links between components, and candidate flows), each with its source file and line. " +
         "IMPORTANT: nothing is compiled or run, so a route built at run time or a convention-based controller is named in coverage, not guessed; links and flows are deductions from names (evidence Inferred). Configuration and compose values are never read. " +
-        "An unfiltered call returns the first 200 of total: ask by kind.")]
+        "Without kind or idPrefix it returns only the counts per kind; ask for one kind (at most 200 items come back).")]
     public InventoryView GetProjectInventory(
-        [Description("Only items of this kind: Project, Context, Entity, Endpoint, Config, HttpClient, HostedService, Component, Event, Link or Flow. Omit for all.")]
+        [Description("Only items of this kind (Project, Context, Entity, Endpoint, Config, HttpClient, HostedService, Component, Event, Link, Flow).")]
         string? kind = null,
         [Description("Only items whose id starts with this text, e.g. 'endpoint:GET /orders'.")]
         string? idPrefix = null)
@@ -41,7 +44,12 @@ public sealed class DocsTools(DocsWorkspace workspace)
         var items = inventory.Items
             .Where(i => (wanted is null || i.Kind == wanted) && (idPrefix is not { Length: > 0 } || i.Id.StartsWith(idPrefix, StringComparison.Ordinal)))
             .ToList();
-        return new InventoryView([.. items.Take(MaxItems)], inventory.Coverage, items.Count);
+        if (wanted is null && idPrefix is not { Length: > 0 })
+            return new InventoryView(items.Count, items.GroupBy(i => i.Kind).ToDictionary(g => g.Key.ToString(), g => g.Count()), null, inventory.Coverage);
+
+        return new InventoryView(items.Count, null, [.. items.Take(MaxItems).Select(i => new ItemView(
+            i.Id, i.Name, i.Evidence.ToString(), $"{i.Source.File}:{i.Source.Line}", ItemHash.Shown(i).ToDictionary(a => a.Key, a => a.Value, StringComparer.Ordinal), i.Reason,
+            i.AlsoAt.Count > 0 ? [.. i.AlsoAt.Select(a => $"{a.File}:{a.Line}")] : null))], inventory.Coverage);
     }
 
     [McpServerTool(ReadOnly = true), Description(
