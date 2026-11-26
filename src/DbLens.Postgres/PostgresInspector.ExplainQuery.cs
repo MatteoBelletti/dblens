@@ -7,9 +7,56 @@ namespace DbLens.Postgres;
 
 public sealed partial class PostgresInspector
 {
+    protected override bool PlansWithoutParameterValues => true;
+
     protected override async Task<QueryPlanFetch> FetchQueryPlanAsync(
-        ExplainQueryRequest request, CancellationToken ct) =>
-        new(ParsePlan(await FetchPlanJsonAsync(request, ct)), []);
+        ExplainQueryRequest request, CancellationToken ct)
+    {
+        var (sql, arguments) = SqlText.PositionalParameters(request.Sql);
+        if (arguments == 0) return new(ParsePlan(await FetchPlanJsonAsync(request, ct)), []);
+
+        var named = SqlText.ParameterNames(request.Sql, DatabaseDialect.PostgreSql).Where(p => p[0] == '@').ToList();
+        return new(ParsePlan(await GenericPlanJsonAsync(sql, arguments, ct)),
+        [
+            "Generic plan: the statement has parameters, so its plan was chosen without their values, as PostgreSQL does for a prepared " +
+            "statement it plans generically. The plan a given value gets can differ." +
+            (named.Count > 0 ? $" Named parameters were read as positional, in order: {string.Join(", ", named.Select((n, i) => $"{n} = ${i + 1}"))}." : ""),
+        ]);
+    }
+
+    // The text with parameters is prepared on the server and explained under force_generic_plan (PostgreSQL 12+): the
+    // plan for any value, chosen without one. Npgsql would bind any $n as a value, and a plan for "x = NULL" is no
+    // plan of the query. EXPLAIN without ANALYZE runs nothing; the statement is deallocated before the connection
+    // goes back (a prepared statement outlives the rollback, so only this one is freed, not the driver's own).
+    private async Task<string> GenericPlanJsonAsync(string sql, int arguments, CancellationToken ct)
+    {
+        await using var conn = await OpenAsync(ct);
+        var prepared = false;
+
+        try
+        {
+            return await InRolledBackTransactionAsync(conn, ReadOnlyQuerySetupSql, ct, async tx =>
+            {
+                await using (var setup = Command(conn, "SET LOCAL plan_cache_mode = force_generic_plan", tx))
+                    await setup.ExecuteNonQueryAsync(ct);
+                await using (var prepare = Command(conn, $"PREPARE dblens_generic_plan AS {sql}", tx))
+                    await prepare.ExecuteNonQueryAsync(ct);
+                prepared = true;
+
+                var execute = arguments == 0 ? "" : $"({string.Join(", ", Enumerable.Repeat("NULL", arguments))})";
+                await using var explain = Command(conn, $"EXPLAIN (COSTS, VERBOSE, FORMAT JSON) EXECUTE dblens_generic_plan{execute}", tx);
+                return (await explain.ExecuteScalarAsync(ct))?.ToString() ?? "[]";
+            });
+        }
+        finally
+        {
+            if (prepared)
+            {
+                await using var deallocate = Command(conn, "DEALLOCATE dblens_generic_plan");
+                await deallocate.ExecuteNonQueryAsync(CancellationToken.None);
+            }
+        }
+    }
 
     // A READ ONLY transaction makes the restriction engine-enforced rather than merely checked,
     // for estimated plans too: a write is still planned without ANALYZE, but nothing can run it.

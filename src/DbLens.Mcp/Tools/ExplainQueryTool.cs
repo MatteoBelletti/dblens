@@ -16,7 +16,8 @@ public sealed class ExplainQueryTool(IServiceProvider services, IDatabaseInspect
         "read from a cast). IMPORTANT: with analyze = false nothing runs and row counts are ESTIMATES. With analyze " +
         "= true the query IS EXECUTED, only if it is a single pure SELECT, in a transaction always rolled back; " +
         "anything else is rejected first. Explain writes with analyze = false, and do NOT rephrase a rejected statement " +
-        "to pass the check. Do NOT infer beyond the response.")]
+        "to pass the check. Parameters ($1, @p0) are planned without values on PostgreSQL (a generic plan, said in the " +
+        "caveats), refused with analyze = true, and refused on SQL Server, whose plan needs their types. Do NOT infer beyond the response.")]
     public Task<ExplainQueryResult> ExplainQuery(
         [Description("Exactly one SQL statement.")]
         string sql,

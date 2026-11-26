@@ -63,42 +63,9 @@ public sealed partial class PostgresInspector
             seesAll ? [] : ["This login is not in pg_read_all_stats (part of pg_monitor), so only its own queries are visible."]);
     }
 
-    // pg_stat_statements stores queries normalized, $1 for each constant. Npgsql would bind any $n as a
-    // value, and a plan for "x = NULL" is no plan of the query, so the text is prepared on the server
-    // and explained under force_generic_plan (PostgreSQL 12+): the plan for any value, chosen without one.
-    // EXPLAIN without ANALYZE runs nothing; the statement is deallocated before the connection goes back.
     protected override async Task<(QueryPlanNode? Root, string? Caveat)> PlanHotQueryAsync(
-        HotQueryStats query, CancellationToken ct)
-    {
-        await using var conn = await OpenAsync(ct);
-        var arguments = PlaceholderCount(query.Text);
-        var prepared = false;
-
-        try
-        {
-            return (ParsePlan(await InRolledBackTransactionAsync(conn, ReadOnlyQuerySetupSql, ct, async tx =>
-            {
-                await using (var setup = Command(conn, "SET LOCAL plan_cache_mode = force_generic_plan", tx))
-                    await setup.ExecuteNonQueryAsync(ct);
-                await using (var prepare = Command(conn, $"PREPARE dblens_hot_query AS {query.Text}", tx))
-                    await prepare.ExecuteNonQueryAsync(ct);
-                prepared = true;
-
-                var execute = arguments == 0 ? "" : $"({string.Join(", ", Enumerable.Repeat("NULL", arguments))})";
-                await using var explain = Command(conn, $"EXPLAIN (COSTS, VERBOSE, FORMAT JSON) EXECUTE dblens_hot_query{execute}", tx);
-                return (await explain.ExecuteScalarAsync(ct))?.ToString() ?? "[]";
-            })), null);
-        }
-        finally
-        {
-            // A prepared statement outlives the rollback; only this one is freed, not the driver's own.
-            if (prepared)
-            {
-                await using var deallocate = Command(conn, "DEALLOCATE dblens_hot_query");
-                await deallocate.ExecuteNonQueryAsync(CancellationToken.None);
-            }
-        }
-    }
+        HotQueryStats query, CancellationToken ct) =>
+        (ParsePlan(await GenericPlanJsonAsync(query.Text, PlaceholderCount(query.Text), ct)), null);
 
     /// <summary>The highest $n in the code, so literals and names that hold "$1" are not counted.</summary>
     private static int PlaceholderCount(string sql) =>

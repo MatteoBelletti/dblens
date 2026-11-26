@@ -164,6 +164,9 @@ public abstract partial class DatabaseInspectorBase
     /// <summary>The plan of a statement the guard has already passed; a null root when unparseable.</summary>
     protected abstract Task<QueryPlanFetch> FetchQueryPlanAsync(ExplainQueryRequest request, CancellationToken ct);
 
+    /// <summary>Whether a statement with parameters (<c>$1</c>, <c>@p0</c>) can be planned without their values.</summary>
+    protected abstract bool PlansWithoutParameterValues { get; }
+
     protected sealed record QueryPlanFetch(QueryPlanNode? Root, IReadOnlyList<string> Caveats);
 
     // ── analyze_indexes ────────────────────────────────────────────────────────
@@ -435,6 +438,17 @@ public abstract partial class DatabaseInspectorBase
             var single = StatementGuard.IsSingleStatement(request.Sql, Dialect);
             if (!single.Allowed)
                 throw new ArgumentException($"Refusing to plan this input. {single.RejectionReason}");
+        }
+
+        if (SqlText.ParameterNames(request.Sql, Dialect) is { Count: > 0 } parameters)
+        {
+            var named = string.Join(", ", parameters);
+            if (request.Analyze)
+                throw new ArgumentException(
+                    $"This statement has parameters ({named}) and no values for them, so it cannot be executed: use analyze false for its plan, or replace them with values.");
+            if (!PlansWithoutParameterValues)
+                throw new ArgumentException(
+                    $"This statement has parameters ({named}), and {Dialect} plans a statement only with their types declared, which dblens cannot know: replace them with values of the right type.");
         }
 
         Log.LogInformation(
