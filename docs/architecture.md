@@ -109,6 +109,16 @@ flowchart LR
 
 See [safety.md](safety.md#signal-verification) for the guarantees.
 
+### Fragmentation: one measurement per index
+
+`analyze_fragmentation` lists the candidates first (`FragmentationCandidatesCommand`, no measurement), then runs
+`FragmentationMeasureCommand` for each index that clears the size threshold, largest first, in the base. A
+measurement that times out or fails is caught and the index goes to `NotMeasured` with the driver's reason; the
+call has a total time budget, and the indexes it did not reach are named too. This is the second place, with the
+probes, that catches a driver error: an analysis that lost one index is still an analysis. A permission error is
+not that: it makes the statistics unavailable, as a missing extension does. The engine is pure and turns
+`NotMeasured` and the database's restore window into caveats.
+
 ## EF Core models
 
 `compare_ef_model` takes an EF Core model the tool reads from disk before the inspector sees it:

@@ -205,7 +205,7 @@ SQL Server  Server=localhost,1434;Database=dblens_demo;User Id=dblens_reader;Pas
 
 Used only when `DbLens:DemoFallback` is on (`appsettings.Development.json`, the Makefile, the tests):
 otherwise a dialect without `ConnectionStrings:<dialect>` is an error, never the demo. An empty value
-(an unset `.mcpb` setting) counts as not configured (`ConfiguredDatabases`). The admin logins (`postgres` / `sa`) exist for setup only.
+(an unset `.mcpb` setting) or an unexpanded `${...}` placeholder counts as not configured (`ConfiguredDatabases`). The admin logins (`postgres` / `sa`) exist for setup only.
 Non-standard ports avoid clashing with local installs.
 
 ## Releasing

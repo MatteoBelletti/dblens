@@ -165,6 +165,11 @@ caveat.
 |---|---|---|
 | `includePageDensity` | `false` | Also measure page density. On SQL Server this switches the scan from `LIMITED` to `SAMPLED` |
 
+Each index is measured on its own, largest first, with 30 s for one and 60 s for the call (request defaults,
+not parameters). An index that times out or fails, or that the budget did not reach, is named in a caveat and
+counted in `IndexesNotMeasured`: it is neither reported nor cleared. On a database created or restored in the last
+30 days a caveat says the numbers reflect the restore.
+
 | Rule | Severity | Detects |
 |---|---|---|
 | `idx-fragmentation-high` | Medium | ≥ 30 % fragmentation — rebuild (`REINDEX CONCURRENTLY` / `ALTER INDEX … REBUILD`) |
@@ -251,6 +256,12 @@ names yield one statement each. `BEGIN` / `COMMIT` are skipped.
 |---|---|---|
 | `sql` | required | Exactly one statement |
 | `analyze` | `false` | Execute it for real row counts and timings |
+
+A statement with parameters (`$1`, or `@__p_0` as EF Core logs them) gets, on PostgreSQL, its generic plan
+(`plan_cache_mode = force_generic_plan`: the plan chosen without values, said in the caveats; `@name` is read
+as `$n` in order of appearance). With `analyze: true` it is refused, there being no values to run it with. SQL
+Server is refused too, a genuine difference: `SHOWPLAN_XML` wants each variable declared with a type, and a
+guessed type plans another query. Replace the parameters with values of the right type.
 
 | Rule | Severity | Detects |
 |---|---|---|

@@ -190,8 +190,9 @@ claude mcp add dblens -- dotnet run --project /path/to/dblens/src/DbLens.Mcp
 | `DbLens:ConnectionsPath` | `DbLens__ConnectionsPath` | `dblens/connections` under the local application-data folder — connections saved under a name, one `<name>.conn` each (dialect, then connection string), for the `connection` parameter |
 | `DbLens:CertifiedQueriesPath` | `DbLens__CertifiedQueriesPath` | `dblens/certified-queries.json` under the local application-data folder: `%LOCALAPPDATA%` on Windows, `~/.local/share` on Linux, `~/Library/Application Support` on macOS |
 
-An empty value means the default, so an unset Claude Desktop setting counts as not configured. A
-tool call can also pass its own `connectionString`. `analyze_fragmentation` additionally needs
+An empty value, or a placeholder nobody expanded (`${user_config.pg_connection}`), counts as not
+configured. A tool call can also pass its own `connectionString`, or `database` to read another
+database of the configured server with the same login and no password in the call. `analyze_fragmentation` additionally needs
 `pgstattuple` (PostgreSQL) or `VIEW DATABASE STATE` (SQL Server); query history needs
 `pg_stat_statements` or Query Store.
 
