@@ -31,9 +31,11 @@ public sealed class AnalyzeDenormalizationTool(IServiceProvider services, IDatab
         string? connectionString = null,
         [Description(ConnectionHelp)]
         string? connection = null,
+        [Description(DatabaseHelp)]
+        string? database = null,
         CancellationToken cancellationToken = default)
     {
-        return ResolveInspector(dialect, connectionString, connection).AnalyzeDenormalizationAsync(
+        return ResolveInspector(dialect, connectionString, connection, database).AnalyzeDenormalizationAsync(
             new AnalyzeDenormalizationRequest(schema, tables, VerifySignals: verifySignals),
             cancellationToken);
     }

@@ -29,9 +29,11 @@ public sealed class AnalyzeIndexesTool(IServiceProvider services, IDatabaseInspe
         string? connectionString = null,
         [Description(ConnectionHelp)]
         string? connection = null,
+        [Description(DatabaseHelp)]
+        string? database = null,
         CancellationToken cancellationToken = default)
     {
-        var inspector = ResolveInspector(dialect, connectionString, connection);
+        var inspector = ResolveInspector(dialect, connectionString, connection, database);
 
         return inspector.AnalyzeIndexesAsync(
             new AnalyzeIndexesRequest(schema, tables, includeUnusedIndexes),

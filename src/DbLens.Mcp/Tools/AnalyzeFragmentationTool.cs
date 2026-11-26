@@ -30,9 +30,11 @@ public sealed class AnalyzeFragmentationTool(IServiceProvider services, IDatabas
         string? connectionString = null,
         [Description(ConnectionHelp)]
         string? connection = null,
+        [Description(DatabaseHelp)]
+        string? database = null,
         CancellationToken cancellationToken = default)
     {
-        return ResolveInspector(dialect, connectionString, connection).AnalyzeFragmentationAsync(
+        return ResolveInspector(dialect, connectionString, connection, database).AnalyzeFragmentationAsync(
             new AnalyzeFragmentationRequest(schema, tables, IncludePageDensity: includePageDensity),
             cancellationToken);
     }

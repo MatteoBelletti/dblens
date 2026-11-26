@@ -167,6 +167,42 @@ public sealed class GetSchemaToolTests
         capturedCs.Should().Be("Server=myserver;Database=prod");
     }
 
+    [Fact]
+    public async Task GetSchema_WithDatabase_ChangesOnlyTheDatabaseOfTheConfiguredString()
+    {
+        string? capturedCs = null;
+        var tool = MakeTool(onFactoryCreate: (_, cs) => capturedCs = cs);
+
+        await tool.GetSchema(dialect: DatabaseDialect.PostgreSql, database: "orders; Host=evil");
+
+        var built = new Npgsql.NpgsqlConnectionStringBuilder(capturedCs);
+        built.Database.Should().Be("orders; Host=evil");
+        (built.Host, built.Port, built.Username, built.Password).Should().Be(("localhost", 5433, "dblens_reader", "readerpassword"));
+    }
+
+    [Fact]
+    public async Task GetSchema_WithDatabase_KeepsTheOptionsOfASqlServerString()
+    {
+        string? capturedCs = null;
+        var tool = MakeTool(onFactoryCreate: (_, cs) => capturedCs = cs);
+
+        await tool.GetSchema(dialect: DatabaseDialect.SqlServer, database: "billing");
+
+        var built = new Microsoft.Data.SqlClient.SqlConnectionStringBuilder(capturedCs);
+        built.InitialCatalog.Should().Be("billing");
+        (built.DataSource, built.UserID, built.TrustServerCertificate).Should().Be(("localhost,1434", "dblens_reader", true));
+    }
+
+    [Theory]
+    [InlineData("Server=x;Database=prod", null)]
+    [InlineData(null, "saved")]
+    public async Task GetSchema_DatabaseWithAnotherWayToChooseOne_IsAmbiguous(string? connectionString, string? connection)
+    {
+        var call = () => MakeTool().GetSchema(dialect: DatabaseDialect.SqlServer, connectionString: connectionString, connection: connection, database: "other");
+
+        await call.Should().ThrowAsync<ArgumentException>().WithMessage("*not both*");
+    }
+
     // --- response shape ---
 
     [Fact]

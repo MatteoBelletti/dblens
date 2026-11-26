@@ -27,12 +27,14 @@ public sealed class CheckMigrationSafetyTool(IServiceProvider services, IDatabas
         string? connectionString = null,
         [Description(ConnectionHelp)]
         string? connection = null,
+        [Description(DatabaseHelp)]
+        string? database = null,
         CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(ddl))
             throw new ArgumentException("ddl must not be empty.");
 
-        return ResolveInspector(dialect, connectionString, connection).CheckMigrationSafetyAsync(
+        return ResolveInspector(dialect, connectionString, connection, database).CheckMigrationSafetyAsync(
             new CheckMigrationSafetyRequest(ddl, defaultSchema), cancellationToken);
     }
 }

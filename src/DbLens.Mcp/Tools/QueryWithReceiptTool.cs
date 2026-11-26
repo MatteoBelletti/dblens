@@ -35,6 +35,8 @@ public sealed class QueryWithReceiptTool(
         string? connectionString = null,
         [Description(ConnectionHelp)]
         string? connection = null,
+        [Description(DatabaseHelp)]
+        string? database = null,
         CancellationToken cancellationToken = default)
     {
         if (!policy.AllowQueryResults)
@@ -43,7 +45,7 @@ public sealed class QueryWithReceiptTool(
                 "DbLens:AllowQueryResults=true (see docs/safety.md#query-results). Use explain_query or the " +
                 "diagnostic tools instead.");
 
-        var inspector = ResolveInspector(dialect, connectionString, connection);
+        var inspector = ResolveInspector(dialect, connectionString, connection, database);
         var server = CertifiedQueryStore.ServerOf(inspector.Describe(TargetSource.Configured));
 
         if (certified is not null)

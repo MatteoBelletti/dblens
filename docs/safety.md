@@ -214,6 +214,13 @@ local tool never appears in a prompt, a tool argument or a result. The audit ski
 from a Docker container's own environment with a command that prints no secret, and keeps it
 readable by the user only (`0600`).
 
+### Another database of the same server
+
+`database` (every tool that takes `connectionString`) replaces only the database of the configured connection
+string: the login, host, port and options stay, and the call carries no password. It is refused together with
+`connectionString` or `connection`. The read-only check of the login (`EnsureReadOnlyLoginAsync`) runs on the
+database the call reaches, as it must: PostgreSQL privileges are per database.
+
 ### The plugin's one command
 
 The server never builds the user's code. The optional Claude Code plugin can, once: its `ef` agent

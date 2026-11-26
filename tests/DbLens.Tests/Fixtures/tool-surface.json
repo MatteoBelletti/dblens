@@ -47,6 +47,13 @@
           "null"
         ],
         "default": null
+      },
+      "database": {
+        "type": [
+          "string",
+          "null"
+        ],
+        "default": null
       }
     }
   },
@@ -98,6 +105,13 @@
           "null"
         ],
         "default": null
+      },
+      "database": {
+        "type": [
+          "string",
+          "null"
+        ],
+        "default": null
       }
     }
   },
@@ -144,6 +158,13 @@
         "default": null
       },
       "connection": {
+        "type": [
+          "string",
+          "null"
+        ],
+        "default": null
+      },
+      "database": {
         "type": [
           "string",
           "null"
@@ -202,6 +223,13 @@
         "default": null
       },
       "connection": {
+        "type": [
+          "string",
+          "null"
+        ],
+        "default": null
+      },
+      "database": {
         "type": [
           "string",
           "null"
@@ -269,6 +297,13 @@
           "null"
         ],
         "default": null
+      },
+      "database": {
+        "type": [
+          "string",
+          "null"
+        ],
+        "default": null
       }
     }
   },
@@ -300,6 +335,13 @@
         "default": null
       },
       "connection": {
+        "type": [
+          "string",
+          "null"
+        ],
+        "default": null
+      },
+      "database": {
         "type": [
           "string",
           "null"
@@ -355,6 +397,13 @@
           "null"
         ],
         "default": null
+      },
+      "database": {
+        "type": [
+          "string",
+          "null"
+        ],
+        "default": null
       }
     }
   },
@@ -387,6 +436,13 @@
         "default": null
       },
       "connection": {
+        "type": [
+          "string",
+          "null"
+        ],
+        "default": null
+      },
+      "database": {
         "type": [
           "string",
           "null"
@@ -446,6 +502,13 @@
           "null"
         ],
         "default": null
+      },
+      "database": {
+        "type": [
+          "string",
+          "null"
+        ],
+        "default": null
       }
     },
     "required": [
@@ -478,6 +541,13 @@
         "default": null
       },
       "connection": {
+        "type": [
+          "string",
+          "null"
+        ],
+        "default": null
+      },
+      "database": {
         "type": [
           "string",
           "null"
@@ -517,6 +587,13 @@
           "null"
         ],
         "default": null
+      },
+      "database": {
+        "type": [
+          "string",
+          "null"
+        ],
+        "default": null
       }
     }
   },
@@ -539,6 +616,13 @@
         "default": null
       },
       "connection": {
+        "type": [
+          "string",
+          "null"
+        ],
+        "default": null
+      },
+      "database": {
         "type": [
           "string",
           "null"
@@ -606,6 +690,13 @@
           "null"
         ],
         "default": null
+      },
+      "database": {
+        "type": [
+          "string",
+          "null"
+        ],
+        "default": null
       }
     },
     "required": [
@@ -660,6 +751,13 @@
           "null"
         ],
         "default": null
+      },
+      "database": {
+        "type": [
+          "string",
+          "null"
+        ],
+        "default": null
       }
     }
   },
@@ -682,6 +780,13 @@
         "default": null
       },
       "connection": {
+        "type": [
+          "string",
+          "null"
+        ],
+        "default": null
+      },
+      "database": {
         "type": [
           "string",
           "null"
@@ -713,6 +818,13 @@
         "default": null
       },
       "connection": {
+        "type": [
+          "string",
+          "null"
+        ],
+        "default": null
+      },
+      "database": {
         "type": [
           "string",
           "null"
@@ -765,6 +877,13 @@
         "default": null
       },
       "connection": {
+        "type": [
+          "string",
+          "null"
+        ],
+        "default": null
+      },
+      "database": {
         "type": [
           "string",
           "null"
@@ -829,6 +948,13 @@
         "default": null
       },
       "connection": {
+        "type": [
+          "string",
+          "null"
+        ],
+        "default": null
+      },
+      "database": {
         "type": [
           "string",
           "null"

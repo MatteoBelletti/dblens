@@ -25,6 +25,8 @@ public sealed class GetTableDetailsTool(IServiceProvider services, IDatabaseInsp
         string? connectionString = null,
         [Description(ConnectionHelp)]
         string? connection = null,
+        [Description(DatabaseHelp)]
+        string? database = null,
         CancellationToken cancellationToken = default)
     {
         if (tables is null || tables.Length == 0)
@@ -38,7 +40,7 @@ public sealed class GetTableDetailsTool(IServiceProvider services, IDatabaseInsp
         if (empty >= 0)
             throw new ArgumentException($"tables[{empty}] is empty or whitespace.");
 
-        var inspector = ResolveInspector(dialect, connectionString, connection);
+        var inspector = ResolveInspector(dialect, connectionString, connection, database);
 
         return inspector.GetTableDetailsAsync(new TableDetailsRequest(tables, defaultSchema), cancellationToken);
     }

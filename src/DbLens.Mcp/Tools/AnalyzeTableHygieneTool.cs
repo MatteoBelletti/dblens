@@ -33,6 +33,8 @@ public sealed class AnalyzeTableHygieneTool(IServiceProvider services, IDatabase
         string? connectionString = null,
         [Description(ConnectionHelp)]
         string? connection = null,
+        [Description(DatabaseHelp)]
+        string? database = null,
         CancellationToken cancellationToken = default)
     {
         IReadOnlyList<EfModel> models = [];
@@ -45,7 +47,7 @@ public sealed class AnalyzeTableHygieneTool(IServiceProvider services, IDatabase
             catch (ArgumentException ex) { modelCaveat = $"The EF model was not read, so findings name no entity: {ex.Message}"; }
         }
 
-        return ResolveInspector(dialect, connectionString, connection).AnalyzeTableHygieneAsync(
+        return ResolveInspector(dialect, connectionString, connection, database).AnalyzeTableHygieneAsync(
             new AnalyzeTableHygieneRequest(schema, tables, verifySignals, models, modelCaveat), cancellationToken);
     }
 }

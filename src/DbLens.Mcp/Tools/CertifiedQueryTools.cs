@@ -31,12 +31,14 @@ public sealed class CertifiedQueryTools(
         string? connectionString = null,
         [Description(ConnectionHelp)]
         string? connection = null,
+        [Description(DatabaseHelp)]
+        string? database = null,
         CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(name) || string.IsNullOrWhiteSpace(question))
             throw new ArgumentException("name and question must not be empty.");
 
-        var inspector = ResolveInspector(dialect, connectionString, connection);
+        var inspector = ResolveInspector(dialect, connectionString, connection, database);
         var guard = StatementGuard.IsReadOnlySelect(sql, inspector.Dialect);
         if (!guard.Allowed)
             throw new ArgumentException($"Only a read-only SELECT can be certified. {guard.RejectionReason}");
@@ -56,8 +58,10 @@ public sealed class CertifiedQueryTools(
         [Description(ConnectionStringHelp)]
         string? connectionString = null,
         [Description(ConnectionHelp)]
-        string? connection = null) =>
-        ResolveInspector(dialect, connectionString, connection) is var inspector
+        string? connection = null,
+        [Description(DatabaseHelp)]
+        string? database = null) =>
+        ResolveInspector(dialect, connectionString, connection, database) is var inspector
             ? store.List(inspector.Dialect, inspector.DatabaseName, CertifiedQueryStore.ServerOf(inspector.Describe(TargetSource.Configured)))
             : [];
 }
