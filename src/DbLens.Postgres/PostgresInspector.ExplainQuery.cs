@@ -31,7 +31,6 @@ public sealed partial class PostgresInspector
     private async Task<string> GenericPlanJsonAsync(string sql, int arguments, CancellationToken ct)
     {
         await using var conn = await OpenAsync(ct);
-        var prepared = false;
 
         try
         {
@@ -41,7 +40,6 @@ public sealed partial class PostgresInspector
                     await setup.ExecuteNonQueryAsync(ct);
                 await using (var prepare = Command(conn, $"PREPARE dblens_generic_plan AS {sql}", tx))
                     await prepare.ExecuteNonQueryAsync(ct);
-                prepared = true;
 
                 var execute = arguments == 0 ? "" : $"({string.Join(", ", Enumerable.Repeat("NULL", arguments))})";
                 await using var explain = Command(conn, $"EXPLAIN (COSTS, VERBOSE, FORMAT JSON) EXECUTE dblens_generic_plan{execute}", tx);
@@ -50,10 +48,19 @@ public sealed partial class PostgresInspector
         }
         finally
         {
-            if (prepared)
+            // Whether PREPARE ran is asked of the server: a cancellation can land after it ran and before this code knew.
+            // A cleanup that fails (a broken connection) must not replace the error that is being thrown.
+            try
             {
-                await using var deallocate = Command(conn, "DEALLOCATE dblens_generic_plan");
-                await deallocate.ExecuteNonQueryAsync(CancellationToken.None);
+                await using var exists = Command(conn, "SELECT count(*) FROM pg_prepared_statements WHERE name = 'dblens_generic_plan'");
+                if (Convert.ToInt64(await exists.ExecuteScalarAsync(CancellationToken.None), System.Globalization.CultureInfo.InvariantCulture) > 0)
+                {
+                    await using var deallocate = Command(conn, "DEALLOCATE dblens_generic_plan");
+                    await deallocate.ExecuteNonQueryAsync(CancellationToken.None);
+                }
+            }
+            catch (System.Data.Common.DbException)
+            {
             }
         }
     }

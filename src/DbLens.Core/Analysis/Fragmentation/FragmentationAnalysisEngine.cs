@@ -68,10 +68,11 @@ public static class FragmentationAnalysisEngine
                 (notMeasured.Count > MaxNamedNotMeasured ? $"; and {notMeasured.Count - MaxNamedNotMeasured} more" : "") +
                 ". Narrow the scope to the tables that matter and run it again.");
 
-        if (window is { Since: StatsWindowStart.DatabaseCreated or StatsWindowStart.DatabaseRestored } && window.Days < request.RecentRestoreDays)
+        // A PostgreSQL dump restore builds every index afresh. A SQL Server RESTORE copies the pages as they were, fragmentation included.
+        if (dialect == DatabaseDialect.PostgreSql && window is { Since: StatsWindowStart.DatabaseCreated or StatsWindowStart.DatabaseRestored } && window.Days < request.RecentRestoreDays)
             caveats.Add(
                 $"The database was {(window.Since == StatsWindowStart.DatabaseRestored ? "restored" : "created")} {Num.F0(window.Days)} day(s) ago, " +
-                "and a restore rebuilds its indexes: the fragmentation measured here reflects the restore, not production. " +
+                "and a restore from a dump builds its indexes afresh: the fragmentation measured here reflects the restore, not production. " +
                 "Measure it on production or on a replica.");
 
         if (skipped > 0)

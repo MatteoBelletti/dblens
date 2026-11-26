@@ -27,15 +27,26 @@ public sealed class ConfiguredDatabases(IConfiguration configuration)
     {
         var configured = configuration[$"ConnectionStrings:{dialect}"];
         if (IsPlaceholder(configured))
-            Console.Error.WriteLine($"dblens: ConnectionStrings:{dialect} is an unexpanded placeholder ({configured!.Trim()}): treated as not configured.");
-        else if (!string.IsNullOrWhiteSpace(configured)) return new(dialect, configured, TargetSource.Configured);
+        {
+            if (_warned.Add(dialect))
+                Console.Error.WriteLine($"dblens: ConnectionStrings:{dialect} is an unexpanded placeholder ({configured!.Trim()}): treated as not configured.");
+        }
+        else if (!string.IsNullOrWhiteSpace(configured))
+        {
+            return new(dialect, configured, TargetSource.Configured);
+        }
 
         return DemoFallback
             ? new(dialect, dialect == DatabaseDialect.SqlServer ? DemoSqlServer : DemoPostgreSql, TargetSource.DemoDefault)
             : null;
     }
 
+    private readonly HashSet<DatabaseDialect> _warned = [];
+
     private static bool IsPlaceholder(string? value) => value is not null && value.AsSpan().TrimStart().StartsWith("${", StringComparison.Ordinal);
+
+    /// <summary>A setting with a value: not empty, and not a placeholder nobody expanded.</summary>
+    public static bool IsSet(string? value) => !string.IsNullOrWhiteSpace(value) && !IsPlaceholder(value);
 
     /// <summary>
     /// The database a call reaches. A connection string needs its dialect, never guessed from its

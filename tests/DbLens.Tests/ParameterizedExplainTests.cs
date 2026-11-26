@@ -16,6 +16,7 @@ public sealed class ParameterNamesTests
     [InlineData("SELECT * FROM t WHERE doc @@ to_tsquery('a') AND tags @> ARRAY[1]", DatabaseDialect.PostgreSql, "")]
     [InlineData("SELECT '$1', '@p0', \"@p1\" FROM t -- @p2 and $3", DatabaseDialect.PostgreSql, "")]
     [InlineData("SELECT 1", DatabaseDialect.PostgreSql, "")]
+    [InlineData("SELECT * FROM t WHERE price > $5", DatabaseDialect.SqlServer, "")]
     public void ParametersAreFoundInTheCodeOnly(string sql, DatabaseDialect dialect, string expected) =>
         string.Join(',', SqlText.ParameterNames(sql, dialect)).Should().Be(expected);
 
@@ -34,6 +35,13 @@ public sealed class ParameterNamesTests
         SqlText.PositionalParameters("SELECT $3, $1").Should().Be(("SELECT $3, $1", 3));
         SqlText.PositionalParameters("SELECT 1").Should().Be(("SELECT 1", 0));
     }
+
+    [Theory]
+    [InlineData("SELECT $0")]
+    [InlineData("SELECT $99999999999")]
+    [InlineData("SELECT $65536")]
+    public void ANumberPostgreSqlWouldNotAccept_IsRefusedWithAReason(string sql) =>
+        new Action(() => SqlText.PositionalParameters(sql)).Should().Throw<ArgumentException>().WithMessage("*not a parameter number*");
 
     [Fact]
     public void BothFormsInOneText_AreRefused() =>
@@ -86,6 +94,12 @@ public sealed class PostgresParameterizedExplainTests(PostgresFixture fixture)
 
         for (var i = 0; i < 3; i++)
             await fixture.Inspector!.ExplainQueryAsync(new ExplainQueryRequest(QueryWithParameter));
+
+        // The pool hands back the connection the last call used.
+        await using var connection = new Npgsql.NpgsqlConnection(TestConnections.PostgreSql);
+        await connection.OpenAsync();
+        await using var count = new Npgsql.NpgsqlCommand("SELECT count(*) FROM pg_prepared_statements WHERE name = 'dblens_generic_plan'", connection);
+        ((long)(await count.ExecuteScalarAsync())!).Should().Be(0);
     }
 }
 

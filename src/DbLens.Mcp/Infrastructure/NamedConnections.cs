@@ -11,7 +11,7 @@ namespace DbLens.Mcp.Infrastructure;
 /// </summary>
 public sealed partial class NamedConnections(IConfiguration configuration)
 {
-    public string Folder => configuration["DbLens:ConnectionsPath"] is { Length: > 0 } path
+    public string Folder => configuration["DbLens:ConnectionsPath"] is { } path && ConfiguredDatabases.IsSet(path)
         ? path
         : Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "dblens", "connections");
 

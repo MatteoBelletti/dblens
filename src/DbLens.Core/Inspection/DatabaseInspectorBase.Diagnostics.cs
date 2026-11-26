@@ -131,7 +131,9 @@ public abstract partial class DatabaseInspectorBase
             }
             catch (DbException ex) when (FragmentationPermissionReason(ex) is { } denied)
             {
-                return (UnavailableStats(denied), null);
+                // Nothing measured yet: the login cannot measure at all. After some: this index is one more not measured.
+                if (indexes.Count == candidates.Count(x => x.PageCount < request.MinPageCount)) return (UnavailableStats(denied), null);
+                notMeasured.Add(new NotMeasuredIndex(c.Schema, c.Table, c.IndexName, Brief(ex)));
             }
             catch (OperationCanceledException) when (budget.IsCancellationRequested && !ct.IsCancellationRequested)
             {

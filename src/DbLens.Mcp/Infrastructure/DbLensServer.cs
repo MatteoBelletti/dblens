@@ -12,7 +12,7 @@ public static class DbLensServer
         services.AddSingleton(ServerPolicy.From(configuration));
         services.AddSingleton<IDatabaseInspectorFactory, DatabaseInspectorFactory>();
         services.AddSingleton(new CertifiedQueryStore(
-            configuration["DbLens:CertifiedQueriesPath"] ?? CertifiedQueryStore.DefaultPath()));
+            configuration["DbLens:CertifiedQueriesPath"] is { } path && ConfiguredDatabases.IsSet(path) ? path : CertifiedQueryStore.DefaultPath()));
         services.AddConfiguredDatabases(configuration);
         services.AddSingleton(new NamedConnections(configuration));
 

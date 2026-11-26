@@ -170,18 +170,21 @@ public static partial class SqlText
     /// of PostgreSQL's @@ operator; PostgreSQL's prefix @ (absolute value) written against a column reads as one.
     /// </summary>
     public static IReadOnlyList<string> ParameterNames(string sql, DatabaseDialect dialect) =>
-        [.. ParameterTokens([.. Tokens(sql, dialect)]).Select(p => p.Name).Distinct(StringComparer.Ordinal)];
+        [.. ParameterTokens([.. Tokens(sql, dialect)], dialect).Select(p => p.Name).Distinct(StringComparer.Ordinal)];
 
     /// <summary>
     /// PostgreSQL text with its named parameters rewritten as $1, $2… in order of first appearance, and the highest
     /// $n of the result: the form PREPARE takes. Positional and named parameters in one text are refused.
     /// </summary>
+    private const int MaxParameters = 65535;
+
     public static (string Sql, int Count) PositionalParameters(string sql)
     {
         var tokens = Tokens(sql, DatabaseDialect.PostgreSql).ToList();
-        var parameters = ParameterTokens(tokens);
+        var parameters = ParameterTokens(tokens, DatabaseDialect.PostgreSql);
         var named = parameters.Where(p => p.Name[0] == '@').Select(p => p.Name).Distinct(StringComparer.Ordinal).ToList();
-        var count = parameters.Where(p => p.Name[0] == '$').Select(p => int.Parse(p.Name[1..], System.Globalization.CultureInfo.InvariantCulture)).DefaultIfEmpty(0).Max();
+        var count = parameters.Where(p => p.Name[0] == '$').Select(p => int.TryParse(p.Name[1..], System.Globalization.CultureInfo.InvariantCulture, out var n) && n is >= 1 and <= MaxParameters
+            ? n : throw new ArgumentException($"{p.Name} is not a parameter number PostgreSQL accepts (1 to {MaxParameters}).")).DefaultIfEmpty(0).Max();
         if (named.Count == 0) return (sql, count);
         if (count > 0) throw new ArgumentException("This text names its parameters both as $n and as @name: use one form.");
 
@@ -204,12 +207,12 @@ public static partial class SqlText
     }
 
     // A positional token, or an @ followed at once by a word that is not itself after another @: its index (of the @) and name.
-    private static List<(int Index, string Name)> ParameterTokens(List<SqlToken> tokens)
+    private static List<(int Index, string Name)> ParameterTokens(List<SqlToken> tokens, DatabaseDialect dialect)
     {
         List<(int, string)> found = [];
         for (var i = 0; i < tokens.Count; i++)
         {
-            if (tokens[i].Kind == SqlTokenKind.Parameter) found.Add((i, tokens[i].Text));
+            if (tokens[i].Kind == SqlTokenKind.Parameter) { if (dialect == DatabaseDialect.PostgreSql) found.Add((i, tokens[i].Text)); } // $5 is money in T-SQL
             else if (tokens[i].Kind == SqlTokenKind.Symbol && tokens[i].Text == "@" && i + 1 < tokens.Count && tokens[i + 1].Kind == SqlTokenKind.Word
                      && !(i > 0 && tokens[i - 1].Kind == SqlTokenKind.Symbol && tokens[i - 1].Text == "@"))
                 found.Add((i, "@" + tokens[i + 1].Text));
