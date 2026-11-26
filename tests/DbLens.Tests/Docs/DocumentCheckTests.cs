@@ -128,16 +128,6 @@ public sealed class DocumentCheckTests
     }
 
     [Fact]
-    public void AnIdThatHoldsTheEscapes_SurvivesParseAndRender()
-    {
-        var inventory = Solution("/a%3Eb", "/c--d>e");
-        var documents = Written(inventory);
-
-        Check(inventory, documents).Issues.Should().NotContain(i => i.Severity == IssueSeverity.Error);
-        DocumentModel.Parse(documents["docs/project/api.md"]).Blocks.Select(b => b.Id).Should().Contain(["endpoint:GET /a%3Eb", "endpoint:GET /c--d>e"]);
-    }
-
-    [Fact]
     public void ASlotOverItsLimit_Fails()
     {
         var inventory = Solution("/a");

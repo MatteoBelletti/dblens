@@ -52,17 +52,4 @@ public sealed class RepeatedContextTests
 
         inventory.Items.Single(i => i.Kind == ItemKind.Endpoint).Attributes["touches"].Should().Be("EventStoreDbContext.Snapshot");
     }
-
-    [Fact]
-    public void TheSameModelsInAnotherOrder_GiveTheSameInventory()
-    {
-        var shuffled = ProjectInventoryEngine.Build(
-            [Project("src/Payments/Store/Store.csproj"), Snapshot("src/Payments/Store", 7), Project("src/Orders/Store/Store.csproj"), Snapshot("src/Orders/Store", 3),
-             InventoryTestSupport.Code("src/Orders/Api.cs", "public static class A { public static void M(WebApplication app) { app.MapGet(\"/o\", (Snapshot s) => s); } }")],
-            [Store("Snapshot", "Event"), Store("Snapshot")],
-            null,
-            ["src/Payments/Store/Migrations/EventStoreDbContextModelSnapshot.cs", "src/Orders/Store/Migrations/EventStoreDbContextModelSnapshot.cs"]);
-
-        InventoryJson.Serialize(shuffled).Should().Be(InventoryJson.Serialize(Solution()));
-    }
 }

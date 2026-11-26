@@ -334,17 +334,6 @@ public sealed class OverviewTests
     }
 
     [Fact]
-    public void TheSameFilesInAnotherOrder_GiveTheSameInventory()
-    {
-        var files = OrderFlow();
-        var again = Build(
-            Web("src/Shipping/Shipping.csproj"), Web("src/Billing/Billing.csproj"), Web("src/Ordering/Ordering.csproj"));
-
-        InventoryJson.Serialize(OrderFlow()).Should().Be(InventoryJson.Serialize(files));
-        again.Should().NotBeNull();
-    }
-
-    [Fact]
     public void TheConfigurationFile_AddsToTheDefaults_AndAMalformedOneIsAnArgumentError()
     {
         var root = Path.Combine(Path.GetTempPath(), $"dblens-docs-options-{Guid.NewGuid():N}");

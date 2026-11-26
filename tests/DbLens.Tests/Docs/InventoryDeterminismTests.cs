@@ -18,7 +18,7 @@ public sealed class InventoryDeterminismTests
     [Fact]
     public void TheOrderTheFilesArriveIn_DoesNotMatter()
     {
-        var read = DocsFixtures.EShop();
+        var read = DocsFixtures.EventualShop();
         var shuffled = new SolutionRead([.. read.Files.OrderBy(f => f.Path.GetHashCode(StringComparison.Ordinal) * 31 + f.Path.Length)], [.. read.Models.AsEnumerable().Reverse()], read.Coverage) { ModelSources = [.. read.ModelSources.AsEnumerable().Reverse()] };
 
         InventoryJson.Serialize(ProjectInventoryEngine.Build(shuffled)).Should().Be(InventoryJson.Serialize(ProjectInventoryEngine.Build(read)));

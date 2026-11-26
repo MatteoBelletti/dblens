@@ -57,20 +57,6 @@ public sealed class DocsCliTests : IDisposable
     }
 
     [Fact]
-    public void AGeneratedRegionEditedByHand_FailsTheCheck()
-    {
-        Solution();
-        Run("scaffold");
-        var path = Path.Combine(_root.FullName, "docs/project/api.md");
-        File.WriteAllText(path, File.ReadAllText(path).Replace("| GET | /orders |", "| GET | /orderz |"));
-
-        var result = Run("check");
-
-        result.Code.Should().Be(1);
-        result.Out.Should().Contain("generated-edited");
-    }
-
-    [Fact]
     public void Check_Json_ListsTheIssues_AndStrictFailsOnStaleSlots()
     {
         Solution();

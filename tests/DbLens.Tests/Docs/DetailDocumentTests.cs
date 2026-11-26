@@ -57,12 +57,13 @@ public sealed class DetailDocumentTests : IDisposable
     }
 
     [Fact]
-    public void TheDetailDocumentOfAComponentThatIsGone_IsEmptiedByScaffold_AndCheckPasses()
+    public void TheDetailDocumentOfAComponentThatIsGone_IsAnOrphan_UntilScaffoldEmptiesIt()
     {
         var inventory = Solution();
         var files = Started(inventory, "Ordering");
         var gone = ProjectInventoryEngine.Build([], []);
 
+        DocumentCheck.Check(gone, files, Options).Issues.Should().Contain(i => i.Code == "orphan-item" && i.Id == "detail:Ordering", "until scaffold runs, the document is an orphan, not a silent pass");
         var again = Scaffolder.Scaffold(gone, files, Options);
 
         again.Report.Removed.Should().Contain(r => r.StartsWith("detail:Ordering", StringComparison.Ordinal));
@@ -103,15 +104,6 @@ public sealed class DetailDocumentTests : IDisposable
         new Action(() => SlotWriter.Set(inventory, files, Options, "detail:Ordering", "Paragraph one.\n\nParagraph two.")).Should().NotThrow();
         new Action(() => SlotWriter.Set(inventory, files, Options, "flow:endpoint:POST /orders", "One.\n\nTwo.")).Should().Throw<ArgumentException>().WithMessage("*Blank lines*");
         new Action(() => SlotWriter.Set(inventory, files, Options, "detail:Ordering", string.Join('\n', Enumerable.Repeat("line", 81)))).Should().Throw<ArgumentException>().WithMessage("*at most 80*");
-    }
-
-    [Fact]
-    public void WhenTheComponentLeavesTheCode_ItsDetailDocumentIsAnOrphan_NotASilentPass()
-    {
-        var files = Started(Solution(), "Ordering");
-        var without = ProjectInventoryEngine.Build([InventoryTestSupport.Project("src/Billing/Billing.csproj", "Microsoft.NET.Sdk.Web")], []);
-
-        DocumentCheck.Check(without, files, Options).Issues.Should().Contain(i => i.Code == "orphan-item" && i.Id == "detail:Ordering");
     }
 
     [Fact]
