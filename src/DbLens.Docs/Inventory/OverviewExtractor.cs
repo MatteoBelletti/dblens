@@ -176,12 +176,8 @@ internal static partial class OverviewExtractor
         }
 
         // Flows: what an entry point sets in motion, hop by hop across components.
-        Dictionary<(string Component, string Handler, string Event), IReadOnlyList<string>> chains = [];
-        IReadOnlyList<string> ChainOf(EventConsumer consumer)
-        {
-            if (chains.TryGetValue((consumer.Component, consumer.Handler, consumer.Event), out var known)) return known;
-            return chains[(consumer.Component, consumer.Handler, consumer.Event)] = [.. analysis.Reach(analysis.StartsOfHandler(consumer.Handler, consumer.Component)).Where(e => e != consumer.Event)];
-        }
+        IReadOnlyList<string> ChainOf(EventConsumer consumer) =>
+            [.. analysis.Reach(analysis.StartsOfHandler(consumer.Handler, consumer.Component)).Where(e => e != consumer.Event)];
 
         var withoutStart = 0;
         var cutShort = 0;
