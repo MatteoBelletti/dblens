@@ -17,7 +17,7 @@ A slot is the one place of a generated document where words go. The table above 
 Up to 80 lines of Markdown: paragraphs, `##` headings, lists, and at most one Mermaid sequence diagram (solid arrows `->>` only: a text with `-->` is refused). The generated tables above the slot already say what exists; the page says how it works. In this order, only what the code shows:
 
 1. What it does and for whom, in three or four lines.
-2. How it works: the main flow step by step. Cite each step in backticks as `File.cs: Method` or `Type: Method` (a method, property or constructor you read): the server refuses words that cite what is not in the code, and the check flags the words when the cited code changes.
+2. How it works: the main flow step by step. Cite each step in backticks as `File.cs: Method` or `Type: Method` (a method, property or constructor you read): the server refuses words that cite what is not in the code, and the check flags the words when the cited code changes. Backticks around `Word: word` always mean a citation: write a header or a key and its value as `Authorization=Bearer`, or without backticks.
 3. States and timing, if any: a status enum and its transitions, delays, schedules.
 4. When something goes wrong: error paths, what the caller sees, what is retried and what is not.
 5. Before touching it: surprising behaviour, silent failures, coupling to other components, each with file and method.

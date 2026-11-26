@@ -90,7 +90,7 @@ public static class Scaffolder
 
         // Nothing written yet: nothing to protect.
         if (slot.Text.Length == 0)
-            return slot with { MaxLines = max, Evidence = "inferred", Was = null, ItemHash = itemHash, TextHash = textHash };
+            return slot with { MaxLines = max, Evidence = "inferred", Was = null, ItemHash = itemHash, TextHash = textHash, RefsHash = null };
 
         // A model's words that a person has since changed are the person's, whether or not the item changed too.
         var kind = slot.Evidence == "stale" ? slot.Was ?? "inferred" : slot.Evidence;
@@ -98,7 +98,7 @@ public static class Scaffolder
         {
             human.Add(slot.Id);
             kind = "human";
-            slot = slot with { TextHash = textHash };
+            slot = slot with { TextHash = textHash, RefsHash = null };
         }
 
         if (slot.ItemHash != itemHash)
@@ -116,7 +116,7 @@ public static class Scaffolder
         var parsed = DocumentModel.Parse(documentText);
         var block = parsed.Blocks.FirstOrDefault(b => b.Id == id && b.Slot is not null)
                     ?? throw new ArgumentException($"No slot for {id} in this document.");
-        var slot = block.Slot! with { Evidence = "human", Was = null, ItemHash = itemHash, TextHash = ItemHash.OfText(block.Slot!.Text) };
+        var slot = block.Slot! with { Evidence = "human", Was = null, ItemHash = itemHash, TextHash = ItemHash.OfText(block.Slot!.Text), RefsHash = null };
         return DocumentModel.Render(parsed with { Blocks = [.. parsed.Blocks.Select(b => b.Id == id ? b with { Slot = slot } : b)] });
     }
 }

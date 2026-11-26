@@ -48,9 +48,12 @@ public static class SlotWriter
         return slots;
     }
 
-    /// <summary>The code the words cite is not what it was when they were written.</summary>
+    /// <summary>
+    /// The code the words cite is not what it was when they were written. A person's words are not tracked: a person who
+    /// changes the citations has a hash that no longer describes the text, and no tool could refresh it for them.
+    /// </summary>
     internal static bool CitedCodeChanged(DocSlot slot, ProseReferences? code) =>
-        code is not null && slot.RefsHash is not null && code.Check(slot.Text).Hash != slot.RefsHash;
+        code is not null && slot.RefsHash is not null && !IsPersons(slot) && code.Check(slot.Text).Hash != slot.RefsHash;
 
     private static Dictionary<string, Desired> Wanted(ProjectInventory inventory, DocsOptions options, IReadOnlyList<string> present) =>
         DocPlan.For(inventory, options, present)

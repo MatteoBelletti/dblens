@@ -112,6 +112,7 @@ public static class DocumentCheck
             yield return new DocIssue("slot-stale-reference", strict ? IssueSeverity.Error : IssueSeverity.Warning, slot.Id, file, $"The code cited by the slot of {slot.Id} changed after its words were written: read it again.");
     }
 
+    // "## Not verified", "## Not verified:" and "## 7. Not verified (what was not read)" all say it.
     private static bool HasUnverifiedSection(string text) =>
-        text.Split('\n').Any(l => l.StartsWith('#') && UnverifiedHeadings.Contains(l.TrimStart('#', ' ').Trim(), StringComparer.OrdinalIgnoreCase));
+        text.Split('\n').Any(l => l.StartsWith('#') && UnverifiedHeadings.Any(h => l.TrimStart('#', ' ', '\t').TrimStart("0123456789.) ".ToCharArray()).StartsWith(h, StringComparison.OrdinalIgnoreCase)));
 }

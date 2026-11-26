@@ -138,6 +138,22 @@ public sealed class DocsMcpTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task EachCitationThatNoLongerHolds_IsNamedByTheCheck_NotOnlyTheFirst()
+    {
+        const string routes = "app.MapGet(\"/a\", H); app.MapGet(\"/b\", H);";
+        File.WriteAllText(Path.Combine(_root, "src/Api/Api.cs"), $"public static class A {{ public static void M(WebApplication app) {{ {routes} }} public static void First() {{ }} public static void Second() {{ }} }}");
+        Scaffold();
+        (await Call("set_doc_slot", ("id", "endpoint:GET /a"), ("text", "Calls `Api.cs: First`."))).IsError.Should().BeFalse();
+        (await Call("set_doc_slot", ("id", "endpoint:GET /b"), ("text", "Calls `Api.cs: Second`."))).IsError.Should().BeFalse();
+        File.WriteAllText(Path.Combine(_root, "src/Api/Api.cs"), $"public static class A {{ public static void M(WebApplication app) {{ {routes} }} }}");
+
+        var check = JsonDocument.Parse((await Call("check_doc_coverage")).Text).RootElement;
+
+        var messages = check.GetProperty("issues").EnumerateArray().Where(i => i.GetProperty("code").GetString() == "slot-bad-reference").Select(i => i.GetProperty("message").GetString()).ToList();
+        messages.Should().Contain(m => m!.Contains("Api.cs: First", StringComparison.Ordinal)).And.Contain(m => m!.Contains("Api.cs: Second", StringComparison.Ordinal));
+    }
+
+    [Fact]
     public async Task WritesFromManyCallsAtOnce_AreAllKept()
     {
         var routes = Enumerable.Range(0, 12).Select(i => $"/r{i:00}").ToList();

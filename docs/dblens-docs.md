@@ -129,7 +129,7 @@ A narrative slot cites code in backticks, as `Apis/OrdersApi.cs: CreateOrderAsyn
 (`refs=`). `check` then says when a citation no longer holds (`slot-bad-reference`), when the cited code changed since the
 words were written (`slot-stale-reference`; `get_doc_slots` lists such a slot as stale, so `fill-slots` rewrites it), and when a
 `detail:` page has no "Not verified" section (`slot-no-unverified-section`). All three are warnings, and errors with `--strict`.
-A change of spacing or of another method is not a change of what is cited.
+A change of spacing or of another method is not a change of what is cited. Backticks around `Word: word` always read as a citation, so a header or a setting is written as `Authorization=Bearer` or without them.
 
 ## Links between endpoints and entities
 

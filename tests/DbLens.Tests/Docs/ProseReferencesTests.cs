@@ -117,4 +117,75 @@ public sealed class ProseReferencesTests
 
         DocumentCheck.Check(inventory, documents, Options).Issues.Any(i => i.Code == "slot-no-unverified-section").Should().Be(warned);
     }
+
+    [Theory]
+    [InlineData("`OrderStatus: Submitted`")]
+    [InlineData("`Orders.cs: Submitted` and `Orders.cs: Retries` and `Orders.cs: Changed`")]
+    [InlineData("`OrderService: OrderService` and `OrderService: repository`")]
+    [InlineData("`OrderStatus: Paid`")]
+    public void WhatATypeHolds_AnEnumMemberAFieldAnEventAPrimaryConstructor_CanBeCited(string text) =>
+        new ProseReferences([File("src/Ordering/Orders.cs",
+                "public enum OrderStatus { Submitted, Paid } public class Orders { public const int Retries = 3; public event System.Action Changed; } public class OrderService(IRepository repository) { }")])
+            .Check(text).Missing.Should().BeEmpty();
+
+    [Fact]
+    public void TheHashOfTheCitedCode_DoesNotDependOnTheLineEndingsOfTheCheckout()
+    {
+        const string text = "See `Notes.cs: Run`.";
+        const string body = "public class Notes { public string Run() { /* one\n two */ return @\"a\nb\"; } }";
+
+        new ProseReferences([File("Notes.cs", body)]).Check(text).Hash
+            .Should().Be(new ProseReferences([File("Notes.cs", body.Replace("\n", "\r\n", StringComparison.Ordinal))]).Check(text).Hash);
+    }
+
+    [Fact]
+    public void ThePrimaryConstructorIsWhatIsCited_NotTheWholeType()
+    {
+        const string text = "It takes its repository in `OrderService: OrderService`.";
+        var before = new ProseReferences([File("S.cs", "public class OrderService(IRepository repository) { public void A() { } }")]).Check(text).Hash;
+
+        new ProseReferences([File("S.cs", "public class OrderService(IRepository repository) { public void A() { var x = 1; } }")]).Check(text).Hash.Should().Be(before);
+        new ProseReferences([File("S.cs", "public class OrderService(IRepository other) { public void A() { } }")]).Check(text).Hash.Should().NotBe(before);
+    }
+
+    [Fact]
+    public void APersonWhoChangesTheCitations_IsNotToldTheCitedCodeChanged_ForWordsNoToolCanWriteAgain()
+    {
+        var (inventory, documents) = Started(Sources());
+        var (path, text) = SlotWriter.Set(inventory, documents, Options, "detail:Ordering", Words, Sources());
+        documents[path] = text.Replace("It creates in `Apis/OrdersApi.cs: Create`.", "It creates orders.", StringComparison.Ordinal);
+
+        var issues = DocumentCheck.Check(inventory, documents, Options, strict: true, sources: Sources()).Issues;
+
+        issues.Should().NotContain(i => i.Code == "slot-stale-reference");
+        SlotWriter.List(inventory, documents, Options, Sources()).Single(s => s.Id == "detail:Ordering").State.Should().Be("current");
+    }
+
+    [Theory]
+    [InlineData("## Not verified:\n\n- the domain")]
+    [InlineData("## 7. Not verified (what I did not read)\n\n- the domain")]
+    [InlineData("### Non verificato\n\n- il dominio")]
+    public void TheNotVerifiedSection_IsRecognisedWithANumberOrAnExplanationInItsHeading(string heading)
+    {
+        var (inventory, documents) = Started(Sources());
+        var (path, text) = SlotWriter.Set(inventory, documents, Options, "detail:Ordering", "How it works.\n\n" + heading);
+        documents[path] = text;
+
+        DocumentCheck.Check(inventory, documents, Options).Issues.Should().NotContain(i => i.Code == "slot-no-unverified-section");
+    }
+
+    [Fact]
+    public void WhenAPersonRewritesTheWords_TheHashOfTheOldCitationsGoesWithThem()
+    {
+        var (inventory, documents) = Started(Sources());
+        var (path, text) = SlotWriter.Set(inventory, documents, Options, "detail:Ordering", Words, Sources());
+        documents[path] = text.Replace("It creates in `Apis/OrdersApi.cs: Create`.", "A person's own paragraph.");
+
+        var scaffolded = Scaffolder.Scaffold(inventory, documents, Options).Files[path];
+
+        var slot = DocumentModel.Parse(scaffolded).Blocks.Single(b => b.Slot is not null).Slot!;
+        (slot.Evidence, slot.RefsHash).Should().Be(("human", null));
+        DocumentCheck.Check(inventory, new Dictionary<string, string>(documents) { [path] = scaffolded }, Options, strict: true, sources: Sources()).Issues
+            .Should().NotContain(i => i.Code.EndsWith("reference", StringComparison.Ordinal));
+    }
 }
