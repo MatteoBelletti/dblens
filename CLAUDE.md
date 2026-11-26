@@ -33,9 +33,14 @@ line (`scripts/generate-ef-fixtures.sh`); the EF tests apply the same file.
 | `DbLens.Core/Analysis/<Feature>/` | request/result records and a **pure static engine** — no DB access |
 | `DbLens.Core/Inspection/DatabaseInspectorBase*.cs` | orchestration, anything writable without dialect SQL |
 | `DbLens.Postgres` / `DbLens.SqlServer` (partial classes) | catalog SQL and dialect hooks only |
-| `DbLens.EfCore` | reading EF Core snapshots as text (Roslyn); referenced by `DbLens.Mcp` only |
+| `DbLens.EfCore` | reading EF Core snapshots as text (Roslyn); referenced by `DbLens.Mcp` and `DbLens.Docs` only |
+| `DbLens.Docs` | the inventory of a .NET solution read from syntax (Roslyn, XML, YAML for compose files) with its overview (components, events, links, flows), a **pure engine** over files handed in; `SolutionReader` is its one I/O. Never referenced by `DbLens.Mcp`; its permission is in docs/safety.md |
+| `DbLens.Docs/Documents/` | the generated Markdown (regions, slots, scaffold, check), pure over text; `DocsFolder` is its one disk access ([guide](docs/dblens-docs.md)) |
+| `DbLens.Docs.Cli`, `DbLens.Docs.Mcp` | the `dblens-docs` command; the MCP tools it serves with `dblens-docs mcp` (read inventory and slots, write one slot, no path parameter) |
+| `plugins/dblens-docs/` | the writer plugin: agents, `slot-rules`, the `fill-slots` workflow and its eval; not in the marketplace, no published pin |
 | `DbLens.Mcp/Tools/` | thin tools deriving from `InspectorTool` |
 | `plugins/dblens/` | the optional Claude Code plugin: agents, the `audit` workflow, skills, evals ([decisions](docs/roadmap/decisions.md)) — prompts only, no logic the server lacks; its one command, `dotnet ef migrations script`, runs only when the audit's `efScript` allows it |
+| `plugins/dotnet-review/` | the second plugin (depends on `dblens`): the `review` workflow for a .NET / EF Core branch, its agents, the `review-rules` skill, and evals for the workflow (`evals/`) and for one agent with the same rules (`evals-solo/`) |
 
 Logic goes in the base whenever it can be written without dialect SQL: a rule enforced there cannot
 be forgotten by one dialect, and the dialects cannot drift apart.
@@ -181,7 +186,7 @@ Probes are dblens's own SQL and skip layer 3, never layers 1 and 2.
   `NotFoundCaveat(details)` via `WithCaveats`; an empty scope returns `Empty()` with that caveat.
 - A hook opens with `OpenAsync`, builds with `Command`, reads with `ReadAllAsync` and the `DbReading`
   extensions (`Text`, `Number`, `Flag`…), and runs caller or probe SQL through
-  `InRolledBackTransactionAsync`. No `try`/`catch` for driver errors: `RunAsync` wraps them.
+  `InRolledBackTransactionAsync`. No `try`/`catch` for driver errors: `RunAsync` wraps them. The exceptions are the probes, the one-index-at-a-time fragmentation measurement and the cleanup of a prepared statement: a failure there must not take the rest, or the real error, with it.
 - A table is a `(schema, name)` pair from the catalog. Never join one into `"schema.name"` and split
   it again: names may contain dots. Only a name the caller typed goes through `ParseTableNames`.
 - A catalog shape the demo schema lacks (partitions, odd names, index kinds) gets a table in the
@@ -198,8 +203,9 @@ PostgreSQL  Host=localhost;Port=5433;Database=dblens_demo;Username=dblens_reader
 SQL Server  Server=localhost,1434;Database=dblens_demo;User Id=dblens_reader;Password=ReaderPassword123!;TrustServerCertificate=true
 ```
 
-In `appsettings.json`, with the same values as fallbacks in `Program.cs`; an empty value (an unset
-`.mcpb` setting) means the default. The admin logins (`postgres` / `sa`) exist for setup only.
+Used only when `DbLens:DemoFallback` is on (`appsettings.Development.json`, the Makefile, the tests):
+otherwise a dialect without `ConnectionStrings:<dialect>` is an error, never the demo. An empty value
+(an unset `.mcpb` setting) or an unexpanded `${...}` placeholder counts as not configured (`ConfiguredDatabases`). The admin logins (`postgres` / `sa`) exist for setup only.
 Non-standard ports avoid clashing with local installs.
 
 ## Releasing

@@ -165,6 +165,71 @@ public static partial class SqlText
     }
 
     /// <summary>
+    /// The parameters a statement names, in order of first appearance: positional ones ($1, PostgreSQL) and named
+    /// ones (@p0, EF Core's @__p_0). A name is an @ with a word attached to it, not the second @ of @@ROWCOUNT or
+    /// of PostgreSQL's @@ operator; PostgreSQL's prefix @ (absolute value) written against a column reads as one.
+    /// </summary>
+    public static IReadOnlyList<string> ParameterNames(string sql, DatabaseDialect dialect)
+    {
+        List<SqlToken> tokens = [.. Tokens(sql, dialect)];
+
+        // EXEC sp_executesql N'…@p0…', N'@p0 int', @p0 = 5 declares its types: it is a statement without open parameters.
+        if (dialect == DatabaseDialect.SqlServer && tokens.Any(t => t.Kind == SqlTokenKind.Word && t.Text.Equals("sp_executesql", StringComparison.OrdinalIgnoreCase)))
+            return [];
+
+        return [.. ParameterTokens(tokens, dialect).Select(p => p.Name).Distinct(StringComparer.Ordinal)];
+    }
+
+    private const int MaxParameters = 65535;
+
+    /// <summary>
+    /// PostgreSQL text with its named parameters rewritten as $1, $2… in order of first appearance, and the highest
+    /// $n of the result: the form PREPARE takes. Positional and named parameters in one text are refused.
+    /// </summary>
+    public static (string Sql, int Count) PositionalParameters(string sql)
+    {
+        var tokens = Tokens(sql, DatabaseDialect.PostgreSql).ToList();
+        var parameters = ParameterTokens(tokens, DatabaseDialect.PostgreSql);
+        var named = parameters.Where(p => p.Name[0] == '@').Select(p => p.Name).Distinct(StringComparer.Ordinal).ToList();
+        var count = parameters.Where(p => p.Name[0] == '$').Select(p => int.TryParse(p.Name[1..], System.Globalization.CultureInfo.InvariantCulture, out var n) && n is >= 1 and <= MaxParameters
+            ? n : throw new ArgumentException($"{p.Name} is not a parameter number PostgreSQL accepts (1 to {MaxParameters}).")).DefaultIfEmpty(0).Max();
+        if (named.Count == 0) return (sql, count);
+        if (count > 0) throw new ArgumentException("This text names its parameters both as $n and as @name: use one form.");
+
+        var at = parameters.Where(p => p.Name[0] == '@').ToDictionary(p => p.Index, p => $"${named.IndexOf(p.Name) + 1}");
+        StringBuilder text = new();
+        for (var i = 0; i < tokens.Count; i++)
+        {
+            if (at.TryGetValue(i, out var positional))
+            {
+                text.Append(positional);
+                i++;
+            }
+            else
+            {
+                text.Append(tokens[i].Source);
+            }
+        }
+
+        return (text.ToString(), named.Count);
+    }
+
+    // A positional token, or an @ followed at once by a word that is not itself after another @: its index (of the @) and name.
+    private static List<(int Index, string Name)> ParameterTokens(List<SqlToken> tokens, DatabaseDialect dialect)
+    {
+        List<(int, string)> found = [];
+        for (var i = 0; i < tokens.Count; i++)
+        {
+            if (tokens[i].Kind == SqlTokenKind.Parameter) { if (dialect == DatabaseDialect.PostgreSql) found.Add((i, tokens[i].Text)); } // $5 is money in T-SQL
+            else if (tokens[i].Kind == SqlTokenKind.Symbol && tokens[i].Text == "@" && i + 1 < tokens.Count && tokens[i + 1].Kind == SqlTokenKind.Word
+                     && !(i > 0 && tokens[i - 1].Kind == SqlTokenKind.Symbol && tokens[i - 1].Text is "@" or "<")) // @@x, and <@ARRAY[..] (contained by)
+                found.Add((i, "@" + tokens[i + 1].Text));
+        }
+
+        return found;
+    }
+
+    /// <summary>
     /// What a query does, without what it was called with: every string and number literal becomes
     /// "?", every comment goes. Workload text can hold personal data in a WHERE clause or a comment,
     /// so this is the only form in which dblens returns it. Parameters ($1, @p0) stay as they are.

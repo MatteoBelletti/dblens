@@ -283,6 +283,23 @@ public sealed partial class SqlServerInspector(string connectionString, ILogger<
     protected override IReadOnlyList<string> ServerHosts =>
         [new SqlConnectionStringBuilder(connectionString).DataSource];
 
+    // Data Source is "[tcp:]host[\instance][,port]": the port only when it is spelled out.
+    protected override (string? Host, int? Port, string? Database, string? User) Endpoint
+    {
+        get
+        {
+            var b = new SqlConnectionStringBuilder(connectionString);
+            var source = b.DataSource.StartsWith("tcp:", StringComparison.OrdinalIgnoreCase) ? b.DataSource[4..] : b.DataSource;
+            var comma = source.LastIndexOf(',');
+            int? port = comma > 0 && int.TryParse(source[(comma + 1)..].Trim(), out var p) ? p : null;
+            var host = (port is null ? source : source[..comma]).Trim();
+            return (host.Length == 0 ? null : host, port, b.InitialCatalog.Length == 0 ? null : b.InitialCatalog,
+                b.IntegratedSecurity ? "(integrated security)" : b.UserID.Length == 0 ? null : b.UserID);
+        }
+    }
+
+    protected override string ServerVersionSql => "SELECT @@VERSION";
+
     protected override Task<List<OverviewRow>> QueryOverviewAsync(
         DbConnection conn, SchemaOverviewRequest request, CancellationToken ct)
     {

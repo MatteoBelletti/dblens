@@ -1,0 +1,2363 @@
+{
+  "schemaVersion": 2,
+  "items": [
+    {
+      "id": "project:Application [src/Services/ShoppingCart/Command/Application]",
+      "kind": "project",
+      "name": "Application",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/Services/ShoppingCart/Command/Application/Application.csproj",
+        "line": 1
+      },
+      "attributes": {
+        "outputType": "Library",
+        "outputTypeFrom": "default",
+        "packages": "MassTransit",
+        "projectReferenceIds": "project:Domain [src/Services/ShoppingCart/Command/Domain]",
+        "projectReferences": "Domain",
+        "sdk": "Microsoft.NET.Sdk",
+        "targetFrameworks": "net8.0",
+        "targetFrameworksFrom": "Directory.Build.props"
+      },
+      "alsoAt": []
+    },
+    {
+      "id": "project:Application [src/Services/ShoppingCart/Query/Application]",
+      "kind": "project",
+      "name": "Application",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/Services/ShoppingCart/Query/Application/Application.csproj",
+        "line": 1
+      },
+      "attributes": {
+        "outputType": "Library",
+        "outputTypeFrom": "default",
+        "packages": "",
+        "projectReferenceIds": "project:Contracts",
+        "projectReferences": "Contracts",
+        "sdk": "Microsoft.NET.Sdk",
+        "targetFrameworks": "net8.0",
+        "targetFrameworksFrom": "Directory.Build.props"
+      },
+      "alsoAt": []
+    },
+    {
+      "id": "project:Application [src/Services/Warehouse/Command/Application]",
+      "kind": "project",
+      "name": "Application",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/Services/Warehouse/Command/Application/Application.csproj",
+        "line": 1
+      },
+      "attributes": {
+        "outputType": "Library",
+        "outputTypeFrom": "default",
+        "packages": "MassTransit",
+        "projectReferenceIds": "project:Domain [src/Services/Warehouse/Command/Domain]",
+        "projectReferences": "Domain",
+        "sdk": "Microsoft.NET.Sdk",
+        "targetFrameworks": "net8.0",
+        "targetFrameworksFrom": "Directory.Build.props"
+      },
+      "alsoAt": []
+    },
+    {
+      "id": "project:Application [src/Services/Warehouse/Query/Application]",
+      "kind": "project",
+      "name": "Application",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/Services/Warehouse/Query/Application/Application.csproj",
+        "line": 1
+      },
+      "attributes": {
+        "outputType": "Library",
+        "outputTypeFrom": "default",
+        "packages": "",
+        "projectReferenceIds": "project:Contracts",
+        "projectReferences": "Contracts",
+        "sdk": "Microsoft.NET.Sdk",
+        "targetFrameworks": "net8.0",
+        "targetFrameworksFrom": "Directory.Build.props"
+      },
+      "alsoAt": []
+    },
+    {
+      "id": "project:Contracts",
+      "kind": "project",
+      "name": "Contracts",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/Contracts/Contracts.csproj",
+        "line": 1
+      },
+      "attributes": {
+        "outputType": "Library",
+        "outputTypeFrom": "default",
+        "packages": "Ardalis.SmartEnum, Ardalis.SmartEnum.SystemTextJson, FluentValidation, Google.Protobuf, Grpc.Net.Client, Grpc.Tools, MassTransit, MongoDB.Bson, Newtonsoft.Json",
+        "projectReferenceIds": "",
+        "projectReferences": "",
+        "sdk": "Microsoft.NET.Sdk",
+        "targetFrameworks": "net8.0",
+        "targetFrameworksFrom": "Directory.Build.props"
+      },
+      "alsoAt": []
+    },
+    {
+      "id": "project:Domain [src/Services/ShoppingCart/Command/Domain]",
+      "kind": "project",
+      "name": "Domain",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/Services/ShoppingCart/Command/Domain/Domain.csproj",
+        "line": 1
+      },
+      "attributes": {
+        "outputType": "Library",
+        "outputTypeFrom": "default",
+        "packages": "Ardalis.SmartEnum, FluentValidation, Newtonsoft.Json",
+        "projectReferenceIds": "project:Contracts",
+        "projectReferences": "Contracts",
+        "sdk": "Microsoft.NET.Sdk",
+        "targetFrameworks": "net8.0",
+        "targetFrameworksFrom": "Directory.Build.props"
+      },
+      "alsoAt": []
+    },
+    {
+      "id": "project:Domain [src/Services/Warehouse/Command/Domain]",
+      "kind": "project",
+      "name": "Domain",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/Services/Warehouse/Command/Domain/Domain.csproj",
+        "line": 1
+      },
+      "attributes": {
+        "outputType": "Library",
+        "outputTypeFrom": "default",
+        "packages": "Ardalis.SmartEnum, FluentValidation, Newtonsoft.Json",
+        "projectReferenceIds": "project:Contracts",
+        "projectReferences": "Contracts",
+        "sdk": "Microsoft.NET.Sdk",
+        "targetFrameworks": "net8.0",
+        "targetFrameworksFrom": "Directory.Build.props"
+      },
+      "alsoAt": []
+    },
+    {
+      "id": "project:GrpcService [src/Services/ShoppingCart/Query/GrpcService]",
+      "kind": "project",
+      "name": "GrpcService",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/Services/ShoppingCart/Query/GrpcService/GrpcService.csproj",
+        "line": 1
+      },
+      "attributes": {
+        "outputType": "Exe",
+        "outputTypeFrom": "sdk",
+        "packages": "Grpc.AspNetCore, Serilog.AspNetCore",
+        "projectReferenceIds": "project:Infrastructure.EventBus [src/Services/ShoppingCart/Query/Infrastructure.EventBus], project:Infrastructure.Projections [src/Services/ShoppingCart/Query/Infrastructure.Projections]",
+        "projectReferences": "Infrastructure.EventBus, Infrastructure.Projections",
+        "sdk": "Microsoft.NET.Sdk.Web",
+        "targetFrameworks": "net8.0",
+        "targetFrameworksFrom": "Directory.Build.props"
+      },
+      "alsoAt": []
+    },
+    {
+      "id": "project:GrpcService [src/Services/Warehouse/Query/GrpcService]",
+      "kind": "project",
+      "name": "GrpcService",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/Services/Warehouse/Query/GrpcService/GrpcService.csproj",
+        "line": 1
+      },
+      "attributes": {
+        "outputType": "Exe",
+        "outputTypeFrom": "sdk",
+        "packages": "Grpc.AspNetCore, Serilog.AspNetCore",
+        "projectReferenceIds": "project:Infrastructure.EventBus [src/Services/Warehouse/Query/Infrastructure.EventBus], project:Infrastructure.Projections [src/Services/Warehouse/Query/Infrastructure.Projections]",
+        "projectReferences": "Infrastructure.EventBus, Infrastructure.Projections",
+        "sdk": "Microsoft.NET.Sdk.Web",
+        "targetFrameworks": "net8.0",
+        "targetFrameworksFrom": "Directory.Build.props"
+      },
+      "alsoAt": []
+    },
+    {
+      "id": "project:Infrastructure.EventBus [src/Services/ShoppingCart/Query/Infrastructure.EventBus]",
+      "kind": "project",
+      "name": "Infrastructure.EventBus",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/Services/ShoppingCart/Query/Infrastructure.EventBus/Infrastructure.EventBus.csproj",
+        "line": 1
+      },
+      "attributes": {
+        "outputType": "Library",
+        "outputTypeFrom": "default",
+        "packages": "FluentValidation.DependencyInjectionExtensions, MassTransit.Newtonsoft, MassTransit.Quartz, MassTransit.RabbitMQ, Microsoft.Extensions.Hosting, Microsoft.Extensions.Options.DataAnnotations, Quartz.Extensions.Hosting, Quartz.Serialization.Json, Serilog",
+        "projectReferenceIds": "project:Application [src/Services/ShoppingCart/Query/Application]",
+        "projectReferences": "Application",
+        "sdk": "Microsoft.NET.Sdk",
+        "targetFrameworks": "net8.0",
+        "targetFrameworksFrom": "Directory.Build.props"
+      },
+      "alsoAt": []
+    },
+    {
+      "id": "project:Infrastructure.EventBus [src/Services/Warehouse/Query/Infrastructure.EventBus]",
+      "kind": "project",
+      "name": "Infrastructure.EventBus",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/Services/Warehouse/Query/Infrastructure.EventBus/Infrastructure.EventBus.csproj",
+        "line": 1
+      },
+      "attributes": {
+        "outputType": "Library",
+        "outputTypeFrom": "default",
+        "packages": "FluentValidation.DependencyInjectionExtensions, MassTransit.Newtonsoft, MassTransit.Quartz, MassTransit.RabbitMQ, Microsoft.Extensions.Hosting, Microsoft.Extensions.Options.DataAnnotations, Quartz.Extensions.Hosting, Quartz.Serialization.Json, Serilog",
+        "projectReferenceIds": "project:Application [src/Services/Warehouse/Query/Application]",
+        "projectReferences": "Application",
+        "sdk": "Microsoft.NET.Sdk",
+        "targetFrameworks": "net8.0",
+        "targetFrameworksFrom": "Directory.Build.props"
+      },
+      "alsoAt": []
+    },
+    {
+      "id": "project:Infrastructure.EventStore [src/Services/ShoppingCart/Command/Infrastructure.EventStore]",
+      "kind": "project",
+      "name": "Infrastructure.EventStore",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/Services/ShoppingCart/Command/Infrastructure.EventStore/Infrastructure.EventStore.csproj",
+        "line": 1
+      },
+      "attributes": {
+        "outputType": "Library",
+        "outputTypeFrom": "default",
+        "packages": "JsonNet.ContractResolvers, Microsoft.EntityFrameworkCore, Microsoft.EntityFrameworkCore.Design, Microsoft.EntityFrameworkCore.Relational, Microsoft.EntityFrameworkCore.SqlServer, Microsoft.Extensions.Hosting, Microsoft.Extensions.Options.DataAnnotations",
+        "projectReferenceIds": "project:Application [src/Services/ShoppingCart/Command/Application]",
+        "projectReferences": "Application",
+        "sdk": "Microsoft.NET.Sdk",
+        "targetFrameworks": "net8.0",
+        "targetFrameworksFrom": "Directory.Build.props"
+      },
+      "alsoAt": []
+    },
+    {
+      "id": "project:Infrastructure.EventStore [src/Services/Warehouse/Command/Infrastructure.EventStore]",
+      "kind": "project",
+      "name": "Infrastructure.EventStore",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/Services/Warehouse/Command/Infrastructure.EventStore/Infrastructure.EventStore.csproj",
+        "line": 1
+      },
+      "attributes": {
+        "outputType": "Library",
+        "outputTypeFrom": "default",
+        "packages": "JsonNet.ContractResolvers, Microsoft.EntityFrameworkCore, Microsoft.EntityFrameworkCore.Design, Microsoft.EntityFrameworkCore.Relational, Microsoft.EntityFrameworkCore.SqlServer, Microsoft.Extensions.Hosting, Microsoft.Extensions.Options.DataAnnotations",
+        "projectReferenceIds": "project:Application [src/Services/Warehouse/Command/Application]",
+        "projectReferences": "Application",
+        "sdk": "Microsoft.NET.Sdk",
+        "targetFrameworks": "net8.0",
+        "targetFrameworksFrom": "Directory.Build.props"
+      },
+      "alsoAt": []
+    },
+    {
+      "id": "project:Infrastructure.MessageBus [src/Services/ShoppingCart/Command/Infrastructure.MessageBus]",
+      "kind": "project",
+      "name": "Infrastructure.MessageBus",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/Services/ShoppingCart/Command/Infrastructure.MessageBus/Infrastructure.MessageBus.csproj",
+        "line": 1
+      },
+      "attributes": {
+        "outputType": "Library",
+        "outputTypeFrom": "default",
+        "packages": "FluentValidation.DependencyInjectionExtensions, MassTransit.Newtonsoft, MassTransit.Quartz, MassTransit.RabbitMQ, Microsoft.Extensions.Hosting, Microsoft.Extensions.Options.DataAnnotations, OpenTelemetry.Exporter.Jaeger, OpenTelemetry.Extensions.Hosting, OpenTelemetry.Instrumentation.AspNetCore, Quartz.Extensions.Hosting, Quartz.Serialization.Json, Serilog",
+        "projectReferenceIds": "project:Application [src/Services/ShoppingCart/Command/Application]",
+        "projectReferences": "Application",
+        "sdk": "Microsoft.NET.Sdk",
+        "targetFrameworks": "net8.0",
+        "targetFrameworksFrom": "Directory.Build.props"
+      },
+      "alsoAt": []
+    },
+    {
+      "id": "project:Infrastructure.MessageBus [src/Services/Warehouse/Command/Infrastructure.MessageBus]",
+      "kind": "project",
+      "name": "Infrastructure.MessageBus",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/Services/Warehouse/Command/Infrastructure.MessageBus/Infrastructure.MessageBus.csproj",
+        "line": 1
+      },
+      "attributes": {
+        "outputType": "Library",
+        "outputTypeFrom": "default",
+        "packages": "FluentValidation.DependencyInjectionExtensions, MassTransit.Newtonsoft, MassTransit.Quartz, MassTransit.RabbitMQ, Microsoft.Extensions.Hosting, Microsoft.Extensions.Options.DataAnnotations, OpenTelemetry.Exporter.Jaeger, OpenTelemetry.Extensions.Hosting, OpenTelemetry.Instrumentation.AspNetCore, Quartz.Extensions.Hosting, Quartz.Serialization.Json, Serilog",
+        "projectReferenceIds": "project:Application [src/Services/Warehouse/Command/Application]",
+        "projectReferences": "Application",
+        "sdk": "Microsoft.NET.Sdk",
+        "targetFrameworks": "net8.0",
+        "targetFrameworksFrom": "Directory.Build.props"
+      },
+      "alsoAt": []
+    },
+    {
+      "id": "project:Infrastructure.Projections [src/Services/ShoppingCart/Query/Infrastructure.Projections]",
+      "kind": "project",
+      "name": "Infrastructure.Projections",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/Services/ShoppingCart/Query/Infrastructure.Projections/Infrastructure.Projections.csproj",
+        "line": 1
+      },
+      "attributes": {
+        "outputType": "Library",
+        "outputTypeFrom": "default",
+        "packages": "MongoDB.Driver, Serilog",
+        "projectReferenceIds": "project:Application [src/Services/ShoppingCart/Query/Application]",
+        "projectReferences": "Application",
+        "sdk": "Microsoft.NET.Sdk",
+        "targetFrameworks": "net8.0",
+        "targetFrameworksFrom": "Directory.Build.props"
+      },
+      "alsoAt": []
+    },
+    {
+      "id": "project:Infrastructure.Projections [src/Services/Warehouse/Query/Infrastructure.Projections]",
+      "kind": "project",
+      "name": "Infrastructure.Projections",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/Services/Warehouse/Query/Infrastructure.Projections/Infrastructure.Projections.csproj",
+        "line": 1
+      },
+      "attributes": {
+        "outputType": "Library",
+        "outputTypeFrom": "default",
+        "packages": "MongoDB.Driver, Serilog",
+        "projectReferenceIds": "project:Application [src/Services/Warehouse/Query/Application]",
+        "projectReferences": "Application",
+        "sdk": "Microsoft.NET.Sdk",
+        "targetFrameworks": "net8.0",
+        "targetFrameworksFrom": "Directory.Build.props"
+      },
+      "alsoAt": []
+    },
+    {
+      "id": "project:WorkerService [src/Services/ShoppingCart/Command/WorkerService]",
+      "kind": "project",
+      "name": "WorkerService",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/Services/ShoppingCart/Command/WorkerService/WorkerService.csproj",
+        "line": 1
+      },
+      "attributes": {
+        "outputType": "Exe",
+        "outputTypeFrom": "sdk",
+        "packages": "Serilog.AspNetCore, Serilog.Extensions.Hosting",
+        "projectReferenceIds": "project:Infrastructure.EventStore [src/Services/ShoppingCart/Command/Infrastructure.EventStore], project:Infrastructure.MessageBus [src/Services/ShoppingCart/Command/Infrastructure.MessageBus]",
+        "projectReferences": "Infrastructure.EventStore, Infrastructure.MessageBus",
+        "sdk": "Microsoft.NET.Sdk.Worker",
+        "targetFrameworks": "net8.0",
+        "targetFrameworksFrom": "Directory.Build.props"
+      },
+      "alsoAt": []
+    },
+    {
+      "id": "project:WorkerService [src/Services/Warehouse/Command/WorkerService]",
+      "kind": "project",
+      "name": "WorkerService",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/Services/Warehouse/Command/WorkerService/WorkerService.csproj",
+        "line": 1
+      },
+      "attributes": {
+        "outputType": "Exe",
+        "outputTypeFrom": "sdk",
+        "packages": "Serilog.AspNetCore, Serilog.Extensions.Hosting",
+        "projectReferenceIds": "project:Infrastructure.EventStore [src/Services/Warehouse/Command/Infrastructure.EventStore], project:Infrastructure.MessageBus [src/Services/Warehouse/Command/Infrastructure.MessageBus]",
+        "projectReferences": "Infrastructure.EventStore, Infrastructure.MessageBus",
+        "sdk": "Microsoft.NET.Sdk.Worker",
+        "targetFrameworks": "net8.0",
+        "targetFrameworksFrom": "Directory.Build.props"
+      },
+      "alsoAt": []
+    },
+    {
+      "id": "context:EventStoreDbContext [src/Services/ShoppingCart/Command/Infrastructure.EventStore]",
+      "kind": "context",
+      "name": "EventStoreDbContext",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/Services/ShoppingCart/Command/Infrastructure.EventStore/Migrations/EventStoreDbContextModelSnapshot.cs",
+        "line": 14
+      },
+      "attributes": {
+        "defaultSchema": "",
+        "efVersion": "7.0.2",
+        "entities": "2",
+        "migrations": "2"
+      },
+      "alsoAt": []
+    },
+    {
+      "id": "context:EventStoreDbContext [src/Services/Warehouse/Command/Infrastructure.EventStore]",
+      "kind": "context",
+      "name": "EventStoreDbContext",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/Services/Warehouse/Command/Infrastructure.EventStore/Migrations/EventStoreDbContextModelSnapshot.cs",
+        "line": 14
+      },
+      "attributes": {
+        "defaultSchema": "",
+        "efVersion": "7.0.2",
+        "entities": "2",
+        "migrations": "2"
+      },
+      "alsoAt": []
+    },
+    {
+      "id": "entity:EventStoreDbContext [src/Services/ShoppingCart/Command/Infrastructure.EventStore].Domain.Abstractions.EventStore.Snapshot",
+      "kind": "entity",
+      "name": "Domain.Abstractions.EventStore.Snapshot",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/Services/ShoppingCart/Command/Infrastructure.EventStore/Migrations/EventStoreDbContextModelSnapshot.cs",
+        "line": 25
+      },
+      "attributes": {
+        "context": "EventStoreDbContext",
+        "foreignKeys": "0",
+        "key": "Version, AggregateId",
+        "properties": "5",
+        "sharesTableWith": "",
+        "table": "Snapshots",
+        "usedBy": ""
+      },
+      "alsoAt": []
+    },
+    {
+      "id": "entity:EventStoreDbContext [src/Services/ShoppingCart/Command/Infrastructure.EventStore].Domain.Abstractions.EventStore.StoreEvent",
+      "kind": "entity",
+      "name": "Domain.Abstractions.EventStore.StoreEvent",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/Services/ShoppingCart/Command/Infrastructure.EventStore/Migrations/EventStoreDbContextModelSnapshot.cs",
+        "line": 51
+      },
+      "attributes": {
+        "context": "EventStoreDbContext",
+        "foreignKeys": "0",
+        "key": "Version, AggregateId",
+        "properties": "6",
+        "sharesTableWith": "",
+        "table": "Events",
+        "usedBy": ""
+      },
+      "alsoAt": []
+    },
+    {
+      "id": "entity:EventStoreDbContext [src/Services/Warehouse/Command/Infrastructure.EventStore].Domain.Abstractions.EventStore.Snapshot",
+      "kind": "entity",
+      "name": "Domain.Abstractions.EventStore.Snapshot",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/Services/Warehouse/Command/Infrastructure.EventStore/Migrations/EventStoreDbContextModelSnapshot.cs",
+        "line": 25
+      },
+      "attributes": {
+        "context": "EventStoreDbContext",
+        "foreignKeys": "0",
+        "key": "Version, AggregateId",
+        "properties": "5",
+        "sharesTableWith": "",
+        "table": "Snapshots",
+        "usedBy": ""
+      },
+      "alsoAt": []
+    },
+    {
+      "id": "entity:EventStoreDbContext [src/Services/Warehouse/Command/Infrastructure.EventStore].Domain.Abstractions.EventStore.StoreEvent",
+      "kind": "entity",
+      "name": "Domain.Abstractions.EventStore.StoreEvent",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/Services/Warehouse/Command/Infrastructure.EventStore/Migrations/EventStoreDbContextModelSnapshot.cs",
+        "line": 51
+      },
+      "attributes": {
+        "context": "EventStoreDbContext",
+        "foreignKeys": "0",
+        "key": "Version, AggregateId",
+        "properties": "6",
+        "sharesTableWith": "",
+        "table": "Events",
+        "usedBy": ""
+      },
+      "alsoAt": []
+    },
+    {
+      "id": "config:ConnectionStrings:EventStore",
+      "kind": "config",
+      "name": "ConnectionStrings:EventStore",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/Services/ShoppingCart/Command/Infrastructure.EventStore/DependencyInjection/Extensions/ServiceCollectionExtensions.cs",
+        "line": 30
+      },
+      "attributes": {
+        "readIn": "code, json"
+      },
+      "alsoAt": [
+        {
+          "file": "src/Services/ShoppingCart/Command/WorkerService/appsettings.Development.json",
+          "line": 3
+        },
+        {
+          "file": "src/Services/ShoppingCart/Command/WorkerService/appsettings.Production.json",
+          "line": 3
+        },
+        {
+          "file": "src/Services/ShoppingCart/Command/WorkerService/appsettings.Staging.json",
+          "line": 3
+        },
+        {
+          "file": "src/Services/Warehouse/Command/Infrastructure.EventStore/DependencyInjection/Extensions/ServiceCollectionExtensions.cs",
+          "line": 30
+        },
+        {
+          "file": "src/Services/Warehouse/Command/WorkerService/appsettings.Development.json",
+          "line": 3
+        },
+        {
+          "file": "src/Services/Warehouse/Command/WorkerService/appsettings.Production.json",
+          "line": 3
+        },
+        {
+          "file": "src/Services/Warehouse/Command/WorkerService/appsettings.Staging.json",
+          "line": 3
+        }
+      ]
+    },
+    {
+      "id": "config:ConnectionStrings:Projections",
+      "kind": "config",
+      "name": "ConnectionStrings:Projections",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/Services/ShoppingCart/Query/GrpcService/appsettings.Development.json",
+        "line": 3
+      },
+      "attributes": {
+        "readIn": "code, json"
+      },
+      "alsoAt": [
+        {
+          "file": "src/Services/ShoppingCart/Query/GrpcService/appsettings.Production.json",
+          "line": 3
+        },
+        {
+          "file": "src/Services/ShoppingCart/Query/GrpcService/appsettings.Staging.json",
+          "line": 3
+        },
+        {
+          "file": "src/Services/ShoppingCart/Query/GrpcService/appsettings.Testing.json",
+          "line": 3
+        },
+        {
+          "file": "src/Services/ShoppingCart/Query/Infrastructure.Projections/Abstractions/MongoDbContext.cs",
+          "line": 12
+        },
+        {
+          "file": "src/Services/Warehouse/Query/GrpcService/appsettings.Development.json",
+          "line": 3
+        },
+        {
+          "file": "src/Services/Warehouse/Query/GrpcService/appsettings.Production.json",
+          "line": 3
+        },
+        {
+          "file": "src/Services/Warehouse/Query/GrpcService/appsettings.Staging.json",
+          "line": 3
+        },
+        {
+          "file": "src/Services/Warehouse/Query/Infrastructure.Projections/Abstractions/MongoDbContext.cs",
+          "line": 12
+        }
+      ]
+    },
+    {
+      "id": "config:EventBusOptions:ConnectionName",
+      "kind": "config",
+      "name": "EventBusOptions:ConnectionName",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/Services/ShoppingCart/Query/GrpcService/appsettings.json",
+        "line": 11
+      },
+      "attributes": {
+        "readIn": "json"
+      },
+      "alsoAt": [
+        {
+          "file": "src/Services/Warehouse/Query/GrpcService/appsettings.json",
+          "line": 11
+        }
+      ]
+    },
+    {
+      "id": "config:EventBusOptions:ConnectionString",
+      "kind": "config",
+      "name": "EventBusOptions:ConnectionString",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/Services/ShoppingCart/Query/GrpcService/appsettings.Development.json",
+        "line": 6
+      },
+      "attributes": {
+        "readIn": "json"
+      },
+      "alsoAt": [
+        {
+          "file": "src/Services/ShoppingCart/Query/GrpcService/appsettings.Production.json",
+          "line": 6
+        },
+        {
+          "file": "src/Services/ShoppingCart/Query/GrpcService/appsettings.Staging.json",
+          "line": 6
+        },
+        {
+          "file": "src/Services/ShoppingCart/Query/GrpcService/appsettings.Testing.json",
+          "line": 6
+        },
+        {
+          "file": "src/Services/Warehouse/Query/GrpcService/appsettings.Development.json",
+          "line": 6
+        },
+        {
+          "file": "src/Services/Warehouse/Query/GrpcService/appsettings.Production.json",
+          "line": 6
+        },
+        {
+          "file": "src/Services/Warehouse/Query/GrpcService/appsettings.Staging.json",
+          "line": 6
+        }
+      ]
+    },
+    {
+      "id": "config:EventBusOptions:initialInterval",
+      "kind": "config",
+      "name": "EventBusOptions:initialInterval",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/Services/ShoppingCart/Query/GrpcService/appsettings.json",
+        "line": 13
+      },
+      "attributes": {
+        "readIn": "json"
+      },
+      "alsoAt": [
+        {
+          "file": "src/Services/Warehouse/Query/GrpcService/appsettings.json",
+          "line": 13
+        }
+      ]
+    },
+    {
+      "id": "config:EventBusOptions:intervalIncrement",
+      "kind": "config",
+      "name": "EventBusOptions:intervalIncrement",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/Services/ShoppingCart/Query/GrpcService/appsettings.json",
+        "line": 14
+      },
+      "attributes": {
+        "readIn": "json"
+      },
+      "alsoAt": [
+        {
+          "file": "src/Services/Warehouse/Query/GrpcService/appsettings.json",
+          "line": 14
+        }
+      ]
+    },
+    {
+      "id": "config:EventBusOptions:retryLimit",
+      "kind": "config",
+      "name": "EventBusOptions:retryLimit",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/Services/ShoppingCart/Query/GrpcService/appsettings.json",
+        "line": 12
+      },
+      "attributes": {
+        "readIn": "json"
+      },
+      "alsoAt": [
+        {
+          "file": "src/Services/Warehouse/Query/GrpcService/appsettings.json",
+          "line": 12
+        }
+      ]
+    },
+    {
+      "id": "config:EventStoreOptions:SnapshotInterval",
+      "kind": "config",
+      "name": "EventStoreOptions:SnapshotInterval",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/Services/ShoppingCart/Command/WorkerService/appsettings.json",
+        "line": 23
+      },
+      "attributes": {
+        "readIn": "json"
+      },
+      "alsoAt": [
+        {
+          "file": "src/Services/Warehouse/Command/WorkerService/appsettings.json",
+          "line": 23
+        }
+      ]
+    },
+    {
+      "id": "config:HostOptions:ShutdownTimeout",
+      "kind": "config",
+      "name": "HostOptions:ShutdownTimeout",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/Services/ShoppingCart/Command/WorkerService/appsettings.json",
+        "line": 3
+      },
+      "attributes": {
+        "readIn": "json"
+      },
+      "alsoAt": [
+        {
+          "file": "src/Services/ShoppingCart/Query/GrpcService/appsettings.json",
+          "line": 3
+        },
+        {
+          "file": "src/Services/Warehouse/Command/WorkerService/appsettings.json",
+          "line": 3
+        },
+        {
+          "file": "src/Services/Warehouse/Query/GrpcService/appsettings.json",
+          "line": 3
+        }
+      ]
+    },
+    {
+      "id": "config:Kestrel:EndpointDefaults:Protocols",
+      "kind": "config",
+      "name": "Kestrel:EndpointDefaults:Protocols",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/Services/ShoppingCart/Query/GrpcService/appsettings.json",
+        "line": 18
+      },
+      "attributes": {
+        "readIn": "json"
+      },
+      "alsoAt": [
+        {
+          "file": "src/Services/Warehouse/Query/GrpcService/appsettings.json",
+          "line": 18
+        }
+      ]
+    },
+    {
+      "id": "config:MassTransitHostOptions:StartTimeout",
+      "kind": "config",
+      "name": "MassTransitHostOptions:StartTimeout",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/Services/ShoppingCart/Command/WorkerService/appsettings.json",
+        "line": 7
+      },
+      "attributes": {
+        "readIn": "json"
+      },
+      "alsoAt": [
+        {
+          "file": "src/Services/ShoppingCart/Query/GrpcService/appsettings.json",
+          "line": 7
+        },
+        {
+          "file": "src/Services/Warehouse/Command/WorkerService/appsettings.json",
+          "line": 7
+        },
+        {
+          "file": "src/Services/Warehouse/Query/GrpcService/appsettings.json",
+          "line": 7
+        }
+      ]
+    },
+    {
+      "id": "config:MassTransitHostOptions:StopTimeout",
+      "kind": "config",
+      "name": "MassTransitHostOptions:StopTimeout",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/Services/ShoppingCart/Command/WorkerService/appsettings.json",
+        "line": 8
+      },
+      "attributes": {
+        "readIn": "json"
+      },
+      "alsoAt": [
+        {
+          "file": "src/Services/ShoppingCart/Query/GrpcService/appsettings.json",
+          "line": 8
+        },
+        {
+          "file": "src/Services/Warehouse/Command/WorkerService/appsettings.json",
+          "line": 8
+        },
+        {
+          "file": "src/Services/Warehouse/Query/GrpcService/appsettings.json",
+          "line": 8
+        }
+      ]
+    },
+    {
+      "id": "config:MassTransitHostOptions:WaitUntilStarted",
+      "kind": "config",
+      "name": "MassTransitHostOptions:WaitUntilStarted",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/Services/ShoppingCart/Command/WorkerService/appsettings.json",
+        "line": 6
+      },
+      "attributes": {
+        "readIn": "json"
+      },
+      "alsoAt": [
+        {
+          "file": "src/Services/ShoppingCart/Query/GrpcService/appsettings.json",
+          "line": 6
+        },
+        {
+          "file": "src/Services/Warehouse/Command/WorkerService/appsettings.json",
+          "line": 6
+        },
+        {
+          "file": "src/Services/Warehouse/Query/GrpcService/appsettings.json",
+          "line": 6
+        }
+      ]
+    },
+    {
+      "id": "config:MessageBusOptions:ConnectionName",
+      "kind": "config",
+      "name": "MessageBusOptions:ConnectionName",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/Services/ShoppingCart/Command/WorkerService/appsettings.json",
+        "line": 11
+      },
+      "attributes": {
+        "readIn": "json"
+      },
+      "alsoAt": [
+        {
+          "file": "src/Services/Warehouse/Command/WorkerService/appsettings.json",
+          "line": 11
+        }
+      ]
+    },
+    {
+      "id": "config:MessageBusOptions:ConnectionString",
+      "kind": "config",
+      "name": "MessageBusOptions:ConnectionString",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/Services/ShoppingCart/Command/WorkerService/appsettings.Development.json",
+        "line": 6
+      },
+      "attributes": {
+        "readIn": "json"
+      },
+      "alsoAt": [
+        {
+          "file": "src/Services/ShoppingCart/Command/WorkerService/appsettings.Production.json",
+          "line": 6
+        },
+        {
+          "file": "src/Services/ShoppingCart/Command/WorkerService/appsettings.Staging.json",
+          "line": 6
+        },
+        {
+          "file": "src/Services/Warehouse/Command/WorkerService/appsettings.Development.json",
+          "line": 6
+        },
+        {
+          "file": "src/Services/Warehouse/Command/WorkerService/appsettings.Production.json",
+          "line": 6
+        },
+        {
+          "file": "src/Services/Warehouse/Command/WorkerService/appsettings.Staging.json",
+          "line": 6
+        }
+      ]
+    },
+    {
+      "id": "config:MessageBusOptions:SchedulerQueueName",
+      "kind": "config",
+      "name": "MessageBusOptions:SchedulerQueueName",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/Services/ShoppingCart/Command/WorkerService/appsettings.json",
+        "line": 12
+      },
+      "attributes": {
+        "readIn": "json"
+      },
+      "alsoAt": [
+        {
+          "file": "src/Services/Warehouse/Command/WorkerService/appsettings.json",
+          "line": 12
+        }
+      ]
+    },
+    {
+      "id": "config:MessageBusOptions:initialInterval",
+      "kind": "config",
+      "name": "MessageBusOptions:initialInterval",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/Services/ShoppingCart/Command/WorkerService/appsettings.json",
+        "line": 14
+      },
+      "attributes": {
+        "readIn": "json"
+      },
+      "alsoAt": [
+        {
+          "file": "src/Services/Warehouse/Command/WorkerService/appsettings.json",
+          "line": 14
+        }
+      ]
+    },
+    {
+      "id": "config:MessageBusOptions:intervalIncrement",
+      "kind": "config",
+      "name": "MessageBusOptions:intervalIncrement",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/Services/ShoppingCart/Command/WorkerService/appsettings.json",
+        "line": 15
+      },
+      "attributes": {
+        "readIn": "json"
+      },
+      "alsoAt": [
+        {
+          "file": "src/Services/Warehouse/Command/WorkerService/appsettings.json",
+          "line": 15
+        }
+      ]
+    },
+    {
+      "id": "config:MessageBusOptions:retryLimit",
+      "kind": "config",
+      "name": "MessageBusOptions:retryLimit",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/Services/ShoppingCart/Command/WorkerService/appsettings.json",
+        "line": 13
+      },
+      "attributes": {
+        "readIn": "json"
+      },
+      "alsoAt": [
+        {
+          "file": "src/Services/Warehouse/Command/WorkerService/appsettings.json",
+          "line": 13
+        }
+      ]
+    },
+    {
+      "id": "config:QuartzOptions:quartz.dataSource.default.connectionString",
+      "kind": "config",
+      "name": "QuartzOptions:quartz.dataSource.default.connectionString",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/Services/ShoppingCart/Command/WorkerService/appsettings.Development.json",
+        "line": 9
+      },
+      "attributes": {
+        "readIn": "json"
+      },
+      "alsoAt": [
+        {
+          "file": "src/Services/ShoppingCart/Command/WorkerService/appsettings.Production.json",
+          "line": 9
+        },
+        {
+          "file": "src/Services/ShoppingCart/Command/WorkerService/appsettings.Staging.json",
+          "line": 9
+        },
+        {
+          "file": "src/Services/Warehouse/Command/WorkerService/appsettings.Development.json",
+          "line": 9
+        },
+        {
+          "file": "src/Services/Warehouse/Command/WorkerService/appsettings.Production.json",
+          "line": 9
+        },
+        {
+          "file": "src/Services/Warehouse/Command/WorkerService/appsettings.Staging.json",
+          "line": 9
+        }
+      ]
+    },
+    {
+      "id": "config:QuartzOptions:quartz.dataSource.default.provider",
+      "kind": "config",
+      "name": "QuartzOptions:quartz.dataSource.default.provider",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/Services/ShoppingCart/Command/WorkerService/appsettings.json",
+        "line": 29
+      },
+      "attributes": {
+        "readIn": "json"
+      },
+      "alsoAt": [
+        {
+          "file": "src/Services/Warehouse/Command/WorkerService/appsettings.json",
+          "line": 29
+        }
+      ]
+    },
+    {
+      "id": "config:QuartzOptions:quartz.jobStore.clustered",
+      "kind": "config",
+      "name": "QuartzOptions:quartz.jobStore.clustered",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/Services/ShoppingCart/Command/WorkerService/appsettings.json",
+        "line": 32
+      },
+      "attributes": {
+        "readIn": "json"
+      },
+      "alsoAt": [
+        {
+          "file": "src/Services/Warehouse/Command/WorkerService/appsettings.json",
+          "line": 32
+        }
+      ]
+    },
+    {
+      "id": "config:QuartzOptions:quartz.jobStore.dataSource",
+      "kind": "config",
+      "name": "QuartzOptions:quartz.jobStore.dataSource",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/Services/ShoppingCart/Command/WorkerService/appsettings.json",
+        "line": 28
+      },
+      "attributes": {
+        "readIn": "json"
+      },
+      "alsoAt": [
+        {
+          "file": "src/Services/Warehouse/Command/WorkerService/appsettings.json",
+          "line": 28
+        }
+      ]
+    },
+    {
+      "id": "config:QuartzOptions:quartz.jobStore.driverDelegateType",
+      "kind": "config",
+      "name": "QuartzOptions:quartz.jobStore.driverDelegateType",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/Services/ShoppingCart/Command/WorkerService/appsettings.json",
+        "line": 33
+      },
+      "attributes": {
+        "readIn": "json"
+      },
+      "alsoAt": [
+        {
+          "file": "src/Services/Warehouse/Command/WorkerService/appsettings.json",
+          "line": 33
+        }
+      ]
+    },
+    {
+      "id": "config:QuartzOptions:quartz.jobStore.type",
+      "kind": "config",
+      "name": "QuartzOptions:quartz.jobStore.type",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/Services/ShoppingCart/Command/WorkerService/appsettings.json",
+        "line": 31
+      },
+      "attributes": {
+        "readIn": "json"
+      },
+      "alsoAt": [
+        {
+          "file": "src/Services/Warehouse/Command/WorkerService/appsettings.json",
+          "line": 31
+        }
+      ]
+    },
+    {
+      "id": "config:QuartzOptions:quartz.scheduler.instanceId",
+      "kind": "config",
+      "name": "QuartzOptions:quartz.scheduler.instanceId",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/Services/ShoppingCart/Command/WorkerService/appsettings.json",
+        "line": 27
+      },
+      "attributes": {
+        "readIn": "json"
+      },
+      "alsoAt": [
+        {
+          "file": "src/Services/Warehouse/Command/WorkerService/appsettings.json",
+          "line": 27
+        }
+      ]
+    },
+    {
+      "id": "config:QuartzOptions:quartz.scheduler.instanceName",
+      "kind": "config",
+      "name": "QuartzOptions:quartz.scheduler.instanceName",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/Services/ShoppingCart/Command/WorkerService/appsettings.json",
+        "line": 26
+      },
+      "attributes": {
+        "readIn": "json"
+      },
+      "alsoAt": [
+        {
+          "file": "src/Services/Warehouse/Command/WorkerService/appsettings.json",
+          "line": 26
+        }
+      ]
+    },
+    {
+      "id": "config:QuartzOptions:quartz.serializer.type",
+      "kind": "config",
+      "name": "QuartzOptions:quartz.serializer.type",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/Services/ShoppingCart/Command/WorkerService/appsettings.json",
+        "line": 30
+      },
+      "attributes": {
+        "readIn": "json"
+      },
+      "alsoAt": [
+        {
+          "file": "src/Services/Warehouse/Command/WorkerService/appsettings.json",
+          "line": 30
+        }
+      ]
+    },
+    {
+      "id": "config:Serilog:Enrich:0",
+      "kind": "config",
+      "name": "Serilog:Enrich:0",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/Services/ShoppingCart/Command/WorkerService/appsettings.json",
+        "line": 55
+      },
+      "attributes": {
+        "readIn": "json"
+      },
+      "alsoAt": [
+        {
+          "file": "src/Services/ShoppingCart/Query/GrpcService/appsettings.json",
+          "line": 38
+        },
+        {
+          "file": "src/Services/Warehouse/Command/WorkerService/appsettings.json",
+          "line": 55
+        },
+        {
+          "file": "src/Services/Warehouse/Query/GrpcService/appsettings.json",
+          "line": 38
+        }
+      ]
+    },
+    {
+      "id": "config:Serilog:Enrich:1",
+      "kind": "config",
+      "name": "Serilog:Enrich:1",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/Services/ShoppingCart/Command/WorkerService/appsettings.json",
+        "line": 56
+      },
+      "attributes": {
+        "readIn": "json"
+      },
+      "alsoAt": [
+        {
+          "file": "src/Services/ShoppingCart/Query/GrpcService/appsettings.json",
+          "line": 39
+        },
+        {
+          "file": "src/Services/Warehouse/Command/WorkerService/appsettings.json",
+          "line": 56
+        },
+        {
+          "file": "src/Services/Warehouse/Query/GrpcService/appsettings.json",
+          "line": 39
+        }
+      ]
+    },
+    {
+      "id": "config:Serilog:Enrich:2",
+      "kind": "config",
+      "name": "Serilog:Enrich:2",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/Services/ShoppingCart/Command/WorkerService/appsettings.json",
+        "line": 57
+      },
+      "attributes": {
+        "readIn": "json"
+      },
+      "alsoAt": [
+        {
+          "file": "src/Services/ShoppingCart/Query/GrpcService/appsettings.json",
+          "line": 40
+        },
+        {
+          "file": "src/Services/Warehouse/Command/WorkerService/appsettings.json",
+          "line": 57
+        },
+        {
+          "file": "src/Services/Warehouse/Query/GrpcService/appsettings.json",
+          "line": 40
+        }
+      ]
+    },
+    {
+      "id": "config:Serilog:MinimumLevel:Default",
+      "kind": "config",
+      "name": "Serilog:MinimumLevel:Default",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/Services/ShoppingCart/Command/WorkerService/appsettings.json",
+        "line": 37
+      },
+      "attributes": {
+        "readIn": "json"
+      },
+      "alsoAt": [
+        {
+          "file": "src/Services/ShoppingCart/Query/GrpcService/appsettings.json",
+          "line": 23
+        },
+        {
+          "file": "src/Services/Warehouse/Command/WorkerService/appsettings.json",
+          "line": 37
+        },
+        {
+          "file": "src/Services/Warehouse/Query/GrpcService/appsettings.json",
+          "line": 23
+        }
+      ]
+    },
+    {
+      "id": "config:Serilog:MinimumLevel:Override:MassTransit",
+      "kind": "config",
+      "name": "Serilog:MinimumLevel:Override:MassTransit",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/Services/ShoppingCart/Command/WorkerService/appsettings.json",
+        "line": 39
+      },
+      "attributes": {
+        "readIn": "json"
+      },
+      "alsoAt": [
+        {
+          "file": "src/Services/ShoppingCart/Query/GrpcService/appsettings.json",
+          "line": 25
+        },
+        {
+          "file": "src/Services/Warehouse/Command/WorkerService/appsettings.json",
+          "line": 39
+        },
+        {
+          "file": "src/Services/Warehouse/Query/GrpcService/appsettings.json",
+          "line": 25
+        }
+      ]
+    },
+    {
+      "id": "config:Serilog:MinimumLevel:Override:Microsoft",
+      "kind": "config",
+      "name": "Serilog:MinimumLevel:Override:Microsoft",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/Services/ShoppingCart/Command/WorkerService/appsettings.json",
+        "line": 41
+      },
+      "attributes": {
+        "readIn": "json"
+      },
+      "alsoAt": [
+        {
+          "file": "src/Services/ShoppingCart/Query/GrpcService/appsettings.json",
+          "line": 26
+        },
+        {
+          "file": "src/Services/Warehouse/Command/WorkerService/appsettings.json",
+          "line": 41
+        },
+        {
+          "file": "src/Services/Warehouse/Query/GrpcService/appsettings.json",
+          "line": 26
+        }
+      ]
+    },
+    {
+      "id": "config:Serilog:MinimumLevel:Override:Microsoft.EntityFrameworkCore",
+      "kind": "config",
+      "name": "Serilog:MinimumLevel:Override:Microsoft.EntityFrameworkCore",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/Services/ShoppingCart/Command/WorkerService/appsettings.json",
+        "line": 42
+      },
+      "attributes": {
+        "readIn": "json"
+      },
+      "alsoAt": [
+        {
+          "file": "src/Services/Warehouse/Command/WorkerService/appsettings.json",
+          "line": 42
+        }
+      ]
+    },
+    {
+      "id": "config:Serilog:MinimumLevel:Override:Microsoft.EntityFrameworkCore.Database.Command",
+      "kind": "config",
+      "name": "Serilog:MinimumLevel:Override:Microsoft.EntityFrameworkCore.Database.Command",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/Services/ShoppingCart/Command/WorkerService/appsettings.json",
+        "line": 43
+      },
+      "attributes": {
+        "readIn": "json"
+      },
+      "alsoAt": [
+        {
+          "file": "src/Services/Warehouse/Command/WorkerService/appsettings.json",
+          "line": 43
+        }
+      ]
+    },
+    {
+      "id": "config:Serilog:MinimumLevel:Override:Quartz",
+      "kind": "config",
+      "name": "Serilog:MinimumLevel:Override:Quartz",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/Services/ShoppingCart/Command/WorkerService/appsettings.json",
+        "line": 40
+      },
+      "attributes": {
+        "readIn": "json"
+      },
+      "alsoAt": [
+        {
+          "file": "src/Services/Warehouse/Command/WorkerService/appsettings.json",
+          "line": 40
+        }
+      ]
+    },
+    {
+      "id": "config:Serilog:WriteTo:0:Args:Theme",
+      "kind": "config",
+      "name": "Serilog:WriteTo:0:Args:Theme",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/Services/ShoppingCart/Command/WorkerService/appsettings.json",
+        "line": 50
+      },
+      "attributes": {
+        "readIn": "json"
+      },
+      "alsoAt": [
+        {
+          "file": "src/Services/ShoppingCart/Query/GrpcService/appsettings.json",
+          "line": 33
+        },
+        {
+          "file": "src/Services/Warehouse/Command/WorkerService/appsettings.json",
+          "line": 50
+        },
+        {
+          "file": "src/Services/Warehouse/Query/GrpcService/appsettings.json",
+          "line": 33
+        }
+      ]
+    },
+    {
+      "id": "config:Serilog:WriteTo:0:Name",
+      "kind": "config",
+      "name": "Serilog:WriteTo:0:Name",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/Services/ShoppingCart/Command/WorkerService/appsettings.json",
+        "line": 48
+      },
+      "attributes": {
+        "readIn": "json"
+      },
+      "alsoAt": [
+        {
+          "file": "src/Services/ShoppingCart/Query/GrpcService/appsettings.json",
+          "line": 31
+        },
+        {
+          "file": "src/Services/Warehouse/Command/WorkerService/appsettings.json",
+          "line": 48
+        },
+        {
+          "file": "src/Services/Warehouse/Query/GrpcService/appsettings.json",
+          "line": 31
+        }
+      ]
+    },
+    {
+      "id": "config:SqlServerRetryOptions:MaxRetryCount",
+      "kind": "config",
+      "name": "SqlServerRetryOptions:MaxRetryCount",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/Services/ShoppingCart/Command/WorkerService/appsettings.json",
+        "line": 18
+      },
+      "attributes": {
+        "readIn": "json"
+      },
+      "alsoAt": [
+        {
+          "file": "src/Services/Warehouse/Command/WorkerService/appsettings.json",
+          "line": 18
+        }
+      ]
+    },
+    {
+      "id": "config:SqlServerRetryOptions:MaxRetryDelay",
+      "kind": "config",
+      "name": "SqlServerRetryOptions:MaxRetryDelay",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/Services/ShoppingCart/Command/WorkerService/appsettings.json",
+        "line": 19
+      },
+      "attributes": {
+        "readIn": "json"
+      },
+      "alsoAt": [
+        {
+          "file": "src/Services/Warehouse/Command/WorkerService/appsettings.json",
+          "line": 19
+        }
+      ]
+    },
+    {
+      "id": "component:Contracts",
+      "kind": "component",
+      "name": "Contracts",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/Contracts/Contracts.csproj",
+        "line": 1
+      },
+      "attributes": {
+        "executables": "",
+        "infrastructure": "",
+        "libraries": "project:Contracts",
+        "role": "shared-library",
+        "sdk": "Microsoft.NET.Sdk",
+        "usedBy": "ShoppingCart/Command, ShoppingCart/Query, Warehouse/Command, Warehouse/Query"
+      },
+      "alsoAt": []
+    },
+    {
+      "id": "component:ShoppingCart/Command",
+      "kind": "component",
+      "name": "ShoppingCart/Command",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/Services/ShoppingCart/Command/WorkerService/WorkerService.csproj",
+        "line": 1
+      },
+      "attributes": {
+        "executables": "project:WorkerService [src/Services/ShoppingCart/Command/WorkerService]",
+        "infrastructure": "mssql (database), rabbitmq (broker)",
+        "libraries": "project:Application [src/Services/ShoppingCart/Command/Application], project:Domain [src/Services/ShoppingCart/Command/Domain], project:Infrastructure.EventStore [src/Services/ShoppingCart/Command/Infrastructure.EventStore], project:Infrastructure.MessageBus [src/Services/ShoppingCart/Command/Infrastructure.MessageBus]",
+        "role": "service",
+        "sdk": "Microsoft.NET.Sdk.Worker",
+        "usedBy": ""
+      },
+      "alsoAt": []
+    },
+    {
+      "id": "component:ShoppingCart/Query",
+      "kind": "component",
+      "name": "ShoppingCart/Query",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/Services/ShoppingCart/Query/GrpcService/GrpcService.csproj",
+        "line": 1
+      },
+      "attributes": {
+        "executables": "project:GrpcService [src/Services/ShoppingCart/Query/GrpcService]",
+        "infrastructure": "mongodb (database), rabbitmq (broker)",
+        "libraries": "project:Application [src/Services/ShoppingCart/Query/Application], project:Infrastructure.EventBus [src/Services/ShoppingCart/Query/Infrastructure.EventBus], project:Infrastructure.Projections [src/Services/ShoppingCart/Query/Infrastructure.Projections]",
+        "role": "service",
+        "sdk": "Microsoft.NET.Sdk.Web",
+        "usedBy": ""
+      },
+      "alsoAt": []
+    },
+    {
+      "id": "component:Warehouse/Command",
+      "kind": "component",
+      "name": "Warehouse/Command",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/Services/Warehouse/Command/WorkerService/WorkerService.csproj",
+        "line": 1
+      },
+      "attributes": {
+        "executables": "project:WorkerService [src/Services/Warehouse/Command/WorkerService]",
+        "infrastructure": "mssql (database), rabbitmq (broker)",
+        "libraries": "project:Application [src/Services/Warehouse/Command/Application], project:Domain [src/Services/Warehouse/Command/Domain], project:Infrastructure.EventStore [src/Services/Warehouse/Command/Infrastructure.EventStore], project:Infrastructure.MessageBus [src/Services/Warehouse/Command/Infrastructure.MessageBus]",
+        "role": "service",
+        "sdk": "Microsoft.NET.Sdk.Worker",
+        "usedBy": ""
+      },
+      "alsoAt": []
+    },
+    {
+      "id": "component:Warehouse/Query",
+      "kind": "component",
+      "name": "Warehouse/Query",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/Services/Warehouse/Query/GrpcService/GrpcService.csproj",
+        "line": 1
+      },
+      "attributes": {
+        "executables": "project:GrpcService [src/Services/Warehouse/Query/GrpcService]",
+        "infrastructure": "mongodb (database), rabbitmq (broker)",
+        "libraries": "project:Application [src/Services/Warehouse/Query/Application], project:Infrastructure.EventBus [src/Services/Warehouse/Query/Infrastructure.EventBus], project:Infrastructure.Projections [src/Services/Warehouse/Query/Infrastructure.Projections]",
+        "role": "service",
+        "sdk": "Microsoft.NET.Sdk.Web",
+        "usedBy": ""
+      },
+      "alsoAt": []
+    },
+    {
+      "id": "event:DomainEvent.BillingAddressAdded",
+      "kind": "event",
+      "name": "DomainEvent.BillingAddressAdded",
+      "evidence": "unresolved",
+      "source": {
+        "file": "src/Services/ShoppingCart/Command/Domain/Aggregates/ShoppingCart.cs",
+        "line": 109
+      },
+      "attributes": {
+        "consumers": "",
+        "handlers": "",
+        "producers": "ShoppingCart/Command"
+      },
+      "alsoAt": [],
+      "reason": "nothing in the solution consumes it"
+    },
+    {
+      "id": "event:DomainEvent.CartCheckedOut",
+      "kind": "event",
+      "name": "DomainEvent.CartCheckedOut",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/Services/ShoppingCart/Command/Domain/Aggregates/ShoppingCart.cs",
+        "line": 117
+      },
+      "attributes": {
+        "consumers": "ShoppingCart/Command, ShoppingCart/Query",
+        "handlers": "ShoppingCart/Command.PublishCartSubmittedWhenCartCheckedOutConsumer, ShoppingCart/Query.ProjectCartDetailsWhenChangedConsumer",
+        "producers": "ShoppingCart/Command"
+      },
+      "alsoAt": []
+    },
+    {
+      "id": "event:DomainEvent.CartCreated",
+      "kind": "event",
+      "name": "DomainEvent.CartCreated",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/Services/ShoppingCart/Command/Domain/Aggregates/ShoppingCart.cs",
+        "line": 47
+      },
+      "attributes": {
+        "consumers": "ShoppingCart/Query",
+        "handlers": "ShoppingCart/Query.ProjectCartDetailsWhenChangedConsumer",
+        "producers": "ShoppingCart/Command"
+      },
+      "alsoAt": []
+    },
+    {
+      "id": "event:DomainEvent.CartDiscarded",
+      "kind": "event",
+      "name": "DomainEvent.CartDiscarded",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/Services/ShoppingCart/Command/Domain/Aggregates/ShoppingCart.cs",
+        "line": 126
+      },
+      "attributes": {
+        "consumers": "ShoppingCart/Query",
+        "handlers": "ShoppingCart/Query.ProjectCartDetailsWhenChangedConsumer, ShoppingCart/Query.ProjectCartItemListItemWhenCartChangedConsumer, ShoppingCart/Query.ProjectPaymentMethodListItemWhenCartChangedConsumer",
+        "producers": "ShoppingCart/Command"
+      },
+      "alsoAt": []
+    },
+    {
+      "id": "event:DomainEvent.CartItemAdded",
+      "kind": "event",
+      "name": "DomainEvent.CartItemAdded",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/Services/ShoppingCart/Command/Domain/Aggregates/ShoppingCart.cs",
+        "line": 51
+      },
+      "attributes": {
+        "consumers": "ShoppingCart/Query, Warehouse/Command",
+        "handlers": "ShoppingCart/Query.ProjectCartDetailsWhenChangedConsumer, ShoppingCart/Query.ProjectCartItemListItemWhenCartChangedConsumer, Warehouse/Command.CartItemAddedConsumer",
+        "producers": "ShoppingCart/Command"
+      },
+      "alsoAt": []
+    },
+    {
+      "id": "event:DomainEvent.CartItemDecreased",
+      "kind": "event",
+      "name": "DomainEvent.CartItemDecreased",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/Services/ShoppingCart/Command/Domain/Aggregates/ShoppingCart.cs",
+        "line": 56
+      },
+      "attributes": {
+        "consumers": "ShoppingCart/Query",
+        "handlers": "ShoppingCart/Query.ProjectCartDetailsWhenChangedConsumer, ShoppingCart/Query.ProjectCartItemListItemWhenCartChangedConsumer",
+        "producers": "ShoppingCart/Command"
+      },
+      "alsoAt": []
+    },
+    {
+      "id": "event:DomainEvent.CartItemIncreased",
+      "kind": "event",
+      "name": "DomainEvent.CartItemIncreased",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/Services/ShoppingCart/Command/Domain/Aggregates/ShoppingCart.cs",
+        "line": 51
+      },
+      "attributes": {
+        "consumers": "ShoppingCart/Query",
+        "handlers": "ShoppingCart/Query.ProjectCartDetailsWhenChangedConsumer, ShoppingCart/Query.ProjectCartItemListItemWhenCartChangedConsumer",
+        "producers": "ShoppingCart/Command"
+      },
+      "alsoAt": []
+    },
+    {
+      "id": "event:DomainEvent.CartItemRemoved",
+      "kind": "event",
+      "name": "DomainEvent.CartItemRemoved",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/Services/ShoppingCart/Command/Domain/Aggregates/ShoppingCart.cs",
+        "line": 69
+      },
+      "attributes": {
+        "consumers": "ShoppingCart/Query",
+        "handlers": "ShoppingCart/Query.ProjectCartDetailsWhenChangedConsumer, ShoppingCart/Query.ProjectCartItemListItemWhenCartChangedConsumer",
+        "producers": "ShoppingCart/Command"
+      },
+      "alsoAt": []
+    },
+    {
+      "id": "event:DomainEvent.CreditCardAdded",
+      "kind": "event",
+      "name": "DomainEvent.CreditCardAdded",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/Services/ShoppingCart/Command/Domain/Aggregates/ShoppingCart.cs",
+        "line": 77
+      },
+      "attributes": {
+        "consumers": "ShoppingCart/Query",
+        "handlers": "ShoppingCart/Query.ProjectPaymentMethodListItemWhenCartChangedConsumer",
+        "producers": "ShoppingCart/Command"
+      },
+      "alsoAt": []
+    },
+    {
+      "id": "event:DomainEvent.DebitCardAdded",
+      "kind": "event",
+      "name": "DomainEvent.DebitCardAdded",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/Services/ShoppingCart/Command/Domain/Aggregates/ShoppingCart.cs",
+        "line": 85
+      },
+      "attributes": {
+        "consumers": "ShoppingCart/Query",
+        "handlers": "ShoppingCart/Query.ProjectPaymentMethodListItemWhenCartChangedConsumer",
+        "producers": "ShoppingCart/Command"
+      },
+      "alsoAt": []
+    },
+    {
+      "id": "event:DomainEvent.InventoryAdjustmentDecreased",
+      "kind": "event",
+      "name": "DomainEvent.InventoryAdjustmentDecreased",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/Services/Warehouse/Command/Domain/Aggregates/Inventory.cs",
+        "line": 46
+      },
+      "attributes": {
+        "consumers": "Warehouse/Query",
+        "handlers": "Warehouse/Query.ProjectInventoryItemListItemWhenInventoryItemChangedConsumer",
+        "producers": "Warehouse/Command"
+      },
+      "alsoAt": []
+    },
+    {
+      "id": "event:DomainEvent.InventoryAdjustmentIncreased",
+      "kind": "event",
+      "name": "DomainEvent.InventoryAdjustmentIncreased",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/Services/Warehouse/Command/Domain/Aggregates/Inventory.cs",
+        "line": 55
+      },
+      "attributes": {
+        "consumers": "Warehouse/Query",
+        "handlers": "Warehouse/Query.ProjectInventoryItemListItemWhenInventoryItemChangedConsumer",
+        "producers": "Warehouse/Command"
+      },
+      "alsoAt": []
+    },
+    {
+      "id": "event:DomainEvent.InventoryAdjustmentNotDecreased",
+      "kind": "event",
+      "name": "DomainEvent.InventoryAdjustmentNotDecreased",
+      "evidence": "unresolved",
+      "source": {
+        "file": "src/Services/Warehouse/Command/Domain/Aggregates/Inventory.cs",
+        "line": 46
+      },
+      "attributes": {
+        "consumers": "",
+        "handlers": "",
+        "producers": "Warehouse/Command"
+      },
+      "alsoAt": [],
+      "reason": "nothing in the solution consumes it"
+    },
+    {
+      "id": "event:DomainEvent.InventoryCreated",
+      "kind": "event",
+      "name": "DomainEvent.InventoryCreated",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/Services/Warehouse/Command/Domain/Aggregates/Inventory.cs",
+        "line": 32
+      },
+      "attributes": {
+        "consumers": "Warehouse/Query",
+        "handlers": "Warehouse/Query.ProjectInventoryGridItemWhenInventoryChangedConsumer",
+        "producers": "Warehouse/Command"
+      },
+      "alsoAt": []
+    },
+    {
+      "id": "event:DomainEvent.InventoryItemIncreased",
+      "kind": "event",
+      "name": "DomainEvent.InventoryItemIncreased",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/Services/Warehouse/Command/Domain/Aggregates/Inventory.cs",
+        "line": 35
+      },
+      "attributes": {
+        "consumers": "Warehouse/Query",
+        "handlers": "Warehouse/Query.ProjectInventoryItemListItemWhenInventoryItemChangedConsumer",
+        "producers": "Warehouse/Command"
+      },
+      "alsoAt": []
+    },
+    {
+      "id": "event:DomainEvent.InventoryItemReceived",
+      "kind": "event",
+      "name": "DomainEvent.InventoryItemReceived",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/Services/Warehouse/Command/Domain/Aggregates/Inventory.cs",
+        "line": 35
+      },
+      "attributes": {
+        "consumers": "Warehouse/Query",
+        "handlers": "Warehouse/Query.ProjectInventoryItemListItemWhenInventoryItemChangedConsumer",
+        "producers": "Warehouse/Command"
+      },
+      "alsoAt": []
+    },
+    {
+      "id": "event:DomainEvent.InventoryNotReserved",
+      "kind": "event",
+      "name": "DomainEvent.InventoryNotReserved",
+      "evidence": "unresolved",
+      "source": {
+        "file": "src/Services/Warehouse/Command/Domain/Aggregates/Inventory.cs",
+        "line": 61
+      },
+      "attributes": {
+        "consumers": "",
+        "handlers": "",
+        "producers": "Warehouse/Command"
+      },
+      "alsoAt": [],
+      "reason": "nothing in the solution consumes it"
+    },
+    {
+      "id": "event:DomainEvent.InventoryReserved",
+      "kind": "event",
+      "name": "DomainEvent.InventoryReserved",
+      "evidence": "unresolved",
+      "source": {
+        "file": "src/Services/Warehouse/Command/Domain/Aggregates/Inventory.cs",
+        "line": 61
+      },
+      "attributes": {
+        "consumers": "",
+        "handlers": "",
+        "producers": "Warehouse/Command"
+      },
+      "alsoAt": [],
+      "reason": "nothing in the solution consumes it"
+    },
+    {
+      "id": "event:DomainEvent.PayPalAdded",
+      "kind": "event",
+      "name": "DomainEvent.PayPalAdded",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/Services/ShoppingCart/Command/Domain/Aggregates/ShoppingCart.cs",
+        "line": 93
+      },
+      "attributes": {
+        "consumers": "ShoppingCart/Query",
+        "handlers": "ShoppingCart/Query.ProjectPaymentMethodListItemWhenCartChangedConsumer",
+        "producers": "ShoppingCart/Command"
+      },
+      "alsoAt": []
+    },
+    {
+      "id": "event:DomainEvent.ShippingAddressAdded",
+      "kind": "event",
+      "name": "DomainEvent.ShippingAddressAdded",
+      "evidence": "unresolved",
+      "source": {
+        "file": "src/Services/ShoppingCart/Command/Domain/Aggregates/ShoppingCart.cs",
+        "line": 101
+      },
+      "attributes": {
+        "consumers": "",
+        "handlers": "",
+        "producers": "ShoppingCart/Command"
+      },
+      "alsoAt": [],
+      "reason": "nothing in the solution consumes it"
+    },
+    {
+      "id": "event:DomainEvent.StockDepleted",
+      "kind": "event",
+      "name": "DomainEvent.StockDepleted",
+      "evidence": "unresolved",
+      "source": {
+        "file": "src/Services/Warehouse/Command/Domain/Aggregates/Inventory.cs",
+        "line": 61
+      },
+      "attributes": {
+        "consumers": "",
+        "handlers": "",
+        "producers": "Warehouse/Command"
+      },
+      "alsoAt": [],
+      "reason": "nothing in the solution consumes it"
+    },
+    {
+      "id": "event:NotificationEvent.CartProjectionRebuildRequested",
+      "kind": "event",
+      "name": "NotificationEvent.CartProjectionRebuildRequested",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/Services/ShoppingCart/Command/Application/UseCases/Commands/RebuildCartProjectionInteractor.cs",
+        "line": 16
+      },
+      "attributes": {
+        "consumers": "ShoppingCart/Command",
+        "handlers": "ShoppingCart/Command.PublishCartProjectionRebuiltWhenRequestedConsumer",
+        "producers": "ShoppingCart/Command"
+      },
+      "alsoAt": []
+    },
+    {
+      "id": "link:event ShoppingCart/Command -> ShoppingCart/Command (DomainEvent.CartCheckedOut)",
+      "kind": "link",
+      "name": "ShoppingCart/Command -> ShoppingCart/Command",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/Services/ShoppingCart/Command/Infrastructure.MessageBus/Consumers/Events/PublishCartSubmittedWhenCartCheckedOutConsumer.cs",
+        "line": 7
+      },
+      "attributes": {
+        "from": "ShoppingCart/Command",
+        "kind": "event",
+        "to": "ShoppingCart/Command",
+        "via": "DomainEvent.CartCheckedOut"
+      },
+      "alsoAt": []
+    },
+    {
+      "id": "link:event ShoppingCart/Command -> ShoppingCart/Command (NotificationEvent.CartProjectionRebuildRequested)",
+      "kind": "link",
+      "name": "ShoppingCart/Command -> ShoppingCart/Command",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/Services/ShoppingCart/Command/Infrastructure.MessageBus/Consumers/Events/PublishCartProjectionRebuiltWhenRequestedConsumer.cs",
+        "line": 7
+      },
+      "attributes": {
+        "from": "ShoppingCart/Command",
+        "kind": "event",
+        "to": "ShoppingCart/Command",
+        "via": "NotificationEvent.CartProjectionRebuildRequested"
+      },
+      "alsoAt": []
+    },
+    {
+      "id": "link:event ShoppingCart/Command -> ShoppingCart/Query (DomainEvent.CartCheckedOut)",
+      "kind": "link",
+      "name": "ShoppingCart/Command -> ShoppingCart/Query",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/Services/ShoppingCart/Query/Infrastructure.EventBus/Consumers/Events/ProjectCartDetailsWhenChangedConsumer.cs",
+        "line": 7
+      },
+      "attributes": {
+        "from": "ShoppingCart/Command",
+        "kind": "event",
+        "to": "ShoppingCart/Query",
+        "via": "DomainEvent.CartCheckedOut"
+      },
+      "alsoAt": []
+    },
+    {
+      "id": "link:event ShoppingCart/Command -> ShoppingCart/Query (DomainEvent.CartCreated)",
+      "kind": "link",
+      "name": "ShoppingCart/Command -> ShoppingCart/Query",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/Services/ShoppingCart/Query/Infrastructure.EventBus/Consumers/Events/ProjectCartDetailsWhenChangedConsumer.cs",
+        "line": 7
+      },
+      "attributes": {
+        "from": "ShoppingCart/Command",
+        "kind": "event",
+        "to": "ShoppingCart/Query",
+        "via": "DomainEvent.CartCreated"
+      },
+      "alsoAt": []
+    },
+    {
+      "id": "link:event ShoppingCart/Command -> ShoppingCart/Query (DomainEvent.CartDiscarded)",
+      "kind": "link",
+      "name": "ShoppingCart/Command -> ShoppingCart/Query",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/Services/ShoppingCart/Query/Infrastructure.EventBus/Consumers/Events/ProjectCartDetailsWhenChangedConsumer.cs",
+        "line": 7
+      },
+      "attributes": {
+        "from": "ShoppingCart/Command",
+        "kind": "event",
+        "to": "ShoppingCart/Query",
+        "via": "DomainEvent.CartDiscarded"
+      },
+      "alsoAt": [
+        {
+          "file": "src/Services/ShoppingCart/Query/Infrastructure.EventBus/Consumers/Events/ProjectCartItemListItemWhenCartChangedConsumer.cs",
+          "line": 7
+        },
+        {
+          "file": "src/Services/ShoppingCart/Query/Infrastructure.EventBus/Consumers/Events/ProjectPaymentMethodListItemWhenCartChangedConsumer.cs",
+          "line": 7
+        }
+      ]
+    },
+    {
+      "id": "link:event ShoppingCart/Command -> ShoppingCart/Query (DomainEvent.CartItemAdded)",
+      "kind": "link",
+      "name": "ShoppingCart/Command -> ShoppingCart/Query",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/Services/ShoppingCart/Query/Infrastructure.EventBus/Consumers/Events/ProjectCartDetailsWhenChangedConsumer.cs",
+        "line": 7
+      },
+      "attributes": {
+        "from": "ShoppingCart/Command",
+        "kind": "event",
+        "to": "ShoppingCart/Query",
+        "via": "DomainEvent.CartItemAdded"
+      },
+      "alsoAt": [
+        {
+          "file": "src/Services/ShoppingCart/Query/Infrastructure.EventBus/Consumers/Events/ProjectCartItemListItemWhenCartChangedConsumer.cs",
+          "line": 7
+        }
+      ]
+    },
+    {
+      "id": "link:event ShoppingCart/Command -> ShoppingCart/Query (DomainEvent.CartItemDecreased)",
+      "kind": "link",
+      "name": "ShoppingCart/Command -> ShoppingCart/Query",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/Services/ShoppingCart/Query/Infrastructure.EventBus/Consumers/Events/ProjectCartDetailsWhenChangedConsumer.cs",
+        "line": 7
+      },
+      "attributes": {
+        "from": "ShoppingCart/Command",
+        "kind": "event",
+        "to": "ShoppingCart/Query",
+        "via": "DomainEvent.CartItemDecreased"
+      },
+      "alsoAt": [
+        {
+          "file": "src/Services/ShoppingCart/Query/Infrastructure.EventBus/Consumers/Events/ProjectCartItemListItemWhenCartChangedConsumer.cs",
+          "line": 7
+        }
+      ]
+    },
+    {
+      "id": "link:event ShoppingCart/Command -> ShoppingCart/Query (DomainEvent.CartItemIncreased)",
+      "kind": "link",
+      "name": "ShoppingCart/Command -> ShoppingCart/Query",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/Services/ShoppingCart/Query/Infrastructure.EventBus/Consumers/Events/ProjectCartDetailsWhenChangedConsumer.cs",
+        "line": 7
+      },
+      "attributes": {
+        "from": "ShoppingCart/Command",
+        "kind": "event",
+        "to": "ShoppingCart/Query",
+        "via": "DomainEvent.CartItemIncreased"
+      },
+      "alsoAt": [
+        {
+          "file": "src/Services/ShoppingCart/Query/Infrastructure.EventBus/Consumers/Events/ProjectCartItemListItemWhenCartChangedConsumer.cs",
+          "line": 7
+        }
+      ]
+    },
+    {
+      "id": "link:event ShoppingCart/Command -> ShoppingCart/Query (DomainEvent.CartItemRemoved)",
+      "kind": "link",
+      "name": "ShoppingCart/Command -> ShoppingCart/Query",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/Services/ShoppingCart/Query/Infrastructure.EventBus/Consumers/Events/ProjectCartDetailsWhenChangedConsumer.cs",
+        "line": 7
+      },
+      "attributes": {
+        "from": "ShoppingCart/Command",
+        "kind": "event",
+        "to": "ShoppingCart/Query",
+        "via": "DomainEvent.CartItemRemoved"
+      },
+      "alsoAt": [
+        {
+          "file": "src/Services/ShoppingCart/Query/Infrastructure.EventBus/Consumers/Events/ProjectCartItemListItemWhenCartChangedConsumer.cs",
+          "line": 7
+        }
+      ]
+    },
+    {
+      "id": "link:event ShoppingCart/Command -> ShoppingCart/Query (DomainEvent.CreditCardAdded)",
+      "kind": "link",
+      "name": "ShoppingCart/Command -> ShoppingCart/Query",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/Services/ShoppingCart/Query/Infrastructure.EventBus/Consumers/Events/ProjectPaymentMethodListItemWhenCartChangedConsumer.cs",
+        "line": 7
+      },
+      "attributes": {
+        "from": "ShoppingCart/Command",
+        "kind": "event",
+        "to": "ShoppingCart/Query",
+        "via": "DomainEvent.CreditCardAdded"
+      },
+      "alsoAt": []
+    },
+    {
+      "id": "link:event ShoppingCart/Command -> ShoppingCart/Query (DomainEvent.DebitCardAdded)",
+      "kind": "link",
+      "name": "ShoppingCart/Command -> ShoppingCart/Query",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/Services/ShoppingCart/Query/Infrastructure.EventBus/Consumers/Events/ProjectPaymentMethodListItemWhenCartChangedConsumer.cs",
+        "line": 7
+      },
+      "attributes": {
+        "from": "ShoppingCart/Command",
+        "kind": "event",
+        "to": "ShoppingCart/Query",
+        "via": "DomainEvent.DebitCardAdded"
+      },
+      "alsoAt": []
+    },
+    {
+      "id": "link:event ShoppingCart/Command -> ShoppingCart/Query (DomainEvent.PayPalAdded)",
+      "kind": "link",
+      "name": "ShoppingCart/Command -> ShoppingCart/Query",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/Services/ShoppingCart/Query/Infrastructure.EventBus/Consumers/Events/ProjectPaymentMethodListItemWhenCartChangedConsumer.cs",
+        "line": 7
+      },
+      "attributes": {
+        "from": "ShoppingCart/Command",
+        "kind": "event",
+        "to": "ShoppingCart/Query",
+        "via": "DomainEvent.PayPalAdded"
+      },
+      "alsoAt": []
+    },
+    {
+      "id": "link:event ShoppingCart/Command -> Warehouse/Command (DomainEvent.CartItemAdded)",
+      "kind": "link",
+      "name": "ShoppingCart/Command -> Warehouse/Command",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/Services/Warehouse/Command/Infrastructure.MessageBus/Consumers/Events/CartItemAddedConsumer.cs",
+        "line": 7
+      },
+      "attributes": {
+        "from": "ShoppingCart/Command",
+        "kind": "event",
+        "to": "Warehouse/Command",
+        "via": "DomainEvent.CartItemAdded"
+      },
+      "alsoAt": []
+    },
+    {
+      "id": "link:event Warehouse/Command -> Warehouse/Query (DomainEvent.InventoryAdjustmentDecreased)",
+      "kind": "link",
+      "name": "Warehouse/Command -> Warehouse/Query",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/Services/Warehouse/Query/Infrastructure.EventBus/Consumers/Events/ProjectInventoryItemListItemWhenInventoryItemChangedConsumer.cs",
+        "line": 7
+      },
+      "attributes": {
+        "from": "Warehouse/Command",
+        "kind": "event",
+        "to": "Warehouse/Query",
+        "via": "DomainEvent.InventoryAdjustmentDecreased"
+      },
+      "alsoAt": []
+    },
+    {
+      "id": "link:event Warehouse/Command -> Warehouse/Query (DomainEvent.InventoryAdjustmentIncreased)",
+      "kind": "link",
+      "name": "Warehouse/Command -> Warehouse/Query",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/Services/Warehouse/Query/Infrastructure.EventBus/Consumers/Events/ProjectInventoryItemListItemWhenInventoryItemChangedConsumer.cs",
+        "line": 7
+      },
+      "attributes": {
+        "from": "Warehouse/Command",
+        "kind": "event",
+        "to": "Warehouse/Query",
+        "via": "DomainEvent.InventoryAdjustmentIncreased"
+      },
+      "alsoAt": []
+    },
+    {
+      "id": "link:event Warehouse/Command -> Warehouse/Query (DomainEvent.InventoryCreated)",
+      "kind": "link",
+      "name": "Warehouse/Command -> Warehouse/Query",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/Services/Warehouse/Query/Infrastructure.EventBus/Consumers/Events/ProjectInventoryGridItemWhenInventoryChangedConsumer.cs",
+        "line": 7
+      },
+      "attributes": {
+        "from": "Warehouse/Command",
+        "kind": "event",
+        "to": "Warehouse/Query",
+        "via": "DomainEvent.InventoryCreated"
+      },
+      "alsoAt": []
+    },
+    {
+      "id": "link:event Warehouse/Command -> Warehouse/Query (DomainEvent.InventoryItemIncreased)",
+      "kind": "link",
+      "name": "Warehouse/Command -> Warehouse/Query",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/Services/Warehouse/Query/Infrastructure.EventBus/Consumers/Events/ProjectInventoryItemListItemWhenInventoryItemChangedConsumer.cs",
+        "line": 7
+      },
+      "attributes": {
+        "from": "Warehouse/Command",
+        "kind": "event",
+        "to": "Warehouse/Query",
+        "via": "DomainEvent.InventoryItemIncreased"
+      },
+      "alsoAt": []
+    },
+    {
+      "id": "link:event Warehouse/Command -> Warehouse/Query (DomainEvent.InventoryItemReceived)",
+      "kind": "link",
+      "name": "Warehouse/Command -> Warehouse/Query",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/Services/Warehouse/Query/Infrastructure.EventBus/Consumers/Events/ProjectInventoryItemListItemWhenInventoryItemChangedConsumer.cs",
+        "line": 7
+      },
+      "attributes": {
+        "from": "Warehouse/Command",
+        "kind": "event",
+        "to": "Warehouse/Query",
+        "via": "DomainEvent.InventoryItemReceived"
+      },
+      "alsoAt": []
+    },
+    {
+      "id": "detail:ShoppingCart/Command",
+      "kind": "detail",
+      "name": "ShoppingCart/Command",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/Services/ShoppingCart/Command/WorkerService/WorkerService.csproj",
+        "line": 1
+      },
+      "attributes": {
+        "component": "ShoppingCart/Command"
+      },
+      "alsoAt": []
+    },
+    {
+      "id": "detail:ShoppingCart/Query",
+      "kind": "detail",
+      "name": "ShoppingCart/Query",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/Services/ShoppingCart/Query/GrpcService/GrpcService.csproj",
+        "line": 1
+      },
+      "attributes": {
+        "component": "ShoppingCart/Query"
+      },
+      "alsoAt": []
+    },
+    {
+      "id": "detail:Warehouse/Command",
+      "kind": "detail",
+      "name": "Warehouse/Command",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/Services/Warehouse/Command/WorkerService/WorkerService.csproj",
+        "line": 1
+      },
+      "attributes": {
+        "component": "Warehouse/Command"
+      },
+      "alsoAt": []
+    },
+    {
+      "id": "detail:Warehouse/Query",
+      "kind": "detail",
+      "name": "Warehouse/Query",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/Services/Warehouse/Query/GrpcService/GrpcService.csproj",
+        "line": 1
+      },
+      "attributes": {
+        "component": "Warehouse/Query"
+      },
+      "alsoAt": []
+    }
+  ],
+  "coverage": [
+    {
+      "area": "configuration",
+      "note": "Configuration reads whose key is not written as text (a variable, a call, a value built at run time).",
+      "count": 14
+    },
+    {
+      "area": "endpoints",
+      "note": "Map… calls that declare something this inventory does not list: MapGrpcService x2.",
+      "count": 2
+    },
+    {
+      "area": "events",
+      "note": "Events that nothing in the solution creates, or that nothing consumes: the other end may be outside it, or written in a way syntax does not show.",
+      "count": 6
+    },
+    {
+      "area": "projects",
+      "note": "Package versions that come from an MSBuild property or are written nowhere in the files read are listed without a version.",
+      "count": 85
+    }
+  ]
+}

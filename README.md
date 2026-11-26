@@ -56,11 +56,26 @@ server with `dnx`) and dynamic workflows enabled in `/config`.
 /plugin install dblens --marketplace MatteoBelletti/dblens
 ```
 
-Then `/dblens:setup` checks the connection and runs a first audit; `/dblens:audit` runs one with
-`dialect`, `outDir` and `runLabel`, and optionally `schema`, `efSnapshot` (an EF Core migrations
-snapshot), `queriesFile` (SQL to plan) and `privacy`. Set the connection strings in the
-plugin's settings, never in the chat. Keep one registration: if `dblens` was also added with
-`claude mcp add`, remove one of the two.
+Then `/dblens:setup` checks the connection and hands over to `/dblens:audit`. The audit never picks
+the database: it asks which one (a local Docker container, the database set in the plugin's settings,
+or the demo only if you name it), connects, shows "database on host:port, how it was reached, server
+version, number of tables" and starts only after your yes. For a container it saves a named
+connection from the container's own settings without printing a password, so none ever reaches the
+chat or an agent. Options: `schema`, `efSnapshot` (an EF Core migrations snapshot), `efScript`,
+`queriesFile` and `privacy`. The report opens with the database it audited, and is never
+overwritten. Put the connection strings of a remote database in the plugin's settings, never in the
+chat. Keep one registration: if `dblens` was also added with `claude mcp add`, remove one of the two.
+
+### Reviewing a .NET branch (optional)
+
+The same marketplace has `dotnet-review`, which needs `dblens`: `/dotnet-review:review` with `base`,
+`branch` and `outDir` sorts the changed files, has one agent review each touched area (EF
+migrations, EF queries, the public API contract), drops every comment its evidence does not
+support, and writes at most five to `review-<branch>.md`. It posts nothing.
+
+```
+/plugin install dotnet-review --marketplace MatteoBelletti/dblens
+```
 
 ## Checking a migration
 
@@ -166,15 +181,18 @@ claude mcp add dblens -- dotnet run --project /path/to/dblens/src/DbLens.Mcp
 
 | Key (`appsettings.json`) | Environment variable | Default |
 |---|---|---|
-| `ConnectionStrings:PostgreSql` | `ConnectionStrings__PostgreSql` | the demo database, as `dblens_reader` |
-| `ConnectionStrings:SqlServer` | `ConnectionStrings__SqlServer` | the demo database, as `dblens_reader` |
+| `ConnectionStrings:PostgreSql` | `ConnectionStrings__PostgreSql` | none: a call without `connectionString` is an error |
+| `ConnectionStrings:SqlServer` | `ConnectionStrings__SqlServer` | none: a call without `connectionString` is an error |
+| `DbLens:DemoFallback` | `DbLens__DemoFallback` | `false` — `true` uses the demo database for a dialect with no connection string; `dotnet run` and `make` turn it on |
 | `DbLens:AllowQueryResults` | `DbLens__AllowQueryResults` | `false` — enables `query_with_receipt` |
 | `DbLens:AllowWriteCapableLogin` | `DbLens__AllowWriteCapableLogin` | `false` — skips the read-only-login check on remote servers too; disposable databases only |
 | `DbLens:ReadOnlyLoginOnLocalhost` | `DbLens__ReadOnlyLoginOnLocalhost` | `false` — applies the check to a local server as well, for dblens installed on a real database server |
+| `DbLens:ConnectionsPath` | `DbLens__ConnectionsPath` | `dblens/connections` under the local application-data folder — connections saved under a name, one `<name>.conn` each (dialect, then connection string), for the `connection` parameter |
 | `DbLens:CertifiedQueriesPath` | `DbLens__CertifiedQueriesPath` | `dblens/certified-queries.json` under the local application-data folder: `%LOCALAPPDATA%` on Windows, `~/.local/share` on Linux, `~/Library/Application Support` on macOS |
 
-An empty value means the default, so an unset Claude Desktop setting is harmless. A tool call can
-also pass its own `connectionString`. `analyze_fragmentation` additionally needs
+An empty value, or a placeholder nobody expanded (`${user_config.pg_connection}`), counts as not
+configured. A tool call can also pass its own `connectionString`, or `database` to read another
+database of the configured server with the same login and no password in the call. `analyze_fragmentation` additionally needs
 `pgstattuple` (PostgreSQL) or `VIEW DATABASE STATE` (SQL Server); query history needs
 `pg_stat_statements` or Query Store.
 

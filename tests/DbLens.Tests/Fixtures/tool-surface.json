@@ -40,6 +40,20 @@
           "null"
         ],
         "default": null
+      },
+      "connection": {
+        "type": [
+          "string",
+          "null"
+        ],
+        "default": null
+      },
+      "database": {
+        "type": [
+          "string",
+          "null"
+        ],
+        "default": null
       }
     }
   },
@@ -84,6 +98,20 @@
           "null"
         ],
         "default": null
+      },
+      "connection": {
+        "type": [
+          "string",
+          "null"
+        ],
+        "default": null
+      },
+      "database": {
+        "type": [
+          "string",
+          "null"
+        ],
+        "default": null
       }
     }
   },
@@ -123,6 +151,20 @@
         "default": true
       },
       "connectionString": {
+        "type": [
+          "string",
+          "null"
+        ],
+        "default": null
+      },
+      "connection": {
+        "type": [
+          "string",
+          "null"
+        ],
+        "default": null
+      },
+      "database": {
         "type": [
           "string",
           "null"
@@ -174,6 +216,20 @@
         "default": null
       },
       "connectionString": {
+        "type": [
+          "string",
+          "null"
+        ],
+        "default": null
+      },
+      "connection": {
+        "type": [
+          "string",
+          "null"
+        ],
+        "default": null
+      },
+      "database": {
         "type": [
           "string",
           "null"
@@ -234,6 +290,20 @@
           "null"
         ],
         "default": null
+      },
+      "connection": {
+        "type": [
+          "string",
+          "null"
+        ],
+        "default": null
+      },
+      "database": {
+        "type": [
+          "string",
+          "null"
+        ],
+        "default": null
       }
     }
   },
@@ -258,6 +328,20 @@
         "default": "PostgreSql"
       },
       "connectionString": {
+        "type": [
+          "string",
+          "null"
+        ],
+        "default": null
+      },
+      "connection": {
+        "type": [
+          "string",
+          "null"
+        ],
+        "default": null
+      },
+      "database": {
         "type": [
           "string",
           "null"
@@ -306,6 +390,20 @@
           "null"
         ],
         "default": null
+      },
+      "connection": {
+        "type": [
+          "string",
+          "null"
+        ],
+        "default": null
+      },
+      "database": {
+        "type": [
+          "string",
+          "null"
+        ],
+        "default": null
       }
     }
   },
@@ -331,6 +429,20 @@
         "default": null
       },
       "connectionString": {
+        "type": [
+          "string",
+          "null"
+        ],
+        "default": null
+      },
+      "connection": {
+        "type": [
+          "string",
+          "null"
+        ],
+        "default": null
+      },
+      "database": {
         "type": [
           "string",
           "null"
@@ -383,6 +495,20 @@
           "null"
         ],
         "default": null
+      },
+      "connection": {
+        "type": [
+          "string",
+          "null"
+        ],
+        "default": null
+      },
+      "database": {
+        "type": [
+          "string",
+          "null"
+        ],
+        "default": null
       }
     },
     "required": [
@@ -408,6 +534,20 @@
         "default": false
       },
       "connectionString": {
+        "type": [
+          "string",
+          "null"
+        ],
+        "default": null
+      },
+      "connection": {
+        "type": [
+          "string",
+          "null"
+        ],
+        "default": null
+      },
+      "database": {
         "type": [
           "string",
           "null"
@@ -440,6 +580,20 @@
           "null"
         ],
         "default": null
+      },
+      "connection": {
+        "type": [
+          "string",
+          "null"
+        ],
+        "default": null
+      },
+      "database": {
+        "type": [
+          "string",
+          "null"
+        ],
+        "default": null
       }
     }
   },
@@ -455,6 +609,20 @@
         "default": "PostgreSql"
       },
       "connectionString": {
+        "type": [
+          "string",
+          "null"
+        ],
+        "default": null
+      },
+      "connection": {
+        "type": [
+          "string",
+          "null"
+        ],
+        "default": null
+      },
+      "database": {
         "type": [
           "string",
           "null"
@@ -515,6 +683,20 @@
           "null"
         ],
         "default": null
+      },
+      "connection": {
+        "type": [
+          "string",
+          "null"
+        ],
+        "default": null
+      },
+      "database": {
+        "type": [
+          "string",
+          "null"
+        ],
+        "default": null
       }
     },
     "required": [
@@ -562,6 +744,20 @@
           "null"
         ],
         "default": null
+      },
+      "connection": {
+        "type": [
+          "string",
+          "null"
+        ],
+        "default": null
+      },
+      "database": {
+        "type": [
+          "string",
+          "null"
+        ],
+        "default": null
       }
     }
   },
@@ -582,6 +778,20 @@
           "null"
         ],
         "default": null
+      },
+      "connection": {
+        "type": [
+          "string",
+          "null"
+        ],
+        "default": null
+      },
+      "database": {
+        "type": [
+          "string",
+          "null"
+        ],
+        "default": null
       }
     }
   },
@@ -591,6 +801,35 @@
       "message": {
         "type": "string",
         "default": "pong"
+      },
+      "dialect": {
+        "type": "string",
+        "enum": [
+          "PostgreSql",
+          "SqlServer"
+        ],
+        "default": "PostgreSql"
+      },
+      "connectionString": {
+        "type": [
+          "string",
+          "null"
+        ],
+        "default": null
+      },
+      "connection": {
+        "type": [
+          "string",
+          "null"
+        ],
+        "default": null
+      },
+      "database": {
+        "type": [
+          "string",
+          "null"
+        ],
+        "default": null
       }
     }
   },
@@ -631,6 +870,20 @@
         "default": 0
       },
       "connectionString": {
+        "type": [
+          "string",
+          "null"
+        ],
+        "default": null
+      },
+      "connection": {
+        "type": [
+          "string",
+          "null"
+        ],
+        "default": null
+      },
+      "database": {
         "type": [
           "string",
           "null"
@@ -688,6 +941,20 @@
         "default": 0.5
       },
       "connectionString": {
+        "type": [
+          "string",
+          "null"
+        ],
+        "default": null
+      },
+      "connection": {
+        "type": [
+          "string",
+          "null"
+        ],
+        "default": null
+      },
+      "database": {
         "type": [
           "string",
           "null"

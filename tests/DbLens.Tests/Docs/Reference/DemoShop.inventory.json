@@ -1,0 +1,442 @@
+{
+  "schemaVersion": 2,
+  "items": [
+    {
+      "id": "project:DemoShop.EfCore",
+      "kind": "project",
+      "name": "DemoShop.EfCore",
+      "evidence": "extracted",
+      "source": {
+        "file": "DemoShop.EfCore.csproj",
+        "line": 1
+      },
+      "attributes": {
+        "outputType": "Library",
+        "outputTypeFrom": "default",
+        "packages": "Microsoft.EntityFrameworkCore.Design, Microsoft.EntityFrameworkCore.SqlServer, Npgsql.EntityFrameworkCore.PostgreSQL",
+        "projectReferenceIds": "",
+        "projectReferences": "",
+        "sdk": "Microsoft.NET.Sdk",
+        "targetFrameworks": "net10.0",
+        "targetFrameworksFrom": "file"
+      },
+      "alsoAt": []
+    },
+    {
+      "id": "context:ShopPostgresContext",
+      "kind": "context",
+      "name": "ShopPostgresContext",
+      "evidence": "extracted",
+      "source": {
+        "file": "Migrations/PostgreSql/ShopPostgresContextModelSnapshot.cs",
+        "line": 14
+      },
+      "attributes": {
+        "defaultSchema": "shop",
+        "efVersion": "10.0.15",
+        "entities": "9",
+        "migrations": "3"
+      },
+      "alsoAt": []
+    },
+    {
+      "id": "context:ShopSqlServerContext",
+      "kind": "context",
+      "name": "ShopSqlServerContext",
+      "evidence": "extracted",
+      "source": {
+        "file": "Migrations/SqlServer/ShopSqlServerContextModelSnapshot.cs",
+        "line": 14
+      },
+      "attributes": {
+        "defaultSchema": "shop",
+        "efVersion": "10.0.15",
+        "entities": "9",
+        "migrations": "3"
+      },
+      "alsoAt": []
+    },
+    {
+      "id": "entity:ShopPostgresContext.DemoShop.EfCore.BankTransfer",
+      "kind": "entity",
+      "name": "DemoShop.EfCore.BankTransfer",
+      "evidence": "extracted",
+      "source": {
+        "file": "Migrations/PostgreSql/ShopPostgresContextModelSnapshot.cs",
+        "line": 264
+      },
+      "attributes": {
+        "context": "ShopPostgresContext",
+        "foreignKeys": "0",
+        "key": "Id",
+        "properties": "1",
+        "sharesTableWith": "DemoShop.EfCore.Payment",
+        "table": "shop.payments",
+        "usedBy": ""
+      },
+      "alsoAt": []
+    },
+    {
+      "id": "entity:ShopPostgresContext.DemoShop.EfCore.CardPayment",
+      "kind": "entity",
+      "name": "DemoShop.EfCore.CardPayment",
+      "evidence": "extracted",
+      "source": {
+        "file": "Migrations/PostgreSql/ShopPostgresContextModelSnapshot.cs",
+        "line": 276
+      },
+      "attributes": {
+        "context": "ShopPostgresContext",
+        "foreignKeys": "0",
+        "key": "Id",
+        "properties": "1",
+        "sharesTableWith": "DemoShop.EfCore.Payment",
+        "table": "shop.payments",
+        "usedBy": ""
+      },
+      "alsoAt": []
+    },
+    {
+      "id": "entity:ShopPostgresContext.DemoShop.EfCore.Category",
+      "kind": "entity",
+      "name": "DemoShop.EfCore.Category",
+      "evidence": "extracted",
+      "source": {
+        "file": "Migrations/PostgreSql/ShopPostgresContextModelSnapshot.cs",
+        "line": 26
+      },
+      "attributes": {
+        "context": "ShopPostgresContext",
+        "foreignKeys": "1",
+        "key": "Id",
+        "properties": "3",
+        "sharesTableWith": "",
+        "table": "shop.categories",
+        "usedBy": ""
+      },
+      "alsoAt": []
+    },
+    {
+      "id": "entity:ShopPostgresContext.DemoShop.EfCore.Order",
+      "kind": "entity",
+      "name": "DemoShop.EfCore.Order",
+      "evidence": "extracted",
+      "source": {
+        "file": "Migrations/PostgreSql/ShopPostgresContextModelSnapshot.cs",
+        "line": 52
+      },
+      "attributes": {
+        "context": "ShopPostgresContext",
+        "foreignKeys": "1",
+        "key": "Id",
+        "properties": "5",
+        "sharesTableWith": "",
+        "table": "shop.orders",
+        "usedBy": ""
+      },
+      "alsoAt": []
+    },
+    {
+      "id": "entity:ShopPostgresContext.DemoShop.EfCore.OrderItem",
+      "kind": "entity",
+      "name": "DemoShop.EfCore.OrderItem",
+      "evidence": "extracted",
+      "source": {
+        "file": "Migrations/PostgreSql/ShopPostgresContextModelSnapshot.cs",
+        "line": 90
+      },
+      "attributes": {
+        "context": "ShopPostgresContext",
+        "foreignKeys": "2",
+        "key": "Id",
+        "properties": "5",
+        "sharesTableWith": "",
+        "table": "shop.order_items",
+        "usedBy": ""
+      },
+      "alsoAt": []
+    },
+    {
+      "id": "entity:ShopPostgresContext.DemoShop.EfCore.Payment",
+      "kind": "entity",
+      "name": "DemoShop.EfCore.Payment",
+      "evidence": "extracted",
+      "source": {
+        "file": "Migrations/PostgreSql/ShopPostgresContextModelSnapshot.cs",
+        "line": 140
+      },
+      "attributes": {
+        "context": "ShopPostgresContext",
+        "foreignKeys": "1",
+        "key": "Id",
+        "properties": "4",
+        "sharesTableWith": "",
+        "table": "shop.payments",
+        "usedBy": ""
+      },
+      "alsoAt": []
+    },
+    {
+      "id": "entity:ShopPostgresContext.DemoShop.EfCore.PostalAddress",
+      "kind": "entity",
+      "name": "DemoShop.EfCore.PostalAddress",
+      "evidence": "extracted",
+      "source": {
+        "file": "Migrations/PostgreSql/ShopPostgresContextModelSnapshot.cs",
+        "line": 1
+      },
+      "attributes": {
+        "context": "ShopPostgresContext",
+        "foreignKeys": "0",
+        "key": "Id",
+        "properties": "2",
+        "sharesTableWith": "DemoShop.EfCore.User",
+        "table": "shop.users",
+        "usedBy": ""
+      },
+      "alsoAt": []
+    },
+    {
+      "id": "entity:ShopPostgresContext.DemoShop.EfCore.Product",
+      "kind": "entity",
+      "name": "DemoShop.EfCore.Product",
+      "evidence": "extracted",
+      "source": {
+        "file": "Migrations/PostgreSql/ShopPostgresContextModelSnapshot.cs",
+        "line": 175
+      },
+      "attributes": {
+        "context": "ShopPostgresContext",
+        "foreignKeys": "1",
+        "key": "Id",
+        "properties": "6",
+        "sharesTableWith": "",
+        "table": "shop.products",
+        "usedBy": ""
+      },
+      "alsoAt": []
+    },
+    {
+      "id": "entity:ShopPostgresContext.DemoShop.EfCore.User",
+      "kind": "entity",
+      "name": "DemoShop.EfCore.User",
+      "evidence": "extracted",
+      "source": {
+        "file": "Migrations/PostgreSql/ShopPostgresContextModelSnapshot.cs",
+        "line": 220
+      },
+      "attributes": {
+        "context": "ShopPostgresContext",
+        "foreignKeys": "0",
+        "key": "Id",
+        "properties": "6",
+        "sharesTableWith": "",
+        "table": "shop.users",
+        "usedBy": ""
+      },
+      "alsoAt": []
+    },
+    {
+      "id": "entity:ShopSqlServerContext.DemoShop.EfCore.BankTransfer",
+      "kind": "entity",
+      "name": "DemoShop.EfCore.BankTransfer",
+      "evidence": "extracted",
+      "source": {
+        "file": "Migrations/SqlServer/ShopSqlServerContextModelSnapshot.cs",
+        "line": 264
+      },
+      "attributes": {
+        "context": "ShopSqlServerContext",
+        "foreignKeys": "0",
+        "key": "Id",
+        "properties": "1",
+        "sharesTableWith": "DemoShop.EfCore.Payment",
+        "table": "shop.payments",
+        "usedBy": ""
+      },
+      "alsoAt": []
+    },
+    {
+      "id": "entity:ShopSqlServerContext.DemoShop.EfCore.CardPayment",
+      "kind": "entity",
+      "name": "DemoShop.EfCore.CardPayment",
+      "evidence": "extracted",
+      "source": {
+        "file": "Migrations/SqlServer/ShopSqlServerContextModelSnapshot.cs",
+        "line": 276
+      },
+      "attributes": {
+        "context": "ShopSqlServerContext",
+        "foreignKeys": "0",
+        "key": "Id",
+        "properties": "1",
+        "sharesTableWith": "DemoShop.EfCore.Payment",
+        "table": "shop.payments",
+        "usedBy": ""
+      },
+      "alsoAt": []
+    },
+    {
+      "id": "entity:ShopSqlServerContext.DemoShop.EfCore.Category",
+      "kind": "entity",
+      "name": "DemoShop.EfCore.Category",
+      "evidence": "extracted",
+      "source": {
+        "file": "Migrations/SqlServer/ShopSqlServerContextModelSnapshot.cs",
+        "line": 26
+      },
+      "attributes": {
+        "context": "ShopSqlServerContext",
+        "foreignKeys": "1",
+        "key": "Id",
+        "properties": "3",
+        "sharesTableWith": "",
+        "table": "shop.categories",
+        "usedBy": ""
+      },
+      "alsoAt": []
+    },
+    {
+      "id": "entity:ShopSqlServerContext.DemoShop.EfCore.Order",
+      "kind": "entity",
+      "name": "DemoShop.EfCore.Order",
+      "evidence": "extracted",
+      "source": {
+        "file": "Migrations/SqlServer/ShopSqlServerContextModelSnapshot.cs",
+        "line": 52
+      },
+      "attributes": {
+        "context": "ShopSqlServerContext",
+        "foreignKeys": "1",
+        "key": "Id",
+        "properties": "5",
+        "sharesTableWith": "",
+        "table": "shop.orders",
+        "usedBy": ""
+      },
+      "alsoAt": []
+    },
+    {
+      "id": "entity:ShopSqlServerContext.DemoShop.EfCore.OrderItem",
+      "kind": "entity",
+      "name": "DemoShop.EfCore.OrderItem",
+      "evidence": "extracted",
+      "source": {
+        "file": "Migrations/SqlServer/ShopSqlServerContextModelSnapshot.cs",
+        "line": 90
+      },
+      "attributes": {
+        "context": "ShopSqlServerContext",
+        "foreignKeys": "2",
+        "key": "Id",
+        "properties": "5",
+        "sharesTableWith": "",
+        "table": "shop.order_items",
+        "usedBy": ""
+      },
+      "alsoAt": []
+    },
+    {
+      "id": "entity:ShopSqlServerContext.DemoShop.EfCore.Payment",
+      "kind": "entity",
+      "name": "DemoShop.EfCore.Payment",
+      "evidence": "extracted",
+      "source": {
+        "file": "Migrations/SqlServer/ShopSqlServerContextModelSnapshot.cs",
+        "line": 140
+      },
+      "attributes": {
+        "context": "ShopSqlServerContext",
+        "foreignKeys": "1",
+        "key": "Id",
+        "properties": "4",
+        "sharesTableWith": "",
+        "table": "shop.payments",
+        "usedBy": ""
+      },
+      "alsoAt": []
+    },
+    {
+      "id": "entity:ShopSqlServerContext.DemoShop.EfCore.PostalAddress",
+      "kind": "entity",
+      "name": "DemoShop.EfCore.PostalAddress",
+      "evidence": "extracted",
+      "source": {
+        "file": "Migrations/SqlServer/ShopSqlServerContextModelSnapshot.cs",
+        "line": 1
+      },
+      "attributes": {
+        "context": "ShopSqlServerContext",
+        "foreignKeys": "0",
+        "key": "Id",
+        "properties": "2",
+        "sharesTableWith": "DemoShop.EfCore.User",
+        "table": "shop.users",
+        "usedBy": ""
+      },
+      "alsoAt": []
+    },
+    {
+      "id": "entity:ShopSqlServerContext.DemoShop.EfCore.Product",
+      "kind": "entity",
+      "name": "DemoShop.EfCore.Product",
+      "evidence": "extracted",
+      "source": {
+        "file": "Migrations/SqlServer/ShopSqlServerContextModelSnapshot.cs",
+        "line": 175
+      },
+      "attributes": {
+        "context": "ShopSqlServerContext",
+        "foreignKeys": "1",
+        "key": "Id",
+        "properties": "6",
+        "sharesTableWith": "",
+        "table": "shop.products",
+        "usedBy": ""
+      },
+      "alsoAt": []
+    },
+    {
+      "id": "entity:ShopSqlServerContext.DemoShop.EfCore.User",
+      "kind": "entity",
+      "name": "DemoShop.EfCore.User",
+      "evidence": "extracted",
+      "source": {
+        "file": "Migrations/SqlServer/ShopSqlServerContextModelSnapshot.cs",
+        "line": 220
+      },
+      "attributes": {
+        "context": "ShopSqlServerContext",
+        "foreignKeys": "0",
+        "key": "Id",
+        "properties": "6",
+        "sharesTableWith": "",
+        "table": "shop.users",
+        "usedBy": ""
+      },
+      "alsoAt": []
+    }
+  ],
+  "coverage": [
+    {
+      "area": "components",
+      "note": "Libraries that no executable of the solution uses are not listed.",
+      "count": 1
+    },
+    {
+      "area": "data model",
+      "note": "ShopPostgresContext: DemoShop.EfCore.OrderSummary is mapped to the view order_summaries, which dblens does not compare.",
+      "count": 1
+    },
+    {
+      "area": "data model",
+      "note": "ShopSqlServerContext: DemoShop.EfCore.OrderSummary is mapped to the view order_summaries, which dblens does not compare.",
+      "count": 1
+    },
+    {
+      "area": "projects",
+      "note": "Package versions that come from an MSBuild property or are written nowhere in the files read are listed without a version.",
+      "count": 3
+    }
+  ]
+}

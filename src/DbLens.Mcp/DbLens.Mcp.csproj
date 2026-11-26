@@ -3,7 +3,7 @@
   <PropertyGroup>
     <OutputType>Exe</OutputType>
     <AssemblyName>DbLens.Mcp</AssemblyName>
-    <Version>0.6.0</Version>
+    <Version>0.7.0</Version>
 
     <!-- dotnet tool install -g DbLens.Mcp, then run as `dblens`; also listed as an MCP server package. -->
     <IsPackable>true</IsPackable>
@@ -27,6 +27,8 @@
     <None Remove="publish\**" />
     <Compile Remove="publish\**" />
     <Content Update="appsettings.json" Pack="false" />
+    <!-- Turns the demo fallback on for `dotnet run` only: never shipped. -->
+    <Content Update="appsettings.Development.json" Pack="false" CopyToPublishDirectory="Never" />
   </ItemGroup>
 
   <ItemGroup>

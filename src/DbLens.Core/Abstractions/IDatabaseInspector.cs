@@ -28,6 +28,12 @@ public interface IDatabaseInspector
 
     Task<bool> TestConnectionAsync(CancellationToken ct = default);
 
+    /// <summary>The database this inspector reaches, read from its connection string without the password.</summary>
+    Target Describe(TargetSource source);
+
+    /// <summary>Connects and returns the server's own version string.</summary>
+    Task<string> GetServerVersionAsync(CancellationToken ct = default);
+
     Task<DatabaseSchemaOverview> GetSchemaOverviewAsync(SchemaOverviewRequest request, CancellationToken ct = default);
 
     Task<TableDetailsResult> GetTableDetailsAsync(TableDetailsRequest request, CancellationToken ct = default);

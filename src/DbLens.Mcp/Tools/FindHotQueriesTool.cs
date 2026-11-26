@@ -25,6 +25,10 @@ public sealed class FindHotQueriesTool(IServiceProvider services, IDatabaseInspe
         bool verifyJoins = false,
         [Description(ConnectionStringHelp)]
         string? connectionString = null,
+        [Description(ConnectionHelp)]
+        string? connection = null,
+        [Description(DatabaseHelp)]
+        string? database = null,
         CancellationToken cancellationToken = default) =>
-        ResolveInspector(dialect, connectionString).FindHotQueriesAsync(new FindHotQueriesRequest(verifyJoins), cancellationToken);
+        ResolveInspector(dialect, connectionString, connection, database).FindHotQueriesAsync(new FindHotQueriesRequest(verifyJoins), cancellationToken);
 }

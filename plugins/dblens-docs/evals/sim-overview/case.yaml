@@ -1,0 +1,31 @@
+schema_version: "1.0"
+name: sim-overview
+description: "Simulation on eShop, step 1: the overview is scaffolded in Italian and its component and flow slots are written"
+runs: 1
+context:
+  scaffold_script: scaffold.sh
+execution:
+  model: sonnet
+  max_turns: 30
+  timeout_seconds: 1800
+  allowed_tools:
+    - "Skill"
+    - "Workflow"
+    - "Read"
+    - "Glob"
+    - "Grep"
+    - "ToolSearch"
+    - "Bash(dblens-docs detail:*)"
+    - "mcp__plugin_dblens-docs_docs__get_project_inventory"
+    - "mcp__plugin_dblens-docs_docs__get_doc_slots"
+    - "mcp__plugin_dblens-docs_docs__check_doc_coverage"
+    - "mcp__plugin_dblens-docs_docs__set_doc_slot"
+  prompt: "The documentation of this solution is in docs/project (Italian). Use the dblens-docs:fill-slots skill to write only the slots whose id starts with component: or flow: (idPrefix component:, then idPrefix flow:), then call check_doc_coverage."
+graders:
+  - name: component-slots-written
+    type: regex
+    target:
+      source: file
+      path: docs/project/overview.md
+    pattern: 'dblens:slot component:Ordering.API purpose[^\n]*-->\n[^<\n]'
+    match: contains

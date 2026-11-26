@@ -16,6 +16,9 @@ public sealed partial class SqlServerInspector
     // uncommitted rows. The lock timeout keeps a blocked read from hanging.
     protected override string ReadOnlyQuerySetupSql => "SET LOCK_TIMEOUT 5000";
 
+    protected override string LocalWriteCaveatExtra =>
+        " On SQL Server the rollback does not undo the locks the statement holds while it runs.";
+
     protected override IReadOnlyList<string> ReceiptCaveats =>
     [
         "SQL Server has no read-only transaction mode: the statement allow-list is what kept this to a " +

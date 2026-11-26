@@ -1,0 +1,49 @@
+schema_version: "1.0"
+name: no-configuration
+description: "Nothing is configured and nothing is named: the audit asks which database and analyzes nothing"
+runs: 1
+context:
+  scaffold_script: scaffold.sh
+execution:
+  max_turns: 8
+  timeout_seconds: 300
+  allowed_tools:
+    - "Skill"
+    - "Workflow"
+    - "Read"
+    - "Write"
+    - "Glob"
+    - "ToolSearch"
+    - "mcp__plugin_dblens_dblens__ping"
+    - "mcp__plugin_dblens_dblens__get_schema"
+    - "mcp__plugin_dblens_dblens__get_table_details"
+    - "mcp__plugin_dblens_dblens__analyze_indexes"
+    - "mcp__plugin_dblens_dblens__analyze_fragmentation"
+    - "mcp__plugin_dblens_dblens__analyze_table_hygiene"
+    - "mcp__plugin_dblens_dblens__analyze_denormalization"
+    - "mcp__plugin_dblens_dblens__infer_relationships"
+    - "mcp__plugin_dblens_dblens__check_cascade_paths"
+    - "mcp__plugin_dblens_dblens__find_hot_queries"
+    - "mcp__plugin_dblens_dblens__explain_query"
+    - "mcp__plugin_dblens_dblens__compare_ef_model"
+    - "mcp__plugin_dblens_dblens__check_migration_safety"
+    - "mcp__plugin_dblens_dblens__scan_gdpr"
+    - "AskUserQuestion"
+    - "Bash(docker ps:*)"
+  prompt: "Run the dblens audit (the audit skill of the dblens plugin). Nobody is available to answer questions in this run: if you need the user to choose, say what you need and stop."
+graders:
+  # LLM-checked
+  - name: asks
+    type: "llm"
+    criteria: "Pass if the answer asks which database to audit, or says it needs the user to choose one (a container, the configured database, or the demo), and does not claim to have audited anything. Fail if it reports findings, a report, or says it analyzed a database."
+  # The workflow never started.
+  - name: no-workflow
+    type: "tool_used"
+    tool: "Workflow"
+    min: 0
+    max: 0
+  # No report folder was created.
+  - name: no-report
+    type: "file_exists"
+    path: "dblens-audit"
+    exists: false

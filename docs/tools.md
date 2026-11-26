@@ -7,21 +7,40 @@ All database tools share these parameters, so the tables below leave them out:
 
 | Parameter | Type | Default | Meaning |
 |---|---|---|---|
-| `dialect` | `PostgreSql` \| `SqlServer` | `PostgreSql` | Target engine |
-| `connectionString` | string | server default | Use a different database for this call only |
+| `dialect` | `PostgreSql` \| `SqlServer` | the only configured one | Target engine |
+| `connectionString` | string | the configured database | Use a different database for this call only; needs `dialect` |
+| `connection` | string | none | A connection saved under this name, instead of `connectionString`; it carries its own dialect |
 
 Scoped tools also take `schema` (null = every user schema) and `tables` (bare names, null = every
 table in scope): `analyze_indexes`, `analyze_fragmentation`, `analyze_denormalization`, `scan_gdpr`,
 `infer_relationships` and `build_glossary`. `check_cascade_paths` takes `schema` only, and starts from
 `startingTable` instead. A schema or table that matches nothing is named in a caveat: an empty result
-for a mistyped name is not a clean one. An empty `connectionString` means the server default.
+for a mistyped name is not a clean one. An empty `connectionString` means the configured database.
+
+dblens never guesses the target. A call without `dialect` reaches the one dialect the server has a
+database for (`ConnectionStrings:<dialect>`, or the demo with `DbLens:DemoFallback`); with both
+configured it is an error, and so is a `connectionString` without its `dialect`. A dialect with
+nothing configured is an error naming the setting, never the demo. The input schema still lists
+`PostgreSql` as the default, a contract with existing clients: whether `dialect` was sent is read
+from the call itself.
+
+A **named connection** is a file `<name>.conn` in `DbLens:ConnectionsPath` (`ping` returns the folder
+as `connectionsFolder`): the dialect on the first line, the connection string on the second. A
+local tool writes it — the plugin's audit skill does, from a Docker container's own settings — so
+that only the name travels through a prompt; `target.source` is then `Named` and `target.connection`
+the name. Passing `connection` with `connectionString`, or with a `dialect` it contradicts, is an error.
+
+Every answer carries `target`: the dialect, host, port, database and login it ran against, whether
+the server is on this machine (`isLocal`, from the address alone), and its `source` — `Configured`,
+`Parameter` or `DemoDefault`. It is read from the connection string with the driver's own builder
+and never holds the password.
 
 Thresholds, budgets and caps are server defaults, not parameters: a model has no reason to tune them,
 and the result states the ones that applied.
 
 | Tool | Reads | Executes SQL? | Results in |
 |---|---|---|---|
-| [`ping`](#ping) | nothing | no | — |
+| [`ping`](#ping) | the server's version | `SELECT version()` / `@@VERSION` | — |
 | [`get_schema`](#get_schema) | catalog | no | overview |
 | [`get_table_details`](#get_table_details) | catalog | no | structure |
 | [`analyze_indexes`](#analyze_indexes) | catalog + scan counters | no | Findings |
@@ -51,8 +70,11 @@ first within each, and a caveat says how many were cut. The `Summary` counts wha
 
 ## `ping`
 
-Returns the server version, a UTC timestamp, the supported dialects and `message` echoed back
-(default `pong`). Touches no database: use it to check the server is reachable.
+Connects to the database the call resolves to (the same `dialect` and `connectionString` rules as
+every tool) and returns its `target`, the database server's own version (`databaseServerVersion`),
+dblens's version, a UTC timestamp, the supported dialects and `message` echoed back (default
+`pong`). Nothing configured, or a connection that fails, is an error with the reason: there is no
+"reachable" answer without a database that answered.
 
 ## `get_schema`
 
@@ -143,6 +165,11 @@ caveat.
 |---|---|---|
 | `includePageDensity` | `false` | Also measure page density. On SQL Server this switches the scan from `LIMITED` to `SAMPLED` |
 
+Each index is measured on its own, largest first, with 30 s for one and 60 s for the call (request defaults,
+not parameters). An index that times out or fails, or that the budget did not reach, is named in a caveat and
+counted in `IndexesNotMeasured`: it is neither reported nor cleared. On a database created or restored in the last
+30 days a caveat says the numbers reflect the restore.
+
 | Rule | Severity | Detects |
 |---|---|---|
 | `idx-fragmentation-high` | Medium | ≥ 30 % fragmentation — rebuild (`REINDEX CONCURRENTLY` / `ALTER INDEX … REBUILD`) |
@@ -229,6 +256,12 @@ names yield one statement each. `BEGIN` / `COMMIT` are skipped.
 |---|---|---|
 | `sql` | required | Exactly one statement |
 | `analyze` | `false` | Execute it for real row counts and timings |
+
+A statement with parameters (`$1`, or `@__p_0` as EF Core logs them) gets, on PostgreSQL, its generic plan
+(`plan_cache_mode = force_generic_plan`: the plan chosen without values, said in the caveats; `@name` is read
+as `$n` in order of appearance). With `analyze: true` it is refused, there being no values to run it with. SQL
+Server is refused too, a genuine difference: `SHOWPLAN_XML` wants each variable declared with a type, and a
+guessed type plans another query. Replace the parameters with values of the right type.
 
 | Rule | Severity | Detects |
 |---|---|---|
@@ -604,8 +637,11 @@ be re-run by name, is cited in receipts and appears in the glossary.
 | `sql` | The confirmed `SELECT` |
 
 The SQL is checked by the statement guard and planned with `EXPLAIN`; nothing is executed. Entries are
-scoped to dialect and database and stored in one JSON file, `dblens/certified-queries.json` under the
+scoped to dialect, server (`host:port`) and database — two servers can hold databases of the same name —
+and stored in one JSON file, `dblens/certified-queries.json` under the
 local application-data folder (`%LOCALAPPDATA%` on Windows, `~/.local/share` on Linux,
 `~/Library/Application Support` on macOS), overridable with `DbLens:CertifiedQueriesPath`. `list_certified_queries`
-returns the entries for the current database.
+returns the entries for the current database. An entry saved before the server was recorded has no
+`server`: it still applies, `query_with_receipt` and `build_glossary` say in a caveat that it may come
+from another server, and certifying it again on this one ties it down.
 

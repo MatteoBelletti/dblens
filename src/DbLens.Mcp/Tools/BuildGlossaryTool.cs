@@ -32,13 +32,20 @@ public sealed class BuildGlossaryTool(
         bool overwrite = false,
         [Description(ConnectionStringHelp)]
         string? connectionString = null,
+        [Description(ConnectionHelp)]
+        string? connection = null,
+        [Description(DatabaseHelp)]
+        string? database = null,
         CancellationToken cancellationToken = default)
     {
-        var inspector = ResolveInspector(dialect, connectionString);
-        var certified = CertifiedQueryStore.ForGlossary(store.List(dialect, inspector.DatabaseName));
+        var inspector = ResolveInspector(dialect, connectionString, connection, database);
+        var server = CertifiedQueryStore.ServerOf(inspector.Describe(TargetSource.Configured));
+        var entries = store.List(inspector.Dialect, inspector.DatabaseName, server);
 
         var result = await inspector.BuildGlossaryAsync(
-            new GlossaryRequest(schema, tables, verifyJoins, certified), cancellationToken);
+            new GlossaryRequest(schema, tables, verifyJoins, CertifiedQueryStore.ForGlossary(entries)), cancellationToken);
+        var legacy = entries.Where(e => e.Server is null).Select(e => CertifiedQueryStore.LegacyCaveat(e, server)).ToList();
+        if (legacy.Count > 0) result = result with { Caveats = [.. result.Caveats, .. legacy] };
 
         if (writeSkillTo is null) return result;
 

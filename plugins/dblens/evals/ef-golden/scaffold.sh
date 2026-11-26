@@ -3,6 +3,7 @@
 # `dotnet ef migrations script` builds offline. dotnet finds a local tool from the current folder up,
 # and the agent runs from the workspace: the repository's manifest goes there. Runs only with --scaffold.
 set -euo pipefail
+"$(dirname "${BASH_SOURCE[0]}")/../_shared/connect.sh" demo PostgreSql eval-demo-pg
 repo="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../../.." && pwd)"
 cp -r "$repo/samples/DemoShop.EfCore" DemoShop.EfCore
 rm -rf DemoShop.EfCore/bin DemoShop.EfCore/obj

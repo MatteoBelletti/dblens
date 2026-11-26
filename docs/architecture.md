@@ -7,6 +7,7 @@ DbLens.Core        interfaces, models, pure analysis engines, DatabaseInspectorB
 DbLens.Postgres    PostgresInspector  : DatabaseInspectorBase                          (Npgsql)
 DbLens.SqlServer   SqlServerInspector : DatabaseInspectorBase                          (Microsoft.Data.SqlClient)
 DbLens.EfCore      SnapshotReader: an EF Core snapshot read as C# text with Roslyn         (no build)
+DbLens.Docs        ProjectInventory of a .NET solution, from syntax only: pure engines + SolutionReader (no DB, no build)
 DbLens.Mcp         MCP server: Program.cs, tools, DI wiring
 DbLens.Tests       xUnit: pure engine tests + integration tests against both demo databases
 ```
@@ -108,6 +109,16 @@ flowchart LR
 
 See [safety.md](safety.md#signal-verification) for the guarantees.
 
+### Fragmentation: one measurement per index
+
+`analyze_fragmentation` lists the candidates first (`FragmentationCandidatesCommand`, no measurement), then runs
+`FragmentationMeasureCommand` for each index that clears the size threshold, largest first, in the base. A
+measurement that times out or fails is caught and the index goes to `NotMeasured` with the driver's reason; the
+call has a total time budget, and the indexes it did not reach are named too. This is the second place, with the
+probes, that catches a driver error: an analysis that lost one index is still an analysis. A permission error is
+not that: it makes the statistics unavailable, as a missing extension does. The engine is pure and turns
+`NotMeasured` and the database's restore window into caveats.
+
 ## EF Core models
 
 `compare_ef_model` takes an EF Core model the tool reads from disk before the inspector sees it:
@@ -122,7 +133,7 @@ See [safety.md](safety.md#signal-verification) for the guarantees.
 3. `EfModelMatcher` pairs entities with tables and properties with columns; `EfDriftEngine` turns the
    pairs into findings — both pure.
 
-Roslyn stays out of Core: only `DbLens.Mcp` references `DbLens.EfCore`. The test snapshots under
+Roslyn stays out of Core: only `DbLens.Mcp` and `DbLens.Docs` reference `DbLens.EfCore`. The test snapshots under
 `tests/DbLens.Tests/Fixtures/EfSnapshots/ef{8,9,10}` are written by the real `dotnet ef` of each major
 from `samples/DemoShop.EfCore` (`scripts/generate-ef-fixtures.sh`), because the snapshot format may
 change between versions; the fixtures are copied to the test output and never compiled. The same
@@ -131,6 +142,39 @@ so `dotnet ef migrations script` runs there, and writes the first migration's SQ
 `shop` schema (`db/<dialect>/04-shop.sql`), above the drift that file keeps by hand. The EF
 integration tests build `dblens_ef` from that file and `dblens_ef_clean` (every migration, no drift)
 from the SQL those same tools wrote.
+
+## Project inventory (DbLens.Docs)
+
+`DbLens.Docs` lists what a solution has to document, read from syntax only — see
+[docs/roadmap/docs-m1.md](roadmap/docs-m1.md) and the permission it asks for in
+[safety.md](safety.md#dblensdocs-reads-source-code).
+
+1. `SolutionReader` is the only code that touches a folder: it returns the files (relative paths with
+   `/`, ordered), the EF models its `SnapshotReader` read, and what it could not read.
+2. `ProjectInventoryEngine.Build` is pure: the same files in any order give the same
+   `ProjectInventory`. Its extractors (`ProjectExtractor`, `EntityExtractor`, `EndpointExtractor`,
+   `ConfigExtractor`, `HttpClientExtractor`, `HostedServiceExtractor`) each return items and coverage notes.
+3. Every item has a stable id (`project:`, `context:`, `entity:`, `endpoint:`, `config:`, `http:`, `hosted:`,
+   and, from schema 2, `component:`, `event:`, `link:`, `flow:`), a source file and line, an evidence (`Extracted`,
+   `Inferred` for a deduction from names, or `Unresolved` with its reason) and sorted attributes.
+   `InventoryJson` writes it without a clock or an absolute path.
+4. **The overview** (`OverviewExtractor`, [docs-n1.md](roadmap/docs-n1.md)) turns the same syntax, the AppHost and the
+   compose files into what a newcomer needs first: `ComponentModel` groups the projects (an executable with the
+   libraries only it uses; a library several share is a component of its own); `EventAnalysis` finds the events, who
+   produces and who consumes them, and what a consumer or an entry point leads to, following calls by method name,
+   commands and domain events by type and stopping at the bus; `AppHostReader` and `ComposeReader` give the services,
+   their references and their infrastructure. The result is components, events, links (event, call, data, reference,
+   depends) and candidate flows. Presets cover the eShop bus and the MassTransit style; `dblens-docs.json` adds to
+   them (`InventoryOptions`).
+
+`DbLens.Docs.Documents` turns the inventory into five Markdown files with a region per item
+(`DocumentModel`, `Scaffolder`, `DocumentCheck`, `DocsFolder`), and `DbLens.Docs.Cli` is the
+`dblens-docs` command ([guide](dblens-docs.md)).
+
+The tests read a trimmed `dotnet/eShop` (`tests/DbLens.Tests/Fixtures/Docs/eShop`), all of its sources
+(`eShopFlows`), a subset of EventualShop and the repository's `samples/DemoShop.EfCore`, check the overview against a
+ground truth written by hand or found by a separate regex pass (`Fixtures/Docs/*.truth.txt`), and compare the result with `tests/DbLens.Tests/Docs/Reference/*.inventory.json`
+(refreshed with `DBLENS_UPDATE_DOCS_REFERENCE=1`).
 
 ## Server layer
 

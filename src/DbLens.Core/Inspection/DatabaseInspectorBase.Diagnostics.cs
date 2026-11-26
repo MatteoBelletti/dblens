@@ -59,14 +59,140 @@ public abstract partial class DatabaseInspectorBase
     }
 
     /// <summary>
-    /// Physical fragmentation per index. A missing extension or permission is an answer, not an
-    /// error: return <c>StatsAvailable = false</c> with the reason.
+    /// A command returning one row per index of the tables that can be measured, without measuring: schema_name,
+    /// table_name, index_name, is_primary, method, page_count, and handle and handle2, the two numbers
+    /// <see cref="FragmentationMeasureCommand"/> finds the index again by.
     /// </summary>
-    protected abstract Task<IndexFragmentationStats> QueryFragmentationStatsAsync(
-        IReadOnlyList<ScopedTable> tables, AnalyzeFragmentationRequest request, CancellationToken ct);
+    protected abstract DbCommand FragmentationCandidatesCommand(DbConnection conn, IReadOnlyList<ScopedTable> tables);
+
+    /// <summary>A command returning one row for one index: fragmentation_percent and page_density_percent (null when not collected).</summary>
+    protected abstract DbCommand FragmentationMeasureCommand(DbConnection conn, FragmentationCandidate index, AnalyzeFragmentationRequest request);
+
+    /// <summary>Why physical statistics cannot be read on this database at all (a missing extension), or null.</summary>
+    protected abstract Task<string?> FragmentationUnavailableAsync(DbConnection conn, CancellationToken ct);
+
+    /// <summary>The reason a driver error means the login may not measure fragmentation, or null for any other error.</summary>
+    protected abstract string? FragmentationPermissionReason(DbException ex);
+
+    /// <summary>How the numbers were obtained, as a caveat.</summary>
+    protected abstract string FragmentationSource(AnalyzeFragmentationRequest request);
+
+    /// <summary>
+    /// One measurement per index, each in its own command: the first that takes too long or fails does not take the
+    /// others with it, and the call has a time budget as a whole. A missing extension or permission is an answer,
+    /// not an error: <c>StatsAvailable = false</c> with the reason. This is the one place besides the probes that
+    /// catches a driver error, for the same reason: an analysis that lost one index is still an analysis.
+    /// </summary>
+    private async Task<(IndexFragmentationStats Stats, StatsWindow? Window)> QueryFragmentationStatsAsync(
+        IReadOnlyList<ScopedTable> tables, AnalyzeFragmentationRequest request, CancellationToken ct)
+    {
+        await using var conn = await OpenAsync(ct);
+
+        if (await FragmentationUnavailableAsync(conn, ct) is { } unavailable)
+            return (UnavailableStats(unavailable), null);
+
+        List<FragmentationCandidate> candidates;
+        try
+        {
+            candidates = await ReadAllAsync(FragmentationCandidatesCommand(conn, tables), r => new FragmentationCandidate(
+                r.Text("schema_name"), r.Text("table_name"), r.Text("index_name"), r.Flag("is_primary"), r.Text("method"),
+                r.NumberOrNull("page_count") ?? 0, r.Number("handle"), r.NumberOrNull("handle2") ?? 0), ct);
+        }
+        catch (DbException ex) when (FragmentationPermissionReason(ex) is not null)
+        {
+            return (UnavailableStats(FragmentationPermissionReason(ex)!), null);
+        }
+
+        List<IndexFragmentation> indexes = [.. candidates.Where(c => c.PageCount < request.MinPageCount)
+            .Select(c => new IndexFragmentation(c.Schema, c.Table, c.IndexName, 0, c.PageCount, null, c.IsPrimary, c.Method))];
+        List<NotMeasuredIndex> notMeasured = [];
+
+        using var budget = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        budget.CancelAfter(TimeSpan.FromSeconds(request.TotalBudgetSeconds));
+        var clock = System.Diagnostics.Stopwatch.StartNew();
+        var connectionLost = false;
+
+        // The largest first: they are the ones a rebuild is worth the most on.
+        foreach (var c in candidates.Where(c => c.PageCount >= request.MinPageCount).OrderByDescending(c => c.PageCount).ThenBy(c => c.Schema, StringComparer.Ordinal).ThenBy(c => c.Table, StringComparer.Ordinal).ThenBy(c => c.IndexName, StringComparer.Ordinal))
+        {
+            if (connectionLost)
+            {
+                notMeasured.Add(new NotMeasuredIndex(c.Schema, c.Table, c.IndexName, "connection lost"));
+                continue;
+            }
+
+            if ((clock.Elapsed.TotalSeconds >= request.TotalBudgetSeconds || budget.IsCancellationRequested) && !ct.IsCancellationRequested)
+            {
+                notMeasured.Add(new NotMeasuredIndex(c.Schema, c.Table, c.IndexName, "over the time budget"));
+                continue;
+            }
+
+            try
+            {
+                var cmd = FragmentationMeasureCommand(conn, c, request);
+                cmd.CommandTimeout = request.IndexTimeoutSeconds;
+                var (fragmentation, density) = (await ReadAllAsync(cmd, r => (Fragmentation: r.RealOrNull("fragmentation_percent"), Density: r.RealOrNull("page_density_percent")), budget.Token)).FirstOrDefault();
+
+                // No row, or a NULL, is no measurement (the index was dropped or rebuilt since the catalog was read); an empty
+                // index reports NaN, which is a measurement of nothing to fragment.
+                if (fragmentation is null)
+                {
+                    notMeasured.Add(new NotMeasuredIndex(c.Schema, c.Table, c.IndexName, "no measurement returned"));
+                    continue;
+                }
+
+                indexes.Add(new IndexFragmentation(
+                    c.Schema, c.Table, c.IndexName, double.IsFinite(fragmentation.Value) ? fragmentation.Value : 0, c.PageCount,
+                    request.IncludePageDensity && density is { } d && double.IsFinite(d) ? d : null, c.IsPrimary, c.Method));
+            }
+            catch (DbException ex) when (FragmentationPermissionReason(ex) is { } denied)
+            {
+                // Nothing measured yet: the login cannot measure at all. After some: this index is one more not measured.
+                if (indexes.Count == candidates.Count(x => x.PageCount < request.MinPageCount)) return (UnavailableStats(denied), null);
+                notMeasured.Add(new NotMeasuredIndex(c.Schema, c.Table, c.IndexName, Brief(ex)));
+            }
+            catch (OperationCanceledException) when (budget.IsCancellationRequested && !ct.IsCancellationRequested)
+            {
+                notMeasured.Add(new NotMeasuredIndex(c.Schema, c.Table, c.IndexName, "over the time budget"));
+            }
+            catch (DbException ex)
+            {
+                notMeasured.Add(new NotMeasuredIndex(c.Schema, c.Table, c.IndexName, Brief(ex)));
+            }
+            catch (InvalidOperationException) when (conn.State != System.Data.ConnectionState.Open)
+            {
+                // The session was killed: every later command would fail the same way. What was measured stays.
+                connectionLost = true;
+                notMeasured.Add(new NotMeasuredIndex(c.Schema, c.Table, c.IndexName, "connection lost"));
+            }
+        }
+
+        StatsWindow? window = null;
+        try
+        {
+            if (!connectionLost) window = await ReadStatsWindowAsync(conn, ct);
+        }
+        catch (Exception ex) when (ex is DbException or InvalidOperationException)
+        {
+            // The caveat about a recent restore is lost; the measurements are not (a session killed on the last index ends here).
+        }
+
+        return (new IndexFragmentationStats(
+            [.. indexes.OrderBy(i => i.Schema, StringComparer.Ordinal).ThenBy(i => i.Table, StringComparer.Ordinal).ThenBy(i => i.IndexName, StringComparer.Ordinal)],
+            true, null, FragmentationSource(request), notMeasured), window);
+    }
+
+    private static IndexFragmentationStats UnavailableStats(string reason) =>
+        new([], false, reason, "Physical index statistics could not be read.");
 
     /// <summary>The plan of a statement the guard has already passed; a null root when unparseable.</summary>
     protected abstract Task<QueryPlanFetch> FetchQueryPlanAsync(ExplainQueryRequest request, CancellationToken ct);
+
+    /// <summary>Whether a statement with parameters (<c>$1</c>, <c>@p0</c>) can be planned without their values.</summary>
+    protected abstract bool PlansWithoutParameterValues { get; }
+
+    /// <summary>The plan of a statement with parameters, chosen without their values; only where <see cref="PlansWithoutParameterValues"/>.</summary>
+    protected virtual Task<QueryPlanFetch> FetchGenericPlanAsync(ExplainQueryRequest request, CancellationToken ct) => throw new NotSupportedException();
 
     protected sealed record QueryPlanFetch(QueryPlanNode? Root, IReadOnlyList<string> Caveats);
 
@@ -199,8 +325,8 @@ public abstract partial class DatabaseInspectorBase
                 request.Schema, request.Tables, ct, includePartitions: true);
             if (scope.Count == 0) return FragmentationAnalysisEngine.Empty() with { Caveats = [scopeCaveat!] };
 
-            var stats = await QueryFragmentationStatsAsync(scope, request, ct);
-            var result = FragmentationAnalysisEngine.Analyze(stats, request, Dialect);
+            var (stats, window) = await QueryFragmentationStatsAsync(scope, request, ct);
+            var result = FragmentationAnalysisEngine.Analyze(stats, request, Dialect, window);
             result = result with { Caveats = WithCaveats(result.Caveats, scopeCaveat) };
 
             Log.LogInformation(
@@ -341,21 +467,35 @@ public abstract partial class DatabaseInspectorBase
                 throw new ArgumentException($"Refusing to plan this input. {single.RejectionReason}");
         }
 
+        var parameters = SqlText.ParameterNames(request.Sql, Dialect);
+        if (parameters.Count > 0)
+        {
+            var named = string.Join(", ", parameters);
+            if (request.Analyze)
+                throw new ArgumentException(
+                    $"This statement has parameters ({named}) and no values for them, so it cannot be executed: " +
+                    (PlansWithoutParameterValues ? "use analyze false for its plan, or replace them with values." : "replace them with values of the right type."));
+            if (!PlansWithoutParameterValues)
+                throw new ArgumentException(
+                    $"This statement has parameters ({named}), and {Dialect} plans a statement only with their types declared, which dblens cannot know: replace them with values of the right type.");
+        }
+
         Log.LogInformation(
             "Explaining query (analyze={Analyze}, length={Length})", request.Analyze, request.Sql?.Length ?? 0);
 
         return RunAsync("query explanation", async () =>
         {
-            if (request.Analyze) await EnsureReadOnlyLoginAsync(ct);
+            var loginCaveat = request.Analyze ? await EnsureReadOnlyLoginAsync(ct) : null;
 
-            var fetched = await FetchQueryPlanAsync(request, ct);
+            var fetched = parameters.Count > 0
+                ? await FetchGenericPlanAsync(request, ct)
+                : await FetchQueryPlanAsync(request, ct);
 
             var result = QueryPlanAnalysisEngine.Analyze(
                 fetched.Root, QueryPlanAnalysisEngine.RenderPlanText(fetched.Root), request.Analyze, request, Dialect);
 
-            return fetched.Caveats.Count == 0
-                ? result
-                : result with { Caveats = [..result.Caveats, ..fetched.Caveats] };
+            List<string> extra = [.. fetched.Caveats, .. loginCaveat is null ? [] : new[] { loginCaveat }];
+            return extra.Count == 0 ? result : result with { Caveats = [..result.Caveats, ..extra] };
         });
     }
 }

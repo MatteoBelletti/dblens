@@ -1,12 +1,19 @@
 {
   "name": "dblens",
-  "owner": { "name": "Matteo Belletti" },
-  "description": "dblens: read-only diagnostics for PostgreSQL and SQL Server, with a multi-agent audit for Claude Code.",
+  "owner": {
+    "name": "Matteo Belletti"
+  },
+  "description": "dblens: read-only diagnostics for PostgreSQL and SQL Server, with a multi-agent audit and a .NET branch review for Claude Code.",
   "plugins": [
     {
       "name": "dblens",
       "source": "./plugins/dblens",
       "description": "Multi-agent audit of a PostgreSQL or SQL Server database, backed by the dblens MCP server."
+    },
+    {
+      "name": "dotnet-review",
+      "source": "./plugins/dotnet-review",
+      "description": "Reviews a .NET / EF Core branch with one agent per area and at most five evidenced comments, written to a file."
     }
   ]
 }

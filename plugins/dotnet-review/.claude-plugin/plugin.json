@@ -1,0 +1,17 @@
+{
+  "name": "dotnet-review",
+  "displayName": "dotnet-review",
+  "version": "0.1.0",
+  "description": "Reviews a .NET / EF Core branch: migrations, EF queries and the public API contract, each by its own agent, with at most five comments that cite file, line and evidence. Writes them to a file and posts nothing.",
+  "author": {
+    "name": "Matteo Belletti"
+  },
+  "repository": "https://github.com/MatteoBelletti/dblens",
+  "license": "MIT",
+  "keywords": [
+    "dotnet",
+    "ef-core",
+    "code-review",
+    "migrations"
+  ]
+}

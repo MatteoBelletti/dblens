@@ -108,6 +108,13 @@ pipe or the machine's own name — the check is skipped: that is a developer's o
 containers included), where the admin login is the normal one. The test is on the address only; no
 DNS lookup is made, so an alias that happens to resolve to `127.0.0.1` still counts as remote.
 
+An address says nothing about what sits behind it: `ssh -L`, `kubectl port-forward` and a cloud SQL
+proxy make a production database answer on `localhost`. So when the exemption lets through a login that
+can write, `explain_query` (with `analyze`) and `query_with_receipt` say it in a caveat that names the
+reason and the tunnel case; on SQL Server it adds that the rollback does not undo the locks the
+statement holds while it runs. The audit skill asks before accepting such a login. The switch is the
+existing `DbLens:ReadOnlyLoginOnLocalhost=true`: with it a write-capable login is refused wherever it is.
+
 | Setting | Effect |
 |---|---|
 | *(default)* | check remote servers, skip local ones |
@@ -199,6 +206,21 @@ held to the least they need:
 - nothing of the file is returned but the model's own names (entities, properties, tables, columns,
   migration ids).
 
+### Named connections
+
+`DbLens:ConnectionsPath` holds connections saved under a name, one `<name>.conn` file each. The
+server reads them; a call passes only the name (`connection`), so a password written there by a
+local tool never appears in a prompt, a tool argument or a result. The audit skill writes the file
+from a Docker container's own environment with a command that prints no secret, and keeps it
+readable by the user only (`0600`).
+
+### Another database of the same server
+
+`database` (every tool that takes `connectionString`) replaces only the database of the configured connection
+string: the login, host, port and options stay, and the call carries no password. It is refused together with
+`connectionString` or `connection`. The read-only check of the login (`EnsureReadOnlyLoginAsync`) runs on the
+database the call reaches, as it must: PostgreSQL privileges are per database.
+
 ### The plugin's one command
 
 The server never builds the user's code. The optional Claude Code plugin can, once: its `ef` agent
@@ -216,6 +238,49 @@ which migrations ran (`__EFMigrationsHistory` unless `MigrationsHistoryTable` re
 that name; only the id column is read, and the ids come back in `Migrations` and in the findings. No
 other table's rows are read, and no operator setting is needed: the ids are names EF generated, the
 same ones the code's migration files carry.
+
+## DbLens.Docs reads source code
+
+`DbLens.Docs` (the project inventory) is a separate package because it asks for a different permission:
+DBLens opens only `*ModelSnapshot.cs` and `*.Designer.cs`, DbLens.Docs reads a solution. The user chooses
+to give it, by pointing it at a folder. It opens:
+
+- `*.cs`, `*.csproj`, `Directory.Build.props` and `Directory.Packages.props`;
+- `appsettings*.json`, of which **only the key names** are kept: a value in a settings file may be a
+  secret, and the inventory never holds one (a test over eShop's settings, which carry placeholder
+  passwords, checks it);
+- `docker-compose*.y(a)ml` and `compose*.y(a)ml`, parsed as YAML: the services, what each is built from, what it
+  `depends_on`, and which other services of the files its environment points at. **No value is kept.** An environment
+  variable can hold a password or a token, so each value is only looked at for the host of a URL, compared with the
+  names of the services, and dropped (a test over the compose files of EventualShop, which carry placeholder
+  passwords, checks that none reaches the inventory). The image name is used to guess what a service is, a broker or a
+  database, and is not kept either;
+- the EF Core snapshots, through `SnapshotReader`, as DBLens already does.
+
+Every file is parsed as syntax (Roslyn), XML or YAML and **never compiled, loaded or run**: no MSBuild
+evaluation, no restore, no analyzer, no reflection over the user's assemblies. `bin`, `obj`,
+`node_modules`, `.git`, `.vs` and `.idea` are not entered; links are not followed; a file over 2 MB is
+not read and an inventory stops at 50,000 files, each said in the inventory's `coverage`. It connects to
+no database: the data model comes from the EF snapshots alone.
+
+`dblens-docs scaffold` and `confirm` **write**: only the five known Markdown files of the docs folder, which
+must be inside the root, never through a link (neither the files nor any folder of the docs path below the
+root), each through a temporary file with a name that cannot already exist; two writes of the MCP server never
+overlap, and neither do those of a command-line `scaffold` or `confirm` running at the same time: each takes a lock of the docs folder (a file in the temporary folder, so nothing is added to the repository) and waits up to 30 seconds for it. A write stages every file under a temporary name before moving any into place, so a failure while writing changes no document; `check` and `inventory` write
+nothing (but `--out`).
+
+`dblens-docs mcp` serves the same folder to a model, and **fixed when it starts**: no tool takes a path.
+Three tools read; `set_doc_slot` writes the words of one slot of the project documents (the overview, the five
+others and `components/*.md`, at most 200 of them), and nothing else. It
+refuses a slot that holds a person's words (also when the item has since changed), a document whose item
+changed since it was generated, more lines than the slot allows, a line over 300 characters (800 in a narrative
+slot, which alone may have blank lines between paragraphs), and any text with an HTML comment, which is how the
+regions are marked. `dblens-docs detail <name>` creates `components/<slug>.md` only for a component of the inventory. The words are marked
+`inferred`; a person editing them makes them `human`. A model cannot confirm, delete or empty a slot.
+
+What the inventory carries is names and text the code states: project names and references, package ids
+and versions, route templates, configuration keys, the class names of background services, the
+base-address text of an HTTP client when it is a literal. Never a settings value, never a secret.
 
 ## Planner statistics
 

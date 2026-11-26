@@ -1,0 +1,60 @@
+schema_version: "1.0"
+name: target
+description: "A database that is not the demo: the report must name it and no call may touch dblens_demo"
+runs: 1
+context:
+  scaffold_script: scaffold.sh
+execution:
+  max_turns: 12
+  timeout_seconds: 600
+  allowed_tools:
+    - "Skill"
+    - "Workflow"
+    - "Read"
+    - "Write"
+    - "Glob"
+    - "ToolSearch"
+    - "mcp__plugin_dblens_dblens__ping"
+    - "mcp__plugin_dblens_dblens__get_schema"
+    - "mcp__plugin_dblens_dblens__get_table_details"
+    - "mcp__plugin_dblens_dblens__analyze_indexes"
+    - "mcp__plugin_dblens_dblens__analyze_fragmentation"
+    - "mcp__plugin_dblens_dblens__analyze_table_hygiene"
+    - "mcp__plugin_dblens_dblens__analyze_denormalization"
+    - "mcp__plugin_dblens_dblens__infer_relationships"
+    - "mcp__plugin_dblens_dblens__check_cascade_paths"
+    - "mcp__plugin_dblens_dblens__find_hot_queries"
+    - "mcp__plugin_dblens_dblens__explain_query"
+    - "mcp__plugin_dblens_dblens__compare_ef_model"
+    - "mcp__plugin_dblens_dblens__check_migration_safety"
+    - "mcp__plugin_dblens_dblens__scan_gdpr"
+  prompt: "First call the dblens ping tool with dialect PostgreSql and connection \"eval-target\", and call it again until it answers: the server may still be starting. Then run the dblens audit workflow (dblens:run-audit) with args {\"dialect\": \"PostgreSql\", \"connection\": \"eval-target\", \"expectedDatabase\": \"target_db\", \"schema\": \"demo_good\", \"outDir\": \"./dblens-audit\", \"runLabel\": \"eval-target\"}. When it finishes, Read the Markdown report it wrote and print it in full."
+graders:
+  # The report is written.
+  - name: report-file
+    type: "file_exists"
+    path: "dblens-audit/dblens-audit-eval-target.md"
+  # The report names the database it audited.
+  - name: names-target
+    type: "regex"
+    target:
+      source: file
+      path: dblens-audit/dblens-audit-eval-target.md
+    pattern: 'target_db'
+    match: "contains"
+  # Nothing in the report comes from the demo database.
+  - name: not-the-demo
+    type: "regex"
+    target:
+      source: file
+      path: dblens-audit/dblens-audit-eval-target.md
+    pattern: 'dblens_demo'
+    match: "not_contains"
+  # Every analyst ran.
+  - name: all-ran
+    type: "regex"
+    target:
+      source: file
+      path: dblens-audit/dblens-audit-eval-target.md
+    pattern: 'agents failed: 0'
+    match: "contains"

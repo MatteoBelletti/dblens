@@ -1,0 +1,41 @@
+schema_version: "1.0"
+name: eshop
+description: "dotnet/eShop (trimmed fixture), scaffolded: the endpoint slots get words, read by hand afterwards"
+runs: 1
+context:
+  scaffold_script: scaffold.sh
+execution:
+  model: sonnet
+  max_turns: 30
+  timeout_seconds: 1800
+  allowed_tools:
+    - "Skill"
+    - "Workflow"
+    - "Read"
+    - "Write"
+    - "Glob"
+    - "Grep"
+    - "ToolSearch"
+    - "mcp__plugin_dblens-docs_docs__get_project_inventory"
+    - "mcp__plugin_dblens-docs_docs__get_doc_slots"
+    - "mcp__plugin_dblens-docs_docs__check_doc_coverage"
+    - "mcp__plugin_dblens-docs_docs__set_doc_slot"
+  prompt: "Fill only the slots whose id starts with `endpoint:` with the dblens-docs:fill-slots skill (idPrefix endpoint:). When it has finished, call check_doc_coverage and write its JSON answer, exactly as returned, to check.json in the current working directory."
+graders:
+  - name: check-written
+    type: file_exists
+    path: check.json
+  - name: no-edited-facts
+    type: regex
+    target:
+      source: file
+      path: check.json
+    pattern: '^(?![\s\S]*generated-edited)[\s\S]+'
+    match: contains
+  - name: endpoint-slots-not-empty
+    type: regex
+    target:
+      source: file
+      path: docs/project/api.md
+    pattern: 'evidence=inferred[^\n]*-->\n[^<\n]'
+    match: contains

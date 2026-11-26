@@ -14,8 +14,16 @@ public sealed record IndexFragmentationStats(
     bool StatsAvailable,
     string? UnavailableReason,
     /// <summary>How the numbers were obtained, surfaced to the caller as a caveat.</summary>
-    string SourceDescription
+    string SourceDescription,
+    /// <summary>Indexes above the size threshold whose measurement failed, timed out or did not fit the time budget.</summary>
+    IReadOnlyList<NotMeasuredIndex>? NotMeasured = null
 );
+
+public sealed record NotMeasuredIndex(string Schema, string Table, string IndexName, string Reason);
+
+/// <summary>An index the catalog lists, not measured yet. The handles are the hook's own way back to it (an oid, an object and index id).</summary>
+public sealed record FragmentationCandidate(
+    string Schema, string Table, string IndexName, bool IsPrimary, string Method, long PageCount, long Handle, long Handle2);
 
 public sealed record IndexFragmentation(
     string Schema,

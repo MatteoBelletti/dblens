@@ -17,6 +17,10 @@ public sealed class GetSchemaTool(IServiceProvider services, IDatabaseInspectorF
         DatabaseDialect dialect = DatabaseDialect.PostgreSql,
         [Description(ConnectionStringHelp)]
         string? connectionString = null,
+        [Description(ConnectionHelp)]
+        string? connection = null,
+        [Description(DatabaseHelp)]
+        string? database = null,
         [Description("Exact schema name. Omit for all user schemas.")]
         string? schemaFilter = null,
         [Description("SQL LIKE pattern on object names, e.g. \"order%\".")]
@@ -27,7 +31,7 @@ public sealed class GetSchemaTool(IServiceProvider services, IDatabaseInspectorF
         bool includeSystemSchemas = false,
         CancellationToken cancellationToken = default)
     {
-        var inspector = ResolveInspector(dialect, connectionString);
+        var inspector = ResolveInspector(dialect, connectionString, connection, database);
 
         var request = new SchemaOverviewRequest(schemaFilter, namePattern, includeViews, includeSystemSchemas);
         return inspector.GetSchemaOverviewAsync(request, cancellationToken);

@@ -13,6 +13,14 @@ public interface IDatabaseInspectorFactory
 
 public sealed class DatabaseInspectorFactory(ILoggerFactory loggerFactory, ServerPolicy policy) : IDatabaseInspectorFactory
 {
+    /// <summary>The connection string with only its database replaced: login, host, port and options stay.</summary>
+    public static string WithDatabase(DatabaseDialect dialect, string connectionString, string database) => dialect switch
+    {
+        DatabaseDialect.PostgreSql => new Npgsql.NpgsqlConnectionStringBuilder(connectionString) { Database = database }.ConnectionString,
+        DatabaseDialect.SqlServer => new Microsoft.Data.SqlClient.SqlConnectionStringBuilder(connectionString) { InitialCatalog = database }.ConnectionString,
+        _ => throw new ArgumentOutOfRangeException(nameof(dialect), $"Unsupported dialect: {dialect}"),
+    };
+
     public IDatabaseInspector Create(DatabaseDialect dialect, string connectionString) => dialect switch
     {
         DatabaseDialect.PostgreSql => new PostgresInspector(

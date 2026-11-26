@@ -1,0 +1,16 @@
+{
+  "mcpServers": {
+    "dblens": {
+      "command": "bash",
+      "args": [
+        "${CLAUDE_PLUGIN_ROOT}/serve.sh"
+      ],
+      "env": {
+        "ConnectionStrings__PostgreSql": "${user_config.pg_connection}",
+        "ConnectionStrings__SqlServer": "${user_config.ss_connection}",
+        "DbLens__DemoFallback": "false",
+        "DbLens__ConnectionsPath": "${CLAUDE_PLUGIN_ROOT}/connections"
+      }
+    }
+  }
+}

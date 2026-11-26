@@ -1,0 +1,4236 @@
+{
+  "schemaVersion": 2,
+  "items": [
+    {
+      "id": "project:Basket.API",
+      "kind": "project",
+      "name": "Basket.API",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/Basket.API/Basket.API.csproj",
+        "line": 1
+      },
+      "attributes": {
+        "outputType": "Exe",
+        "outputTypeFrom": "sdk",
+        "packages": "Aspire.StackExchange.Redis@17.0.0, Grpc.AspNetCore@2.85.0",
+        "projectReferenceIds": "project:EventBusRabbitMQ, project:eShop.ServiceDefaults",
+        "projectReferences": "EventBusRabbitMQ, eShop.ServiceDefaults",
+        "sdk": "Microsoft.NET.Sdk.Web",
+        "targetFrameworks": "net11.0",
+        "targetFrameworksFrom": "file"
+      },
+      "alsoAt": []
+    },
+    {
+      "id": "project:Catalog.API",
+      "kind": "project",
+      "name": "Catalog.API",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/Catalog.API/Catalog.API.csproj",
+        "line": 1
+      },
+      "attributes": {
+        "outputType": "Exe",
+        "outputTypeFrom": "sdk",
+        "packages": "Asp.Versioning.Http@10.2.3, Aspire.Azure.AI.Extensions.OpenAI@17.0.0-preview.1.26567.5, Aspire.Npgsql.EntityFrameworkCore.PostgreSQL@17.0.0-preview.1.26567.5, CommunityToolkit.Aspire.OllamaSharp@13.6.1, Microsoft.EntityFrameworkCore.Tools@11.0.0-rc.3.26522.148, Microsoft.Extensions.ApiDescription.Server@11.0.0, Pgvector.EntityFrameworkCore@0.3.0, Pgvector@0.3.2",
+        "projectReferenceIds": "project:EventBusRabbitMQ, project:IntegrationEventLogEF, project:eShop.ServiceDefaults",
+        "projectReferences": "EventBusRabbitMQ, IntegrationEventLogEF, eShop.ServiceDefaults",
+        "sdk": "Microsoft.NET.Sdk.Web",
+        "targetFrameworks": "net11.0",
+        "targetFrameworksFrom": "file"
+      },
+      "alsoAt": []
+    },
+    {
+      "id": "project:ClientApp",
+      "kind": "project",
+      "name": "ClientApp",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/ClientApp/ClientApp.csproj",
+        "line": 1
+      },
+      "attributes": {
+        "outputType": "Exe",
+        "outputTypeFrom": "file",
+        "packages": "CommunityToolkit.Maui@17.0.0, CommunityToolkit.Mvvm@8.4.2, Google.Protobuf@3.36.2, Grpc.Net.Client@2.85.0, Grpc.Tools@2.85.0, IdentityModel.OidcClient@6.0.0, IdentityModel@7.0.0, Microsoft.Extensions.Logging.Debug@11.0.0, Microsoft.Maui.Controls.Maps@11.0.10, Microsoft.Maui.Controls@11.0.10",
+        "projectReferenceIds": "",
+        "projectReferences": "",
+        "sdk": "Microsoft.NET.Sdk",
+        "targetFrameworks": "net11.0-android;net11.0-ios;net11.0-maccatalyst;net11.0",
+        "targetFrameworksFrom": "file"
+      },
+      "alsoAt": []
+    },
+    {
+      "id": "project:EventBus",
+      "kind": "project",
+      "name": "EventBus",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/EventBus/EventBus.csproj",
+        "line": 1
+      },
+      "attributes": {
+        "outputType": "Library",
+        "outputTypeFrom": "default",
+        "packages": "",
+        "projectReferenceIds": "",
+        "projectReferences": "",
+        "sdk": "Microsoft.NET.Sdk",
+        "targetFrameworks": "net11.0",
+        "targetFrameworksFrom": "file"
+      },
+      "alsoAt": []
+    },
+    {
+      "id": "project:EventBusRabbitMQ",
+      "kind": "project",
+      "name": "EventBusRabbitMQ",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/EventBusRabbitMQ/EventBusRabbitMQ.csproj",
+        "line": 1
+      },
+      "attributes": {
+        "outputType": "Library",
+        "outputTypeFrom": "default",
+        "packages": "Aspire.RabbitMQ.Client@17.0.0",
+        "projectReferenceIds": "project:EventBus",
+        "projectReferences": "EventBus",
+        "sdk": "Microsoft.NET.Sdk",
+        "targetFrameworks": "net11.0",
+        "targetFrameworksFrom": "file"
+      },
+      "alsoAt": []
+    },
+    {
+      "id": "project:HybridApp",
+      "kind": "project",
+      "name": "HybridApp",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/HybridApp/HybridApp.csproj",
+        "line": 1
+      },
+      "attributes": {
+        "outputType": "Exe",
+        "outputTypeFrom": "file",
+        "packages": "Microsoft.AspNetCore.Components.WebView.Maui@11.0.10, Microsoft.Extensions.Http@11.0.0, Microsoft.Extensions.Logging.Debug@11.0.0, Microsoft.Maui.Controls@11.0.10",
+        "projectReferenceIds": "project:WebAppComponents",
+        "projectReferences": "WebAppComponents",
+        "sdk": "Microsoft.NET.Sdk.Razor",
+        "targetFrameworks": "net11.0-android;net11.0-ios;net11.0-maccatalyst",
+        "targetFrameworksFrom": "file"
+      },
+      "alsoAt": []
+    },
+    {
+      "id": "project:Identity.API",
+      "kind": "project",
+      "name": "Identity.API",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/Identity.API/Identity.API.csproj",
+        "line": 1
+      },
+      "attributes": {
+        "outputType": "Exe",
+        "outputTypeFrom": "sdk",
+        "packages": "Aspire.Npgsql.EntityFrameworkCore.PostgreSQL@17.0.0-preview.1.26567.5, Duende.IdentityServer.AspNetIdentity@8.0.11, Duende.IdentityServer.EntityFramework@8.0.11, Duende.IdentityServer.Storage@8.0.11, Duende.IdentityServer@8.0.11, Microsoft.AspNetCore.Identity.EntityFrameworkCore@11.0.0-rc.3.26522.148, Microsoft.AspNetCore.Identity.UI@11.0.0, Microsoft.EntityFrameworkCore.Design@11.0.0-rc.3.26522.148, Microsoft.EntityFrameworkCore.Tools@11.0.0-rc.3.26522.148, Microsoft.Web.LibraryManager.Build@3.0.114",
+        "projectReferenceIds": "project:eShop.ServiceDefaults",
+        "projectReferences": "eShop.ServiceDefaults",
+        "sdk": "Microsoft.NET.Sdk.Web",
+        "targetFrameworks": "net11.0",
+        "targetFrameworksFrom": "file"
+      },
+      "alsoAt": []
+    },
+    {
+      "id": "project:IntegrationEventLogEF",
+      "kind": "project",
+      "name": "IntegrationEventLogEF",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/IntegrationEventLogEF/IntegrationEventLogEF.csproj",
+        "line": 1
+      },
+      "attributes": {
+        "outputType": "Library",
+        "outputTypeFrom": "default",
+        "packages": "Npgsql.EntityFrameworkCore.PostgreSQL@11.0.0-rc.3",
+        "projectReferenceIds": "project:EventBus",
+        "projectReferences": "EventBus",
+        "sdk": "Microsoft.NET.Sdk",
+        "targetFrameworks": "net11.0",
+        "targetFrameworksFrom": "file"
+      },
+      "alsoAt": []
+    },
+    {
+      "id": "project:OrderProcessor",
+      "kind": "project",
+      "name": "OrderProcessor",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/OrderProcessor/OrderProcessor.csproj",
+        "line": 1
+      },
+      "attributes": {
+        "outputType": "Exe",
+        "outputTypeFrom": "sdk",
+        "packages": "Aspire.Npgsql@17.0.0",
+        "projectReferenceIds": "project:EventBusRabbitMQ, project:eShop.ServiceDefaults",
+        "projectReferences": "EventBusRabbitMQ, eShop.ServiceDefaults",
+        "sdk": "Microsoft.NET.Sdk.Worker",
+        "targetFrameworks": "net11.0",
+        "targetFrameworksFrom": "file"
+      },
+      "alsoAt": []
+    },
+    {
+      "id": "project:Ordering.API",
+      "kind": "project",
+      "name": "Ordering.API",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/Ordering.API/Ordering.API.csproj",
+        "line": 1
+      },
+      "attributes": {
+        "outputType": "Exe",
+        "outputTypeFrom": "sdk",
+        "packages": "Asp.Versioning.Http@10.2.3, Aspire.Npgsql.EntityFrameworkCore.PostgreSQL@17.0.0-preview.1.26567.5, FluentValidation.DependencyInjectionExtensions@12.2.0, FluentValidation@12.2.0, Microsoft.EntityFrameworkCore.Design@11.0.0-rc.3.26522.148, Microsoft.EntityFrameworkCore.Tools@11.0.0-rc.3.26522.148",
+        "projectReferenceIds": "project:EventBusRabbitMQ, project:IntegrationEventLogEF, project:Ordering.Domain, project:Ordering.Infrastructure, project:eShop.ServiceDefaults",
+        "projectReferences": "EventBusRabbitMQ, IntegrationEventLogEF, Ordering.Domain, Ordering.Infrastructure, eShop.ServiceDefaults",
+        "sdk": "Microsoft.NET.Sdk.Web",
+        "targetFrameworks": "net11.0",
+        "targetFrameworksFrom": "file"
+      },
+      "alsoAt": []
+    },
+    {
+      "id": "project:Ordering.Domain",
+      "kind": "project",
+      "name": "Ordering.Domain",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/Ordering.Domain/Ordering.Domain.csproj",
+        "line": 1
+      },
+      "attributes": {
+        "outputType": "Library",
+        "outputTypeFrom": "default",
+        "packages": "MediatR@13.1.0",
+        "projectReferenceIds": "",
+        "projectReferences": "",
+        "sdk": "Microsoft.NET.Sdk",
+        "targetFrameworks": "net11.0",
+        "targetFrameworksFrom": "file"
+      },
+      "alsoAt": []
+    },
+    {
+      "id": "project:Ordering.Infrastructure",
+      "kind": "project",
+      "name": "Ordering.Infrastructure",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/Ordering.Infrastructure/Ordering.Infrastructure.csproj",
+        "line": 1
+      },
+      "attributes": {
+        "outputType": "Library",
+        "outputTypeFrom": "default",
+        "packages": "Npgsql.EntityFrameworkCore.PostgreSQL@11.0.0-rc.3",
+        "projectReferenceIds": "project:IntegrationEventLogEF, project:Ordering.Domain",
+        "projectReferences": "IntegrationEventLogEF, Ordering.Domain",
+        "sdk": "Microsoft.NET.Sdk",
+        "targetFrameworks": "net11.0",
+        "targetFrameworksFrom": "file"
+      },
+      "alsoAt": []
+    },
+    {
+      "id": "project:PaymentProcessor",
+      "kind": "project",
+      "name": "PaymentProcessor",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/PaymentProcessor/PaymentProcessor.csproj",
+        "line": 1
+      },
+      "attributes": {
+        "outputType": "Exe",
+        "outputTypeFrom": "sdk",
+        "packages": "",
+        "projectReferenceIds": "project:EventBusRabbitMQ, project:eShop.ServiceDefaults",
+        "projectReferences": "EventBusRabbitMQ, eShop.ServiceDefaults",
+        "sdk": "Microsoft.NET.Sdk.Web",
+        "targetFrameworks": "net11.0",
+        "targetFrameworksFrom": "file"
+      },
+      "alsoAt": []
+    },
+    {
+      "id": "project:WebApp",
+      "kind": "project",
+      "name": "WebApp",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/WebApp/WebApp.csproj",
+        "line": 1
+      },
+      "attributes": {
+        "outputType": "Exe",
+        "outputTypeFrom": "sdk",
+        "packages": "Asp.Versioning.Http.Client@10.2.0, Aspire.Azure.AI.Extensions.OpenAI@17.0.0-preview.1.26567.5, CommunityToolkit.Aspire.OllamaSharp@13.6.1, Google.Protobuf@3.36.2, Grpc.Net.ClientFactory@2.85.0, Grpc.Tools@2.85.0, Microsoft.AspNetCore.Authentication.OpenIdConnect@11.0.0, Microsoft.Extensions.ServiceDiscovery.Yarp@11.0.0",
+        "projectReferenceIds": "project:EventBusRabbitMQ, project:WebAppComponents, project:eShop.ServiceDefaults",
+        "projectReferences": "EventBusRabbitMQ, WebAppComponents, eShop.ServiceDefaults",
+        "sdk": "Microsoft.NET.Sdk.Web",
+        "targetFrameworks": "net11.0",
+        "targetFrameworksFrom": "file"
+      },
+      "alsoAt": []
+    },
+    {
+      "id": "project:WebAppComponents",
+      "kind": "project",
+      "name": "WebAppComponents",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/WebAppComponents/WebAppComponents.csproj",
+        "line": 1
+      },
+      "attributes": {
+        "outputType": "Library",
+        "outputTypeFrom": "default",
+        "packages": "Microsoft.AspNetCore.Components.Web@11.0.0",
+        "projectReferenceIds": "",
+        "projectReferences": "",
+        "sdk": "Microsoft.NET.Sdk.Razor",
+        "targetFrameworks": "net11.0",
+        "targetFrameworksFrom": "file"
+      },
+      "alsoAt": []
+    },
+    {
+      "id": "project:WebhookClient",
+      "kind": "project",
+      "name": "WebhookClient",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/WebhookClient/WebhookClient.csproj",
+        "line": 1
+      },
+      "attributes": {
+        "outputType": "Exe",
+        "outputTypeFrom": "sdk",
+        "packages": "Asp.Versioning.Http.Client@10.2.0, Microsoft.AspNetCore.Authentication.OpenIdConnect@11.0.0, Microsoft.AspNetCore.Components.QuickGrid@11.0.0",
+        "projectReferenceIds": "project:eShop.ServiceDefaults",
+        "projectReferences": "eShop.ServiceDefaults",
+        "sdk": "Microsoft.NET.Sdk.Web",
+        "targetFrameworks": "net11.0",
+        "targetFrameworksFrom": "file"
+      },
+      "alsoAt": []
+    },
+    {
+      "id": "project:Webhooks.API",
+      "kind": "project",
+      "name": "Webhooks.API",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/Webhooks.API/Webhooks.API.csproj",
+        "line": 1
+      },
+      "attributes": {
+        "outputType": "Exe",
+        "outputTypeFrom": "sdk",
+        "packages": "Asp.Versioning.Http@10.2.3, Aspire.Npgsql.EntityFrameworkCore.PostgreSQL@17.0.0-preview.1.26567.5, Microsoft.EntityFrameworkCore.Tools@11.0.0-rc.3.26522.148",
+        "projectReferenceIds": "project:EventBusRabbitMQ, project:IntegrationEventLogEF, project:eShop.ServiceDefaults",
+        "projectReferences": "EventBusRabbitMQ, IntegrationEventLogEF, eShop.ServiceDefaults",
+        "sdk": "Microsoft.NET.Sdk.Web",
+        "targetFrameworks": "net11.0",
+        "targetFrameworksFrom": "file"
+      },
+      "alsoAt": []
+    },
+    {
+      "id": "project:eShop.AppHost",
+      "kind": "project",
+      "name": "eShop.AppHost",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/eShop.AppHost/eShop.AppHost.csproj",
+        "line": 1
+      },
+      "attributes": {
+        "outputType": "Exe",
+        "outputTypeFrom": "file",
+        "packages": "Aspire.Hosting.AppHost@17.0.0, Aspire.Hosting.Azure.AppContainers@17.0.0, Aspire.Hosting.Dotnet@17.0.0, Aspire.Hosting.Foundry@17.0.0-preview.1.26567.5, Aspire.Hosting.PostgreSQL@17.0.0, Aspire.Hosting.RabbitMQ@17.0.0, Aspire.Hosting.Redis@17.0.0, Aspire.Hosting.Yarp@17.0.0, CommunityToolkit.Aspire.Hosting.Ollama@13.6.1",
+        "projectReferenceIds": "",
+        "projectReferences": "",
+        "sdk": "Microsoft.NET.Sdk",
+        "targetFrameworks": "net11.0",
+        "targetFrameworksFrom": "file"
+      },
+      "alsoAt": []
+    },
+    {
+      "id": "project:eShop.ServiceDefaults",
+      "kind": "project",
+      "name": "eShop.ServiceDefaults",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/eShop.ServiceDefaults/eShop.ServiceDefaults.csproj",
+        "line": 1
+      },
+      "attributes": {
+        "outputType": "Library",
+        "outputTypeFrom": "default",
+        "packages": "Asp.Versioning.Mvc.ApiExplorer@10.2.1, Asp.Versioning.OpenApi@10.2.3, Microsoft.AspNetCore.Authentication.JwtBearer@11.0.0, Microsoft.AspNetCore.OpenApi@11.0.0, Microsoft.Extensions.Http.Resilience@11.0.0, Microsoft.Extensions.ServiceDiscovery@11.0.0, Microsoft.OpenApi@3.11.1, OpenTelemetry.Exporter.OpenTelemetryProtocol@1.21.0, OpenTelemetry.Extensions.Hosting@1.21.0, OpenTelemetry.Instrumentation.AspNetCore@1.21.0, OpenTelemetry.Instrumentation.GrpcNetClient@1.21.0-beta.1, OpenTelemetry.Instrumentation.Http@1.21.0, OpenTelemetry.Instrumentation.Runtime@1.21.0, Scalar.AspNetCore@2.21.0",
+        "projectReferenceIds": "",
+        "projectReferences": "",
+        "sdk": "Microsoft.NET.Sdk",
+        "targetFrameworks": "net11.0",
+        "targetFrameworksFrom": "file"
+      },
+      "alsoAt": []
+    },
+    {
+      "id": "context:ApplicationDbContext",
+      "kind": "context",
+      "name": "ApplicationDbContext",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/Identity.API/Data/Migrations/ApplicationDbContextModelSnapshot.cs",
+        "line": 14
+      },
+      "attributes": {
+        "defaultSchema": "",
+        "efVersion": "11.0.0-rc.3.26522.148",
+        "entities": "7",
+        "migrations": "2"
+      },
+      "alsoAt": []
+    },
+    {
+      "id": "context:CatalogContext",
+      "kind": "context",
+      "name": "CatalogContext",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/Catalog.API/Infrastructure/Migrations/CatalogContextModelSnapshot.cs",
+        "line": 15
+      },
+      "attributes": {
+        "defaultSchema": "",
+        "efVersion": "8.0.0-rtm.23512.13",
+        "entities": "4",
+        "migrations": "3"
+      },
+      "alsoAt": []
+    },
+    {
+      "id": "context:OrderingContext",
+      "kind": "context",
+      "name": "OrderingContext",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/Ordering.Infrastructure/Migrations/OrderingContextModelSnapshot.cs",
+        "line": 14
+      },
+      "attributes": {
+        "defaultSchema": "ordering",
+        "efVersion": "11.0.0-rc.3.26522.148",
+        "entities": "7",
+        "migrations": "5"
+      },
+      "alsoAt": []
+    },
+    {
+      "id": "context:WebhooksContext",
+      "kind": "context",
+      "name": "WebhooksContext",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/Webhooks.API/Migrations/WebhooksContextModelSnapshot.cs",
+        "line": 14
+      },
+      "attributes": {
+        "defaultSchema": "",
+        "efVersion": "8.0.0-rc.2.23480.1",
+        "entities": "1",
+        "migrations": "1"
+      },
+      "alsoAt": []
+    },
+    {
+      "id": "entity:ApplicationDbContext.Microsoft.AspNetCore.Identity.IdentityRole",
+      "kind": "entity",
+      "name": "Microsoft.AspNetCore.Identity.IdentityRole",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/Identity.API/Data/Migrations/ApplicationDbContextModelSnapshot.cs",
+        "line": 30
+      },
+      "attributes": {
+        "context": "ApplicationDbContext",
+        "foreignKeys": "0",
+        "key": "Id",
+        "properties": "4",
+        "sharesTableWith": "",
+        "table": "AspNetRoles",
+        "usedBy": ""
+      },
+      "alsoAt": []
+    },
+    {
+      "id": "entity:ApplicationDbContext.Microsoft.AspNetCore.Identity.IdentityRoleClaim<string>",
+      "kind": "entity",
+      "name": "Microsoft.AspNetCore.Identity.IdentityRoleClaim<string>",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/Identity.API/Data/Migrations/ApplicationDbContextModelSnapshot.cs",
+        "line": 56
+      },
+      "attributes": {
+        "context": "ApplicationDbContext",
+        "foreignKeys": "1",
+        "key": "Id",
+        "properties": "3",
+        "sharesTableWith": "",
+        "table": "AspNetRoleClaims",
+        "usedBy": ""
+      },
+      "alsoAt": []
+    },
+    {
+      "id": "entity:ApplicationDbContext.Microsoft.AspNetCore.Identity.IdentityUserClaim<string>",
+      "kind": "entity",
+      "name": "Microsoft.AspNetCore.Identity.IdentityUserClaim<string>",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/Identity.API/Data/Migrations/ApplicationDbContextModelSnapshot.cs",
+        "line": 81
+      },
+      "attributes": {
+        "context": "ApplicationDbContext",
+        "foreignKeys": "1",
+        "key": "Id",
+        "properties": "3",
+        "sharesTableWith": "",
+        "table": "AspNetUserClaims",
+        "usedBy": ""
+      },
+      "alsoAt": []
+    },
+    {
+      "id": "entity:ApplicationDbContext.Microsoft.AspNetCore.Identity.IdentityUserLogin<string>",
+      "kind": "entity",
+      "name": "Microsoft.AspNetCore.Identity.IdentityUserLogin<string>",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/Identity.API/Data/Migrations/ApplicationDbContextModelSnapshot.cs",
+        "line": 106
+      },
+      "attributes": {
+        "context": "ApplicationDbContext",
+        "foreignKeys": "1",
+        "key": "LoginProvider, ProviderKey",
+        "properties": "4",
+        "sharesTableWith": "",
+        "table": "AspNetUserLogins",
+        "usedBy": ""
+      },
+      "alsoAt": []
+    },
+    {
+      "id": "entity:ApplicationDbContext.Microsoft.AspNetCore.Identity.IdentityUserRole<string>",
+      "kind": "entity",
+      "name": "Microsoft.AspNetCore.Identity.IdentityUserRole<string>",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/Identity.API/Data/Migrations/ApplicationDbContextModelSnapshot.cs",
+        "line": 128
+      },
+      "attributes": {
+        "context": "ApplicationDbContext",
+        "foreignKeys": "2",
+        "key": "UserId, RoleId",
+        "properties": "2",
+        "sharesTableWith": "",
+        "table": "AspNetUserRoles",
+        "usedBy": ""
+      },
+      "alsoAt": []
+    },
+    {
+      "id": "entity:ApplicationDbContext.Microsoft.AspNetCore.Identity.IdentityUserToken<string>",
+      "kind": "entity",
+      "name": "Microsoft.AspNetCore.Identity.IdentityUserToken<string>",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/Identity.API/Data/Migrations/ApplicationDbContextModelSnapshot.cs",
+        "line": 143
+      },
+      "attributes": {
+        "context": "ApplicationDbContext",
+        "foreignKeys": "1",
+        "key": "UserId, LoginProvider, Name",
+        "properties": "4",
+        "sharesTableWith": "",
+        "table": "AspNetUserTokens",
+        "usedBy": ""
+      },
+      "alsoAt": []
+    },
+    {
+      "id": "entity:ApplicationDbContext.eShop.Identity.API.Models.ApplicationUser",
+      "kind": "entity",
+      "name": "eShop.Identity.API.Models.ApplicationUser",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/Identity.API/Data/Migrations/ApplicationDbContextModelSnapshot.cs",
+        "line": 162
+      },
+      "attributes": {
+        "context": "ApplicationDbContext",
+        "foreignKeys": "0",
+        "key": "Id",
+        "properties": "22",
+        "sharesTableWith": "",
+        "table": "AspNetUsers",
+        "usedBy": ""
+      },
+      "alsoAt": []
+    },
+    {
+      "id": "entity:CatalogContext.eShop.Catalog.API.Model.CatalogBrand",
+      "kind": "entity",
+      "name": "eShop.Catalog.API.Model.CatalogBrand",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/Catalog.API/Infrastructure/Migrations/CatalogContextModelSnapshot.cs",
+        "line": 27
+      },
+      "attributes": {
+        "context": "CatalogContext",
+        "foreignKeys": "0",
+        "key": "Id",
+        "properties": "2",
+        "sharesTableWith": "",
+        "table": "CatalogBrand",
+        "usedBy": ""
+      },
+      "alsoAt": []
+    },
+    {
+      "id": "entity:CatalogContext.eShop.Catalog.API.Model.CatalogItem",
+      "kind": "entity",
+      "name": "eShop.Catalog.API.Model.CatalogItem",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/Catalog.API/Infrastructure/Migrations/CatalogContextModelSnapshot.cs",
+        "line": 45
+      },
+      "attributes": {
+        "context": "CatalogContext",
+        "foreignKeys": "2",
+        "key": "Id",
+        "properties": "12",
+        "sharesTableWith": "",
+        "table": "Catalog",
+        "usedBy": "GET /api/catalog/items, GET /api/catalog/items/by, GET /api/catalog/items/by/{name:minlength(1)}, GET /api/catalog/items/facets, GET /api/catalog/items/type/all/brand/{brandId:int?}, GET /api/catalog/items/type/{typeId}/brand/{brandId?}, GET /api/catalog/items/withsemanticrelevance, GET /api/catalog/items/withsemanticrelevance/{text:minlength(1)}, GET /api/catalog/items/{id:int}, POST /api/catalog/items, PUT /api/catalog/items, PUT /api/catalog/items/{id:int}"
+      },
+      "alsoAt": []
+    },
+    {
+      "id": "entity:CatalogContext.eShop.Catalog.API.Model.CatalogType",
+      "kind": "entity",
+      "name": "eShop.Catalog.API.Model.CatalogType",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/Catalog.API/Infrastructure/Migrations/CatalogContextModelSnapshot.cs",
+        "line": 99
+      },
+      "attributes": {
+        "context": "CatalogContext",
+        "foreignKeys": "0",
+        "key": "Id",
+        "properties": "2",
+        "sharesTableWith": "",
+        "table": "CatalogType",
+        "usedBy": ""
+      },
+      "alsoAt": []
+    },
+    {
+      "id": "entity:CatalogContext.eShop.IntegrationEventLogEF.IntegrationEventLogEntry",
+      "kind": "entity",
+      "name": "eShop.IntegrationEventLogEF.IntegrationEventLogEntry",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/Catalog.API/Infrastructure/Migrations/CatalogContextModelSnapshot.cs",
+        "line": 117
+      },
+      "attributes": {
+        "context": "CatalogContext",
+        "foreignKeys": "0",
+        "key": "EventId",
+        "properties": "7",
+        "sharesTableWith": "",
+        "table": "IntegrationEventLog",
+        "usedBy": ""
+      },
+      "alsoAt": []
+    },
+    {
+      "id": "entity:OrderingContext.eShop.IntegrationEventLogEF.IntegrationEventLogEntry",
+      "kind": "entity",
+      "name": "eShop.IntegrationEventLogEF.IntegrationEventLogEntry",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/Ordering.Infrastructure/Migrations/OrderingContextModelSnapshot.cs",
+        "line": 43
+      },
+      "attributes": {
+        "context": "OrderingContext",
+        "foreignKeys": "0",
+        "key": "EventId",
+        "properties": "7",
+        "sharesTableWith": "",
+        "table": "ordering.IntegrationEventLog",
+        "usedBy": ""
+      },
+      "alsoAt": []
+    },
+    {
+      "id": "entity:OrderingContext.eShop.Ordering.Domain.AggregatesModel.BuyerAggregate.Buyer",
+      "kind": "entity",
+      "name": "eShop.Ordering.Domain.AggregatesModel.BuyerAggregate.Buyer",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/Ordering.Infrastructure/Migrations/OrderingContextModelSnapshot.cs",
+        "line": 74
+      },
+      "attributes": {
+        "context": "OrderingContext",
+        "foreignKeys": "0",
+        "key": "Id",
+        "properties": "2",
+        "sharesTableWith": "",
+        "table": "ordering.buyers",
+        "usedBy": ""
+      },
+      "alsoAt": []
+    },
+    {
+      "id": "entity:OrderingContext.eShop.Ordering.Domain.AggregatesModel.BuyerAggregate.PaymentMethod",
+      "kind": "entity",
+      "name": "eShop.Ordering.Domain.AggregatesModel.BuyerAggregate.PaymentMethod",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/Ordering.Infrastructure/Migrations/OrderingContextModelSnapshot.cs",
+        "line": 98
+      },
+      "attributes": {
+        "context": "OrderingContext",
+        "foreignKeys": "1",
+        "key": "Id",
+        "properties": "3",
+        "sharesTableWith": "",
+        "table": "ordering.paymentmethods",
+        "usedBy": ""
+      },
+      "alsoAt": []
+    },
+    {
+      "id": "entity:OrderingContext.eShop.Ordering.Domain.AggregatesModel.OrderAggregate.Address",
+      "kind": "entity",
+      "name": "eShop.Ordering.Domain.AggregatesModel.OrderAggregate.Address",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/Ordering.Infrastructure/Migrations/OrderingContextModelSnapshot.cs",
+        "line": 1
+      },
+      "attributes": {
+        "context": "OrderingContext",
+        "foreignKeys": "0",
+        "key": "Id",
+        "properties": "5",
+        "sharesTableWith": "eShop.Ordering.Domain.AggregatesModel.OrderAggregate.Order",
+        "table": "ordering.orders",
+        "usedBy": ""
+      },
+      "alsoAt": []
+    },
+    {
+      "id": "entity:OrderingContext.eShop.Ordering.Domain.AggregatesModel.OrderAggregate.Order",
+      "kind": "entity",
+      "name": "eShop.Ordering.Domain.AggregatesModel.OrderAggregate.Order",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/Ordering.Infrastructure/Migrations/OrderingContextModelSnapshot.cs",
+        "line": 128
+      },
+      "attributes": {
+        "context": "OrderingContext",
+        "foreignKeys": "2",
+        "key": "Id",
+        "properties": "5",
+        "sharesTableWith": "",
+        "table": "ordering.orders",
+        "usedBy": "GET /api/orders/{orderId:int}"
+      },
+      "alsoAt": []
+    },
+    {
+      "id": "entity:OrderingContext.eShop.Ordering.Domain.AggregatesModel.OrderAggregate.OrderItem",
+      "kind": "entity",
+      "name": "eShop.Ordering.Domain.AggregatesModel.OrderAggregate.OrderItem",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/Ordering.Infrastructure/Migrations/OrderingContextModelSnapshot.cs",
+        "line": 163
+      },
+      "attributes": {
+        "context": "OrderingContext",
+        "foreignKeys": "1",
+        "key": "Id",
+        "properties": "7",
+        "sharesTableWith": "",
+        "table": "ordering.orderItems",
+        "usedBy": ""
+      },
+      "alsoAt": []
+    },
+    {
+      "id": "entity:OrderingContext.eShop.Ordering.Infrastructure.Idempotency.ClientRequest",
+      "kind": "entity",
+      "name": "eShop.Ordering.Infrastructure.Idempotency.ClientRequest",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/Ordering.Infrastructure/Migrations/OrderingContextModelSnapshot.cs",
+        "line": 200
+      },
+      "attributes": {
+        "context": "OrderingContext",
+        "foreignKeys": "0",
+        "key": "Id",
+        "properties": "3",
+        "sharesTableWith": "",
+        "table": "ordering.requests",
+        "usedBy": ""
+      },
+      "alsoAt": []
+    },
+    {
+      "id": "entity:WebhooksContext.Webhooks.API.Model.WebhookSubscription",
+      "kind": "entity",
+      "name": "Webhooks.API.Model.WebhookSubscription",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/Webhooks.API/Migrations/WebhooksContextModelSnapshot.cs",
+        "line": 25
+      },
+      "attributes": {
+        "context": "WebhooksContext",
+        "foreignKeys": "0",
+        "key": "Id",
+        "properties": "6",
+        "sharesTableWith": "",
+        "table": "Subscriptions",
+        "usedBy": "GET /api/webhooks/{id:int}, POST /api/webhooks"
+      },
+      "alsoAt": []
+    },
+    {
+      "id": "endpoint:DELETE /api/catalog/items/{id:int}",
+      "kind": "endpoint",
+      "name": "DELETE /api/catalog/items/{id:int}",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/Catalog.API/Apis/CatalogApi.cs",
+        "line": 114
+      },
+      "attributes": {
+        "handler": "DeleteItemById",
+        "relativeRoute": "",
+        "route": "/api/catalog/items/{id:int}",
+        "style": "minimal",
+        "touches": "",
+        "verb": "DELETE"
+      },
+      "alsoAt": []
+    },
+    {
+      "id": "endpoint:DELETE /api/webhooks/{id:int}",
+      "kind": "endpoint",
+      "name": "DELETE /api/webhooks/{id:int}",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/Webhooks.API/Apis/WebHooksApi.cs",
+        "line": 66
+      },
+      "attributes": {
+        "handler": "",
+        "relativeRoute": "",
+        "route": "/api/webhooks/{id:int}",
+        "style": "minimal",
+        "touches": "",
+        "verb": "DELETE"
+      },
+      "alsoAt": []
+    },
+    {
+      "id": "endpoint:GET /",
+      "kind": "endpoint",
+      "name": "GET /",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/eShop.ServiceDefaults/OpenApi.Extensions.cs",
+        "line": 41
+      },
+      "attributes": {
+        "handler": "",
+        "relativeRoute": "",
+        "route": "/",
+        "style": "minimal",
+        "touches": "",
+        "verb": "GET"
+      },
+      "alsoAt": []
+    },
+    {
+      "id": "endpoint:GET /api/catalog/catalogbrands",
+      "kind": "endpoint",
+      "name": "GET /api/catalog/catalogbrands",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/Catalog.API/Apis/CatalogApi.cs",
+        "line": 91
+      },
+      "attributes": {
+        "handler": "",
+        "relativeRoute": "",
+        "route": "/api/catalog/catalogbrands",
+        "style": "minimal",
+        "touches": "",
+        "verb": "GET"
+      },
+      "alsoAt": []
+    },
+    {
+      "id": "endpoint:GET /api/catalog/catalogtypes",
+      "kind": "endpoint",
+      "name": "GET /api/catalog/catalogtypes",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/Catalog.API/Apis/CatalogApi.cs",
+        "line": 84
+      },
+      "attributes": {
+        "handler": "",
+        "relativeRoute": "",
+        "route": "/api/catalog/catalogtypes",
+        "style": "minimal",
+        "touches": "",
+        "verb": "GET"
+      },
+      "alsoAt": []
+    },
+    {
+      "id": "endpoint:GET /api/catalog/items [GetAllItemsV1]",
+      "kind": "endpoint",
+      "name": "GET /api/catalog/items",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/Catalog.API/Apis/CatalogApi.cs",
+        "line": 22
+      },
+      "attributes": {
+        "handler": "GetAllItemsV1",
+        "relativeRoute": "",
+        "route": "/api/catalog/items",
+        "style": "minimal",
+        "touches": "CatalogItem",
+        "verb": "GET"
+      },
+      "alsoAt": []
+    },
+    {
+      "id": "endpoint:GET /api/catalog/items [GetAllItems]",
+      "kind": "endpoint",
+      "name": "GET /api/catalog/items",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/Catalog.API/Apis/CatalogApi.cs",
+        "line": 27
+      },
+      "attributes": {
+        "handler": "GetAllItems",
+        "relativeRoute": "",
+        "route": "/api/catalog/items",
+        "style": "minimal",
+        "touches": "CatalogItem",
+        "verb": "GET"
+      },
+      "alsoAt": []
+    },
+    {
+      "id": "endpoint:GET /api/catalog/items/by",
+      "kind": "endpoint",
+      "name": "GET /api/catalog/items/by",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/Catalog.API/Apis/CatalogApi.cs",
+        "line": 32
+      },
+      "attributes": {
+        "handler": "GetItemsByIds",
+        "relativeRoute": "",
+        "route": "/api/catalog/items/by",
+        "style": "minimal",
+        "touches": "CatalogItem",
+        "verb": "GET"
+      },
+      "alsoAt": []
+    },
+    {
+      "id": "endpoint:GET /api/catalog/items/by/{name:minlength(1)}",
+      "kind": "endpoint",
+      "name": "GET /api/catalog/items/by/{name:minlength(1)}",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/Catalog.API/Apis/CatalogApi.cs",
+        "line": 42
+      },
+      "attributes": {
+        "handler": "GetItemsByName",
+        "relativeRoute": "",
+        "route": "/api/catalog/items/by/{name:minlength(1)}",
+        "style": "minimal",
+        "touches": "CatalogItem",
+        "verb": "GET"
+      },
+      "alsoAt": []
+    },
+    {
+      "id": "endpoint:GET /api/catalog/items/facets",
+      "kind": "endpoint",
+      "name": "GET /api/catalog/items/facets",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/Catalog.API/Apis/CatalogApi.cs",
+        "line": 53
+      },
+      "attributes": {
+        "handler": "GetCatalogFacets",
+        "relativeRoute": "",
+        "route": "/api/catalog/items/facets",
+        "style": "minimal",
+        "touches": "CatalogItem",
+        "verb": "GET"
+      },
+      "alsoAt": []
+    },
+    {
+      "id": "endpoint:GET /api/catalog/items/type/all/brand/{brandId:int?}",
+      "kind": "endpoint",
+      "name": "GET /api/catalog/items/type/all/brand/{brandId:int?}",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/Catalog.API/Apis/CatalogApi.cs",
+        "line": 79
+      },
+      "attributes": {
+        "handler": "GetItemsByBrandId",
+        "relativeRoute": "",
+        "route": "/api/catalog/items/type/all/brand/{brandId:int?}",
+        "style": "minimal",
+        "touches": "CatalogItem",
+        "verb": "GET"
+      },
+      "alsoAt": []
+    },
+    {
+      "id": "endpoint:GET /api/catalog/items/type/{typeId}/brand/{brandId?}",
+      "kind": "endpoint",
+      "name": "GET /api/catalog/items/type/{typeId}/brand/{brandId?}",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/Catalog.API/Apis/CatalogApi.cs",
+        "line": 74
+      },
+      "attributes": {
+        "handler": "GetItemsByBrandAndTypeId",
+        "relativeRoute": "",
+        "route": "/api/catalog/items/type/{typeId}/brand/{brandId?}",
+        "style": "minimal",
+        "touches": "CatalogItem",
+        "verb": "GET"
+      },
+      "alsoAt": []
+    },
+    {
+      "id": "endpoint:GET /api/catalog/items/withsemanticrelevance",
+      "kind": "endpoint",
+      "name": "GET /api/catalog/items/withsemanticrelevance",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/Catalog.API/Apis/CatalogApi.cs",
+        "line": 67
+      },
+      "attributes": {
+        "handler": "GetItemsBySemanticRelevance",
+        "relativeRoute": "",
+        "route": "/api/catalog/items/withsemanticrelevance",
+        "style": "minimal",
+        "touches": "CatalogItem",
+        "verb": "GET"
+      },
+      "alsoAt": []
+    },
+    {
+      "id": "endpoint:GET /api/catalog/items/withsemanticrelevance/{text:minlength(1)}",
+      "kind": "endpoint",
+      "name": "GET /api/catalog/items/withsemanticrelevance/{text:minlength(1)}",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/Catalog.API/Apis/CatalogApi.cs",
+        "line": 60
+      },
+      "attributes": {
+        "handler": "GetItemsBySemanticRelevanceV1",
+        "relativeRoute": "",
+        "route": "/api/catalog/items/withsemanticrelevance/{text:minlength(1)}",
+        "style": "minimal",
+        "touches": "CatalogItem",
+        "verb": "GET"
+      },
+      "alsoAt": []
+    },
+    {
+      "id": "endpoint:GET /api/catalog/items/{id:int}",
+      "kind": "endpoint",
+      "name": "GET /api/catalog/items/{id:int}",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/Catalog.API/Apis/CatalogApi.cs",
+        "line": 37
+      },
+      "attributes": {
+        "handler": "GetItemById",
+        "relativeRoute": "",
+        "route": "/api/catalog/items/{id:int}",
+        "style": "minimal",
+        "touches": "CatalogItem",
+        "verb": "GET"
+      },
+      "alsoAt": []
+    },
+    {
+      "id": "endpoint:GET /api/catalog/items/{id:int}/pic",
+      "kind": "endpoint",
+      "name": "GET /api/catalog/items/{id:int}/pic",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/Catalog.API/Apis/CatalogApi.cs",
+        "line": 47
+      },
+      "attributes": {
+        "handler": "GetItemPictureById",
+        "relativeRoute": "",
+        "route": "/api/catalog/items/{id:int}/pic",
+        "style": "minimal",
+        "touches": "",
+        "verb": "GET"
+      },
+      "alsoAt": []
+    },
+    {
+      "id": "endpoint:GET /api/orders",
+      "kind": "endpoint",
+      "name": "GET /api/orders",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/Ordering.API/Apis/OrdersApi.cs",
+        "line": 13
+      },
+      "attributes": {
+        "handler": "GetOrdersByUserAsync",
+        "relativeRoute": "",
+        "route": "/api/orders",
+        "style": "minimal",
+        "touches": "",
+        "verb": "GET"
+      },
+      "alsoAt": []
+    },
+    {
+      "id": "endpoint:GET /api/orders/{orderId:int}",
+      "kind": "endpoint",
+      "name": "GET /api/orders/{orderId:int}",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/Ordering.API/Apis/OrdersApi.cs",
+        "line": 12
+      },
+      "attributes": {
+        "handler": "GetOrderAsync",
+        "relativeRoute": "",
+        "route": "/api/orders/{orderId:int}",
+        "style": "minimal",
+        "touches": "Order",
+        "verb": "GET"
+      },
+      "alsoAt": []
+    },
+    {
+      "id": "endpoint:GET /api/webhooks",
+      "kind": "endpoint",
+      "name": "GET /api/webhooks",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/Webhooks.API/Apis/WebHooksApi.cs",
+        "line": 13
+      },
+      "attributes": {
+        "handler": "",
+        "relativeRoute": "",
+        "route": "/api/webhooks",
+        "style": "minimal",
+        "touches": "",
+        "verb": "GET"
+      },
+      "alsoAt": []
+    },
+    {
+      "id": "endpoint:GET /api/webhooks/{id:int}",
+      "kind": "endpoint",
+      "name": "GET /api/webhooks/{id:int}",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/Webhooks.API/Apis/WebHooksApi.cs",
+        "line": 20
+      },
+      "attributes": {
+        "handler": "",
+        "relativeRoute": "",
+        "route": "/api/webhooks/{id:int}",
+        "style": "minimal",
+        "touches": "WebhookSubscription",
+        "verb": "GET"
+      },
+      "alsoAt": []
+    },
+    {
+      "id": "endpoint:GET ?@src/Identity.API/Quickstart/Account/AccountController.cs [AccountController.AccessDenied]",
+      "kind": "endpoint",
+      "name": "GET (route not written as text)",
+      "evidence": "unresolved",
+      "source": {
+        "file": "src/Identity.API/Quickstart/Account/AccountController.cs",
+        "line": 196
+      },
+      "attributes": {
+        "handler": "AccountController.AccessDenied",
+        "relativeRoute": "",
+        "route": "",
+        "style": "controller",
+        "touches": "",
+        "verb": "GET"
+      },
+      "alsoAt": [],
+      "reason": "conventional routing: no [Route] and no template"
+    },
+    {
+      "id": "endpoint:GET ?@src/Identity.API/Quickstart/Account/AccountController.cs [AccountController.Login]",
+      "kind": "endpoint",
+      "name": "GET (route not written as text)",
+      "evidence": "unresolved",
+      "source": {
+        "file": "src/Identity.API/Quickstart/Account/AccountController.cs",
+        "line": 39
+      },
+      "attributes": {
+        "handler": "AccountController.Login",
+        "relativeRoute": "",
+        "route": "",
+        "style": "controller",
+        "touches": "",
+        "verb": "GET"
+      },
+      "alsoAt": [],
+      "reason": "conventional routing: no [Route] and no template"
+    },
+    {
+      "id": "endpoint:GET ?@src/Identity.API/Quickstart/Account/AccountController.cs [AccountController.Logout]",
+      "kind": "endpoint",
+      "name": "GET (route not written as text)",
+      "evidence": "unresolved",
+      "source": {
+        "file": "src/Identity.API/Quickstart/Account/AccountController.cs",
+        "line": 146
+      },
+      "attributes": {
+        "handler": "AccountController.Logout",
+        "relativeRoute": "",
+        "route": "",
+        "style": "controller",
+        "touches": "",
+        "verb": "GET"
+      },
+      "alsoAt": [],
+      "reason": "conventional routing: no [Route] and no template"
+    },
+    {
+      "id": "endpoint:GET ?@src/Identity.API/Quickstart/Account/ExternalController.cs [ExternalController.Callback]",
+      "kind": "endpoint",
+      "name": "GET (route not written as text)",
+      "evidence": "unresolved",
+      "source": {
+        "file": "src/Identity.API/Quickstart/Account/ExternalController.cs",
+        "line": 63
+      },
+      "attributes": {
+        "handler": "ExternalController.Callback",
+        "relativeRoute": "",
+        "route": "",
+        "style": "controller",
+        "touches": "",
+        "verb": "GET"
+      },
+      "alsoAt": [],
+      "reason": "conventional routing: no [Route] and no template"
+    },
+    {
+      "id": "endpoint:GET ?@src/Identity.API/Quickstart/Account/ExternalController.cs [ExternalController.Challenge]",
+      "kind": "endpoint",
+      "name": "GET (route not written as text)",
+      "evidence": "unresolved",
+      "source": {
+        "file": "src/Identity.API/Quickstart/Account/ExternalController.cs",
+        "line": 33
+      },
+      "attributes": {
+        "handler": "ExternalController.Challenge",
+        "relativeRoute": "",
+        "route": "",
+        "style": "controller",
+        "touches": "",
+        "verb": "GET"
+      },
+      "alsoAt": [],
+      "reason": "conventional routing: no [Route] and no template"
+    },
+    {
+      "id": "endpoint:GET ?@src/Identity.API/Quickstart/Consent/ConsentController.cs [ConsentController.Index]",
+      "kind": "endpoint",
+      "name": "GET (route not written as text)",
+      "evidence": "unresolved",
+      "source": {
+        "file": "src/Identity.API/Quickstart/Consent/ConsentController.cs",
+        "line": 32
+      },
+      "attributes": {
+        "handler": "ConsentController.Index",
+        "relativeRoute": "",
+        "route": "",
+        "style": "controller",
+        "touches": "",
+        "verb": "GET"
+      },
+      "alsoAt": [],
+      "reason": "conventional routing: no [Route] and no template"
+    },
+    {
+      "id": "endpoint:GET ?@src/Identity.API/Quickstart/Device/DeviceController.cs [DeviceController.Index]",
+      "kind": "endpoint",
+      "name": "GET (route not written as text)",
+      "evidence": "unresolved",
+      "source": {
+        "file": "src/Identity.API/Quickstart/Device/DeviceController.cs",
+        "line": 27
+      },
+      "attributes": {
+        "handler": "DeviceController.Index",
+        "relativeRoute": "",
+        "route": "",
+        "style": "controller",
+        "touches": "",
+        "verb": "GET"
+      },
+      "alsoAt": [],
+      "reason": "conventional routing: no [Route] and no template"
+    },
+    {
+      "id": "endpoint:GET ?@src/Identity.API/Quickstart/Grants/GrantsController.cs [GrantsController.Index]",
+      "kind": "endpoint",
+      "name": "GET (route not written as text)",
+      "evidence": "unresolved",
+      "source": {
+        "file": "src/Identity.API/Quickstart/Grants/GrantsController.cs",
+        "line": 32
+      },
+      "attributes": {
+        "handler": "GrantsController.Index",
+        "relativeRoute": "",
+        "route": "",
+        "style": "controller",
+        "touches": "",
+        "verb": "GET"
+      },
+      "alsoAt": [],
+      "reason": "conventional routing: no [Route] and no template"
+    },
+    {
+      "id": "endpoint:OPTIONS /check",
+      "kind": "endpoint",
+      "name": "OPTIONS /check",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/WebhookClient/Endpoints/WebhookEndpoints.cs",
+        "line": 16
+      },
+      "attributes": {
+        "handler": "",
+        "relativeRoute": "",
+        "route": "/check",
+        "style": "minimal",
+        "touches": "",
+        "verb": "OPTIONS"
+      },
+      "alsoAt": []
+    },
+    {
+      "id": "endpoint:POST /api/catalog/items",
+      "kind": "endpoint",
+      "name": "POST /api/catalog/items",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/Catalog.API/Apis/CatalogApi.cs",
+        "line": 110
+      },
+      "attributes": {
+        "handler": "CreateItem",
+        "relativeRoute": "",
+        "route": "/api/catalog/items",
+        "style": "minimal",
+        "touches": "CatalogItem",
+        "verb": "POST"
+      },
+      "alsoAt": []
+    },
+    {
+      "id": "endpoint:POST /api/orders",
+      "kind": "endpoint",
+      "name": "POST /api/orders",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/Ordering.API/Apis/OrdersApi.cs",
+        "line": 15
+      },
+      "attributes": {
+        "handler": "CreateOrderAsync",
+        "relativeRoute": "",
+        "route": "/api/orders",
+        "style": "minimal",
+        "touches": "",
+        "verb": "POST"
+      },
+      "alsoAt": []
+    },
+    {
+      "id": "endpoint:POST /api/orders/draft",
+      "kind": "endpoint",
+      "name": "POST /api/orders/draft",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/Ordering.API/Apis/OrdersApi.cs",
+        "line": 14
+      },
+      "attributes": {
+        "handler": "CreateOrderDraftAsync",
+        "relativeRoute": "",
+        "route": "/api/orders/draft",
+        "style": "minimal",
+        "touches": "",
+        "verb": "POST"
+      },
+      "alsoAt": []
+    },
+    {
+      "id": "endpoint:POST /api/webhooks",
+      "kind": "endpoint",
+      "name": "POST /api/webhooks",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/Webhooks.API/Apis/WebHooksApi.cs",
+        "line": 35
+      },
+      "attributes": {
+        "handler": "",
+        "relativeRoute": "",
+        "route": "/api/webhooks",
+        "style": "minimal",
+        "touches": "WebhookSubscription",
+        "verb": "POST"
+      },
+      "alsoAt": []
+    },
+    {
+      "id": "endpoint:POST /logout",
+      "kind": "endpoint",
+      "name": "POST /logout",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/WebhookClient/Endpoints/AuthenticationEndpoints.cs",
+        "line": 12
+      },
+      "attributes": {
+        "handler": "",
+        "relativeRoute": "",
+        "route": "/logout",
+        "style": "minimal",
+        "touches": "",
+        "verb": "POST"
+      },
+      "alsoAt": []
+    },
+    {
+      "id": "endpoint:POST /webhook-received",
+      "kind": "endpoint",
+      "name": "POST /webhook-received",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/WebhookClient/Endpoints/WebhookEndpoints.cs",
+        "line": 31
+      },
+      "attributes": {
+        "handler": "",
+        "relativeRoute": "",
+        "route": "/webhook-received",
+        "style": "minimal",
+        "touches": "",
+        "verb": "POST"
+      },
+      "alsoAt": []
+    },
+    {
+      "id": "endpoint:POST ?@src/Identity.API/Quickstart/Account/AccountController.cs [AccountController.Login]",
+      "kind": "endpoint",
+      "name": "POST (route not written as text)",
+      "evidence": "unresolved",
+      "source": {
+        "file": "src/Identity.API/Quickstart/Account/AccountController.cs",
+        "line": 59
+      },
+      "attributes": {
+        "handler": "AccountController.Login",
+        "relativeRoute": "",
+        "route": "",
+        "style": "controller",
+        "touches": "",
+        "verb": "POST"
+      },
+      "alsoAt": [],
+      "reason": "conventional routing: no [Route] and no template"
+    },
+    {
+      "id": "endpoint:POST ?@src/Identity.API/Quickstart/Account/AccountController.cs [AccountController.Logout]",
+      "kind": "endpoint",
+      "name": "POST (route not written as text)",
+      "evidence": "unresolved",
+      "source": {
+        "file": "src/Identity.API/Quickstart/Account/AccountController.cs",
+        "line": 165
+      },
+      "attributes": {
+        "handler": "AccountController.Logout",
+        "relativeRoute": "",
+        "route": "",
+        "style": "controller",
+        "touches": "",
+        "verb": "POST"
+      },
+      "alsoAt": [],
+      "reason": "conventional routing: no [Route] and no template"
+    },
+    {
+      "id": "endpoint:POST ?@src/Identity.API/Quickstart/Consent/ConsentController.cs [ConsentController.Index]",
+      "kind": "endpoint",
+      "name": "POST (route not written as text)",
+      "evidence": "unresolved",
+      "source": {
+        "file": "src/Identity.API/Quickstart/Consent/ConsentController.cs",
+        "line": 47
+      },
+      "attributes": {
+        "handler": "ConsentController.Index",
+        "relativeRoute": "",
+        "route": "",
+        "style": "controller",
+        "touches": "",
+        "verb": "POST"
+      },
+      "alsoAt": [],
+      "reason": "conventional routing: no [Route] and no template"
+    },
+    {
+      "id": "endpoint:POST ?@src/Identity.API/Quickstart/Device/DeviceController.cs [DeviceController.Callback]",
+      "kind": "endpoint",
+      "name": "POST (route not written as text)",
+      "evidence": "unresolved",
+      "source": {
+        "file": "src/Identity.API/Quickstart/Device/DeviceController.cs",
+        "line": 51
+      },
+      "attributes": {
+        "handler": "DeviceController.Callback",
+        "relativeRoute": "",
+        "route": "",
+        "style": "controller",
+        "touches": "",
+        "verb": "POST"
+      },
+      "alsoAt": [],
+      "reason": "conventional routing: no [Route] and no template"
+    },
+    {
+      "id": "endpoint:POST ?@src/Identity.API/Quickstart/Device/DeviceController.cs [DeviceController.UserCodeCapture]",
+      "kind": "endpoint",
+      "name": "POST (route not written as text)",
+      "evidence": "unresolved",
+      "source": {
+        "file": "src/Identity.API/Quickstart/Device/DeviceController.cs",
+        "line": 41
+      },
+      "attributes": {
+        "handler": "DeviceController.UserCodeCapture",
+        "relativeRoute": "",
+        "route": "",
+        "style": "controller",
+        "touches": "",
+        "verb": "POST"
+      },
+      "alsoAt": [],
+      "reason": "conventional routing: no [Route] and no template"
+    },
+    {
+      "id": "endpoint:POST ?@src/Identity.API/Quickstart/Grants/GrantsController.cs [GrantsController.Revoke]",
+      "kind": "endpoint",
+      "name": "POST (route not written as text)",
+      "evidence": "unresolved",
+      "source": {
+        "file": "src/Identity.API/Quickstart/Grants/GrantsController.cs",
+        "line": 41
+      },
+      "attributes": {
+        "handler": "GrantsController.Revoke",
+        "relativeRoute": "",
+        "route": "",
+        "style": "controller",
+        "touches": "",
+        "verb": "POST"
+      },
+      "alsoAt": [],
+      "reason": "conventional routing: no [Route] and no template"
+    },
+    {
+      "id": "endpoint:PUT /api/catalog/items",
+      "kind": "endpoint",
+      "name": "PUT /api/catalog/items",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/Catalog.API/Apis/CatalogApi.cs",
+        "line": 100
+      },
+      "attributes": {
+        "handler": "UpdateItemV1",
+        "relativeRoute": "",
+        "route": "/api/catalog/items",
+        "style": "minimal",
+        "touches": "CatalogItem",
+        "verb": "PUT"
+      },
+      "alsoAt": []
+    },
+    {
+      "id": "endpoint:PUT /api/catalog/items/{id:int}",
+      "kind": "endpoint",
+      "name": "PUT /api/catalog/items/{id:int}",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/Catalog.API/Apis/CatalogApi.cs",
+        "line": 105
+      },
+      "attributes": {
+        "handler": "UpdateItem",
+        "relativeRoute": "",
+        "route": "/api/catalog/items/{id:int}",
+        "style": "minimal",
+        "touches": "CatalogItem",
+        "verb": "PUT"
+      },
+      "alsoAt": []
+    },
+    {
+      "id": "endpoint:PUT /api/orders/cancel",
+      "kind": "endpoint",
+      "name": "PUT /api/orders/cancel",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/Ordering.API/Apis/OrdersApi.cs",
+        "line": 10
+      },
+      "attributes": {
+        "handler": "CancelOrderAsync",
+        "relativeRoute": "",
+        "route": "/api/orders/cancel",
+        "style": "minimal",
+        "touches": "",
+        "verb": "PUT"
+      },
+      "alsoAt": []
+    },
+    {
+      "id": "endpoint:PUT /api/orders/ship",
+      "kind": "endpoint",
+      "name": "PUT /api/orders/ship",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/Ordering.API/Apis/OrdersApi.cs",
+        "line": 11
+      },
+      "attributes": {
+        "handler": "ShipOrderAsync",
+        "relativeRoute": "",
+        "route": "/api/orders/ship",
+        "style": "minimal",
+        "touches": "",
+        "verb": "PUT"
+      },
+      "alsoAt": []
+    },
+    {
+      "id": "config:AllowedHosts",
+      "kind": "config",
+      "name": "AllowedHosts",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/Ordering.API/appsettings.json",
+        "line": 8
+      },
+      "attributes": {
+        "readIn": "json"
+      },
+      "alsoAt": [
+        {
+          "file": "src/WebApp/appsettings.json",
+          "line": 8
+        },
+        {
+          "file": "src/WebhookClient/appsettings.json",
+          "line": 8
+        },
+        {
+          "file": "src/Webhooks.API/appsettings.json",
+          "line": 8
+        }
+      ]
+    },
+    {
+      "id": "config:BackgroundTaskOptions:CheckUpdateTime",
+      "kind": "config",
+      "name": "BackgroundTaskOptions:CheckUpdateTime",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/OrderProcessor/appsettings.json",
+        "line": 16
+      },
+      "attributes": {
+        "readIn": "json"
+      },
+      "alsoAt": []
+    },
+    {
+      "id": "config:BackgroundTaskOptions:GracePeriodTime",
+      "kind": "config",
+      "name": "BackgroundTaskOptions:GracePeriodTime",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/OrderProcessor/appsettings.json",
+        "line": 15
+      },
+      "attributes": {
+        "readIn": "json"
+      },
+      "alsoAt": []
+    },
+    {
+      "id": "config:BasketApiClient",
+      "kind": "config",
+      "name": "BasketApiClient",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/Identity.API/Configuration/Config.cs",
+        "line": 151
+      },
+      "attributes": {
+        "readIn": "code"
+      },
+      "alsoAt": [
+        {
+          "file": "src/Identity.API/Configuration/Config.cs",
+          "line": 152
+        }
+      ]
+    },
+    {
+      "id": "config:CatalogOptions:UseCustomizationData",
+      "kind": "config",
+      "name": "CatalogOptions:UseCustomizationData",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/Catalog.API/appsettings.json",
+        "line": 25
+      },
+      "attributes": {
+        "readIn": "json"
+      },
+      "alsoAt": []
+    },
+    {
+      "id": "config:ConnectionStrings:CatalogDB",
+      "kind": "config",
+      "name": "ConnectionStrings:CatalogDB",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/Catalog.API/appsettings.Development.json",
+        "line": 3
+      },
+      "attributes": {
+        "readIn": "json"
+      },
+      "alsoAt": []
+    },
+    {
+      "id": "config:ConnectionStrings:EventBus",
+      "kind": "config",
+      "name": "ConnectionStrings:EventBus",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/Basket.API/appsettings.json",
+        "line": 15
+      },
+      "attributes": {
+        "readIn": "json"
+      },
+      "alsoAt": [
+        {
+          "file": "src/Catalog.API/appsettings.json",
+          "line": 19
+        },
+        {
+          "file": "src/OrderProcessor/appsettings.json",
+          "line": 9
+        },
+        {
+          "file": "src/Ordering.API/appsettings.json",
+          "line": 24
+        },
+        {
+          "file": "src/PaymentProcessor/appsettings.json",
+          "line": 9
+        },
+        {
+          "file": "src/Webhooks.API/appsettings.json",
+          "line": 24
+        }
+      ]
+    },
+    {
+      "id": "config:ConnectionStrings:IdentityDB",
+      "kind": "config",
+      "name": "ConnectionStrings:IdentityDB",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/Identity.API/appsettings.Development.json",
+        "line": 3
+      },
+      "attributes": {
+        "readIn": "json"
+      },
+      "alsoAt": []
+    },
+    {
+      "id": "config:ConnectionStrings:Redis",
+      "kind": "config",
+      "name": "ConnectionStrings:Redis",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/Basket.API/appsettings.json",
+        "line": 14
+      },
+      "attributes": {
+        "readIn": "json"
+      },
+      "alsoAt": []
+    },
+    {
+      "id": "config:ConnectionStrings:WebHooksDB",
+      "kind": "config",
+      "name": "ConnectionStrings:WebHooksDB",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/Webhooks.API/appsettings.Development.json",
+        "line": 10
+      },
+      "attributes": {
+        "readIn": "json"
+      },
+      "alsoAt": []
+    },
+    {
+      "id": "config:ConnectionStrings:chatModel",
+      "kind": "config",
+      "name": "ConnectionStrings:chatModel",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/WebApp/Extensions/Extensions.cs",
+        "line": 102
+      },
+      "attributes": {
+        "readIn": "code"
+      },
+      "alsoAt": []
+    },
+    {
+      "id": "config:ConnectionStrings:orderingdb",
+      "kind": "config",
+      "name": "ConnectionStrings:orderingdb",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/Ordering.API/Extensions/Extensions.cs",
+        "line": 17
+      },
+      "attributes": {
+        "readIn": "code, json"
+      },
+      "alsoAt": [
+        {
+          "file": "src/Ordering.API/appsettings.Development.json",
+          "line": 3
+        }
+      ]
+    },
+    {
+      "id": "config:ConnectionStrings:postgres",
+      "kind": "config",
+      "name": "ConnectionStrings:postgres",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/OrderProcessor/appsettings.Development.json",
+        "line": 10
+      },
+      "attributes": {
+        "readIn": "json"
+      },
+      "alsoAt": []
+    },
+    {
+      "id": "config:ConnectionStrings:textEmbeddingModel",
+      "kind": "config",
+      "name": "ConnectionStrings:textEmbeddingModel",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/Catalog.API/Extensions/Extensions.cs",
+        "line": 43
+      },
+      "attributes": {
+        "readIn": "code"
+      },
+      "alsoAt": []
+    },
+    {
+      "id": "config:EventBus",
+      "kind": "config",
+      "name": "EventBus",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/EventBusRabbitMQ/RabbitMqDependencyInjectionExtensions.cs",
+        "line": 31
+      },
+      "attributes": {
+        "readIn": "code"
+      },
+      "alsoAt": []
+    },
+    {
+      "id": "config:EventBus:SubscriptionClientName",
+      "kind": "config",
+      "name": "EventBus:SubscriptionClientName",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/Basket.API/appsettings.json",
+        "line": 21
+      },
+      "attributes": {
+        "readIn": "json"
+      },
+      "alsoAt": [
+        {
+          "file": "src/Catalog.API/appsettings.json",
+          "line": 22
+        },
+        {
+          "file": "src/OrderProcessor/appsettings.json",
+          "line": 12
+        },
+        {
+          "file": "src/Ordering.API/appsettings.json",
+          "line": 27
+        },
+        {
+          "file": "src/PaymentProcessor/appsettings.json",
+          "line": 12
+        },
+        {
+          "file": "src/WebApp/appsettings.json",
+          "line": 10
+        },
+        {
+          "file": "src/Webhooks.API/appsettings.json",
+          "line": 27
+        }
+      ]
+    },
+    {
+      "id": "config:Identity",
+      "kind": "config",
+      "name": "Identity",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/eShop.ServiceDefaults/AuthenticationExtensions.cs",
+        "line": 22
+      },
+      "attributes": {
+        "readIn": "code"
+      },
+      "alsoAt": [
+        {
+          "file": "src/eShop.ServiceDefaults/OpenApi.Extensions.cs",
+          "line": 52
+        },
+        {
+          "file": "src/eShop.ServiceDefaults/OpenApiOptionsExtensions.cs",
+          "line": 163
+        }
+      ]
+    },
+    {
+      "id": "config:Identity:Audience",
+      "kind": "config",
+      "name": "Identity:Audience",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/Basket.API/appsettings.json",
+        "line": 18
+      },
+      "attributes": {
+        "readIn": "json"
+      },
+      "alsoAt": [
+        {
+          "file": "src/Ordering.API/appsettings.json",
+          "line": 30
+        },
+        {
+          "file": "src/Webhooks.API/appsettings.json",
+          "line": 31
+        }
+      ]
+    },
+    {
+      "id": "config:Identity:Scopes:orders",
+      "kind": "config",
+      "name": "Identity:Scopes:orders",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/Ordering.API/appsettings.json",
+        "line": 32
+      },
+      "attributes": {
+        "readIn": "json"
+      },
+      "alsoAt": []
+    },
+    {
+      "id": "config:Identity:Scopes:webhooks",
+      "kind": "config",
+      "name": "Identity:Scopes:webhooks",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/Webhooks.API/appsettings.json",
+        "line": 33
+      },
+      "attributes": {
+        "readIn": "json"
+      },
+      "alsoAt": []
+    },
+    {
+      "id": "config:Identity:Url",
+      "kind": "config",
+      "name": "Identity:Url",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/Webhooks.API/appsettings.json",
+        "line": 30
+      },
+      "attributes": {
+        "readIn": "json"
+      },
+      "alsoAt": []
+    },
+    {
+      "id": "config:Kestrel:EndpointDefaults:Protocols",
+      "kind": "config",
+      "name": "Kestrel:EndpointDefaults:Protocols",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/Basket.API/appsettings.json",
+        "line": 10
+      },
+      "attributes": {
+        "readIn": "json"
+      },
+      "alsoAt": []
+    },
+    {
+      "id": "config:Logging:Console:IncludeScopes",
+      "kind": "config",
+      "name": "Logging:Console:IncludeScopes",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/PaymentProcessor/appsettings.Development.json",
+        "line": 4
+      },
+      "attributes": {
+        "readIn": "json"
+      },
+      "alsoAt": []
+    },
+    {
+      "id": "config:Logging:LogLevel:Aspire.Hosting.Dcp",
+      "kind": "config",
+      "name": "Logging:LogLevel:Aspire.Hosting.Dcp",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/eShop.AppHost/appsettings.json",
+        "line": 6
+      },
+      "attributes": {
+        "readIn": "json"
+      },
+      "alsoAt": []
+    },
+    {
+      "id": "config:Logging:LogLevel:Default",
+      "kind": "config",
+      "name": "Logging:LogLevel:Default",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/Basket.API/appsettings.json",
+        "line": 4
+      },
+      "attributes": {
+        "readIn": "json"
+      },
+      "alsoAt": [
+        {
+          "file": "src/Catalog.API/appsettings.json",
+          "line": 4
+        },
+        {
+          "file": "src/Identity.API/appsettings.json",
+          "line": 4
+        },
+        {
+          "file": "src/OrderProcessor/appsettings.Development.json",
+          "line": 4
+        },
+        {
+          "file": "src/OrderProcessor/appsettings.json",
+          "line": 4
+        },
+        {
+          "file": "src/Ordering.API/appsettings.json",
+          "line": 4
+        },
+        {
+          "file": "src/PaymentProcessor/appsettings.Development.json",
+          "line": 7
+        },
+        {
+          "file": "src/PaymentProcessor/appsettings.json",
+          "line": 4
+        },
+        {
+          "file": "src/WebApp/appsettings.Development.json",
+          "line": 4
+        },
+        {
+          "file": "src/WebApp/appsettings.json",
+          "line": 4
+        },
+        {
+          "file": "src/WebhookClient/appsettings.Development.json",
+          "line": 4
+        },
+        {
+          "file": "src/WebhookClient/appsettings.json",
+          "line": 4
+        },
+        {
+          "file": "src/Webhooks.API/appsettings.Development.json",
+          "line": 4
+        },
+        {
+          "file": "src/Webhooks.API/appsettings.json",
+          "line": 4
+        },
+        {
+          "file": "src/eShop.AppHost/appsettings.json",
+          "line": 4
+        }
+      ]
+    },
+    {
+      "id": "config:Logging:LogLevel:Microsoft",
+      "kind": "config",
+      "name": "Logging:LogLevel:Microsoft",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/OrderProcessor/appsettings.Development.json",
+        "line": 6
+      },
+      "attributes": {
+        "readIn": "json"
+      },
+      "alsoAt": [
+        {
+          "file": "src/PaymentProcessor/appsettings.Development.json",
+          "line": 9
+        },
+        {
+          "file": "src/Webhooks.API/appsettings.Development.json",
+          "line": 6
+        }
+      ]
+    },
+    {
+      "id": "config:Logging:LogLevel:Microsoft.AspNetCore",
+      "kind": "config",
+      "name": "Logging:LogLevel:Microsoft.AspNetCore",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/Basket.API/appsettings.json",
+        "line": 5
+      },
+      "attributes": {
+        "readIn": "json"
+      },
+      "alsoAt": [
+        {
+          "file": "src/Catalog.API/appsettings.json",
+          "line": 5
+        },
+        {
+          "file": "src/Identity.API/appsettings.json",
+          "line": 5
+        },
+        {
+          "file": "src/OrderProcessor/appsettings.json",
+          "line": 5
+        },
+        {
+          "file": "src/Ordering.API/appsettings.json",
+          "line": 5
+        },
+        {
+          "file": "src/PaymentProcessor/appsettings.json",
+          "line": 5
+        },
+        {
+          "file": "src/WebApp/appsettings.Development.json",
+          "line": 5
+        },
+        {
+          "file": "src/WebApp/appsettings.json",
+          "line": 5
+        },
+        {
+          "file": "src/WebhookClient/appsettings.Development.json",
+          "line": 5
+        },
+        {
+          "file": "src/WebhookClient/appsettings.json",
+          "line": 5
+        },
+        {
+          "file": "src/Webhooks.API/appsettings.json",
+          "line": 5
+        },
+        {
+          "file": "src/eShop.AppHost/appsettings.json",
+          "line": 5
+        }
+      ]
+    },
+    {
+      "id": "config:Logging:LogLevel:System",
+      "kind": "config",
+      "name": "Logging:LogLevel:System",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/OrderProcessor/appsettings.Development.json",
+        "line": 5
+      },
+      "attributes": {
+        "readIn": "json"
+      },
+      "alsoAt": [
+        {
+          "file": "src/PaymentProcessor/appsettings.Development.json",
+          "line": 8
+        },
+        {
+          "file": "src/Webhooks.API/appsettings.Development.json",
+          "line": 5
+        }
+      ]
+    },
+    {
+      "id": "config:MauiCallback",
+      "kind": "config",
+      "name": "MauiCallback",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/Identity.API/Configuration/Config.cs",
+        "line": 54
+      },
+      "attributes": {
+        "readIn": "code, json"
+      },
+      "alsoAt": [
+        {
+          "file": "src/Identity.API/Configuration/Config.cs",
+          "line": 57
+        },
+        {
+          "file": "src/Identity.API/appsettings.json",
+          "line": 8
+        }
+      ]
+    },
+    {
+      "id": "config:OTEL_EXPORTER_OTLP_ENDPOINT",
+      "kind": "config",
+      "name": "OTEL_EXPORTER_OTLP_ENDPOINT",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/eShop.ServiceDefaults/Extensions.cs",
+        "line": 87
+      },
+      "attributes": {
+        "readIn": "code"
+      },
+      "alsoAt": []
+    },
+    {
+      "id": "config:OllamaEnabled",
+      "kind": "config",
+      "name": "OllamaEnabled",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/Catalog.API/Extensions/Extensions.cs",
+        "line": 38
+      },
+      "attributes": {
+        "readIn": "code"
+      },
+      "alsoAt": [
+        {
+          "file": "src/WebApp/Extensions/Extensions.cs",
+          "line": 97
+        }
+      ]
+    },
+    {
+      "id": "config:OpenApi",
+      "kind": "config",
+      "name": "OpenApi",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/eShop.ServiceDefaults/OpenApi.Extensions.cs",
+        "line": 17
+      },
+      "attributes": {
+        "readIn": "code"
+      },
+      "alsoAt": [
+        {
+          "file": "src/eShop.ServiceDefaults/OpenApi.Extensions.cs",
+          "line": 51
+        }
+      ]
+    },
+    {
+      "id": "config:OpenApi:Auth:AppName",
+      "kind": "config",
+      "name": "OpenApi:Auth:AppName",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/Ordering.API/appsettings.json",
+        "line": 20
+      },
+      "attributes": {
+        "readIn": "json"
+      },
+      "alsoAt": [
+        {
+          "file": "src/Webhooks.API/appsettings.json",
+          "line": 20
+        }
+      ]
+    },
+    {
+      "id": "config:OpenApi:Auth:ClientId",
+      "kind": "config",
+      "name": "OpenApi:Auth:ClientId",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/Ordering.API/appsettings.json",
+        "line": 19
+      },
+      "attributes": {
+        "readIn": "json"
+      },
+      "alsoAt": [
+        {
+          "file": "src/Webhooks.API/appsettings.json",
+          "line": 19
+        }
+      ]
+    },
+    {
+      "id": "config:OpenApi:Document:Description",
+      "kind": "config",
+      "name": "OpenApi:Document:Description",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/Catalog.API/appsettings.json",
+        "line": 13
+      },
+      "attributes": {
+        "readIn": "json"
+      },
+      "alsoAt": [
+        {
+          "file": "src/Ordering.API/appsettings.json",
+          "line": 14
+        },
+        {
+          "file": "src/Webhooks.API/appsettings.json",
+          "line": 14
+        }
+      ]
+    },
+    {
+      "id": "config:OpenApi:Document:Title",
+      "kind": "config",
+      "name": "OpenApi:Document:Title",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/Catalog.API/appsettings.json",
+        "line": 14
+      },
+      "attributes": {
+        "readIn": "json"
+      },
+      "alsoAt": [
+        {
+          "file": "src/Ordering.API/appsettings.json",
+          "line": 15
+        },
+        {
+          "file": "src/Webhooks.API/appsettings.json",
+          "line": 15
+        }
+      ]
+    },
+    {
+      "id": "config:OpenApi:Document:Version",
+      "kind": "config",
+      "name": "OpenApi:Document:Version",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/Catalog.API/appsettings.json",
+        "line": 15
+      },
+      "attributes": {
+        "readIn": "json"
+      },
+      "alsoAt": [
+        {
+          "file": "src/Ordering.API/appsettings.json",
+          "line": 16
+        },
+        {
+          "file": "src/Webhooks.API/appsettings.json",
+          "line": 16
+        }
+      ]
+    },
+    {
+      "id": "config:OpenApi:Endpoint:Name",
+      "kind": "config",
+      "name": "OpenApi:Endpoint:Name",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/Catalog.API/appsettings.json",
+        "line": 10
+      },
+      "attributes": {
+        "readIn": "json"
+      },
+      "alsoAt": [
+        {
+          "file": "src/Ordering.API/appsettings.json",
+          "line": 11
+        },
+        {
+          "file": "src/Webhooks.API/appsettings.json",
+          "line": 11
+        }
+      ]
+    },
+    {
+      "id": "config:OrderingApiClient",
+      "kind": "config",
+      "name": "OrderingApiClient",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/Identity.API/Configuration/Config.cs",
+        "line": 166
+      },
+      "attributes": {
+        "readIn": "code"
+      },
+      "alsoAt": [
+        {
+          "file": "src/Identity.API/Configuration/Config.cs",
+          "line": 167
+        }
+      ]
+    },
+    {
+      "id": "config:PaymentOptions:PaymentSucceeded",
+      "kind": "config",
+      "name": "PaymentOptions:PaymentSucceeded",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/PaymentProcessor/appsettings.json",
+        "line": 15
+      },
+      "attributes": {
+        "readIn": "json"
+      },
+      "alsoAt": []
+    },
+    {
+      "id": "config:PermanentTokenLifetimeDays",
+      "kind": "config",
+      "name": "PermanentTokenLifetimeDays",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/Identity.API/appsettings.json",
+        "line": 11
+      },
+      "attributes": {
+        "readIn": "json"
+      },
+      "alsoAt": []
+    },
+    {
+      "id": "config:SessionCookieLifetimeMinutes",
+      "kind": "config",
+      "name": "SessionCookieLifetimeMinutes",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/WebApp/Extensions/Extensions.cs",
+        "line": 62
+      },
+      "attributes": {
+        "readIn": "code, json"
+      },
+      "alsoAt": [
+        {
+          "file": "src/WebApp/appsettings.json",
+          "line": 12
+        },
+        {
+          "file": "src/WebhookClient/Extensions/Extensions.cs",
+          "line": 31
+        }
+      ]
+    },
+    {
+      "id": "config:TokenLifetimeMinutes",
+      "kind": "config",
+      "name": "TokenLifetimeMinutes",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/Identity.API/appsettings.json",
+        "line": 10
+      },
+      "attributes": {
+        "readIn": "json"
+      },
+      "alsoAt": []
+    },
+    {
+      "id": "config:UseCustomizationData",
+      "kind": "config",
+      "name": "UseCustomizationData",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/Identity.API/appsettings.json",
+        "line": 9
+      },
+      "attributes": {
+        "readIn": "json"
+      },
+      "alsoAt": [
+        {
+          "file": "src/Webhooks.API/appsettings.json",
+          "line": 36
+        }
+      ]
+    },
+    {
+      "id": "config:UseFoundry",
+      "kind": "config",
+      "name": "UseFoundry",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/eShop.AppHost/Extensions.cs",
+        "line": 15
+      },
+      "attributes": {
+        "readIn": "code"
+      },
+      "alsoAt": []
+    },
+    {
+      "id": "config:ValidateToken",
+      "kind": "config",
+      "name": "ValidateToken",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/WebhookClient/Endpoints/WebhookEndpoints.cs",
+        "line": 13
+      },
+      "attributes": {
+        "readIn": "code"
+      },
+      "alsoAt": []
+    },
+    {
+      "id": "config:WebAppClient",
+      "kind": "config",
+      "name": "WebAppClient",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/Identity.API/Configuration/Config.cs",
+        "line": 84
+      },
+      "attributes": {
+        "readIn": "code"
+      },
+      "alsoAt": [
+        {
+          "file": "src/Identity.API/Configuration/Config.cs",
+          "line": 93
+        },
+        {
+          "file": "src/Identity.API/Configuration/Config.cs",
+          "line": 97
+        }
+      ]
+    },
+    {
+      "id": "config:WebhookClientOptions:Token",
+      "kind": "config",
+      "name": "WebhookClientOptions:Token",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/WebhookClient/Endpoints/WebhookEndpoints.cs",
+        "line": 14
+      },
+      "attributes": {
+        "readIn": "code, json"
+      },
+      "alsoAt": [
+        {
+          "file": "src/WebhookClient/appsettings.json",
+          "line": 10
+        }
+      ]
+    },
+    {
+      "id": "config:WebhooksApiClient",
+      "kind": "config",
+      "name": "WebhooksApiClient",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/Identity.API/Configuration/Config.cs",
+        "line": 181
+      },
+      "attributes": {
+        "readIn": "code"
+      },
+      "alsoAt": [
+        {
+          "file": "src/Identity.API/Configuration/Config.cs",
+          "line": 182
+        }
+      ]
+    },
+    {
+      "id": "config:WebhooksWebClient",
+      "kind": "config",
+      "name": "WebhooksWebClient",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/Identity.API/Configuration/Config.cs",
+        "line": 120
+      },
+      "attributes": {
+        "readIn": "code"
+      },
+      "alsoAt": [
+        {
+          "file": "src/Identity.API/Configuration/Config.cs",
+          "line": 128
+        },
+        {
+          "file": "src/Identity.API/Configuration/Config.cs",
+          "line": 132
+        }
+      ]
+    },
+    {
+      "id": "http:CatalogService [HybridApp]",
+      "kind": "httpClient",
+      "name": "CatalogService",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/HybridApp/MauiProgram.cs",
+        "line": 30
+      },
+      "attributes": {
+        "baseAddress": "",
+        "baseAddressFrom": "none",
+        "project": "HybridApp"
+      },
+      "alsoAt": []
+    },
+    {
+      "id": "http:CatalogService [WebApp]",
+      "kind": "httpClient",
+      "name": "CatalogService",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/WebApp/Extensions/Extensions.cs",
+        "line": 34
+      },
+      "attributes": {
+        "baseAddress": "https+http://catalog-api",
+        "baseAddressFrom": "code",
+        "project": "WebApp"
+      },
+      "alsoAt": []
+    },
+    {
+      "id": "http:OrderingService",
+      "kind": "httpClient",
+      "name": "OrderingService",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/WebApp/Extensions/Extensions.cs",
+        "line": 38
+      },
+      "attributes": {
+        "baseAddress": "https+http://ordering-api",
+        "baseAddressFrom": "code",
+        "project": "WebApp"
+      },
+      "alsoAt": []
+    },
+    {
+      "id": "http:WebhooksClient",
+      "kind": "httpClient",
+      "name": "WebhooksClient",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/WebhookClient/Extensions/Extensions.cs",
+        "line": 19
+      },
+      "attributes": {
+        "baseAddress": "http://webhooks-api",
+        "baseAddressFrom": "code",
+        "project": "WebhookClient"
+      },
+      "alsoAt": []
+    },
+    {
+      "id": "hosted:GracePeriodManagerService",
+      "kind": "hostedService",
+      "name": "GracePeriodManagerService",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/OrderProcessor/Services/GracePeriodManagerService.cs",
+        "line": 7
+      },
+      "attributes": {
+        "abstract": "no",
+        "bases": "BackgroundService",
+        "registeredWithAddHostedService": "yes"
+      },
+      "alsoAt": []
+    },
+    {
+      "id": "hosted:MigrationHostedService<TContext>",
+      "kind": "hostedService",
+      "name": "MigrationHostedService<TContext>",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/Shared/MigrateDbContextExtensions.cs",
+        "line": 76
+      },
+      "attributes": {
+        "abstract": "no",
+        "bases": "BackgroundService",
+        "registeredWithAddHostedService": "yes"
+      },
+      "alsoAt": []
+    },
+    {
+      "id": "hosted:RabbitMQEventBus",
+      "kind": "hostedService",
+      "name": "RabbitMQEventBus",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/EventBusRabbitMQ/RabbitMQEventBus.cs",
+        "line": 13
+      },
+      "attributes": {
+        "abstract": "no",
+        "bases": "IDisposable, IEventBus, IHostedService",
+        "registeredWithAddHostedService": "no"
+      },
+      "alsoAt": []
+    },
+    {
+      "id": "component:Basket.API",
+      "kind": "component",
+      "name": "Basket.API",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/Basket.API/Basket.API.csproj",
+        "line": 1
+      },
+      "attributes": {
+        "executables": "project:Basket.API",
+        "infrastructure": "eventbus (broker), redis (cache)",
+        "libraries": "",
+        "role": "service",
+        "sdk": "Microsoft.NET.Sdk.Web",
+        "usedBy": ""
+      },
+      "alsoAt": []
+    },
+    {
+      "id": "component:Catalog.API",
+      "kind": "component",
+      "name": "Catalog.API",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/Catalog.API/Catalog.API.csproj",
+        "line": 1
+      },
+      "attributes": {
+        "executables": "project:Catalog.API",
+        "infrastructure": "catalogdb (database), embedding (model), eventbus (broker), textEmbeddingModel (deployment)",
+        "libraries": "",
+        "role": "service",
+        "sdk": "Microsoft.NET.Sdk.Web",
+        "usedBy": ""
+      },
+      "alsoAt": []
+    },
+    {
+      "id": "component:ClientApp",
+      "kind": "component",
+      "name": "ClientApp",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/ClientApp/ClientApp.csproj",
+        "line": 1
+      },
+      "attributes": {
+        "executables": "project:ClientApp",
+        "infrastructure": "",
+        "libraries": "",
+        "role": "application",
+        "sdk": "Microsoft.NET.Sdk",
+        "usedBy": ""
+      },
+      "alsoAt": []
+    },
+    {
+      "id": "component:EventBus",
+      "kind": "component",
+      "name": "EventBus",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/EventBus/EventBus.csproj",
+        "line": 1
+      },
+      "attributes": {
+        "executables": "",
+        "infrastructure": "",
+        "libraries": "project:EventBus",
+        "role": "shared-library",
+        "sdk": "Microsoft.NET.Sdk",
+        "usedBy": "Basket.API, Catalog.API, OrderProcessor, Ordering.API, PaymentProcessor, WebApp, Webhooks.API"
+      },
+      "alsoAt": []
+    },
+    {
+      "id": "component:EventBusRabbitMQ",
+      "kind": "component",
+      "name": "EventBusRabbitMQ",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/EventBusRabbitMQ/EventBusRabbitMQ.csproj",
+        "line": 1
+      },
+      "attributes": {
+        "executables": "",
+        "infrastructure": "",
+        "libraries": "project:EventBusRabbitMQ",
+        "role": "shared-library",
+        "sdk": "Microsoft.NET.Sdk",
+        "usedBy": "Basket.API, Catalog.API, OrderProcessor, Ordering.API, PaymentProcessor, WebApp, Webhooks.API"
+      },
+      "alsoAt": []
+    },
+    {
+      "id": "component:HybridApp",
+      "kind": "component",
+      "name": "HybridApp",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/HybridApp/HybridApp.csproj",
+        "line": 1
+      },
+      "attributes": {
+        "executables": "project:HybridApp",
+        "infrastructure": "",
+        "libraries": "",
+        "role": "application",
+        "sdk": "Microsoft.NET.Sdk.Razor",
+        "usedBy": ""
+      },
+      "alsoAt": []
+    },
+    {
+      "id": "component:Identity.API",
+      "kind": "component",
+      "name": "Identity.API",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/Identity.API/Identity.API.csproj",
+        "line": 1
+      },
+      "attributes": {
+        "executables": "project:Identity.API",
+        "infrastructure": "identitydb (database)",
+        "libraries": "",
+        "role": "service",
+        "sdk": "Microsoft.NET.Sdk.Web",
+        "usedBy": ""
+      },
+      "alsoAt": []
+    },
+    {
+      "id": "component:IntegrationEventLogEF",
+      "kind": "component",
+      "name": "IntegrationEventLogEF",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/IntegrationEventLogEF/IntegrationEventLogEF.csproj",
+        "line": 1
+      },
+      "attributes": {
+        "executables": "",
+        "infrastructure": "",
+        "libraries": "project:IntegrationEventLogEF",
+        "role": "shared-library",
+        "sdk": "Microsoft.NET.Sdk",
+        "usedBy": "Catalog.API, Ordering.API, Webhooks.API"
+      },
+      "alsoAt": []
+    },
+    {
+      "id": "component:OrderProcessor",
+      "kind": "component",
+      "name": "OrderProcessor",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/OrderProcessor/OrderProcessor.csproj",
+        "line": 1
+      },
+      "attributes": {
+        "executables": "project:OrderProcessor",
+        "infrastructure": "eventbus (broker), orderingdb (database)",
+        "libraries": "",
+        "role": "service",
+        "sdk": "Microsoft.NET.Sdk.Worker",
+        "usedBy": ""
+      },
+      "alsoAt": []
+    },
+    {
+      "id": "component:Ordering.API",
+      "kind": "component",
+      "name": "Ordering.API",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/Ordering.API/Ordering.API.csproj",
+        "line": 1
+      },
+      "attributes": {
+        "executables": "project:Ordering.API",
+        "infrastructure": "eventbus (broker), orderingdb (database)",
+        "libraries": "project:Ordering.Domain, project:Ordering.Infrastructure",
+        "role": "service",
+        "sdk": "Microsoft.NET.Sdk.Web",
+        "usedBy": ""
+      },
+      "alsoAt": []
+    },
+    {
+      "id": "component:PaymentProcessor",
+      "kind": "component",
+      "name": "PaymentProcessor",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/PaymentProcessor/PaymentProcessor.csproj",
+        "line": 1
+      },
+      "attributes": {
+        "executables": "project:PaymentProcessor",
+        "infrastructure": "eventbus (broker)",
+        "libraries": "",
+        "role": "service",
+        "sdk": "Microsoft.NET.Sdk.Web",
+        "usedBy": ""
+      },
+      "alsoAt": []
+    },
+    {
+      "id": "component:WebApp",
+      "kind": "component",
+      "name": "WebApp",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/WebApp/WebApp.csproj",
+        "line": 1
+      },
+      "attributes": {
+        "executables": "project:WebApp",
+        "infrastructure": "chat (model), chatModel (deployment), eventbus (broker)",
+        "libraries": "",
+        "role": "service",
+        "sdk": "Microsoft.NET.Sdk.Web",
+        "usedBy": ""
+      },
+      "alsoAt": []
+    },
+    {
+      "id": "component:WebAppComponents",
+      "kind": "component",
+      "name": "WebAppComponents",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/WebAppComponents/WebAppComponents.csproj",
+        "line": 1
+      },
+      "attributes": {
+        "executables": "",
+        "infrastructure": "",
+        "libraries": "project:WebAppComponents",
+        "role": "shared-library",
+        "sdk": "Microsoft.NET.Sdk.Razor",
+        "usedBy": "HybridApp, WebApp"
+      },
+      "alsoAt": []
+    },
+    {
+      "id": "component:WebhookClient",
+      "kind": "component",
+      "name": "WebhookClient",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/WebhookClient/WebhookClient.csproj",
+        "line": 1
+      },
+      "attributes": {
+        "executables": "project:WebhookClient",
+        "infrastructure": "",
+        "libraries": "",
+        "role": "service",
+        "sdk": "Microsoft.NET.Sdk.Web",
+        "usedBy": ""
+      },
+      "alsoAt": []
+    },
+    {
+      "id": "component:Webhooks.API",
+      "kind": "component",
+      "name": "Webhooks.API",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/Webhooks.API/Webhooks.API.csproj",
+        "line": 1
+      },
+      "attributes": {
+        "executables": "project:Webhooks.API",
+        "infrastructure": "eventbus (broker), webhooksdb (database)",
+        "libraries": "",
+        "role": "service",
+        "sdk": "Microsoft.NET.Sdk.Web",
+        "usedBy": ""
+      },
+      "alsoAt": []
+    },
+    {
+      "id": "component:eShop.ServiceDefaults",
+      "kind": "component",
+      "name": "eShop.ServiceDefaults",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/eShop.ServiceDefaults/eShop.ServiceDefaults.csproj",
+        "line": 1
+      },
+      "attributes": {
+        "executables": "",
+        "infrastructure": "",
+        "libraries": "project:eShop.ServiceDefaults",
+        "role": "shared-library",
+        "sdk": "Microsoft.NET.Sdk",
+        "usedBy": "Basket.API, Catalog.API, Identity.API, OrderProcessor, Ordering.API, PaymentProcessor, WebApp, WebhookClient, Webhooks.API"
+      },
+      "alsoAt": []
+    },
+    {
+      "id": "event:GracePeriodConfirmedIntegrationEvent",
+      "kind": "event",
+      "name": "GracePeriodConfirmedIntegrationEvent",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/OrderProcessor/Services/GracePeriodManagerService.cs",
+        "line": 43
+      },
+      "attributes": {
+        "consumers": "Ordering.API",
+        "handlers": "Ordering.API.GracePeriodConfirmedIntegrationEventHandler",
+        "producers": "OrderProcessor"
+      },
+      "alsoAt": []
+    },
+    {
+      "id": "event:OrderPaymentFailedIntegrationEvent",
+      "kind": "event",
+      "name": "OrderPaymentFailedIntegrationEvent",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/PaymentProcessor/IntegrationEvents/EventHandling/OrderStatusChangedToStockConfirmedIntegrationEventHandler.cs",
+        "line": 9
+      },
+      "attributes": {
+        "consumers": "Ordering.API",
+        "handlers": "Ordering.API.OrderPaymentFailedIntegrationEventHandler",
+        "producers": "PaymentProcessor"
+      },
+      "alsoAt": []
+    },
+    {
+      "id": "event:OrderPaymentSucceededIntegrationEvent",
+      "kind": "event",
+      "name": "OrderPaymentSucceededIntegrationEvent",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/PaymentProcessor/IntegrationEvents/EventHandling/OrderStatusChangedToStockConfirmedIntegrationEventHandler.cs",
+        "line": 9
+      },
+      "attributes": {
+        "consumers": "Ordering.API",
+        "handlers": "Ordering.API.OrderPaymentSucceededIntegrationEventHandler",
+        "producers": "PaymentProcessor"
+      },
+      "alsoAt": []
+    },
+    {
+      "id": "event:OrderStartedIntegrationEvent",
+      "kind": "event",
+      "name": "OrderStartedIntegrationEvent",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/Ordering.API/Application/Commands/CreateOrderCommandHandler.cs",
+        "line": 29
+      },
+      "attributes": {
+        "consumers": "Basket.API",
+        "handlers": "Basket.API.OrderStartedIntegrationEventHandler",
+        "producers": "Ordering.API"
+      },
+      "alsoAt": []
+    },
+    {
+      "id": "event:OrderStatusChangedToAwaitingValidationIntegrationEvent",
+      "kind": "event",
+      "name": "OrderStatusChangedToAwaitingValidationIntegrationEvent",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/Ordering.API/Application/DomainEventHandlers/OrderStatusChangedToAwaitingValidationDomainEventHandler.cs",
+        "line": 23
+      },
+      "attributes": {
+        "consumers": "Catalog.API, WebApp",
+        "handlers": "Catalog.API.OrderStatusChangedToAwaitingValidationIntegrationEventHandler, WebApp.OrderStatusChangedToAwaitingValidationIntegrationEventHandler",
+        "producers": "Ordering.API"
+      },
+      "alsoAt": []
+    },
+    {
+      "id": "event:OrderStatusChangedToCancelledIntegrationEvent",
+      "kind": "event",
+      "name": "OrderStatusChangedToCancelledIntegrationEvent",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/Ordering.API/Application/DomainEventHandlers/OrderCancelledDomainEventHandler.cs",
+        "line": 23
+      },
+      "attributes": {
+        "consumers": "WebApp",
+        "handlers": "WebApp.OrderStatusChangedToCancelledIntegrationEventHandler",
+        "producers": "Ordering.API"
+      },
+      "alsoAt": []
+    },
+    {
+      "id": "event:OrderStatusChangedToPaidIntegrationEvent",
+      "kind": "event",
+      "name": "OrderStatusChangedToPaidIntegrationEvent",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/Ordering.API/Application/DomainEventHandlers/OrderStatusChangedToPaidDomainEventHandler.cs",
+        "line": 22
+      },
+      "attributes": {
+        "consumers": "Catalog.API, WebApp, Webhooks.API",
+        "handlers": "Catalog.API.OrderStatusChangedToPaidIntegrationEventHandler, WebApp.OrderStatusChangedToPaidIntegrationEventHandler, Webhooks.API.OrderStatusChangedToPaidIntegrationEventHandler",
+        "producers": "Ordering.API"
+      },
+      "alsoAt": []
+    },
+    {
+      "id": "event:OrderStatusChangedToShippedIntegrationEvent",
+      "kind": "event",
+      "name": "OrderStatusChangedToShippedIntegrationEvent",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/Ordering.API/Application/DomainEventHandlers/OrderShippedDomainEventHandler.cs",
+        "line": 23
+      },
+      "attributes": {
+        "consumers": "WebApp, Webhooks.API",
+        "handlers": "WebApp.OrderStatusChangedToShippedIntegrationEventHandler, Webhooks.API.OrderStatusChangedToShippedIntegrationEventHandler",
+        "producers": "Ordering.API"
+      },
+      "alsoAt": []
+    },
+    {
+      "id": "event:OrderStatusChangedToStockConfirmedIntegrationEvent",
+      "kind": "event",
+      "name": "OrderStatusChangedToStockConfirmedIntegrationEvent",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/Ordering.API/Application/DomainEventHandlers/OrderStatusChangedToStockConfirmedDomainEventHandler.cs",
+        "line": 23
+      },
+      "attributes": {
+        "consumers": "PaymentProcessor, WebApp",
+        "handlers": "PaymentProcessor.OrderStatusChangedToStockConfirmedIntegrationEventHandler, WebApp.OrderStatusChangedToStockConfirmedIntegrationEventHandler",
+        "producers": "Ordering.API"
+      },
+      "alsoAt": []
+    },
+    {
+      "id": "event:OrderStatusChangedToSubmittedIntegrationEvent",
+      "kind": "event",
+      "name": "OrderStatusChangedToSubmittedIntegrationEvent",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/Ordering.API/Application/DomainEventHandlers/ValidateOrAddBuyerAggregateWhenOrderStartedDomainEventHandler.cs",
+        "line": 20
+      },
+      "attributes": {
+        "consumers": "WebApp",
+        "handlers": "WebApp.OrderStatusChangedToSubmittedIntegrationEventHandler",
+        "producers": "Ordering.API"
+      },
+      "alsoAt": []
+    },
+    {
+      "id": "event:OrderStockConfirmedIntegrationEvent",
+      "kind": "event",
+      "name": "OrderStockConfirmedIntegrationEvent",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/Catalog.API/IntegrationEvents/EventHandling/OrderStatusChangedToAwaitingValidationIntegrationEventHandler.cs",
+        "line": 9
+      },
+      "attributes": {
+        "consumers": "Ordering.API",
+        "handlers": "Ordering.API.OrderStockConfirmedIntegrationEventHandler",
+        "producers": "Catalog.API"
+      },
+      "alsoAt": []
+    },
+    {
+      "id": "event:OrderStockRejectedIntegrationEvent",
+      "kind": "event",
+      "name": "OrderStockRejectedIntegrationEvent",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/Catalog.API/IntegrationEvents/EventHandling/OrderStatusChangedToAwaitingValidationIntegrationEventHandler.cs",
+        "line": 9
+      },
+      "attributes": {
+        "consumers": "Ordering.API",
+        "handlers": "Ordering.API.OrderStockRejectedIntegrationEventHandler",
+        "producers": "Catalog.API"
+      },
+      "alsoAt": []
+    },
+    {
+      "id": "event:ProductPriceChangedIntegrationEvent",
+      "kind": "event",
+      "name": "ProductPriceChangedIntegrationEvent",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/Catalog.API/Apis/CatalogApi.cs",
+        "line": 373
+      },
+      "attributes": {
+        "consumers": "Webhooks.API",
+        "handlers": "Webhooks.API.ProductPriceChangedIntegrationEventHandler",
+        "producers": "Catalog.API"
+      },
+      "alsoAt": []
+    },
+    {
+      "id": "link:call WebApp -> Basket.API (AddGrpcClient)",
+      "kind": "link",
+      "name": "WebApp -> Basket.API",
+      "evidence": "inferred",
+      "source": {
+        "file": "src/WebApp/Extensions/Extensions.cs",
+        "line": 31
+      },
+      "attributes": {
+        "from": "WebApp",
+        "kind": "call",
+        "to": "Basket.API",
+        "via": "AddGrpcClient"
+      },
+      "alsoAt": []
+    },
+    {
+      "id": "link:call WebApp -> Catalog.API (AddHttpClient)",
+      "kind": "link",
+      "name": "WebApp -> Catalog.API",
+      "evidence": "inferred",
+      "source": {
+        "file": "src/WebApp/Extensions/Extensions.cs",
+        "line": 34
+      },
+      "attributes": {
+        "from": "WebApp",
+        "kind": "call",
+        "to": "Catalog.API",
+        "via": "AddHttpClient"
+      },
+      "alsoAt": []
+    },
+    {
+      "id": "link:call WebApp -> Catalog.API (MapForwarder)",
+      "kind": "link",
+      "name": "WebApp -> Catalog.API",
+      "evidence": "inferred",
+      "source": {
+        "file": "src/WebApp/Program.cs",
+        "line": 32
+      },
+      "attributes": {
+        "from": "WebApp",
+        "kind": "call",
+        "to": "Catalog.API",
+        "via": "MapForwarder"
+      },
+      "alsoAt": []
+    },
+    {
+      "id": "link:call WebApp -> Ordering.API (AddHttpClient)",
+      "kind": "link",
+      "name": "WebApp -> Ordering.API",
+      "evidence": "inferred",
+      "source": {
+        "file": "src/WebApp/Extensions/Extensions.cs",
+        "line": 38
+      },
+      "attributes": {
+        "from": "WebApp",
+        "kind": "call",
+        "to": "Ordering.API",
+        "via": "AddHttpClient"
+      },
+      "alsoAt": []
+    },
+    {
+      "id": "link:call WebhookClient -> Webhooks.API (AddHttpClient)",
+      "kind": "link",
+      "name": "WebhookClient -> Webhooks.API",
+      "evidence": "inferred",
+      "source": {
+        "file": "src/WebhookClient/Extensions/Extensions.cs",
+        "line": 19
+      },
+      "attributes": {
+        "from": "WebhookClient",
+        "kind": "call",
+        "to": "Webhooks.API",
+        "via": "AddHttpClient"
+      },
+      "alsoAt": []
+    },
+    {
+      "id": "link:data OrderProcessor -> Ordering.API (ordering.orders)",
+      "kind": "link",
+      "name": "OrderProcessor -> Ordering.API",
+      "evidence": "inferred",
+      "source": {
+        "file": "src/OrderProcessor/Services/GracePeriodOrdersRepository.cs",
+        "line": 24
+      },
+      "attributes": {
+        "from": "OrderProcessor",
+        "kind": "data",
+        "to": "Ordering.API",
+        "via": "ordering.orders"
+      },
+      "alsoAt": []
+    },
+    {
+      "id": "link:event Catalog.API -> Ordering.API (OrderStockConfirmedIntegrationEvent)",
+      "kind": "link",
+      "name": "Catalog.API -> Ordering.API",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/Ordering.API/Application/IntegrationEvents/EventHandling/OrderStockConfirmedIntegrationEventHandler.cs",
+        "line": 3
+      },
+      "attributes": {
+        "from": "Catalog.API",
+        "kind": "event",
+        "to": "Ordering.API",
+        "via": "OrderStockConfirmedIntegrationEvent"
+      },
+      "alsoAt": [
+        {
+          "file": "src/Ordering.API/Extensions/Extensions.cs",
+          "line": 58
+        }
+      ]
+    },
+    {
+      "id": "link:event Catalog.API -> Ordering.API (OrderStockRejectedIntegrationEvent)",
+      "kind": "link",
+      "name": "Catalog.API -> Ordering.API",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/Ordering.API/Application/IntegrationEvents/EventHandling/OrderStockRejectedIntegrationEventHandler.cs",
+        "line": 2
+      },
+      "attributes": {
+        "from": "Catalog.API",
+        "kind": "event",
+        "to": "Ordering.API",
+        "via": "OrderStockRejectedIntegrationEvent"
+      },
+      "alsoAt": [
+        {
+          "file": "src/Ordering.API/Extensions/Extensions.cs",
+          "line": 59
+        }
+      ]
+    },
+    {
+      "id": "link:event Catalog.API -> Webhooks.API (ProductPriceChangedIntegrationEvent)",
+      "kind": "link",
+      "name": "Catalog.API -> Webhooks.API",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/Webhooks.API/Extensions/Extensions.cs",
+        "line": 21
+      },
+      "attributes": {
+        "from": "Catalog.API",
+        "kind": "event",
+        "to": "Webhooks.API",
+        "via": "ProductPriceChangedIntegrationEvent"
+      },
+      "alsoAt": [
+        {
+          "file": "src/Webhooks.API/IntegrationEvents/ProductPriceChangedIntegrationEventHandler.cs",
+          "line": 3
+        }
+      ]
+    },
+    {
+      "id": "link:event OrderProcessor -> Ordering.API (GracePeriodConfirmedIntegrationEvent)",
+      "kind": "link",
+      "name": "OrderProcessor -> Ordering.API",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/Ordering.API/Application/IntegrationEvents/EventHandling/GracePeriodConfirmedIntegrationEventHandler.cs",
+        "line": 3
+      },
+      "attributes": {
+        "from": "OrderProcessor",
+        "kind": "event",
+        "to": "Ordering.API",
+        "via": "GracePeriodConfirmedIntegrationEvent"
+      },
+      "alsoAt": [
+        {
+          "file": "src/Ordering.API/Extensions/Extensions.cs",
+          "line": 57
+        }
+      ]
+    },
+    {
+      "id": "link:event Ordering.API -> Basket.API (OrderStartedIntegrationEvent)",
+      "kind": "link",
+      "name": "Ordering.API -> Basket.API",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/Basket.API/Extensions/Extensions.cs",
+        "line": 19
+      },
+      "attributes": {
+        "from": "Ordering.API",
+        "kind": "event",
+        "to": "Basket.API",
+        "via": "OrderStartedIntegrationEvent"
+      },
+      "alsoAt": [
+        {
+          "file": "src/Basket.API/IntegrationEvents/EventHandling/OrderStartedIntegrationEventHandler.cs",
+          "line": 6
+        }
+      ]
+    },
+    {
+      "id": "link:event Ordering.API -> Catalog.API (OrderStatusChangedToAwaitingValidationIntegrationEvent)",
+      "kind": "link",
+      "name": "Ordering.API -> Catalog.API",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/Catalog.API/Extensions/Extensions.cs",
+        "line": 32
+      },
+      "attributes": {
+        "from": "Ordering.API",
+        "kind": "event",
+        "to": "Catalog.API",
+        "via": "OrderStatusChangedToAwaitingValidationIntegrationEvent"
+      },
+      "alsoAt": [
+        {
+          "file": "src/Catalog.API/IntegrationEvents/EventHandling/OrderStatusChangedToAwaitingValidationIntegrationEventHandler.cs",
+          "line": 3
+        }
+      ]
+    },
+    {
+      "id": "link:event Ordering.API -> Catalog.API (OrderStatusChangedToPaidIntegrationEvent)",
+      "kind": "link",
+      "name": "Ordering.API -> Catalog.API",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/Catalog.API/Extensions/Extensions.cs",
+        "line": 33
+      },
+      "attributes": {
+        "from": "Ordering.API",
+        "kind": "event",
+        "to": "Catalog.API",
+        "via": "OrderStatusChangedToPaidIntegrationEvent"
+      },
+      "alsoAt": [
+        {
+          "file": "src/Catalog.API/IntegrationEvents/EventHandling/OrderStatusChangedToPaidIntegrationEventHandler.cs",
+          "line": 3
+        }
+      ]
+    },
+    {
+      "id": "link:event Ordering.API -> PaymentProcessor (OrderStatusChangedToStockConfirmedIntegrationEvent)",
+      "kind": "link",
+      "name": "Ordering.API -> PaymentProcessor",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/PaymentProcessor/IntegrationEvents/EventHandling/OrderStatusChangedToStockConfirmedIntegrationEventHandler.cs",
+        "line": 3
+      },
+      "attributes": {
+        "from": "Ordering.API",
+        "kind": "event",
+        "to": "PaymentProcessor",
+        "via": "OrderStatusChangedToStockConfirmedIntegrationEvent"
+      },
+      "alsoAt": [
+        {
+          "file": "src/PaymentProcessor/Program.cs",
+          "line": 6
+        }
+      ]
+    },
+    {
+      "id": "link:event Ordering.API -> WebApp (OrderStatusChangedToAwaitingValidationIntegrationEvent)",
+      "kind": "link",
+      "name": "Ordering.API -> WebApp",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/WebApp/Extensions/Extensions.cs",
+        "line": 45
+      },
+      "attributes": {
+        "from": "Ordering.API",
+        "kind": "event",
+        "to": "WebApp",
+        "via": "OrderStatusChangedToAwaitingValidationIntegrationEvent"
+      },
+      "alsoAt": [
+        {
+          "file": "src/WebApp/Services/OrderStatus/IntegrationEvents/EventHandling/OrderStatusChangedToAwaitingValidationIntegrationEventHandler.cs",
+          "line": 5
+        }
+      ]
+    },
+    {
+      "id": "link:event Ordering.API -> WebApp (OrderStatusChangedToCancelledIntegrationEvent)",
+      "kind": "link",
+      "name": "Ordering.API -> WebApp",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/WebApp/Extensions/Extensions.cs",
+        "line": 49
+      },
+      "attributes": {
+        "from": "Ordering.API",
+        "kind": "event",
+        "to": "WebApp",
+        "via": "OrderStatusChangedToCancelledIntegrationEvent"
+      },
+      "alsoAt": [
+        {
+          "file": "src/WebApp/Services/OrderStatus/IntegrationEvents/EventHandling/OrderStatusChangedToCancelledIntegrationEventHandler.cs",
+          "line": 5
+        }
+      ]
+    },
+    {
+      "id": "link:event Ordering.API -> WebApp (OrderStatusChangedToPaidIntegrationEvent)",
+      "kind": "link",
+      "name": "Ordering.API -> WebApp",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/WebApp/Extensions/Extensions.cs",
+        "line": 46
+      },
+      "attributes": {
+        "from": "Ordering.API",
+        "kind": "event",
+        "to": "WebApp",
+        "via": "OrderStatusChangedToPaidIntegrationEvent"
+      },
+      "alsoAt": [
+        {
+          "file": "src/WebApp/Services/OrderStatus/IntegrationEvents/EventHandling/OrderStatusChangedToPaidIntegrationEventHandler.cs",
+          "line": 5
+        }
+      ]
+    },
+    {
+      "id": "link:event Ordering.API -> WebApp (OrderStatusChangedToShippedIntegrationEvent)",
+      "kind": "link",
+      "name": "Ordering.API -> WebApp",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/WebApp/Extensions/Extensions.cs",
+        "line": 48
+      },
+      "attributes": {
+        "from": "Ordering.API",
+        "kind": "event",
+        "to": "WebApp",
+        "via": "OrderStatusChangedToShippedIntegrationEvent"
+      },
+      "alsoAt": [
+        {
+          "file": "src/WebApp/Services/OrderStatus/IntegrationEvents/EventHandling/OrderStatusChangedToShippedIntegrationEventHandler.cs",
+          "line": 5
+        }
+      ]
+    },
+    {
+      "id": "link:event Ordering.API -> WebApp (OrderStatusChangedToStockConfirmedIntegrationEvent)",
+      "kind": "link",
+      "name": "Ordering.API -> WebApp",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/WebApp/Extensions/Extensions.cs",
+        "line": 47
+      },
+      "attributes": {
+        "from": "Ordering.API",
+        "kind": "event",
+        "to": "WebApp",
+        "via": "OrderStatusChangedToStockConfirmedIntegrationEvent"
+      },
+      "alsoAt": [
+        {
+          "file": "src/WebApp/Services/OrderStatus/IntegrationEvents/EventHandling/OrderStatusChangedToStockConfirmedIntegrationEventHandler.cs",
+          "line": 5
+        }
+      ]
+    },
+    {
+      "id": "link:event Ordering.API -> WebApp (OrderStatusChangedToSubmittedIntegrationEvent)",
+      "kind": "link",
+      "name": "Ordering.API -> WebApp",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/WebApp/Extensions/Extensions.cs",
+        "line": 50
+      },
+      "attributes": {
+        "from": "Ordering.API",
+        "kind": "event",
+        "to": "WebApp",
+        "via": "OrderStatusChangedToSubmittedIntegrationEvent"
+      },
+      "alsoAt": [
+        {
+          "file": "src/WebApp/Services/OrderStatus/IntegrationEvents/EventHandling/OrderStatusChangedToSubmittedIntegrationEventHandler.cs",
+          "line": 5
+        }
+      ]
+    },
+    {
+      "id": "link:event Ordering.API -> Webhooks.API (OrderStatusChangedToPaidIntegrationEvent)",
+      "kind": "link",
+      "name": "Ordering.API -> Webhooks.API",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/Webhooks.API/Extensions/Extensions.cs",
+        "line": 23
+      },
+      "attributes": {
+        "from": "Ordering.API",
+        "kind": "event",
+        "to": "Webhooks.API",
+        "via": "OrderStatusChangedToPaidIntegrationEvent"
+      },
+      "alsoAt": [
+        {
+          "file": "src/Webhooks.API/IntegrationEvents/OrderStatusChangedToPaidIntegrationEventHandler.cs",
+          "line": 3
+        }
+      ]
+    },
+    {
+      "id": "link:event Ordering.API -> Webhooks.API (OrderStatusChangedToShippedIntegrationEvent)",
+      "kind": "link",
+      "name": "Ordering.API -> Webhooks.API",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/Webhooks.API/Extensions/Extensions.cs",
+        "line": 22
+      },
+      "attributes": {
+        "from": "Ordering.API",
+        "kind": "event",
+        "to": "Webhooks.API",
+        "via": "OrderStatusChangedToShippedIntegrationEvent"
+      },
+      "alsoAt": [
+        {
+          "file": "src/Webhooks.API/IntegrationEvents/OrderStatusChangedToShippedIntegrationEventHandler.cs",
+          "line": 3
+        }
+      ]
+    },
+    {
+      "id": "link:event PaymentProcessor -> Ordering.API (OrderPaymentFailedIntegrationEvent)",
+      "kind": "link",
+      "name": "PaymentProcessor -> Ordering.API",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/Ordering.API/Application/IntegrationEvents/EventHandling/OrderPaymentFailedIntegrationEventHandler.cs",
+        "line": 3
+      },
+      "attributes": {
+        "from": "PaymentProcessor",
+        "kind": "event",
+        "to": "Ordering.API",
+        "via": "OrderPaymentFailedIntegrationEvent"
+      },
+      "alsoAt": [
+        {
+          "file": "src/Ordering.API/Extensions/Extensions.cs",
+          "line": 60
+        }
+      ]
+    },
+    {
+      "id": "link:event PaymentProcessor -> Ordering.API (OrderPaymentSucceededIntegrationEvent)",
+      "kind": "link",
+      "name": "PaymentProcessor -> Ordering.API",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/Ordering.API/Application/IntegrationEvents/EventHandling/OrderPaymentSucceededIntegrationEventHandler.cs",
+        "line": 3
+      },
+      "attributes": {
+        "from": "PaymentProcessor",
+        "kind": "event",
+        "to": "Ordering.API",
+        "via": "OrderPaymentSucceededIntegrationEvent"
+      },
+      "alsoAt": [
+        {
+          "file": "src/Ordering.API/Extensions/Extensions.cs",
+          "line": 61
+        }
+      ]
+    },
+    {
+      "id": "link:reference WebApp -> Basket.API (AppHost)",
+      "kind": "link",
+      "name": "WebApp -> Basket.API",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/eShop.AppHost/AppHost.cs",
+        "line": 1
+      },
+      "attributes": {
+        "from": "WebApp",
+        "kind": "reference",
+        "to": "Basket.API",
+        "via": "AppHost"
+      },
+      "alsoAt": []
+    },
+    {
+      "id": "link:reference WebApp -> Catalog.API (AppHost)",
+      "kind": "link",
+      "name": "WebApp -> Catalog.API",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/eShop.AppHost/AppHost.cs",
+        "line": 1
+      },
+      "attributes": {
+        "from": "WebApp",
+        "kind": "reference",
+        "to": "Catalog.API",
+        "via": "AppHost"
+      },
+      "alsoAt": []
+    },
+    {
+      "id": "link:reference WebApp -> Ordering.API (AppHost)",
+      "kind": "link",
+      "name": "WebApp -> Ordering.API",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/eShop.AppHost/AppHost.cs",
+        "line": 1
+      },
+      "attributes": {
+        "from": "WebApp",
+        "kind": "reference",
+        "to": "Ordering.API",
+        "via": "AppHost"
+      },
+      "alsoAt": []
+    },
+    {
+      "id": "link:reference WebhookClient -> Webhooks.API (AppHost)",
+      "kind": "link",
+      "name": "WebhookClient -> Webhooks.API",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/eShop.AppHost/AppHost.cs",
+        "line": 1
+      },
+      "attributes": {
+        "from": "WebhookClient",
+        "kind": "reference",
+        "to": "Webhooks.API",
+        "via": "AppHost"
+      },
+      "alsoAt": []
+    },
+    {
+      "id": "flow:endpoint:POST /api/orders",
+      "kind": "flow",
+      "name": "POST /api/orders",
+      "evidence": "inferred",
+      "source": {
+        "file": "src/Ordering.API/Apis/OrdersApi.cs",
+        "line": 15
+      },
+      "attributes": {
+        "component": "Ordering.API",
+        "components": "Basket.API, Ordering.API, WebApp",
+        "depth": "1",
+        "entry": "endpoint:POST /api/orders",
+        "events": "OrderStartedIntegrationEvent, OrderStatusChangedToSubmittedIntegrationEvent",
+        "hops": "Ordering.API -> Basket.API : OrderStartedIntegrationEvent | Ordering.API -> WebApp : OrderStatusChangedToSubmittedIntegrationEvent"
+      },
+      "alsoAt": [],
+      "reason": "a deduction from names: calls are followed by method name, commands and domain events by type"
+    },
+    {
+      "id": "flow:endpoint:PUT /api/catalog/items",
+      "kind": "flow",
+      "name": "PUT /api/catalog/items",
+      "evidence": "inferred",
+      "source": {
+        "file": "src/Catalog.API/Apis/CatalogApi.cs",
+        "line": 100
+      },
+      "attributes": {
+        "component": "Catalog.API",
+        "components": "Catalog.API, Webhooks.API",
+        "depth": "1",
+        "entry": "endpoint:PUT /api/catalog/items",
+        "events": "ProductPriceChangedIntegrationEvent",
+        "hops": "Catalog.API -> Webhooks.API : ProductPriceChangedIntegrationEvent"
+      },
+      "alsoAt": [],
+      "reason": "a deduction from names: calls are followed by method name, commands and domain events by type"
+    },
+    {
+      "id": "flow:endpoint:PUT /api/catalog/items/{id:int}",
+      "kind": "flow",
+      "name": "PUT /api/catalog/items/{id:int}",
+      "evidence": "inferred",
+      "source": {
+        "file": "src/Catalog.API/Apis/CatalogApi.cs",
+        "line": 105
+      },
+      "attributes": {
+        "component": "Catalog.API",
+        "components": "Catalog.API, Webhooks.API",
+        "depth": "1",
+        "entry": "endpoint:PUT /api/catalog/items/{id:int}",
+        "events": "ProductPriceChangedIntegrationEvent",
+        "hops": "Catalog.API -> Webhooks.API : ProductPriceChangedIntegrationEvent"
+      },
+      "alsoAt": [],
+      "reason": "a deduction from names: calls are followed by method name, commands and domain events by type"
+    },
+    {
+      "id": "flow:endpoint:PUT /api/orders/cancel",
+      "kind": "flow",
+      "name": "PUT /api/orders/cancel",
+      "evidence": "inferred",
+      "source": {
+        "file": "src/Ordering.API/Apis/OrdersApi.cs",
+        "line": 10
+      },
+      "attributes": {
+        "component": "Ordering.API",
+        "components": "Ordering.API, WebApp",
+        "depth": "1",
+        "entry": "endpoint:PUT /api/orders/cancel",
+        "events": "OrderStatusChangedToCancelledIntegrationEvent",
+        "hops": "Ordering.API -> WebApp : OrderStatusChangedToCancelledIntegrationEvent"
+      },
+      "alsoAt": [],
+      "reason": "a deduction from names: calls are followed by method name, commands and domain events by type"
+    },
+    {
+      "id": "flow:endpoint:PUT /api/orders/ship",
+      "kind": "flow",
+      "name": "PUT /api/orders/ship",
+      "evidence": "inferred",
+      "source": {
+        "file": "src/Ordering.API/Apis/OrdersApi.cs",
+        "line": 11
+      },
+      "attributes": {
+        "component": "Ordering.API",
+        "components": "Ordering.API, WebApp, Webhooks.API",
+        "depth": "1",
+        "entry": "endpoint:PUT /api/orders/ship",
+        "events": "OrderStatusChangedToShippedIntegrationEvent",
+        "hops": "Ordering.API -> WebApp : OrderStatusChangedToShippedIntegrationEvent | Ordering.API -> Webhooks.API : OrderStatusChangedToShippedIntegrationEvent"
+      },
+      "alsoAt": [],
+      "reason": "a deduction from names: calls are followed by method name, commands and domain events by type"
+    },
+    {
+      "id": "flow:hosted:GracePeriodManagerService",
+      "kind": "flow",
+      "name": "GracePeriodManagerService",
+      "evidence": "inferred",
+      "source": {
+        "file": "src/OrderProcessor/Services/GracePeriodManagerService.cs",
+        "line": 7
+      },
+      "attributes": {
+        "component": "OrderProcessor",
+        "components": "Catalog.API, OrderProcessor, Ordering.API, PaymentProcessor, WebApp, Webhooks.API",
+        "depth": "6",
+        "entry": "hosted:GracePeriodManagerService",
+        "events": "GracePeriodConfirmedIntegrationEvent",
+        "hops": "OrderProcessor -> Ordering.API : GracePeriodConfirmedIntegrationEvent | Ordering.API -> Catalog.API : OrderStatusChangedToAwaitingValidationIntegrationEvent | Ordering.API -> WebApp : OrderStatusChangedToAwaitingValidationIntegrationEvent | Catalog.API -> Ordering.API : OrderStockConfirmedIntegrationEvent | Catalog.API -> Ordering.API : OrderStockRejectedIntegrationEvent | Ordering.API -> PaymentProcessor : OrderStatusChangedToStockConfirmedIntegrationEvent | Ordering.API -> WebApp : OrderStatusChangedToStockConfirmedIntegrationEvent | PaymentProcessor -> Ordering.API : OrderPaymentFailedIntegrationEvent | PaymentProcessor -> Ordering.API : OrderPaymentSucceededIntegrationEvent | Ordering.API -> WebApp : OrderStatusChangedToCancelledIntegrationEvent | Ordering.API -> Catalog.API : OrderStatusChangedToPaidIntegrationEvent | Ordering.API -> WebApp : OrderStatusChangedToPaidIntegrationEvent | Ordering.API -> Webhooks.API : OrderStatusChangedToPaidIntegrationEvent"
+      },
+      "alsoAt": [],
+      "reason": "a deduction from names: calls are followed by method name, commands and domain events by type"
+    },
+    {
+      "id": "detail:Basket.API",
+      "kind": "detail",
+      "name": "Basket.API",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/Basket.API/Basket.API.csproj",
+        "line": 1
+      },
+      "attributes": {
+        "component": "Basket.API"
+      },
+      "alsoAt": []
+    },
+    {
+      "id": "detail:Catalog.API",
+      "kind": "detail",
+      "name": "Catalog.API",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/Catalog.API/Catalog.API.csproj",
+        "line": 1
+      },
+      "attributes": {
+        "component": "Catalog.API"
+      },
+      "alsoAt": []
+    },
+    {
+      "id": "detail:ClientApp",
+      "kind": "detail",
+      "name": "ClientApp",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/ClientApp/ClientApp.csproj",
+        "line": 1
+      },
+      "attributes": {
+        "component": "ClientApp"
+      },
+      "alsoAt": []
+    },
+    {
+      "id": "detail:HybridApp",
+      "kind": "detail",
+      "name": "HybridApp",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/HybridApp/HybridApp.csproj",
+        "line": 1
+      },
+      "attributes": {
+        "component": "HybridApp"
+      },
+      "alsoAt": []
+    },
+    {
+      "id": "detail:Identity.API",
+      "kind": "detail",
+      "name": "Identity.API",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/Identity.API/Identity.API.csproj",
+        "line": 1
+      },
+      "attributes": {
+        "component": "Identity.API"
+      },
+      "alsoAt": []
+    },
+    {
+      "id": "detail:OrderProcessor",
+      "kind": "detail",
+      "name": "OrderProcessor",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/OrderProcessor/OrderProcessor.csproj",
+        "line": 1
+      },
+      "attributes": {
+        "component": "OrderProcessor"
+      },
+      "alsoAt": []
+    },
+    {
+      "id": "detail:Ordering.API",
+      "kind": "detail",
+      "name": "Ordering.API",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/Ordering.API/Ordering.API.csproj",
+        "line": 1
+      },
+      "attributes": {
+        "component": "Ordering.API"
+      },
+      "alsoAt": []
+    },
+    {
+      "id": "detail:PaymentProcessor",
+      "kind": "detail",
+      "name": "PaymentProcessor",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/PaymentProcessor/PaymentProcessor.csproj",
+        "line": 1
+      },
+      "attributes": {
+        "component": "PaymentProcessor"
+      },
+      "alsoAt": []
+    },
+    {
+      "id": "detail:WebApp",
+      "kind": "detail",
+      "name": "WebApp",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/WebApp/WebApp.csproj",
+        "line": 1
+      },
+      "attributes": {
+        "component": "WebApp"
+      },
+      "alsoAt": []
+    },
+    {
+      "id": "detail:WebhookClient",
+      "kind": "detail",
+      "name": "WebhookClient",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/WebhookClient/WebhookClient.csproj",
+        "line": 1
+      },
+      "attributes": {
+        "component": "WebhookClient"
+      },
+      "alsoAt": []
+    },
+    {
+      "id": "detail:Webhooks.API",
+      "kind": "detail",
+      "name": "Webhooks.API",
+      "evidence": "extracted",
+      "source": {
+        "file": "src/Webhooks.API/Webhooks.API.csproj",
+        "line": 1
+      },
+      "attributes": {
+        "component": "Webhooks.API"
+      },
+      "alsoAt": []
+    }
+  ],
+  "coverage": [
+    {
+      "area": "configuration",
+      "note": "Configuration reads whose key is not written as text (a variable, a call, a value built at run time).",
+      "count": 1
+    },
+    {
+      "area": "endpoints",
+      "note": "Endpoints whose route is not written as text (conventional routing, a route built at run time, a group that cannot be followed).",
+      "count": 14
+    },
+    {
+      "area": "endpoints",
+      "note": "Map… calls that declare something this inventory does not list: MapDefaultControllerRoute x1, MapForwarder x1, MapGrpcService x1, MapHealthChecks x2, MapRazorComponents x2, MapScalarApiReference x1.",
+      "count": 8
+    },
+    {
+      "area": "flows",
+      "note": "A flow follows calls by method name, commands and domain events by type; it stops at an interface, at a base class and at a method name that several methods carry.",
+      "count": 6
+    },
+    {
+      "area": "http clients",
+      "note": "HTTP clients whose base address is not written as text (a variable, a call, or set elsewhere).",
+      "count": 1
+    },
+    {
+      "area": "links",
+      "note": "Which entities an endpoint touches is inferred from the entity names in its handler's signature and body: a handler that delegates to a service, or reaches an entity through a DbSet property or var, shows none.",
+      "count": 29
+    }
+  ]
+}

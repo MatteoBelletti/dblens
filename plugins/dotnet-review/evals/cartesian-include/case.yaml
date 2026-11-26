@@ -1,0 +1,36 @@
+schema_version: "1.0"
+name: cartesian-include
+description: "Several collection Includes without AsSplitQuery"
+runs: 1
+context:
+  scaffold_script: scaffold.sh
+execution:
+  model: sonnet
+  max_turns: 12
+  timeout_seconds: 600
+  allowed_tools:
+    - "Skill"
+    - "Workflow"
+    - "Read"
+    - "Write"
+    - "Grep"
+    - "Glob"
+    - "Bash(git diff:*)"
+    - "Bash(git show:*)"
+    - "Bash(git log:*)"
+  prompt: "Run the dotnet-review review workflow with args {\"base\": \"main\", \"branch\": \"order-export\", \"outDir\": \"<the absolute path of the current working directory>\"}. When it finishes, Read review-order-export.md and print it in full."
+graders:
+  # The review is written to a file.
+  - name: review-file
+    type: "file_exists"
+    path: "review-order-export.md"
+  # At least one comment, at most five.
+  - name: count
+    type: "regex"
+    pattern: 'Comments: [1-5]'
+    match: "contains"
+  # The cartesian product is flagged.
+  - name: finds-1
+    type: "regex"
+    pattern: 'AsSplitQuery|[Cc]artesian'
+    match: "contains"

@@ -28,6 +28,8 @@ public sealed record FragmentationSummary(
     int IndexesAnalyzed,
     /// <summary>Indexes skipped because they were below the MinPageCount threshold.</summary>
     int IndexesSkippedTooSmall,
+    /// <summary>Indexes large enough to measure that were not: a measurement failed or timed out, or the call's time budget ran out.</summary>
+    int IndexesNotMeasured,
     /// <summary>Highest fragmentation percent seen across analyzed indexes; 0 when none.</summary>
     double MaxFragmentationPercent,
     /// <summary>Count per severity level. All five levels are always present.</summary>

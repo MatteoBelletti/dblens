@@ -1,0 +1,31 @@
+schema_version: "1.0"
+name: sim-detail
+description: "Simulation on eShop, step 2: the user picks Ordering.API and its detail document is started and written"
+runs: 1
+context:
+  scaffold_script: scaffold.sh
+execution:
+  model: sonnet
+  max_turns: 40
+  timeout_seconds: 1800
+  allowed_tools:
+    - "Skill"
+    - "Workflow"
+    - "Read"
+    - "Glob"
+    - "Grep"
+    - "ToolSearch"
+    - "Bash(dblens-docs detail:*)"
+    - "mcp__plugin_dblens-docs_docs__get_project_inventory"
+    - "mcp__plugin_dblens-docs_docs__get_doc_slots"
+    - "mcp__plugin_dblens-docs_docs__check_doc_coverage"
+    - "mcp__plugin_dblens-docs_docs__set_doc_slot"
+  prompt: "Use the dblens-docs:detail-component skill with component=Ordering.API (the user chose it: do not ask; its document may already be there)."
+graders:
+  - name: narrative-written
+    type: regex
+    target:
+      source: file
+      path: docs/project/components/ordering-api.md
+    pattern: 'dblens:slot detail:Ordering.API purpose[^\n]*-->\n[^<\n]'
+    match: contains

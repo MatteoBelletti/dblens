@@ -97,3 +97,68 @@ Critical `migration-destructive` on `shop.users.date_of_birth`. That run found a
 an index on `shop.payments`, which the script itself creates, was weighed against the demo's
 `public.payments`. A qualified name missing from the catalog no longer falls back to a table of the
 same name in another schema.
+
+## Phase 4: distribution (unreleased)
+
+The marketplace (`.claude-plugin/marketplace.json`, source `./plugins/dblens`) and the README's
+"Claude Code plugin (optional)" section came with Phase 1. Instead of writing the tag's version into
+`plugin.json`, `release.yml` refuses a tag whose version the plugin, its `DbLens.Mcp@` pin and
+`server.json` do not already carry (`ReleaseVersionTests` checks the same in CI): master never pins
+a package NuGet does not list.
+
+Smoke test on 2026-11-20, each in an empty Claude Code configuration: `claude plugin install dblens
+--marketplace <repository>` installs it and `claude mcp list` shows `plugin:dblens:dblens` connected;
+`claude mcp add dblens -- dnx DbLens.Mcp@0.6.0 --yes`, without the plugin, connects too, and
+`get_schema` and `analyze_indexes` on `public` return the demo's 12 tables and 9 `fk-without-index`.
+The `.mcpb` in Claude Desktop is not covered: there is no desktop in the cloud container.
+
+## Silent targets (0.7.0)
+
+The server or the plugin worked on a database, an engine or a version other than the one the user
+meant, without saying so. Decisions of 2026-11-21, each with a test:
+
+| Point | Decision |
+|---|---|
+| Demo fallback | `DbLens:DemoFallback`, default **false**: no connection string for a dialect is an error naming the setting. `appsettings.Development.json`, the Makefile and the tests turn it on. [D] |
+| Default dialect | The one configured dialect; two configured and no `dialect`, or a `connectionString` without `dialect`, is an error. The schema keeps `dialect = PostgreSql` (contract); the call filter records which arguments were sent. |
+| Target | `target` (dialect, host, port, database, login, `isLocal`, `source`) in every answer, from the driver's connection string builder, never the password. `ping` connects and returns it with the server version. |
+| Passwords | The audit passes a connection **name** (`connection`), never a connection string: a file `<name>.conn` in `DbLens:ConnectionsPath` that the audit skill writes from a container's own environment (mode 0600). The plan's `args.connectionString` would have put the password in every agent prompt. [D] |
+| Localhost | A caveat, not a new key: the existing `DbLens:ReadOnlyLoginOnLocalhost=true` is the switch. [D] |
+| Development server | `plugins/dblens-dev`: same name, agents, workflow and skills (symlinks), the server run from the working tree; `run-evals.sh` copies the evals in, because the runner refuses an evals link that leaves the plugin. [D] |
+| Certified queries | Keyed by dialect, server (`host:port`) and database; old entries without a server still apply and carry a caveat. |
+| Reports | Never overwritten: `-2`, `-3`. |
+
+The workflow `audit` is now `run-audit` and requires `expectedDatabase`; `/dblens:audit` is the skill
+that asks and confirms.
+
+Evals against the working tree (`plugins/dblens-dev/run-evals.sh`, 2026-11-24): `demo-golden` 10 of 10
+($1.00) and `demo-good` 4 of 4 ($0.31) on a named connection; `target` 4 of 4 ($0.25): a second PostgreSQL
+(`target_db`, a copy of `demo_good`) is named by the report and the report never mentions `dblens_demo`;
+`no-configuration` 3 of 3: the skill asks and starts nothing. Two cases failed their first runs on the
+evals, not on the product: the development server was still starting when the first agent called `ping`
+(it now starts from the built DLL, and an eval pings first, as the skill does), and graders that read the
+model's closing message now read the report file. `wrong-database` and `ef-golden` were last run
+with those graders unfixed (the first, 6 turns used up on waiting for the server; the second, a summary
+printed instead of the report), so their graders are untested against the final cases; the check
+itself, that the workflow refuses a server that reaches another database than `expectedDatabase`, is
+exercised by running the script with a stubbed `agent()`. The pending-migration step of `ef-golden`
+still lands in "Not covered" inside the eval sandbox of a root container.
+
+The plugin now needs a server that has `connection`, `DbLens:DemoFallback` and the connecting `ping`:
+0.7.0. Merging this to `master` without releasing 0.7.0 would leave the marketplace plugin pinned to a
+package that lacks them, so the two go together.
+
+## Usability pass (0.7.0)
+
+A plan written against `master` (0.6.0) asked for six things. Three were already done here, with a design
+that differs from the plan's, and are kept as they are; the rest was added:
+
+| Plan item | Decision |
+|---|---|
+| No demo default, `appsettings.Development.json`, `DOTNET_ENVIRONMENT=Development` | Already so ("Silent targets"). Added: a `${...}` placeholder counts as not configured, with a warning on stderr; the content root is the executable's folder, so the `appsettings.json` of `make publish` and of the release zips is read from wherever the client starts the server; a test fails when `appsettings.json` holds a connection string. |
+| `dialect` nullable, two dialects default to PostgreSQL | **Not done.** The schema keeps `dialect = PostgreSql` and the call filter records whether it was sent: two configured dialects and none named is an error, not a silent PostgreSQL, which is the failure the plan wanted to end. |
+| `database` parameter | Added to every tool that takes `connectionString`: replaces only the database of the configured string (`DatabaseInspectorFactory.WithDatabase`, the drivers' own builders), refused with `connectionString` or `connection`. The login stays; the read-only check runs on the database reached. Certified queries stay apart per database. |
+| `ping` with `Targets` and `checkConnection` | **Not done.** `ping` already connects and returns the target (host, port, database, login, source, never the password) and fails with the driver's reason; an unconfigured server answers with the error that names the setting. |
+| `analyze_fragmentation` on large databases | One measurement per index, largest first; 30 s for one, 60 s for the call; what was not measured is named; a caveat for a database restored in the last 30 days. The catalog read and the measurement are separate hooks in the base; the catch of a driver error around one measurement is the second exception to "no try/catch for driver errors", after the probes. PostgreSQL checks `pgstatindex` privilege up front: with every index small, nothing would call it. |
+| `explain_query` with parameters | PostgreSQL: generic plan. Refused with `analyze`. SQL Server: refused (see `tools.md`). |
+| Release | 0.7.0 realigns the plugin and the server (see above). |

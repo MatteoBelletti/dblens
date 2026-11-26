@@ -12,6 +12,10 @@ public sealed partial class SqlServerInspector
     private static readonly XNamespace ShowPlanNs =
         "http://schemas.microsoft.com/sqlserver/2004/07/showplan";
 
+    // SHOWPLAN_XML wants every @name declared ("Must declare the scalar variable", Msg 137), and a type guessed for
+    // it (sql_variant) would give the plan of another query: so a statement with parameters is refused, not planned.
+    protected override bool PlansWithoutParameterValues => false;
+
     protected override async Task<QueryPlanFetch> FetchQueryPlanAsync(
         ExplainQueryRequest request, CancellationToken ct)
     {

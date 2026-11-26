@@ -143,4 +143,53 @@ public sealed class PostgresFragmentationTests(PostgresFixture fixture) : IClass
 
         result.Disclaimer.Should().NotBeNullOrWhiteSpace();
     }
+
+    [SkippableFact]
+    [Trait("Category", "Integration")]
+    public async Task AnalyzeFragmentation_AnIndexThatFailsToBeMeasured_IsNamed_AndTheOthersAreMeasured()
+    {
+        Skip.If(ShouldSkip, TestSkip.Reason);
+
+        // pgstatindex refuses an invalid index (what a failed CREATE INDEX CONCURRENTLY leaves behind).
+        var table = $"frag_probe_{Guid.NewGuid():N}";
+        await using var admin = new Npgsql.NpgsqlConnection(PostgresAdmin.ConnectionString);
+        await admin.OpenAsync();
+        await Run(admin, $"CREATE TABLE public.{table}(id int, v int); CREATE INDEX {table}_ok ON public.{table}(id); CREATE INDEX {table}_bad ON public.{table}(v);");
+        await Run(admin, $"UPDATE pg_index SET indisvalid = false WHERE indexrelid = 'public.{table}_bad'::regclass");
+
+        try
+        {
+            var result = await _fixture.Inspector!.AnalyzeFragmentationAsync(
+                new AnalyzeFragmentationRequest(Schema: "public", Tables: [table], MinPageCount: 0));
+
+            result.StatsAvailable.Should().BeTrue();
+            result.Summary.IndexesAnalyzed.Should().Be(1, "the valid index is measured");
+            result.Summary.IndexesNotMeasured.Should().Be(1);
+            result.Caveats.Should().Contain(c => c.Contains($"'{table}_bad' on 'public.{table}'") && c.Contains("is not valid"));
+        }
+        finally
+        {
+            await Run(admin, $"DROP TABLE public.{table}");
+        }
+
+        static async Task Run(Npgsql.NpgsqlConnection connection, string sql)
+        {
+            await using var command = new Npgsql.NpgsqlCommand(sql, connection);
+            await command.ExecuteNonQueryAsync();
+        }
+    }
+
+    [SkippableFact]
+    [Trait("Category", "Integration")]
+    public async Task AnalyzeFragmentation_WhenTheTimeBudgetIsSpent_EveryIndexLeftIsNamed()
+    {
+        Skip.If(ShouldSkip, TestSkip.Reason);
+
+        var result = await _fixture.Inspector!.AnalyzeFragmentationAsync(
+            new AnalyzeFragmentationRequest(Schema: "public", MinPageCount: 0, TotalBudgetSeconds: 0));
+
+        result.Summary.IndexesAnalyzed.Should().Be(0);
+        result.Summary.IndexesNotMeasured.Should().BeGreaterThan(0);
+        result.Caveats.Should().Contain(c => c.Contains("over the time budget"));
+    }
 }

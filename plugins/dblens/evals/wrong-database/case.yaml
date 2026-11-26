@@ -1,0 +1,41 @@
+schema_version: "1.0"
+name: wrong-database
+description: "The audit is told to expect another database than the server reaches: it stops, nothing is audited"
+runs: 1
+context:
+  scaffold_script: scaffold.sh
+execution:
+  max_turns: 14
+  timeout_seconds: 300
+  allowed_tools:
+    - "Skill"
+    - "Workflow"
+    - "Read"
+    - "Write"
+    - "Glob"
+    - "ToolSearch"
+    - "mcp__plugin_dblens_dblens__ping"
+    - "mcp__plugin_dblens_dblens__get_schema"
+    - "mcp__plugin_dblens_dblens__get_table_details"
+    - "mcp__plugin_dblens_dblens__analyze_indexes"
+    - "mcp__plugin_dblens_dblens__analyze_fragmentation"
+    - "mcp__plugin_dblens_dblens__analyze_table_hygiene"
+    - "mcp__plugin_dblens_dblens__analyze_denormalization"
+    - "mcp__plugin_dblens_dblens__infer_relationships"
+    - "mcp__plugin_dblens_dblens__check_cascade_paths"
+    - "mcp__plugin_dblens_dblens__find_hot_queries"
+    - "mcp__plugin_dblens_dblens__explain_query"
+    - "mcp__plugin_dblens_dblens__compare_ef_model"
+    - "mcp__plugin_dblens_dblens__check_migration_safety"
+    - "mcp__plugin_dblens_dblens__scan_gdpr"
+  prompt: "First call the dblens ping tool with dialect PostgreSql and connection \"eval-demo-pg\", and call it again until it answers: the server may still be starting. Then run the dblens audit workflow (dblens:run-audit) with args {\"dialect\": \"PostgreSql\", \"connection\": \"eval-demo-pg\", \"expectedDatabase\": \"something_else\", \"schema\": \"public\", \"outDir\": \"./dblens-audit\", \"runLabel\": \"eval-wrong\"}. Report what happened in one sentence; do not retry or change the args."
+graders:
+  # No report was written.
+  - name: no-report
+    type: "file_exists"
+    path: "dblens-audit/dblens-audit-eval-wrong.md"
+    exists: false
+  # The run stopped on the database check
+  - name: says-which
+    type: llm
+    criteria: "Pass if the answer says the audit stopped, or was refused, because the database the server reached is not the expected one (something_else), and that nothing was audited. Fail if it says the audit ran or produced findings, or blames something unrelated (a missing tool, a timeout)."

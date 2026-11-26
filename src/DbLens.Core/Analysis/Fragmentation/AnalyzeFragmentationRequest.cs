@@ -20,5 +20,11 @@ public sealed record AnalyzeFragmentationRequest(
     /// Whether to collect page density. On SQL Server this raises the scan mode from
     /// LIMITED to SAMPLED, which reads leaf pages and costs meaningfully more on large indexes.
     /// </summary>
-    bool IncludePageDensity = false
+    bool IncludePageDensity = false,
+    /// <summary>What one index's measurement may take before it is given up as not measured.</summary>
+    int IndexTimeoutSeconds = 30,
+    /// <summary>What all the measurements of a call may take together; the indexes left are named in a caveat.</summary>
+    int TotalBudgetSeconds = 60,
+    /// <summary>A database created or restored fewer days ago has freshly built indexes: its fragmentation says little of production.</summary>
+    int RecentRestoreDays = 30
 );

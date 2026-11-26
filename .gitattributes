@@ -5,9 +5,14 @@
 *.sh text eol=lf
 db/** text eol=lf
 
+# The inventory tests compare bytes and line numbers: these keep LF on every checkout.
+tests/DbLens.Tests/Docs/Reference/** text eol=lf
+tests/DbLens.Tests/Fixtures/Docs/** text eol=lf
+
 # Windows-only files keep CRLF.
 *.ps1 text eol=crlf
 *.slnx text eol=crlf
 
 *.png binary
 *.ico binary
+examples/dblens-docs/** text eol=lf

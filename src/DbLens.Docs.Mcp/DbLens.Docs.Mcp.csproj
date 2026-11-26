@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- The MCP tools of dblens-docs: read the inventory and the slots, write the words of one slot. Hosted by the dblens-docs command. -->
+  <PropertyGroup>
+    <RootNamespace>DbLens.Docs.Mcp</RootNamespace>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\DbLens.Docs\DbLens.Docs.csproj" />
+    <PackageReference Include="ModelContextProtocol" />
+  </ItemGroup>
+
+</Project>

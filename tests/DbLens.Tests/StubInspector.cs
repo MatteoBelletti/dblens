@@ -14,6 +14,7 @@ using DbLens.Core.Analysis.Receipts;
 using DbLens.Core.Analysis.Relationships;
 using DbLens.Core.Models;
 using DbLens.Mcp.Infrastructure;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace DbLens.Tests;
@@ -27,6 +28,8 @@ internal class StubInspector : IDatabaseInspector
     public DatabaseDialect Dialect => DatabaseDialect.PostgreSql;
     public string DatabaseName => "stub";
     public Task<bool> TestConnectionAsync(CancellationToken ct = default) => Task.FromResult(true);
+    public Target Describe(TargetSource source) => new(Dialect, "stub", null, DatabaseName, "stub", true, source);
+    public Task<string> GetServerVersionAsync(CancellationToken ct = default) => Task.FromResult("stub 1.0");
     public virtual Task<DatabaseSchemaOverview> GetSchemaOverviewAsync(SchemaOverviewRequest request, CancellationToken ct = default) => throw new NotSupportedException();
     public virtual Task<TableDetailsResult> GetTableDetailsAsync(TableDetailsRequest request, CancellationToken ct = default) => throw new NotSupportedException();
     public Task<AnalyzeIndexesResult> AnalyzeIndexesAsync(AnalyzeIndexesRequest request, CancellationToken ct = default) => throw new NotSupportedException();
@@ -48,7 +51,12 @@ internal class StubInspector : IDatabaseInspector
 internal sealed class StubServices(Func<IDatabaseInspector> inspector, Action<DatabaseDialect>? onResolve = null)
     : IServiceProvider, IKeyedServiceProvider
 {
-    public object? GetService(Type serviceType) => null;
+    // Both dialects answer, as with the demo fallback on: the stub inspector stands in for either.
+    public object? GetService(Type serviceType) =>
+        serviceType == typeof(ConfiguredDatabases)
+            ? new ConfiguredDatabases(new ConfigurationBuilder()
+                .AddInMemoryCollection([new("DbLens:DemoFallback", "true")]).Build())
+            : null;
 
     public object? GetKeyedService(Type serviceType, object? serviceKey) => GetRequiredKeyedService(serviceType, serviceKey);
 

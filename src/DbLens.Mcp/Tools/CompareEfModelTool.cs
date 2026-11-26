@@ -33,8 +33,12 @@ public sealed class CompareEfModelTool(IServiceProvider services, IDatabaseInspe
         string? historySchema = null,
         [Description(ConnectionStringHelp)]
         string? connectionString = null,
+        [Description(ConnectionHelp)]
+        string? connection = null,
+        [Description(DatabaseHelp)]
+        string? database = null,
         CancellationToken cancellationToken = default) =>
-        ResolveInspector(dialect, connectionString).CompareEfModelAsync(
+        ResolveInspector(dialect, connectionString, connection, database).CompareEfModelAsync(
             new CompareEfModelRequest(
                 SnapshotReader.Read(snapshotPath), schema,
                 string.IsNullOrWhiteSpace(historyTable) ? CompareEfModelRequest.DefaultHistoryTable : historyTable,

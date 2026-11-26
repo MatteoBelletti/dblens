@@ -1,6 +1,8 @@
 .PHONY: dev dev-server inspector-sse attach test test-watch build publish db db-down db-logs
 
 MCP_PROJECT  := src/DbLens.Mcp
+# The local demo answers when no connection string is configured (docs/safety.md).
+export DbLens__DemoFallback := true
 PUBLISH_DIR  := publish
 MCP_SSE_URL  := http://localhost:5050/mcp
 

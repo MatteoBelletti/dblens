@@ -34,4 +34,7 @@ Only the JSON your schema asks for, no prose around it.
 - A summary finding (rule id ending in `-summary`) is not a finding: leave it out.
 - An empty list is not an all-clear: what a tool could not see goes in `notCovered`.
 - A tool that errors: its error goes in `notCovered`, and you carry on with the other calls.
-- Never call a tool with a `connectionString`: the server's configured database is the one audited.
+- The database is the one the audit names, never one you choose. Given a connection name, pass it as
+  `connection` on EVERY dblens call and keep it in `toolParams`, so that the verifier repeats the call on
+  the same database; given none, pass none. Never pass a `connectionString`, and a password appears
+  nowhere: not in a call, not in `toolParams`, not in a finding.

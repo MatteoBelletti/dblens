@@ -33,7 +33,7 @@ public abstract partial class DatabaseInspectorBase
 
         return RunAsync("query with receipt", async () =>
         {
-            await EnsureReadOnlyLoginAsync(ct);
+            var loginCaveat = await EnsureReadOnlyLoginAsync(ct);
 
             var plan = await FetchQueryPlanAsync(new ExplainQueryRequest(request.Sql), ct);
             var tables = plan.Root?.DescendantsAndSelf()
@@ -61,6 +61,7 @@ public abstract partial class DatabaseInspectorBase
             else if (crossCheck.Status == CrossCheckStatus.Disagree)
                 caveats.Add("The cross-check DISAGREES with the answer. Report both figures; do not pick one.");
             caveats.AddRange(ReceiptCaveats);
+            if (loginCaveat is not null) caveats.Add(loginCaveat);
 
             return new QueryWithReceiptResult(
                 primary,
