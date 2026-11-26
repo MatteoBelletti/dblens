@@ -33,7 +33,8 @@ public sealed class ConfiguredDatabasesTests
     [Theory]
     [InlineData("")]
     [InlineData("   ")]
-    public void AnEmptyValue_AsAnUnsetMcpbSettingSendsIt_IsNotConfigured(string value)
+    [InlineData("${user_config.pg_connection}")]
+    public void AnEmptyValue_OrAnUnexpandedPlaceholder_IsNotConfigured(string value)
     {
         var databases = new ConfiguredDatabases(Config(("ConnectionStrings:PostgreSql", value)));
 
@@ -73,5 +74,15 @@ public sealed class ConfiguredDatabasesTests
         var call = () => tool.GetSchema(dialect: DatabaseDialect.SqlServer);
 
         await call.Should().ThrowAsync<ArgumentException>().WithMessage("No database is configured for SqlServer*");
+    }
+
+    [Fact]
+    public void TheShippedAppsettings_HoldNoConnectionString_SoTheDemoCannotComeBack()
+    {
+        var directory = new DirectoryInfo(AppContext.BaseDirectory);
+        while (directory is not null && !File.Exists(Path.Combine(directory.FullName, "dblens.slnx"))) directory = directory.Parent;
+        var text = File.ReadAllText(Path.Combine(directory!.FullName, "src", "DbLens.Mcp", "appsettings.json"));
+
+        text.Should().NotContainEquivalentOf("ConnectionStrings").And.NotContain("Password");
     }
 }

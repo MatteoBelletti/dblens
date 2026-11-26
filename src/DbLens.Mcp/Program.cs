@@ -6,7 +6,7 @@ using Microsoft.Extensions.Logging;
 
 if (Environment.GetEnvironmentVariable("MCP_TRANSPORT") == "sse")
 {
-    var builder = WebApplication.CreateBuilder(args);
+    var builder = WebApplication.CreateBuilder(new WebApplicationOptions { Args = args, ContentRootPath = AppContext.BaseDirectory });
     builder.WebHost.UseUrls("http://localhost:5050");
     Configure(builder.Logging, builder.Services, builder.Configuration).WithHttpTransport();
 
@@ -16,7 +16,7 @@ if (Environment.GetEnvironmentVariable("MCP_TRANSPORT") == "sse")
 }
 else
 {
-    var builder = Host.CreateApplicationBuilder(args);
+    var builder = Host.CreateApplicationBuilder(new HostApplicationBuilderSettings { Args = args, ContentRootPath = AppContext.BaseDirectory });
     Configure(builder.Logging, builder.Services, builder.Configuration).WithStdioServerTransport();
 
     await builder.Build().RunAsync();

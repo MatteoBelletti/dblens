@@ -10,7 +10,8 @@ public sealed record ConfiguredDatabase(DatabaseDialect Dialect, string Connecti
 /// <summary>
 /// The database the server uses for each dialect when a call passes no connection string:
 /// <c>ConnectionStrings:&lt;dialect&gt;</c>, else the local demo only when <c>DbLens:DemoFallback</c>
-/// is on. An empty value — an unset <c>.mcpb</c> setting — counts as not configured.
+/// is on. An empty value — an unset <c>.mcpb</c> setting — counts as not configured, and so does a
+/// placeholder nobody expanded (<c>${user_config.pg_connection}</c>), with a warning on stderr.
 /// </summary>
 public sealed class ConfiguredDatabases(IConfiguration configuration)
 {
@@ -25,12 +26,16 @@ public sealed class ConfiguredDatabases(IConfiguration configuration)
     public ConfiguredDatabase? For(DatabaseDialect dialect)
     {
         var configured = configuration[$"ConnectionStrings:{dialect}"];
-        if (!string.IsNullOrWhiteSpace(configured)) return new(dialect, configured, TargetSource.Configured);
+        if (IsPlaceholder(configured))
+            Console.Error.WriteLine($"dblens: ConnectionStrings:{dialect} is an unexpanded placeholder ({configured!.Trim()}): treated as not configured.");
+        else if (!string.IsNullOrWhiteSpace(configured)) return new(dialect, configured, TargetSource.Configured);
 
         return DemoFallback
             ? new(dialect, dialect == DatabaseDialect.SqlServer ? DemoSqlServer : DemoPostgreSql, TargetSource.DemoDefault)
             : null;
     }
+
+    private static bool IsPlaceholder(string? value) => value is not null && value.AsSpan().TrimStart().StartsWith("${", StringComparison.Ordinal);
 
     /// <summary>
     /// The database a call reaches. A connection string needs its dialect, never guessed from its
