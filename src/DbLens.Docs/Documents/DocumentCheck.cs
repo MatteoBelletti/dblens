@@ -8,7 +8,8 @@ public enum IssueSeverity
     Error,
 }
 
-/// <param name="Code">missing-item, orphan-item, outdated-item, generated-edited, duplicate-item, malformed, slot-too-long, slot-missing, slot-empty, slot-stale, slot-unmarked-edit.</param>
+/// <param name="Code">missing-item, orphan-item, outdated-item, generated-edited, duplicate-item, malformed, slot-too-long, slot-missing, slot-empty, slot-stale, slot-unmarked-edit,
+/// slot-bad-reference (cites code that is not there), slot-stale-reference (the cited code changed), slot-no-unverified-section.</param>
 public sealed record DocIssue(string Code, IssueSeverity Severity, string Id, string File, string Message);
 
 public sealed record DocCheckResult(IReadOnlyList<DocIssue> Issues)
@@ -28,8 +29,10 @@ public sealed record DocCheckResult(IReadOnlyList<DocIssue> Issues)
 public static class DocumentCheck
 {
     public static DocCheckResult Check(
-        ProjectInventory inventory, IReadOnlyDictionary<string, string> documents, DocsOptions options, bool strict = false, bool requireSlots = false)
+        ProjectInventory inventory, IReadOnlyDictionary<string, string> documents, DocsOptions options, bool strict = false, bool requireSlots = false,
+        IReadOnlyList<SourceFile>? sources = null)
     {
+        var code = sources is null ? null : new ProseReferences(sources);
         var present = DocPlan.Present(documents.Keys, options);
         var plan = DocPlan.For(inventory, options, present);
         List<DocIssue> issues = [];
@@ -66,7 +69,7 @@ public static class DocumentCheck
             else if (block.Hash != desired.Hash || block.Gen != ItemHash.OfText(desired.Generated))
                 issues.Add(new DocIssue("outdated-item", IssueSeverity.Error, desired.Id, path, $"{desired.Id} changed in the code since the document was generated: run dblens-docs scaffold."));
 
-            if (block.Slot is { } slot) issues.AddRange(CheckSlot(slot, desired.Hash, path, strict, requireSlots));
+            if (block.Slot is { } slot) issues.AddRange(CheckSlot(slot, desired.Hash, path, strict, requireSlots, code));
             else if (desired.MaxLines is not null)
                 issues.Add(new DocIssue("slot-missing", requireSlots || strict ? IssueSeverity.Error : IssueSeverity.Warning, desired.Id, path, $"{desired.Id} has no slot in its region: run dblens-docs scaffold."));
         }
@@ -78,7 +81,9 @@ public static class DocumentCheck
         return new DocCheckResult([.. issues.OrderBy(i => i.File, StringComparer.Ordinal).ThenBy(i => i.Id, StringComparer.Ordinal).ThenBy(i => i.Code, StringComparer.Ordinal)]);
     }
 
-    private static IEnumerable<DocIssue> CheckSlot(DocSlot slot, string itemHash, string file, bool strict, bool requireSlots)
+    private static readonly string[] UnverifiedHeadings = [DocLabels.For("en")["unverified"], DocLabels.For("it")["unverified"]];
+
+    private static IEnumerable<DocIssue> CheckSlot(DocSlot slot, string itemHash, string file, bool strict, bool requireSlots, ProseReferences? code)
     {
         var lines = slot.Text.Length == 0 ? 0 : slot.Text.Split('\n').Length;
         if (lines > slot.MaxLines)
@@ -90,5 +95,23 @@ public static class DocumentCheck
             yield return new DocIssue("slot-stale", strict ? IssueSeverity.Error : IssueSeverity.Warning, slot.Id, file, $"{slot.Id} changed after its slot was written: read it again.");
         else if (slot.Evidence == "inferred" && ItemHash.OfText(slot.Text) != slot.TextHash)
             yield return new DocIssue("slot-unmarked-edit", IssueSeverity.Warning, slot.Id, file, $"The slot of {slot.Id} was edited by hand: scaffold will mark it as human.");
+
+        if (slot.Text.Length == 0) yield break;
+
+        // The words about a component say what was not looked at: a page without it reads as complete.
+        if (slot.Id.StartsWith("detail:", StringComparison.Ordinal) && !HasUnverifiedSection(slot.Text))
+            yield return new DocIssue("slot-no-unverified-section", strict ? IssueSeverity.Error : IssueSeverity.Warning, slot.Id, file, $"The slot of {slot.Id} has no \"{UnverifiedHeadings[0]}\" section: say what was not read.");
+
+        if (code is null) yield break;
+
+        var (missing, _) = code.Check(slot.Text);
+        foreach (var reference in missing)
+            yield return new DocIssue("slot-bad-reference", strict ? IssueSeverity.Error : IssueSeverity.Warning, slot.Id, file, $"The slot of {slot.Id} cites `{reference}`, which is not in the code.");
+
+        if (SlotWriter.CitedCodeChanged(slot, code))
+            yield return new DocIssue("slot-stale-reference", strict ? IssueSeverity.Error : IssueSeverity.Warning, slot.Id, file, $"The code cited by the slot of {slot.Id} changed after its words were written: read it again.");
     }
+
+    private static bool HasUnverifiedSection(string text) =>
+        text.Split('\n').Any(l => l.StartsWith('#') && UnverifiedHeadings.Contains(l.TrimStart('#', ' ').Trim(), StringComparer.OrdinalIgnoreCase));
 }

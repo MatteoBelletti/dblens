@@ -35,7 +35,7 @@ public sealed class DocsTools(DocsWorkspace workspace)
         [Description("Only items whose id starts with this text, e.g. 'endpoint:GET /orders'.")]
         string? idPrefix = null)
     {
-        var inventory = workspace.Inventory();
+        var (inventory, _) = workspace.Code();
         ItemKind? wanted = null;
         if (kind is { Length: > 0 })
             wanted = Enum.GetValues<ItemKind>().Cast<ItemKind?>().FirstOrDefault(k => string.Equals(k.ToString(), kind, StringComparison.OrdinalIgnoreCase))
@@ -67,7 +67,8 @@ public sealed class DocsTools(DocsWorkspace workspace)
     {
         if (state is not ("needed" or "empty" or "stale" or "current" or "all")) throw new ArgumentException("state is one of needed, empty, stale, current, all.");
 
-        var all = SlotWriter.List(workspace.Inventory(), workspace.Documents(), workspace.Options)
+        var (inventory, sources) = workspace.Code();
+        var all = SlotWriter.List(inventory, workspace.Documents(), workspace.Options, sources)
             .Where(s => idPrefix is not { Length: > 0 } || s.Id.StartsWith(idPrefix, StringComparison.Ordinal))
             .Where(s => ids is not { Length: > 0 } || ids.Contains(s.Id, StringComparer.Ordinal))
             .ToList();
@@ -85,7 +86,13 @@ public sealed class DocsTools(DocsWorkspace workspace)
         bool strict = false,
         [Description("Empty slots, and regions without their slot, are errors.")]
         bool requireSlots = false) =>
-        Grouped(DocumentCheck.Check(workspace.Inventory(), workspace.Documents(), workspace.Options, strict, requireSlots));
+        CheckWithCode(strict, requireSlots);
+
+    private CoverageView CheckWithCode(bool strict, bool requireSlots)
+    {
+        var (inventory, sources) = workspace.Code();
+        return Grouped(DocumentCheck.Check(inventory, workspace.Documents(), workspace.Options, strict, requireSlots, sources));
+    }
 
     // Issues whose message differs per item (a problem found in a document, a slot's line count) stay one entry each.
     private static readonly string[] OwnMessage = ["malformed", "slot-too-long", "duplicate-item"];
@@ -98,16 +105,16 @@ public sealed class DocsTools(DocsWorkspace workspace)
 
     [McpServerTool(Destructive = false, Idempotent = true), Description(
         "Writes the words of one slot of the project documents at most the slot's max lines; a caption (2 to 4 lines) is plain text with no blank lines, a narrative slot (a `detail:` one) takes Markdown with paragraphs. The only thing this server writes. " +
-        "IMPORTANT: it refuses a slot that holds a person's words, a document whose item changed since it was generated, text with an HTML comment, and any id without a slot. The slot is marked inferred: a person confirms it by editing it.")]
+        "IMPORTANT: it refuses a slot that holds a person's words, a document whose item changed since it was generated, text with an HTML comment, a `File.cs: Method` or `Type: Method` citation that is not in the code, and any id without a slot. The slot is marked inferred: a person confirms it by editing it.")]
     public SlotWritten SetDocSlot(
         [Description("The item id, as get_doc_slots lists it, e.g. 'endpoint:GET /orders/{id}'.")]
         string id,
         [Description("The words: what the item is for, in at most the slot's max lines.")]
         string text)
     {
-        return workspace.Update((inventory, documents) =>
+        return workspace.Update((inventory, sources, documents) =>
         {
-            var (path, document) = SlotWriter.Set(inventory, documents, workspace.Options, id, text);
+            var (path, document) = SlotWriter.Set(inventory, documents, workspace.Options, id, text, sources);
             return (path, document, new SlotWritten(id, path, "inferred", text.Trim().Split('\n').Length));
         });
     }

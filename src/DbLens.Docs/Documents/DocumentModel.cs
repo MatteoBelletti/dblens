@@ -17,7 +17,8 @@ public enum DocBlockKind
 /// <param name="Was">For a stale slot: what it was before, <c>inferred</c> or <c>human</c>.</param>
 /// <param name="ItemHash">The hash of the item when the text was written or confirmed.</param>
 /// <param name="TextHash">The hash of the text as the tool wrote it: a different text now means a person edited it.</param>
-public sealed record DocSlot(string Id, int MaxLines, string Evidence, string? Was, string ItemHash, string TextHash, string Text);
+/// <param name="RefsHash">The hash of the code the words cite when they were written; null when they cite none.</param>
+public sealed record DocSlot(string Id, int MaxLines, string Evidence, string? Was, string ItemHash, string TextHash, string Text, string? RefsHash = null);
 
 /// <param name="Hash">The item's hash when the region was generated; empty for a <see cref="DocBlockKind.Generated"/> block.</param>
 /// <param name="Gen">The hash of the generated text: a different text now means someone edited it by hand.</param>
@@ -40,7 +41,7 @@ public static partial class DocumentModel
 
     public static string SlotMarker(DocSlot slot) =>
         $"<!-- dblens:slot {Escape(slot.Id)} purpose max-lines={slot.MaxLines} evidence={slot.Evidence}"
-        + (slot.Was is null ? "" : $" was={slot.Was}") + $" hash={slot.ItemHash} text={slot.TextHash} -->";
+        + (slot.Was is null ? "" : $" was={slot.Was}") + $" hash={slot.ItemHash} text={slot.TextHash}" + (slot.RefsHash is null ? "" : $" refs={slot.RefsHash}") + " -->";
 
     // An id may hold "--" or ">", which an HTML comment cannot; "%" is escaped first so that the two are inverses.
     private static string Escape(string id) =>
@@ -55,7 +56,7 @@ public static partial class DocumentModel
     [GeneratedRegex(@"^<!-- dblens:generated (?<id>.+) gen=(?<gen>[0-9a-f]+) -->$")]
     private static partial Regex GeneratedRx();
 
-    [GeneratedRegex(@"^<!-- dblens:slot (?<id>.+) purpose max-lines=(?<max>\d+) evidence=(?<ev>[a-z]+)(?: was=(?<was>[a-z]+))? hash=(?<hash>[0-9a-f]+) text=(?<text>[0-9a-f]+) -->$")]
+    [GeneratedRegex(@"^<!-- dblens:slot (?<id>.+) purpose max-lines=(?<max>\d+) evidence=(?<ev>[a-z]+)(?: was=(?<was>[a-z]+))? hash=(?<hash>[0-9a-f]+) text=(?<text>[0-9a-f]+)(?: refs=(?<refs>[0-9a-f]+))? -->$")]
     private static partial Regex SlotRx();
 
     public static ParsedDocument Parse(string text)
@@ -105,7 +106,7 @@ public static partial class DocumentModel
                     slot = new DocSlot(
                         Unescape(slotMatch.Groups["id"].Value), int.Parse(slotMatch.Groups["max"].Value, System.Globalization.CultureInfo.InvariantCulture),
                         slotMatch.Groups["ev"].Value, slotMatch.Groups["was"].Success ? slotMatch.Groups["was"].Value : null,
-                        slotMatch.Groups["hash"].Value, slotMatch.Groups["text"].Value, "");
+                        slotMatch.Groups["hash"].Value, slotMatch.Groups["text"].Value, "", slotMatch.Groups["refs"].Success ? slotMatch.Groups["refs"].Value : null);
                     slotText = new StringBuilder();
                     continue;
                 }

@@ -20,7 +20,12 @@ public sealed class DocsWorkspace
 
     public DocsOptions Options { get; }
 
-    public ProjectInventory Inventory() => ProjectInventoryEngine.Build(SolutionReader.Read(Root), DocsConfig.LoadInventory(Root));
+    /// <summary>The inventory and the sources it was read from, from one reading of the solution.</summary>
+    public (ProjectInventory Inventory, IReadOnlyList<SourceFile> Sources) Code()
+    {
+        var read = SolutionReader.Read(Root);
+        return (ProjectInventoryEngine.Build(read, DocsConfig.LoadInventory(Root)), read.Files);
+    }
 
     public IReadOnlyDictionary<string, string> Documents() => DocsFolder.Read(Root, Options);
 
@@ -31,14 +36,14 @@ public sealed class DocsWorkspace
     /// write in between, in this process or in another one (a scaffold from the command line): a write that
     /// started from an older text would take another's words away.
     /// </summary>
-    public T Update<T>(Func<ProjectInventory, IReadOnlyDictionary<string, string>, (string Path, string Text, T Result)> change)
+    public T Update<T>(Func<ProjectInventory, IReadOnlyList<SourceFile>, IReadOnlyDictionary<string, string>, (string Path, string Text, T Result)> change)
     {
         lock (_writing)
         {
-            var inventory = Inventory();
+            var (inventory, sources) = Code();
             return DocsFolder.Locked(Root, Options, () =>
             {
-                var (path, text, result) = change(inventory, Documents());
+                var (path, text, result) = change(inventory, sources, Documents());
                 Write(path, text);
                 return result;
             });

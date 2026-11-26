@@ -55,7 +55,7 @@ public sealed class DocsMcpTests : IAsyncLifetime
     private void Scaffold()
     {
         var workspace = new DocsWorkspace(_root);
-        DocsFolder.Write(_root, workspace.Options, Scaffolder.Scaffold(workspace.Inventory(), new Dictionary<string, string>(), workspace.Options).Files);
+        DocsFolder.Write(_root, workspace.Options, Scaffolder.Scaffold(workspace.Code().Inventory, new Dictionary<string, string>(), workspace.Options).Files);
     }
 
     [Fact]
@@ -181,7 +181,7 @@ public sealed class DocsMcpTests : IAsyncLifetime
         await Call("set_doc_slot", ("id", "endpoint:GET /a"), ("text", "Lists a."));
         var workspace = new DocsWorkspace(_root);
         var path = Path.Combine(_root, "docs/project/api.md");
-        File.WriteAllText(path, Scaffolder.Confirm(File.ReadAllText(path), "endpoint:GET /a", ItemHash.Of(workspace.Inventory().Items.Single(i => i.Id == "endpoint:GET /a"))));
+        File.WriteAllText(path, Scaffolder.Confirm(File.ReadAllText(path), "endpoint:GET /a", ItemHash.Of(workspace.Code().Inventory.Items.Single(i => i.Id == "endpoint:GET /a"))));
 
         var refused = await Call("set_doc_slot", ("id", "endpoint:GET /a"), ("text", "Overwritten."));
 

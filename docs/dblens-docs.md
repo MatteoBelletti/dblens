@@ -121,6 +121,16 @@ writer fills after reading the component's code); scaffold keeps it up to date a
 `detail-component` skill asks the user which component and does both steps. The language of the documents and of the
 sentences is `language` in `dblens-docs.json` (the writer reads it from `get_doc_slots`).
 
+## What the words cite
+
+A narrative slot cites code in backticks, as `Apis/OrdersApi.cs: CreateOrderAsync` (a file, or the end of its path) or
+`OrderingContext: SaveChangesAsync` (a type), and the member it declares: a method, constructor, local function or property.
+`set_doc_slot` refuses words that cite what is not in the code and stores a hash of the cited code in the slot marker
+(`refs=`). `check` then says when a citation no longer holds (`slot-bad-reference`), when the cited code changed since the
+words were written (`slot-stale-reference`; `get_doc_slots` lists such a slot as stale, so `fill-slots` rewrites it), and when a
+`detail:` page has no "Not verified" section (`slot-no-unverified-section`). All three are warnings, and errors with `--strict`.
+A change of spacing or of another method is not a change of what is cited.
+
 ## Links between endpoints and entities
 
 When the solution has an EF Core model, an endpoint's table lists the entities its handler names and an entity's

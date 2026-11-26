@@ -18,13 +18,15 @@ public static class SlotWriter
     private const int NarrativeLines = 10;
 
     /// <summary>The slots, with the item each one is about, in document order.</summary>
-    public static IReadOnlyList<SlotInfo> List(ProjectInventory inventory, IReadOnlyDictionary<string, string> documents, DocsOptions options) =>
-        List(inventory, documents, options, Wanted(inventory, options, DocPlan.Present(documents.Keys, options)));
+    public static IReadOnlyList<SlotInfo> List(
+        ProjectInventory inventory, IReadOnlyDictionary<string, string> documents, DocsOptions options, IReadOnlyList<SourceFile>? sources = null) =>
+        List(inventory, documents, options, Wanted(inventory, options, DocPlan.Present(documents.Keys, options)), sources);
 
     private static IReadOnlyList<SlotInfo> List(
-        ProjectInventory inventory, IReadOnlyDictionary<string, string> documents, DocsOptions options, Dictionary<string, Desired> wanted)
+        ProjectInventory inventory, IReadOnlyDictionary<string, string> documents, DocsOptions options, Dictionary<string, Desired> wanted, IReadOnlyList<SourceFile>? sources)
     {
         var present = DocPlan.Present(documents.Keys, options);
+        var code = sources is null ? null : new ProseReferences(sources);
         var items = inventory.Items.GroupBy(i => i.Id, StringComparer.Ordinal).ToDictionary(g => g.Key, g => g.First(), StringComparer.Ordinal);
         List<SlotInfo> slots = [];
         foreach (var file in present)
@@ -35,7 +37,8 @@ public static class SlotWriter
             foreach (var block in DocumentModel.Parse(text).Blocks.Where(b => b.Slot is not null && wanted.ContainsKey(b.Id) && items.ContainsKey(b.Id)))
             {
                 var (slot, item, desired) = (block.Slot!, items[block.Id], wanted[block.Id]);
-                var state = slot.Text.Length == 0 ? "empty" : slot.Evidence == "stale" || slot.ItemHash != desired.Hash ? "stale" : "current";
+                var state = slot.Text.Length == 0 ? "empty"
+                    : slot.Evidence == "stale" || slot.ItemHash != desired.Hash || CitedCodeChanged(slot, code) ? "stale" : "current";
                 slots.Add(new SlotInfo(
                     slot.Id, item.Kind.ToString(), item.Name, path, $"{item.Source.File}:{item.Source.Line}", slot.MaxLines, state,
                     slot.Evidence, IsPersons(slot), slot.Text, ItemHash.Shown(item).ToDictionary(a => a.Key, a => a.Value, StringComparer.Ordinal)));
@@ -44,6 +47,10 @@ public static class SlotWriter
 
         return slots;
     }
+
+    /// <summary>The code the words cite is not what it was when they were written.</summary>
+    internal static bool CitedCodeChanged(DocSlot slot, ProseReferences? code) =>
+        code is not null && slot.RefsHash is not null && code.Check(slot.Text).Hash != slot.RefsHash;
 
     private static Dictionary<string, Desired> Wanted(ProjectInventory inventory, DocsOptions options, IReadOnlyList<string> present) =>
         DocPlan.For(inventory, options, present)
@@ -61,11 +68,12 @@ public static class SlotWriter
     /// words are about what the code says now. Returns the document path and its new text.
     /// </summary>
     public static (string Path, string Text) Set(
-        ProjectInventory inventory, IReadOnlyDictionary<string, string> documents, DocsOptions options, string id, string words)
+        ProjectInventory inventory, IReadOnlyDictionary<string, string> documents, DocsOptions options, string id, string words,
+        IReadOnlyList<SourceFile>? sources = null)
     {
         if (!inventory.Items.Any(i => i.Id == id)) throw new ArgumentException($"{id} is not in the inventory.");
         var wanted = Wanted(inventory, options, DocPlan.Present(documents.Keys, options));
-        var path = List(inventory, documents, options, wanted).FirstOrDefault(s => s.Id == id)?.File
+        var path = List(inventory, documents, options, wanted, null).FirstOrDefault(s => s.Id == id)?.File
                    ?? throw new ArgumentException($"{id} has no slot in the documents: it may not need one, or dblens-docs scaffold has not run.");
         var parsed = DocumentModel.Parse(documents[path]);
         if (parsed.Problems.Count > 0) throw new ArgumentException($"{path} is not well formed: {parsed.Problems[0]}.");
@@ -78,7 +86,18 @@ public static class SlotWriter
             throw new ArgumentException($"The slot of {id} holds words written by a person; a model does not replace them. Ask the person to edit or delete it.");
 
         var text = Validate(words, slot.MaxLines);
-        var written = slot with { Evidence = "inferred", Was = null, ItemHash = hash, TextHash = ItemHash.OfText(text), Text = text };
+
+        // A citation is a claim the code answers: words that cite a place that is not there are refused, so a model cannot make one up.
+        string? refsHash = null;
+        if (sources is not null)
+        {
+            var (missing, cited) = new ProseReferences(sources).Check(text);
+            if (missing.Count > 0)
+                throw new ArgumentException($"These citations are not in the code: {string.Join(", ", missing.Select(m => $"`{m}`"))}. Cite only a file (or the end of its path) or a type you read, and a method, property or constructor it declares.");
+            refsHash = cited;
+        }
+
+        var written = slot with { Evidence = "inferred", Was = null, ItemHash = hash, TextHash = ItemHash.OfText(text), Text = text, RefsHash = refsHash };
         return (path, DocumentModel.Render(parsed with { Blocks = [.. parsed.Blocks.Select(b => b.Id == id ? b with { Slot = written } : b)] }));
     }
 

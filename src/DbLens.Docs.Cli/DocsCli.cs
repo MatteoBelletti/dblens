@@ -124,7 +124,7 @@ public static class DocsCli
                 return 0;
 
             default: // check
-                var check = DocumentCheck.Check(inventory, DocsFolder.Read(root, docs), docs, options.ContainsKey("--strict"), options.ContainsKey("--require-slots"));
+                var check = DocumentCheck.Check(inventory, DocsFolder.Read(root, docs), docs, options.ContainsKey("--strict"), options.ContainsKey("--require-slots"), read.Files);
                 if (options.ContainsKey("--json"))
                     output.WriteLine(JsonSerializer.Serialize(new { ok = check.Ok, errors = check.Errors, warnings = check.Warnings, issues = check.Issues }, Json));
                 else
