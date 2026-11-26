@@ -169,8 +169,16 @@ public static partial class SqlText
     /// ones (@p0, EF Core's @__p_0). A name is an @ with a word attached to it, not the second @ of @@ROWCOUNT or
     /// of PostgreSQL's @@ operator; PostgreSQL's prefix @ (absolute value) written against a column reads as one.
     /// </summary>
-    public static IReadOnlyList<string> ParameterNames(string sql, DatabaseDialect dialect) =>
-        [.. ParameterTokens([.. Tokens(sql, dialect)], dialect).Select(p => p.Name).Distinct(StringComparer.Ordinal)];
+    public static IReadOnlyList<string> ParameterNames(string sql, DatabaseDialect dialect)
+    {
+        List<SqlToken> tokens = [.. Tokens(sql, dialect)];
+
+        // EXEC sp_executesql N'…@p0…', N'@p0 int', @p0 = 5 declares its types: it is a statement without open parameters.
+        if (dialect == DatabaseDialect.SqlServer && tokens.Any(t => t.Kind == SqlTokenKind.Word && t.Text.Equals("sp_executesql", StringComparison.OrdinalIgnoreCase)))
+            return [];
+
+        return [.. ParameterTokens(tokens, dialect).Select(p => p.Name).Distinct(StringComparer.Ordinal)];
+    }
 
     private const int MaxParameters = 65535;
 
@@ -214,7 +222,7 @@ public static partial class SqlText
         {
             if (tokens[i].Kind == SqlTokenKind.Parameter) { if (dialect == DatabaseDialect.PostgreSql) found.Add((i, tokens[i].Text)); } // $5 is money in T-SQL
             else if (tokens[i].Kind == SqlTokenKind.Symbol && tokens[i].Text == "@" && i + 1 < tokens.Count && tokens[i + 1].Kind == SqlTokenKind.Word
-                     && !(i > 0 && tokens[i - 1].Kind == SqlTokenKind.Symbol && tokens[i - 1].Text == "@"))
+                     && !(i > 0 && tokens[i - 1].Kind == SqlTokenKind.Symbol && tokens[i - 1].Text is "@" or "<")) // @@x, and <@ARRAY[..] (contained by)
                 found.Add((i, "@" + tokens[i + 1].Text));
         }
 

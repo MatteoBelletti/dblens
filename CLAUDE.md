@@ -186,7 +186,7 @@ Probes are dblens's own SQL and skip layer 3, never layers 1 and 2.
   `NotFoundCaveat(details)` via `WithCaveats`; an empty scope returns `Empty()` with that caveat.
 - A hook opens with `OpenAsync`, builds with `Command`, reads with `ReadAllAsync` and the `DbReading`
   extensions (`Text`, `Number`, `Flag`…), and runs caller or probe SQL through
-  `InRolledBackTransactionAsync`. No `try`/`catch` for driver errors: `RunAsync` wraps them.
+  `InRolledBackTransactionAsync`. No `try`/`catch` for driver errors: `RunAsync` wraps them. The exceptions are the probes, the one-index-at-a-time fragmentation measurement and the cleanup of a prepared statement: a failure there must not take the rest, or the real error, with it.
 - A table is a `(schema, name)` pair from the catalog. Never join one into `"schema.name"` and split
   it again: names may contain dots. Only a name the caller typed goes through `ParseTableNames`.
 - A catalog shape the demo schema lacks (partitions, odd names, index kinds) gets a table in the

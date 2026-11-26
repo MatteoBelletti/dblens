@@ -17,6 +17,8 @@ public sealed class ParameterNamesTests
     [InlineData("SELECT '$1', '@p0', \"@p1\" FROM t -- @p2 and $3", DatabaseDialect.PostgreSql, "")]
     [InlineData("SELECT 1", DatabaseDialect.PostgreSql, "")]
     [InlineData("SELECT * FROM t WHERE price > $5", DatabaseDialect.SqlServer, "")]
+    [InlineData("SELECT * FROM t WHERE tags <@ARRAY['a'] AND doc @> '{}'", DatabaseDialect.PostgreSql, "")]
+    [InlineData("EXEC sp_executesql N'SELECT * FROM t WHERE id = @p0', N'@p0 int', @p0 = 5", DatabaseDialect.SqlServer, "")]
     public void ParametersAreFoundInTheCodeOnly(string sql, DatabaseDialect dialect, string expected) =>
         string.Join(',', SqlText.ParameterNames(sql, dialect)).Should().Be(expected);
 
@@ -48,43 +50,40 @@ public sealed class ParameterNamesTests
         new Action(() => SqlText.PositionalParameters("SELECT $1, @p0")).Should().Throw<ArgumentException>().WithMessage("*both*");
 }
 
+/// <summary>Refusals that come before any connection: offline, for both dialects.</summary>
 public sealed class ParameterizedExplainRefusalTests
 {
+    private const string Connection = "Server=localhost,1;Database=x;User Id=u;Password=p;TrustServerCertificate=true";
+
+    private static DbLens.Core.Abstractions.IDatabaseInspector Inspector(DatabaseDialect dialect) => dialect == DatabaseDialect.SqlServer
+        ? new DbLens.SqlServer.SqlServerInspector(Connection, Microsoft.Extensions.Logging.Abstractions.NullLogger<DbLens.SqlServer.SqlServerInspector>.Instance)
+        : new DbLens.Postgres.PostgresInspector("Host=localhost;Port=1;Database=x;Username=u;Password=p", Microsoft.Extensions.Logging.Abstractions.NullLogger<DbLens.Postgres.PostgresInspector>.Instance);
+
+    // Analyze has no values to run with, on either engine; SQL Server refuses an estimated plan too, a genuine difference:
+    // SHOWPLAN_XML needs every variable declared, and a guessed type would plan another query. Its advice is not "analyze false".
+    [Theory]
+    [InlineData(DatabaseDialect.PostgreSql, "SELECT id FROM users WHERE id = $1", true, "cannot be executed*analyze false")]
+    [InlineData(DatabaseDialect.SqlServer, "SELECT id FROM users WHERE id = @p0", true, "cannot be executed*replace them with values of the right type")]
+    [InlineData(DatabaseDialect.SqlServer, "SELECT id FROM users WHERE id = @p0", false, "parameters (@p0)*types declared")]
+    public async Task AStatementWithParameters_IsRefusedWhereNoPlanOrRunIsPossible(DatabaseDialect dialect, string sql, bool analyze, string message)
+    {
+        var call = () => Inspector(dialect).ExplainQueryAsync(new ExplainQueryRequest(sql, Analyze: analyze));
+
+        (await call.Should().ThrowAsync<ArgumentException>()).Which.Message.Should().MatchEquivalentOf($"*{message}*");
+    }
+
     [Fact]
-    public async Task SqlServer_AnalyzeWithParameters_DoesNotPointToAnEstimatedPlan_ForThatIsRefusedToo()
+    public async Task SqlServer_AnalyzeWithParameters_DoesNotPointToAnEstimatedPlan()
     {
-        var inspector = new DbLens.SqlServer.SqlServerInspector(
-            "Server=localhost,1;Database=x;User Id=u;Password=p;TrustServerCertificate=true",
-            Microsoft.Extensions.Logging.Abstractions.NullLogger<DbLens.SqlServer.SqlServerInspector>.Instance);
+        var call = () => Inspector(DatabaseDialect.SqlServer).ExplainQueryAsync(new ExplainQueryRequest("SELECT 1 WHERE 1 = @p0", Analyze: true));
 
-        var call = () => inspector.ExplainQueryAsync(new ExplainQueryRequest("SELECT 1 WHERE 1 = @p0", Analyze: true));
-
-        (await call.Should().ThrowAsync<ArgumentException>()).Which.Message.Should().Contain("cannot be executed").And.NotContain("analyze false");
+        (await call.Should().ThrowAsync<ArgumentException>()).Which.Message.Should().NotContain("analyze false");
     }
 }
 
-public abstract class ParameterizedExplainTestsBase(IDatabaseFixture fixture)
+public sealed class PostgresParameterizedExplainTests(PostgresFixture fixture) : IClassFixture<PostgresFixture>
 {
-    private bool ShouldSkip => !fixture.IsReachable;
-
-    protected abstract string QueryWithParameter { get; }
-
-    [SkippableFact]
-    [Trait("Category", "Integration")]
-    public async Task AnalyzeWithParameters_IsRefused_ForTheValuesAreMissing()
-    {
-        Skip.If(ShouldSkip, TestSkip.Reason);
-
-        var call = () => fixture.Inspector!.ExplainQueryAsync(new ExplainQueryRequest(QueryWithParameter, Analyze: true));
-
-        await call.Should().ThrowAsync<ArgumentException>().WithMessage("*cannot be executed*analyze false*");
-    }
-}
-
-public sealed class PostgresParameterizedExplainTests(PostgresFixture fixture)
-    : ParameterizedExplainTestsBase(fixture), IClassFixture<PostgresFixture>
-{
-    protected override string QueryWithParameter => "SELECT id FROM public.users WHERE id = $1";
+    private const string QueryWithParameter = "SELECT id FROM public.users WHERE id = $1";
 
     [SkippableTheory]
     [InlineData("SELECT id FROM public.users WHERE id = $1", false)]
@@ -115,23 +114,5 @@ public sealed class PostgresParameterizedExplainTests(PostgresFixture fixture)
         await connection.OpenAsync();
         await using var count = new Npgsql.NpgsqlCommand("SELECT count(*) FROM pg_prepared_statements WHERE name = 'dblens_generic_plan'", connection);
         ((long)(await count.ExecuteScalarAsync())!).Should().Be(0);
-    }
-}
-
-public sealed class SqlServerParameterizedExplainTests(SqlServerFixture fixture)
-    : ParameterizedExplainTestsBase(fixture), IClassFixture<SqlServerFixture>
-{
-    protected override string QueryWithParameter => "SELECT id FROM dbo.users WHERE id = @p0";
-
-    // A genuine difference: SHOWPLAN_XML needs every variable declared, and a guessed type plans another query.
-    [SkippableFact]
-    [Trait("Category", "Integration")]
-    public async Task AnEstimatedPlanWithParameters_IsRefused_NotPlannedWithAGuessedType()
-    {
-        Skip.If(!fixture.IsReachable, TestSkip.Reason);
-
-        var call = () => fixture.Inspector!.ExplainQueryAsync(new ExplainQueryRequest(QueryWithParameter));
-
-        await call.Should().ThrowAsync<ArgumentException>().WithMessage("*parameters (@p0)*types declared*");
     }
 }

@@ -172,9 +172,9 @@ public abstract partial class DatabaseInspectorBase
         {
             if (!connectionLost) window = await ReadStatsWindowAsync(conn, ct);
         }
-        catch (DbException)
+        catch (Exception ex) when (ex is DbException or InvalidOperationException)
         {
-            // The caveat about a recent restore is lost; the measurements are not.
+            // The caveat about a recent restore is lost; the measurements are not (a session killed on the last index ends here).
         }
 
         return (new IndexFragmentationStats(

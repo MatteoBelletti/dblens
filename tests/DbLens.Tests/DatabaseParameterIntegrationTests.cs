@@ -9,43 +9,41 @@ using Microsoft.Extensions.Logging.Abstractions;
 namespace DbLens.Tests;
 
 /// <summary><c>database</c> reaches another database of the configured server, with the configured login and no password in the call.</summary>
-public sealed class DatabaseParameterIntegrationTests
+public abstract class DatabaseParameterTestsBase(IDatabaseFixture fixture)
 {
-    private static async Task<DatabaseSchemaOverview?> SchemaOf(DatabaseDialect dialect, string configured, string database)
+    protected abstract DatabaseDialect Dialect { get; }
+
+    /// <summary>A database of the server other than the demo one, that the reader login can open.</summary>
+    protected abstract string OtherDatabase { get; }
+
+    [SkippableFact]
+    [Trait("Category", "Integration")]
+    public async Task GetSchemaWithDatabase_ReadsTheOtherDatabase()
     {
+        Skip.If(!fixture.IsReachable, TestSkip.Reason);
+        var configured = TestConnections.For(Dialect);
         var services = new ServiceCollection()
             .AddSingleton<Microsoft.Extensions.Logging.ILoggerFactory>(NullLoggerFactory.Instance)
             .AddSingleton(new ServerPolicy(false, false, false))
             .AddSingleton<IDatabaseInspectorFactory, DatabaseInspectorFactory>()
-            .AddConfiguredDatabases(new ConfigurationBuilder().AddInMemoryCollection([new($"ConnectionStrings:{dialect}", configured)]).Build())
+            .AddConfiguredDatabases(new ConfigurationBuilder().AddInMemoryCollection([new($"ConnectionStrings:{Dialect}", configured)]).Build())
             .BuildServiceProvider();
-        var factory = services.GetRequiredService<IDatabaseInspectorFactory>();
-        if (!await factory.Create(dialect, configured).TestConnectionAsync()) return null;
 
-        return await new GetSchemaTool(services, factory).GetSchema(dialect: dialect, database: database);
+        var overview = await new GetSchemaTool(services, services.GetRequiredService<IDatabaseInspectorFactory>())
+            .GetSchema(dialect: Dialect, database: OtherDatabase);
+
+        overview.Database.Should().Be(OtherDatabase);
     }
+}
 
-    [SkippableFact]
-    public async Task PostgreSql_GetSchemaWithDatabase_ReadsTheOtherDatabase()
-    {
-        var configured = Environment.GetEnvironmentVariable("DBLENS_TEST_PG_CONNECTION")
-                         ?? "Host=localhost;Port=5433;Database=dblens_demo;Username=dblens_reader;Password=readerpassword";
+public sealed class PostgresDatabaseParameterTests(PostgresFixture fixture) : DatabaseParameterTestsBase(fixture), IClassFixture<PostgresFixture>
+{
+    protected override DatabaseDialect Dialect => DatabaseDialect.PostgreSql;
+    protected override string OtherDatabase => "postgres";
+}
 
-        var overview = await SchemaOf(DatabaseDialect.PostgreSql, configured, "postgres");
-
-        Skip.If(overview is null, "PostgreSQL is not reachable.");
-        overview!.Database.Should().Be("postgres");
-    }
-
-    [SkippableFact]
-    public async Task SqlServer_GetSchemaWithDatabase_ReadsTheOtherDatabase()
-    {
-        var configured = Environment.GetEnvironmentVariable("DBLENS_TEST_SS_CONNECTION")
-                         ?? "Server=localhost,1434;Database=dblens_demo;User Id=dblens_reader;Password=ReaderPassword123!;TrustServerCertificate=true";
-
-        var overview = await SchemaOf(DatabaseDialect.SqlServer, configured, "master");
-
-        Skip.If(overview is null, "SQL Server is not reachable.");
-        overview!.Database.Should().Be("master");
-    }
+public sealed class SqlServerDatabaseParameterTests(SqlServerFixture fixture) : DatabaseParameterTestsBase(fixture), IClassFixture<SqlServerFixture>
+{
+    protected override DatabaseDialect Dialect => DatabaseDialect.SqlServer;
+    protected override string OtherDatabase => "master";
 }
