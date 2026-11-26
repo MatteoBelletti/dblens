@@ -10,11 +10,13 @@ public sealed partial class PostgresInspector
     protected override bool PlansWithoutParameterValues => true;
 
     protected override async Task<QueryPlanFetch> FetchQueryPlanAsync(
+        ExplainQueryRequest request, CancellationToken ct) =>
+        new(ParsePlan(await FetchPlanJsonAsync(request, ct)), []);
+
+    protected override async Task<QueryPlanFetch> FetchGenericPlanAsync(
         ExplainQueryRequest request, CancellationToken ct)
     {
         var (sql, arguments) = SqlText.PositionalParameters(request.Sql);
-        if (arguments == 0) return new(ParsePlan(await FetchPlanJsonAsync(request, ct)), []);
-
         var named = SqlText.ParameterNames(request.Sql, DatabaseDialect.PostgreSql).Where(p => p[0] == '@').ToList();
         return new(ParsePlan(await GenericPlanJsonAsync(sql, arguments, ct)),
         [

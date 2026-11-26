@@ -276,21 +276,25 @@ public sealed class FragmentationAnalysisTests
     }
 
     [Theory]
-    [InlineData(StatsWindowStart.DatabaseRestored, 2, true)]
-    [InlineData(StatsWindowStart.DatabaseCreated, 2, true)]
-    [InlineData(StatsWindowStart.DatabaseRestored, 90, false)]
-    [InlineData(StatsWindowStart.ServerStart, 2, false)]
-    public void ARecentRestoreOfAPostgreSqlDatabase_SaysTheFragmentationReflectsIt(StatsWindowStart since, double days, bool expected)
+    [InlineData(null, 2.0, 400.0, true)]
+    [InlineData(null, 90.0, 400.0, false)]
+    [InlineData(2.0, null, 400.0, true)]
+    [InlineData(null, null, 400.0, false)]
+    [InlineData(null, 5.0, 1.0, true)]
+    public void ARecentRestoreOfAPostgreSqlDatabase_SaysTheFragmentationReflectsIt_EvenWhenTheServerRestartedSince(
+        double? restoredDays, double? createdDays, double serverStartDays, bool expected)
     {
-        var result = Analyze(Stats(Index("idx_a", 5)), window: new StatsWindow(days, since, RestoreVisible: true));
+        var window = StatsWindow.From(serverStartDays, createdDays, restoredDays, statsResetDays: null, restoreVisible: true);
 
-        (result.Caveats.Any(c => c.Contains("reflects the restore, not production"))).Should().Be(expected);
+        var result = Analyze(Stats(Index("idx_a", 5)), window: window);
+
+        result.Caveats.Any(c => c.Contains("reflects the restore, not production")).Should().Be(expected);
     }
 
     [Fact]
     public void ARecentRestoreOfASqlServerDatabase_SaysNothing_ItKeepsThePagesAsTheyWere()
     {
-        var result = Analyze(Stats(Index("idx_a", 5)), dialect: DatabaseDialect.SqlServer, window: new StatsWindow(2, StatsWindowStart.DatabaseRestored, RestoreVisible: true));
+        var result = Analyze(Stats(Index("idx_a", 5)), dialect: DatabaseDialect.SqlServer, window: StatsWindow.From(400, null, 2, null, restoreVisible: true));
 
         result.Caveats.Should().NotContain(c => c.Contains("restore"));
     }

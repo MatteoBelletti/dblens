@@ -48,6 +48,21 @@ public sealed class ParameterNamesTests
         new Action(() => SqlText.PositionalParameters("SELECT $1, @p0")).Should().Throw<ArgumentException>().WithMessage("*both*");
 }
 
+public sealed class ParameterizedExplainRefusalTests
+{
+    [Fact]
+    public async Task SqlServer_AnalyzeWithParameters_DoesNotPointToAnEstimatedPlan_ForThatIsRefusedToo()
+    {
+        var inspector = new DbLens.SqlServer.SqlServerInspector(
+            "Server=localhost,1;Database=x;User Id=u;Password=p;TrustServerCertificate=true",
+            Microsoft.Extensions.Logging.Abstractions.NullLogger<DbLens.SqlServer.SqlServerInspector>.Instance);
+
+        var call = () => inspector.ExplainQueryAsync(new ExplainQueryRequest("SELECT 1 WHERE 1 = @p0", Analyze: true));
+
+        (await call.Should().ThrowAsync<ArgumentException>()).Which.Message.Should().Contain("cannot be executed").And.NotContain("analyze false");
+    }
+}
+
 public abstract class ParameterizedExplainTestsBase(IDatabaseFixture fixture)
 {
     private bool ShouldSkip => !fixture.IsReachable;

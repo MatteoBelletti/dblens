@@ -110,10 +110,17 @@ public abstract partial class DatabaseInspectorBase
         using var budget = CancellationTokenSource.CreateLinkedTokenSource(ct);
         budget.CancelAfter(TimeSpan.FromSeconds(request.TotalBudgetSeconds));
         var clock = System.Diagnostics.Stopwatch.StartNew();
+        var connectionLost = false;
 
         // The largest first: they are the ones a rebuild is worth the most on.
         foreach (var c in candidates.Where(c => c.PageCount >= request.MinPageCount).OrderByDescending(c => c.PageCount).ThenBy(c => c.Schema, StringComparer.Ordinal).ThenBy(c => c.Table, StringComparer.Ordinal).ThenBy(c => c.IndexName, StringComparer.Ordinal))
         {
+            if (connectionLost)
+            {
+                notMeasured.Add(new NotMeasuredIndex(c.Schema, c.Table, c.IndexName, "connection lost"));
+                continue;
+            }
+
             if ((clock.Elapsed.TotalSeconds >= request.TotalBudgetSeconds || budget.IsCancellationRequested) && !ct.IsCancellationRequested)
             {
                 notMeasured.Add(new NotMeasuredIndex(c.Schema, c.Table, c.IndexName, "over the time budget"));
@@ -125,8 +132,17 @@ public abstract partial class DatabaseInspectorBase
                 var cmd = FragmentationMeasureCommand(conn, c, request);
                 cmd.CommandTimeout = request.IndexTimeoutSeconds;
                 var (fragmentation, density) = (await ReadAllAsync(cmd, r => (Fragmentation: r.RealOrNull("fragmentation_percent"), Density: r.RealOrNull("page_density_percent")), budget.Token)).FirstOrDefault();
+
+                // No row, or a NULL, is no measurement (the index was dropped or rebuilt since the catalog was read); an empty
+                // index reports NaN, which is a measurement of nothing to fragment.
+                if (fragmentation is null)
+                {
+                    notMeasured.Add(new NotMeasuredIndex(c.Schema, c.Table, c.IndexName, "no measurement returned"));
+                    continue;
+                }
+
                 indexes.Add(new IndexFragmentation(
-                    c.Schema, c.Table, c.IndexName, fragmentation is { } f && double.IsFinite(f) ? f : 0, c.PageCount,
+                    c.Schema, c.Table, c.IndexName, double.IsFinite(fragmentation.Value) ? fragmentation.Value : 0, c.PageCount,
                     request.IncludePageDensity && density is { } d && double.IsFinite(d) ? d : null, c.IsPrimary, c.Method));
             }
             catch (DbException ex) when (FragmentationPermissionReason(ex) is { } denied)
@@ -143,12 +159,18 @@ public abstract partial class DatabaseInspectorBase
             {
                 notMeasured.Add(new NotMeasuredIndex(c.Schema, c.Table, c.IndexName, Brief(ex)));
             }
+            catch (InvalidOperationException) when (conn.State != System.Data.ConnectionState.Open)
+            {
+                // The session was killed: every later command would fail the same way. What was measured stays.
+                connectionLost = true;
+                notMeasured.Add(new NotMeasuredIndex(c.Schema, c.Table, c.IndexName, "connection lost"));
+            }
         }
 
         StatsWindow? window = null;
         try
         {
-            window = await ReadStatsWindowAsync(conn, ct);
+            if (!connectionLost) window = await ReadStatsWindowAsync(conn, ct);
         }
         catch (DbException)
         {
@@ -168,6 +190,9 @@ public abstract partial class DatabaseInspectorBase
 
     /// <summary>Whether a statement with parameters (<c>$1</c>, <c>@p0</c>) can be planned without their values.</summary>
     protected abstract bool PlansWithoutParameterValues { get; }
+
+    /// <summary>The plan of a statement with parameters, chosen without their values; only where <see cref="PlansWithoutParameterValues"/>.</summary>
+    protected virtual Task<QueryPlanFetch> FetchGenericPlanAsync(ExplainQueryRequest request, CancellationToken ct) => throw new NotSupportedException();
 
     protected sealed record QueryPlanFetch(QueryPlanNode? Root, IReadOnlyList<string> Caveats);
 
@@ -442,12 +467,14 @@ public abstract partial class DatabaseInspectorBase
                 throw new ArgumentException($"Refusing to plan this input. {single.RejectionReason}");
         }
 
-        if (SqlText.ParameterNames(request.Sql, Dialect) is { Count: > 0 } parameters)
+        var parameters = SqlText.ParameterNames(request.Sql, Dialect);
+        if (parameters.Count > 0)
         {
             var named = string.Join(", ", parameters);
             if (request.Analyze)
                 throw new ArgumentException(
-                    $"This statement has parameters ({named}) and no values for them, so it cannot be executed: use analyze false for its plan, or replace them with values.");
+                    $"This statement has parameters ({named}) and no values for them, so it cannot be executed: " +
+                    (PlansWithoutParameterValues ? "use analyze false for its plan, or replace them with values." : "replace them with values of the right type."));
             if (!PlansWithoutParameterValues)
                 throw new ArgumentException(
                     $"This statement has parameters ({named}), and {Dialect} plans a statement only with their types declared, which dblens cannot know: replace them with values of the right type.");
@@ -460,7 +487,9 @@ public abstract partial class DatabaseInspectorBase
         {
             var loginCaveat = request.Analyze ? await EnsureReadOnlyLoginAsync(ct) : null;
 
-            var fetched = await FetchQueryPlanAsync(request, ct);
+            var fetched = parameters.Count > 0
+                ? await FetchGenericPlanAsync(request, ct)
+                : await FetchQueryPlanAsync(request, ct);
 
             var result = QueryPlanAnalysisEngine.Analyze(
                 fetched.Root, QueryPlanAnalysisEngine.RenderPlanText(fetched.Root), request.Analyze, request, Dialect);

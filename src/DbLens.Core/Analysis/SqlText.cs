@@ -172,12 +172,12 @@ public static partial class SqlText
     public static IReadOnlyList<string> ParameterNames(string sql, DatabaseDialect dialect) =>
         [.. ParameterTokens([.. Tokens(sql, dialect)], dialect).Select(p => p.Name).Distinct(StringComparer.Ordinal)];
 
+    private const int MaxParameters = 65535;
+
     /// <summary>
     /// PostgreSQL text with its named parameters rewritten as $1, $2… in order of first appearance, and the highest
     /// $n of the result: the form PREPARE takes. Positional and named parameters in one text are refused.
     /// </summary>
-    private const int MaxParameters = 65535;
-
     public static (string Sql, int Count) PositionalParameters(string sql)
     {
         var tokens = Tokens(sql, DatabaseDialect.PostgreSql).ToList();

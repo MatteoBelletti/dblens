@@ -28,7 +28,7 @@ public sealed class ConfiguredDatabases(IConfiguration configuration)
         var configured = configuration[$"ConnectionStrings:{dialect}"];
         if (IsPlaceholder(configured))
         {
-            if (_warned.Add(dialect))
+            if (_warned.TryAdd(dialect, true))
                 Console.Error.WriteLine($"dblens: ConnectionStrings:{dialect} is an unexpanded placeholder ({configured!.Trim()}): treated as not configured.");
         }
         else if (!string.IsNullOrWhiteSpace(configured))
@@ -41,7 +41,7 @@ public sealed class ConfiguredDatabases(IConfiguration configuration)
             : null;
     }
 
-    private readonly HashSet<DatabaseDialect> _warned = [];
+    private readonly System.Collections.Concurrent.ConcurrentDictionary<DatabaseDialect, bool> _warned = [];
 
     private static bool IsPlaceholder(string? value) => value is not null && value.AsSpan().TrimStart().StartsWith("${", StringComparison.Ordinal);
 
