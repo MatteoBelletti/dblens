@@ -160,4 +160,47 @@ public sealed class ProseReferencesTests
         Hash("public class Orders(int Orders2) {\n // retries\n public const   int Retries = 3; } public enum OrderStatus { New, Paid }").Should().Be(before, "a comment is not code");
         Hash("public class Orders(int Orders2) { public const long Retries = 3; } public enum OrderStatus { New, Paid }").Should().NotBe(before, "the type of a field is what it is");
     }
+
+    [Theory]
+    [InlineData("public class Api : IApi { public void Real() { } }", "`Api: Invented`", 1)]
+    [InlineData("public class Api : IApi { public void Real() { } }", "`Api: Real`", 0)]
+    [InlineData("public interface IApi { } public class Api : IApi { }", "`Api: Invented`", 1)]
+    [InlineData("public enum Status : byte { New }", "`Status: Invented` `Status: New`", 1)]
+    [InlineData("public class Base { } public class Child : Base { }", "`Child: Base`", 1)]
+    [InlineData("public class Base<T> { public void Run() { } } public class Child : Base<Ns.Arg> { }", "`Child: Run`", 0)]
+    [InlineData("public class Child : Framework.Base { }", "`Child: Anything`", 0)]
+    public void ABaseListOnlyExcusesAMember_WhenTheBaseIsOneTheSourcesDoNotShow(string code, string text, int missing) =>
+        new ProseReferences([File("src/A/Types.cs", code)]).Check(text).Missing.Should().HaveCount(missing);
+
+    [Fact]
+    public void APersonsWords_AreNotHeldToTheirCitations_NorToTheNotVerifiedSection_AndOneStaleSlotIsOneIssue()
+    {
+        var (inventory, documents) = Started(Sources());
+        var path = documents.Keys.Single(k => k.Contains("/components/", StringComparison.Ordinal));
+        string With(string evidence, string words, string itemHash = "")
+        {
+            var parsed = DocumentModel.Parse(documents[path]);
+            return DocumentModel.Render(parsed with { Blocks = [.. parsed.Blocks.Select(b => b.Slot is { } slot
+                ? b with { Slot = slot with { Evidence = evidence, Text = words, TextHash = ItemHash.OfText(evidence == "human" ? "other" : words), ItemHash = itemHash.Length > 0 ? itemHash : slot.ItemHash } }
+                : b)] });
+        }
+
+        var human = new Dictionary<string, string>(documents) { [path] = With("human", "My own words about `Order: Nothing`.") };
+        DocumentCheck.Check(inventory, human, Options, strict: true, sources: Sources()).Issues.Should().NotContain(i => i.Code.StartsWith("slot-no-unverified", StringComparison.Ordinal) || i.Code.EndsWith("reference", StringComparison.Ordinal));
+
+        var stale = new Dictionary<string, string>(documents) { [path] = With("inferred", "Words.\n\n## Not verified\n\n- x `Apis/OrdersApi.cs: Create`", "00000000") };
+        DocumentCheck.Check(inventory, stale, Options, sources: Sources()).Issues.Where(i => i.Code is "slot-stale" or "slot-stale-reference").Select(i => i.Code).Should().Equal("slot-stale");
+    }
+
+    [Fact]
+    public void ConfirmingWords_DropsTheHashOfTheCitationsTheyHadWhenAModelWroteThem()
+    {
+        var (inventory, documents) = Started(Sources());
+        var (path, text) = SlotWriter.Set(inventory, documents, Options, "detail:Ordering", Words, Sources());
+
+        var confirmed = Scaffolder.Confirm(text, "detail:Ordering", ItemHash.OfText("any"));
+
+        DocumentModel.Parse(confirmed).Blocks.Single(b => b.Slot is not null).Slot!.RefsHash.Should().BeNull();
+        path.Should().NotBeEmpty();
+    }
 }

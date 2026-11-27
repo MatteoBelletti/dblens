@@ -70,7 +70,7 @@ public sealed partial class ProseReferences(IReadOnlyList<SourceFile> sources)
         if (declarations.Count == 0) return ([], true);
 
         var code = Members(declarations, type, reference.Member, 0);
-        return (code, code.Count == 0 && declarations.Any(d => d.BaseList is not null));
+        return (code, code.Count == 0 && MayInherit(declarations, 0));
     }
 
     private SyntaxNode Root(SourceFile file)
@@ -95,29 +95,38 @@ public sealed partial class ProseReferences(IReadOnlyList<SourceFile> sources)
     private List<string> Members(List<BaseTypeDeclarationSyntax> declarations, string type, string member, int depth)
     {
         List<string> code = [.. declarations.SelectMany(d => d.DescendantNodes().Prepend(d).Where(n => Names(n, member) && Owner(n) == type)).Select(Cited)];
-        if (code.Count == 0 && member == type) return ["default constructor"];
+        if (code.Count == 0 && member == type && depth == 0 && declarations.Any(d => d is ClassDeclarationSyntax or StructDeclarationSyntax or RecordDeclarationSyntax && !d.Modifiers.Any(SyntaxKind.StaticKeyword)))
+            return ["default constructor"];
         if (code.Count > 0 || depth >= MaxBaseDepth) return code;
 
-        foreach (var name in declarations.SelectMany(d => d.BaseList?.Types ?? []).Select(b => b.Type.ToString().Split('.').Last().Split('<')[0]).Distinct(StringComparer.Ordinal))
+        foreach (var name in BaseNames(declarations))
             if (Declarations(name) is { Count: > 0 } bases) code.AddRange(Members(bases, name, member, depth + 1));
         return code;
     }
 
+    private static IEnumerable<string> BaseNames(List<BaseTypeDeclarationSyntax> declarations) =>
+        declarations.SelectMany(d => d.BaseList?.Types ?? []).Where(b => b.Type is not PredefinedTypeSyntax)
+            .Select(b => b.Type.ToString().Split('<')[0].Split('.').Last()).Distinct(StringComparer.Ordinal);
+
+    // A member that is not declared may be inherited only from a base type the sources do not show: a framework class. An
+    // interface, one of the sources or the I-named kind outside them, supplies no members to the type that implements it.
+    private bool MayInherit(List<BaseTypeDeclarationSyntax> declarations, int depth) =>
+        depth < MaxBaseDepth && BaseNames(declarations).Any(name => Declarations(name) is { Count: > 0 } bases
+            ? MayInherit(bases, depth + 1)
+            : !(name.Length > 1 && name[0] == 'I' && char.IsUpper(name[1])));
+
     private const int MaxBaseDepth = 5;
 
-    // Anything a person can name in a sentence about a type: its callable members, and the data it holds.
+    // What a sentence about a type names: its methods and constructors, and the data it holds.
     private static bool Names(SyntaxNode node, string member) => node switch
     {
         MethodDeclarationSyntax m => m.Identifier.Text == member,
         ConstructorDeclarationSyntax c => c.Identifier.Text == member,
-        LocalFunctionStatementSyntax l => l.Identifier.Text == member,
         PropertyDeclarationSyntax p => p.Identifier.Text == member,
-        EventDeclarationSyntax e => e.Identifier.Text == member,
-        VariableDeclaratorSyntax { Parent.Parent: FieldDeclarationSyntax or EventFieldDeclarationSyntax } v => v.Identifier.Text == member,
+        VariableDeclaratorSyntax { Parent.Parent: FieldDeclarationSyntax } v => v.Identifier.Text == member,
         EnumMemberDeclarationSyntax e => e.Identifier.Text == member,
-        // A primary constructor is the type itself, and its parameters are what it takes.
+        // A primary constructor is the type itself.
         TypeDeclarationSyntax { ParameterList: not null } t => t.Identifier.Text == member,
-        ParameterSyntax { Parent.Parent: TypeDeclarationSyntax } p => p.Identifier.Text == member,
         _ => false,
     };
 

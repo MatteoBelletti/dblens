@@ -104,11 +104,14 @@ public static class DocumentCheck
 
         if (code is null) yield break;
 
+        // A person's words are not tracked, and a slot already stale says to read it again: one fix, one issue.
+        if (SlotWriter.IsPersons(slot)) yield break;
+
         var (missing, _) = code.Check(slot.Text);
         foreach (var reference in missing)
             yield return new DocIssue("slot-bad-reference", strict ? IssueSeverity.Error : IssueSeverity.Warning, slot.Id, file, $"The slot of {slot.Id} cites `{reference}`, which is not in the code.");
 
-        if (SlotWriter.CitedCodeChanged(slot, code))
+        if (slot.Evidence != "stale" && slot.ItemHash == itemHash && SlotWriter.CitedCodeChanged(slot, code))
             yield return new DocIssue("slot-stale-reference", strict ? IssueSeverity.Error : IssueSeverity.Warning, slot.Id, file, $"The code cited by the slot of {slot.Id} changed after its words were written: read it again.");
     }
 

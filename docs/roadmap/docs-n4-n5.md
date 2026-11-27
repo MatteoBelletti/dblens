@@ -5,9 +5,9 @@ Piano: [Piano 2](https://claude.ai/artifact/CY9So17wnufFQ4nWzfXFgF). Prima: [doc
 ## N4: cosa c'è
 
 Una frase che cita il codice cita un luogo che il codice può confermare. Nelle pagine narrative (`detail:`) una citazione è
-`File.cs: Metodo` o `Tipo: Metodo` tra apici inversi (metodo, costruttore, funzione locale o proprietà):
+`File.cs: Metodo` o `Tipo: Membro` tra apici inversi (metodo, costruttore, proprietà, campo o membro di un enum; anche ereditato da un tipo dei sorgenti). Un tipo che i sorgenti non dichiarano, o un membro che potrebbe venire da una classe base non visibile, non si controlla:
 
-- `set_doc_slot` rifiuta parole che citano ciò che non c'è, nominando le citazioni: un modello non può inventarne una;
+- `set_doc_slot` rifiuta parole che citano ciò che non c'è, nominando le citazioni, e una pagina `detail:` senza la sezione «Non verificato»: un modello non può inventare una citazione;
 - conserva nel marcatore dello slot l'hash del codice citato (`refs=`), senza spazi né altri metodi dentro;
 - `check` segnala `slot-bad-reference` (la citazione non regge più), `slot-stale-reference` (il codice citato è cambiato dopo
   la scrittura) e `slot-no-unverified-section` (la pagina non dice cosa non è stato letto). Avvisi; errori con `--strict`;
