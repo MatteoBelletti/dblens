@@ -89,6 +89,8 @@ public static class SlotWriter
             throw new ArgumentException($"The slot of {id} holds words written by a person; a model does not replace them. Ask the person to edit or delete it.");
 
         var text = Validate(words, slot.MaxLines);
+        if (id.StartsWith("detail:", StringComparison.Ordinal) && !DocumentCheck.HasUnverifiedSection(text))
+            throw new ArgumentException($"A page about a component needs a \"{DocLabels.For(options.Language)["unverified"]}\" section (a heading) saying what was not read.");
 
         // A citation is a claim the code answers: words that cite a place that is not there are refused, so a model cannot make one up.
         string? refsHash = null;

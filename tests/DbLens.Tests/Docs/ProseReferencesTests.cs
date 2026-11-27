@@ -28,8 +28,10 @@ public sealed class ProseReferencesTests
     [InlineData("`Apis/OrdersApi.cs: Gone`", 1)]
     [InlineData("`Apis/Missing.cs: Create`", 1)]
     [InlineData("`Order: Create`", 1)]
-    [InlineData("`Nothing: Create`", 1)]
-    public void ACitationIsMissing_WhenNoFileOrTypeDeclaresThatMember(string text, int missing) =>
+    [InlineData("`Nothing: Create`", 0)]
+    [InlineData("`Order: Gone`", 1)]
+    [InlineData("`Order: Order`", 0)]
+    public void ACitationIsMissing_WhenTheFileOrTypeIsThere_AndDoesNotDeclareThatMember(string text, int missing) =>
         new ProseReferences(Sources()).Check(text).Missing.Should().HaveCount(missing);
 
     [Fact]
@@ -58,9 +60,9 @@ public sealed class ProseReferencesTests
     {
         var (inventory, documents) = Started(Sources());
 
-        var set = () => SlotWriter.Set(inventory, documents, Options, "detail:Ordering", "See `Apis/OrdersApi.cs: Gone` and `Nothing: At`.", Sources());
+        var set = () => SlotWriter.Set(inventory, documents, Options, "detail:Ordering", "See `Apis/OrdersApi.cs: Gone` and `Order: Missing`.\n\n## Not verified\n\n- all", Sources());
 
-        set.Should().Throw<ArgumentException>().WithMessage("*not in the code*`Apis/OrdersApi.cs: Gone`*`Nothing: At`*");
+        set.Should().Throw<ArgumentException>().WithMessage("*not in the code*`Apis/OrdersApi.cs: Gone`*`Order: Missing`*");
     }
 
     [Fact]
@@ -107,85 +109,55 @@ public sealed class ProseReferencesTests
 
     [Theory]
     [InlineData("## How it works\n\nIt creates.", true)]
+    [InlineData("## How it works\n\nIt creates.\n\n```\n## Not verified\n```", true)]
     [InlineData("## How it works\n\nIt creates.\n\n## Not verified\n\n- the domain", false)]
+    [InlineData("## 7. Not verified (what I did not read)", false)]
     [InlineData("Come funziona.\n\n## Non verificato\n\n- il dominio", false)]
     public void APageAboutAComponent_SaysWhatWasNotRead(string words, bool warned)
     {
         var (inventory, documents) = Started(Sources());
-        var (path, text) = SlotWriter.Set(inventory, documents, Options, "detail:Ordering", words);
-        documents[path] = text;
+        var path = documents.Keys.Single(k => k.Contains("/components/", StringComparison.Ordinal));
+        var parsed = DocumentModel.Parse(documents[path]);
+        documents[path] = DocumentModel.Render(parsed with { Blocks = [.. parsed.Blocks.Select(b => b.Slot is { } slot ? b with { Slot = slot with { Text = words, TextHash = ItemHash.OfText(words) } } : b)] });
 
         DocumentCheck.Check(inventory, documents, Options).Issues.Any(i => i.Code == "slot-no-unverified-section").Should().Be(warned);
     }
 
-    [Theory]
-    [InlineData("`OrderStatus: Submitted`")]
-    [InlineData("`Orders.cs: Submitted` and `Orders.cs: Retries` and `Orders.cs: Changed`")]
-    [InlineData("`OrderService: OrderService` and `OrderService: repository`")]
-    [InlineData("`OrderStatus: Paid`")]
-    public void WhatATypeHolds_AnEnumMemberAFieldAnEventAPrimaryConstructor_CanBeCited(string text) =>
-        new ProseReferences([File("src/Ordering/Orders.cs",
-                "public enum OrderStatus { Submitted, Paid } public class Orders { public const int Retries = 3; public event System.Action Changed; } public class OrderService(IRepository repository) { }")])
-            .Check(text).Missing.Should().BeEmpty();
-
     [Fact]
-    public void TheHashOfTheCitedCode_DoesNotDependOnTheLineEndingsOfTheCheckout()
-    {
-        const string text = "See `Notes.cs: Run`.";
-        const string body = "public class Notes { public string Run() { /* one\n two */ return @\"a\nb\"; } }";
-
-        new ProseReferences([File("Notes.cs", body)]).Check(text).Hash
-            .Should().Be(new ProseReferences([File("Notes.cs", body.Replace("\n", "\r\n", StringComparison.Ordinal))]).Check(text).Hash);
-    }
-
-    [Fact]
-    public void ThePrimaryConstructorIsWhatIsCited_NotTheWholeType()
-    {
-        const string text = "It takes its repository in `OrderService: OrderService`.";
-        var before = new ProseReferences([File("S.cs", "public class OrderService(IRepository repository) { public void A() { } }")]).Check(text).Hash;
-
-        new ProseReferences([File("S.cs", "public class OrderService(IRepository repository) { public void A() { var x = 1; } }")]).Check(text).Hash.Should().Be(before);
-        new ProseReferences([File("S.cs", "public class OrderService(IRepository other) { public void A() { } }")]).Check(text).Hash.Should().NotBe(before);
-    }
-
-    [Fact]
-    public void APersonWhoChangesTheCitations_IsNotToldTheCitedCodeChanged_ForWordsNoToolCanWriteAgain()
+    public void WordsWithoutTheSection_AreRefusedWhenAModelWritesThem_AndNotWarnedWhenAPersonDid()
     {
         var (inventory, documents) = Started(Sources());
-        var (path, text) = SlotWriter.Set(inventory, documents, Options, "detail:Ordering", Words, Sources());
-        documents[path] = text.Replace("It creates in `Apis/OrdersApi.cs: Create`.", "It creates orders.", StringComparison.Ordinal);
 
-        var issues = DocumentCheck.Check(inventory, documents, Options, strict: true, sources: Sources()).Issues;
-
-        issues.Should().NotContain(i => i.Code == "slot-stale-reference");
-        SlotWriter.List(inventory, documents, Options, Sources()).Single(s => s.Id == "detail:Ordering").State.Should().Be("current");
-    }
-
-    [Theory]
-    [InlineData("## Not verified:\n\n- the domain")]
-    [InlineData("## 7. Not verified (what I did not read)\n\n- the domain")]
-    [InlineData("### Non verificato\n\n- il dominio")]
-    public void TheNotVerifiedSection_IsRecognisedWithANumberOrAnExplanationInItsHeading(string heading)
-    {
-        var (inventory, documents) = Started(Sources());
-        var (path, text) = SlotWriter.Set(inventory, documents, Options, "detail:Ordering", "How it works.\n\n" + heading);
-        documents[path] = text;
-
-        DocumentCheck.Check(inventory, documents, Options).Issues.Should().NotContain(i => i.Code == "slot-no-unverified-section");
+        new Action(() => SlotWriter.Set(inventory, documents, Options, "detail:Ordering", "## How it works\n\nIt creates.")).Should().Throw<ArgumentException>().WithMessage("*\"Not verified\" section*");
+        var italian = new DocsOptions("it");
+        var inItalian = new Dictionary<string, string>(Scaffolder.Scaffold(inventory, new Dictionary<string, string>(), italian, ["Ordering"]).Files);
+        new Action(() => SlotWriter.Set(inventory, inItalian, italian, "detail:Ordering", "Come funziona.")).Should().Throw<ArgumentException>().WithMessage("*\"Non verificato\" section*");
     }
 
     [Fact]
-    public void WhenAPersonRewritesTheWords_TheHashOfTheOldCitationsGoesWithThem()
+    public void AMemberInheritedFromABaseTypeInTheSources_IsCitedAndHashed_OneFromAFrameworkBaseIsNotChecked()
     {
-        var (inventory, documents) = Started(Sources());
-        var (path, text) = SlotWriter.Set(inventory, documents, Options, "detail:Ordering", Words, Sources());
-        documents[path] = text.Replace("It creates in `Apis/OrdersApi.cs: Create`.", "A person's own paragraph.");
+        var sources = new ProseReferences([
+            File("src/A/Base.cs", "public class Base { public void Run() { } }"),
+            File("src/A/Child.cs", "public class Child : Base { }"),
+            File("src/A/Store.cs", "public class Store : DbContext { }"),
+            File("src/A/Plain.cs", "public class Plain { }")]);
 
-        var scaffolded = Scaffolder.Scaffold(inventory, documents, Options).Files[path];
+        sources.Check("`Child: Run`").Should().Match<(IReadOnlyList<CodeReference> Missing, string? Hash)>(r => r.Missing.Count == 0 && r.Hash != null);
+        sources.Check("`Store: SaveChangesAsync`").Should().Match<(IReadOnlyList<CodeReference> Missing, string? Hash)>(r => r.Missing.Count == 0 && r.Hash == null, "it may be inherited from the framework: nothing can answer it");
+        sources.Check("`Plain: SaveChangesAsync`").Missing.Should().HaveCount(1);
+    }
 
-        var slot = DocumentModel.Parse(scaffolded).Blocks.Single(b => b.Slot is not null).Slot!;
-        (slot.Evidence, slot.RefsHash).Should().Be(("human", null));
-        DocumentCheck.Check(inventory, new Dictionary<string, string>(documents) { [path] = scaffolded }, Options, strict: true, sources: Sources()).Issues
-            .Should().NotContain(i => i.Code.EndsWith("reference", StringComparison.Ordinal));
+    [Fact]
+    public void FieldsEnumMembersAndPrimaryConstructors_AreCitable_AndTheirHashSeesTheirTypeNotTheirComments()
+    {
+        string Hash(string code) => new ProseReferences([File("src/A/Orders.cs", code)]).Check("`Orders: Retries` `OrderStatus: Paid` `Orders: Orders`").Hash!;
+
+        var before = Hash("public class Orders(int Orders2) { public const int Retries = 3; } public enum OrderStatus { New, Paid }");
+
+        new ProseReferences([File("src/A/Orders.cs", "public class Orders(int Orders2) { public const int Retries = 3; } public enum OrderStatus { New, Paid }")])
+            .Check("`Orders: Retries` `OrderStatus: Paid` `Orders: Orders`").Missing.Should().BeEmpty();
+        Hash("public class Orders(int Orders2) {\n // retries\n public const   int Retries = 3; } public enum OrderStatus { New, Paid }").Should().Be(before, "a comment is not code");
+        Hash("public class Orders(int Orders2) { public const long Retries = 3; } public enum OrderStatus { New, Paid }").Should().NotBe(before, "the type of a field is what it is");
     }
 }

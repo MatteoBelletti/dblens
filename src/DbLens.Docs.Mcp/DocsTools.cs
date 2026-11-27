@@ -53,7 +53,7 @@ public sealed class DocsTools(DocsWorkspace workspace)
     }
 
     [McpServerTool(ReadOnly = true), Description(
-        "The slots of the project documents where words may be written, each with the facts of the item it is about and who wrote what is there. state: empty, stale (the item changed since) or current. " +
+        "The slots of the project documents where words may be written, each with the facts of the item it is about and who wrote what is there. state: empty, stale (the item, or the code its words cite, changed since) or current. " +
         "IMPORTANT: a slot with protected=true holds a person's words and must not be replaced. Run dblens-docs scaffold first if a document or a slot is missing.")]
     public SlotList GetDocSlots(
         [Description("empty, stale, current or all. Default: empty and stale, the slots that need words.")]
@@ -105,7 +105,7 @@ public sealed class DocsTools(DocsWorkspace workspace)
 
     [McpServerTool(Destructive = false, Idempotent = true), Description(
         "Writes the words of one slot of the project documents at most the slot's max lines; a caption (2 to 4 lines) is plain text with no blank lines, a narrative slot (a `detail:` one) takes Markdown with paragraphs. The only thing this server writes. " +
-        "IMPORTANT: it refuses a slot that holds a person's words, a document whose item changed since it was generated, text with an HTML comment, a `File.cs: Method` or `Type: Method` citation that is not in the code, and any id without a slot. The slot is marked inferred: a person confirms it by editing it.")]
+        "IMPORTANT: it refuses a slot that holds a person's words, a document whose item changed since it was generated, text with an HTML comment, a `File.cs: Member` or `Type: Member` citation that is not in the code, a `detail:` page without its Not verified section, and any id without a slot. The slot is marked inferred: a person confirms it by editing it.")]
     public SlotWritten SetDocSlot(
         [Description("The item id, as get_doc_slots lists it, e.g. 'endpoint:GET /orders/{id}'.")]
         string id,

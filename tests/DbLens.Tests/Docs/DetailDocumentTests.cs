@@ -46,7 +46,7 @@ public sealed class DetailDocumentTests : IDisposable
     {
         var inventory = Solution();
         var files = Started(inventory, "Ordering");
-        var (path, text) = SlotWriter.Set(inventory, files, Options, "detail:Ordering", "## What it does\n\nIt places orders.\n\n## Gotchas\n\n- none");
+        var (path, text) = SlotWriter.Set(inventory, files, Options, "detail:Ordering", "## What it does\n\nIt places orders.\n\n## Not verified\n\n- none");
         files[path] = text;
 
         var again = Scaffolder.Scaffold(inventory, files, Options);
@@ -76,7 +76,7 @@ public sealed class DetailDocumentTests : IDisposable
     {
         var inventory = Solution();
         var files = Started(inventory, "Ordering");
-        var (path, text) = SlotWriter.Set(inventory, files, Options, "detail:Ordering", "It places orders.");
+        var (path, text) = SlotWriter.Set(inventory, files, Options, "detail:Ordering", "It places orders.\n\n## Not verified\n\n- none");
         files[path] = text;
 
         files[path] = Scaffolder.Confirm(files[path], "detail:Ordering", SlotWriter.CurrentHash(inventory, files, Options, "detail:Ordering"));
@@ -101,7 +101,7 @@ public sealed class DetailDocumentTests : IDisposable
         var inventory = Solution();
         var files = Started(inventory, "Ordering");
 
-        new Action(() => SlotWriter.Set(inventory, files, Options, "detail:Ordering", "Paragraph one.\n\nParagraph two.")).Should().NotThrow();
+        new Action(() => SlotWriter.Set(inventory, files, Options, "detail:Ordering", "Paragraph one.\n\nParagraph two.\n\n## Not verified\n\n- none")).Should().NotThrow();
         new Action(() => SlotWriter.Set(inventory, files, Options, "flow:endpoint:POST /orders", "One.\n\nTwo.")).Should().Throw<ArgumentException>().WithMessage("*Blank lines*");
         new Action(() => SlotWriter.Set(inventory, files, Options, "detail:Ordering", string.Join('\n', Enumerable.Repeat("line", 81)))).Should().Throw<ArgumentException>().WithMessage("*at most 80*");
     }

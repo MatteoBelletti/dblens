@@ -69,7 +69,7 @@ public static class DocumentCheck
             else if (block.Hash != desired.Hash || block.Gen != ItemHash.OfText(desired.Generated))
                 issues.Add(new DocIssue("outdated-item", IssueSeverity.Error, desired.Id, path, $"{desired.Id} changed in the code since the document was generated: run dblens-docs scaffold."));
 
-            if (block.Slot is { } slot) issues.AddRange(CheckSlot(slot, desired.Hash, path, strict, requireSlots, code));
+            if (block.Slot is { } slot) issues.AddRange(CheckSlot(slot, desired.Hash, path, strict, requireSlots, code, DocLabels.For(options.Language)["unverified"]));
             else if (desired.MaxLines is not null)
                 issues.Add(new DocIssue("slot-missing", requireSlots || strict ? IssueSeverity.Error : IssueSeverity.Warning, desired.Id, path, $"{desired.Id} has no slot in its region: run dblens-docs scaffold."));
         }
@@ -83,7 +83,7 @@ public static class DocumentCheck
 
     private static readonly string[] UnverifiedHeadings = [DocLabels.For("en")["unverified"], DocLabels.For("it")["unverified"]];
 
-    private static IEnumerable<DocIssue> CheckSlot(DocSlot slot, string itemHash, string file, bool strict, bool requireSlots, ProseReferences? code)
+    private static IEnumerable<DocIssue> CheckSlot(DocSlot slot, string itemHash, string file, bool strict, bool requireSlots, ProseReferences? code, string unverified)
     {
         var lines = slot.Text.Length == 0 ? 0 : slot.Text.Split('\n').Length;
         if (lines > slot.MaxLines)
@@ -99,8 +99,8 @@ public static class DocumentCheck
         if (slot.Text.Length == 0) yield break;
 
         // The words about a component say what was not looked at: a page without it reads as complete.
-        if (slot.Id.StartsWith("detail:", StringComparison.Ordinal) && !HasUnverifiedSection(slot.Text))
-            yield return new DocIssue("slot-no-unverified-section", strict ? IssueSeverity.Error : IssueSeverity.Warning, slot.Id, file, $"The slot of {slot.Id} has no \"{UnverifiedHeadings[0]}\" section: say what was not read.");
+        if (slot.Id.StartsWith("detail:", StringComparison.Ordinal) && !SlotWriter.IsPersons(slot) && !HasUnverifiedSection(slot.Text))
+            yield return new DocIssue("slot-no-unverified-section", strict ? IssueSeverity.Error : IssueSeverity.Warning, slot.Id, file, $"The slot of {slot.Id} has no \"{unverified}\" section: say what was not read.");
 
         if (code is null) yield break;
 
@@ -112,7 +112,17 @@ public static class DocumentCheck
             yield return new DocIssue("slot-stale-reference", strict ? IssueSeverity.Error : IssueSeverity.Warning, slot.Id, file, $"The code cited by the slot of {slot.Id} changed after its words were written: read it again.");
     }
 
-    // "## Not verified", "## Not verified:" and "## 7. Not verified (what was not read)" all say it.
-    private static bool HasUnverifiedSection(string text) =>
-        text.Split('\n').Any(l => l.StartsWith('#') && UnverifiedHeadings.Any(h => l.TrimStart('#', ' ', '\t').TrimStart("0123456789.) ".ToCharArray()).StartsWith(h, StringComparison.OrdinalIgnoreCase)));
+    // "## Not verified", "## Not verified:" and "## 7. Not verified (what was not read)" all say it; a "#" inside a code block does not.
+    internal static bool HasUnverifiedSection(string text)
+    {
+        var fenced = false;
+        foreach (var line in text.Split('\n'))
+        {
+            if (line.TrimStart().StartsWith("```", StringComparison.Ordinal)) fenced = !fenced;
+            else if (!fenced && line.StartsWith('#') && UnverifiedHeadings.Any(h => line.TrimStart('#', ' ', '\t').TrimStart("0123456789.) ".ToCharArray()).StartsWith(h, StringComparison.OrdinalIgnoreCase)))
+                return true;
+        }
+
+        return false;
+    }
 }
