@@ -124,7 +124,7 @@ sentences is `language` in `dblens-docs.json` (the writer reads it from `get_doc
 ## What the words cite
 
 A narrative slot cites code in backticks, as `Apis/OrdersApi.cs: CreateOrderAsync` (a file, or the end of its path) or
-`OrderingContext: Orders` (a type), and the member it declares: a method, constructor, property, field or enum member (a member of a base type declared in the sources counts for the type; a type with a primary constructor is cited by its own name).
+`OrderingContext: Orders` (a type), or `Checkout.razor: Submit` (a method of the `@code` block of a component; the tables do not list pages), and the member it declares: a method, constructor, property, field or enum member (a member of a base type declared in the sources counts for the type; a type with a primary constructor is cited by its own name).
 A type the sources do not declare (a framework type), or a member a type may inherit from a base class the sources do not show, is not checked; an interface supplies no members. `set_doc_slot` refuses words that cite what is not in the code, and a `detail:` page without its "Not verified" section, and stores a hash of the cited code in the slot marker
 (`refs=`). `check` then says when a citation no longer holds (`slot-bad-reference`), when the cited code changed since the
 words were written (`slot-stale-reference`; `get_doc_slots` lists such a slot as stale, so `fill-slots` rewrites it), and when a

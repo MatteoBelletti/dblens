@@ -245,7 +245,7 @@ same ones the code's migration files carry.
 DBLens opens only `*ModelSnapshot.cs` and `*.Designer.cs`, DbLens.Docs reads a solution. The user chooses
 to give it, by pointing it at a folder. It opens:
 
-- `*.cs`, `*.csproj`, `Directory.Build.props` and `Directory.Packages.props`;
+- `*.cs`, `*.razor` (only the C# of its `@code` and `@functions` blocks is read), `*.csproj`, `Directory.Build.props` and `Directory.Packages.props`;
 - `appsettings*.json`, of which **only the key names** are kept: a value in a settings file may be a
   secret, and the inventory never holds one (a test over eShop's settings, which carry placeholder
   passwords, checks it);

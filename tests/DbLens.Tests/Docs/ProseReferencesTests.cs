@@ -203,4 +203,27 @@ public sealed class ProseReferencesTests
         DocumentModel.Parse(confirmed).Blocks.Single(b => b.Slot is not null).Slot!.RefsHash.Should().BeNull();
         path.Should().NotBeEmpty();
     }
+
+    private const string Page = "@page \"/checkout\"\n<h1>Checkout</h1>\n<button @onclick=\"Submit\">Go</button>\n@code {\n    private async Task Submit() { await Orders.Create(); Basket.Clear(); }\n    private int Retries = 3;\n}\n<p>Done</p>\n";
+
+    [Fact]
+    public void ACitationCanBeAMethodOfAComponentsCodeBlock_ByItsFileOrByItsName()
+    {
+        var code = new ProseReferences([File("src/Web/Pages/Checkout.razor", Page)]);
+
+        code.Check("`Checkout.razor: Submit` `Pages/Checkout.razor: Retries` `Checkout: Submit`").Missing.Should().BeEmpty();
+        code.Check("`Checkout.razor: Nothing`").Missing.Should().HaveCount(1);
+        code.Check("`Checkout.razor: Go`").Missing.Should().HaveCount(1, "markup is not code");
+    }
+
+    [Fact]
+    public void TheHashOfAComponentsCode_SeesItsCodeAndNotItsMarkup()
+    {
+        string Hash(string text) => new ProseReferences([File("src/Web/Pages/Checkout.razor", text)]).Check("`Checkout.razor: Submit`").Hash!;
+
+        var before = Hash(Page);
+
+        Hash(Page.Replace("<h1>Checkout</h1>", "<h2>Pay</h2>\n<p>more</p>").Replace("<p>Done</p>", "")).Should().Be(before);
+        Hash(Page.Replace("Basket.Clear();", "")).Should().NotBe(before);
+    }
 }

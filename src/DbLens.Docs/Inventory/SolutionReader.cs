@@ -114,6 +114,7 @@ public static class SolutionReader
     {
         var name = Path.GetFileName(path);
         return name.EndsWith(".cs", StringComparison.OrdinalIgnoreCase)
+               || name.EndsWith(".razor", StringComparison.OrdinalIgnoreCase)
                || name.EndsWith(".csproj", StringComparison.OrdinalIgnoreCase)
                || name.Equals("Directory.Build.props", StringComparison.OrdinalIgnoreCase)
                || name.Equals("Directory.Packages.props", StringComparison.OrdinalIgnoreCase)

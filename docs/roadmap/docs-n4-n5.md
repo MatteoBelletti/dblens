@@ -31,3 +31,16 @@ Le quattro insidie del documento scritto a mano:
 
 La quarta sta in `Checkout.razor`: il tool legge C# e non i file `.razor`, quindi non compare tra i fatti né tra i puntatori, e
 una citazione `Checkout.razor: …` non è riconosciuta. È il limite principale che resta.
+
+## Chiusura: i file `.razor`
+
+Il tool legge ora anche i `.razor`, limitatamente al C# dei blocchi `@code` e `@functions`: una citazione `Checkout.razor: Submit`
+(o `Checkout: Submit`, un componente è il suo file) è riconosciuta e il suo hash segue il codice, non il markup. L'inventario non
+elenca le pagine: lo scrittore le cerca con Glob nella cartella del componente (regola nel prompt).
+
+Rifatta la prova su `WebApp` (0,27 $): la pagina dice ora che il checkout (`BasketState: CheckoutAsync`) invia l'ordine a
+`OrderingService` e **poi cancella il carrello**; non dice che ignora la risposta, e le pagine `.razor` restano in «Non verificato».
+Dell'insidia c'è quindi la sequenza, non il difetto.
+
+Limiti che restano: le catene non attraversano interfacce e classi base; le pagine `.razor` non sono tra i fatti generati (nessuna
+tabella delle rotte `@page`); la lingua dell'intestazione «Non verificato» non è imposta (si accettano italiano e inglese).

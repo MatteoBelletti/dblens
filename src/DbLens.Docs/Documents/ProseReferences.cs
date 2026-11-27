@@ -20,10 +20,10 @@ public sealed record CodeReference(string Where, string Member)
 /// </summary>
 public sealed partial class ProseReferences(IReadOnlyList<SourceFile> sources)
 {
-    [GeneratedRegex(@"`(?<where>[\w./\\-]+\.cs|[A-Z]\w*(?:\.[A-Z]\w*)*)\s*:\s*(?<member>[A-Za-z_]\w*)`")]
+    [GeneratedRegex(@"`(?<where>[\w./\\-]+\.(?:cs|razor)|[A-Z]\w*(?:\.[A-Z]\w*)*)\s*:\s*(?<member>[A-Za-z_]\w*)`")]
     private static partial Regex CitationRx();
 
-    private readonly Dictionary<string, SyntaxNode> _parsed = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, List<SyntaxNode>> _parsed = new(StringComparer.Ordinal);
     private readonly Dictionary<CodeReference, (List<string> Code, bool Unverifiable)> _resolved = [];
     private readonly Dictionary<string, List<BaseTypeDeclarationSyntax>> _types = new(StringComparer.Ordinal);
 
@@ -57,27 +57,40 @@ public sealed partial class ProseReferences(IReadOnlyList<SourceFile> sources)
 
     private (List<string> Code, bool Unverifiable) ResolveUncached(CodeReference reference)
     {
-        if (reference.Where.EndsWith(".cs", StringComparison.OrdinalIgnoreCase))
-        {
-            List<string> inFile = [];
-            foreach (var file in sources.Where(s => s.Path.Equals(reference.Where, StringComparison.OrdinalIgnoreCase) || s.Path.EndsWith("/" + reference.Where, StringComparison.OrdinalIgnoreCase)))
-                inFile.AddRange(Root(file).DescendantNodes().Where(n => Names(n, reference.Member)).Select(Cited));
-            return (inFile, false);
-        }
+        if (reference.Where.EndsWith(".cs", StringComparison.OrdinalIgnoreCase) || reference.Where.EndsWith(".razor", StringComparison.OrdinalIgnoreCase))
+            return (InFile(reference.Where, reference.Member), false);
 
         var type = reference.Where[(reference.Where.LastIndexOf('.') + 1)..];
         var declarations = Declarations(type);
+
+        // A component is a type with no declaration in C#: its file is its name.
+        if (declarations.Count == 0 && sources.Any(s => s.Path.EndsWith("/" + type + ".razor", StringComparison.OrdinalIgnoreCase) || s.Path.Equals(type + ".razor", StringComparison.OrdinalIgnoreCase)))
+            return (InFile(type + ".razor", reference.Member), false);
         if (declarations.Count == 0) return ([], true);
 
         var code = Members(declarations, type, reference.Member, 0);
         return (code, code.Count == 0 && MayInherit(declarations, 0));
     }
 
-    private SyntaxNode Root(SourceFile file)
+    private List<string> InFile(string where, string member) =>
+    [
+        .. sources.Where(s => s.Path.Equals(where, StringComparison.OrdinalIgnoreCase) || s.Path.EndsWith("/" + where, StringComparison.OrdinalIgnoreCase))
+            .SelectMany(Roots).SelectMany(r => r.DescendantNodes()).Where(n => Names(n, member)).Select(Cited),
+    ];
+
+    private List<SyntaxNode> Roots(SourceFile file)
     {
-        if (!_parsed.TryGetValue(file.Path, out var root)) _parsed[file.Path] = root = CSharpSyntaxTree.ParseText(file.Text).GetRoot();
-        return root;
+        if (!_parsed.TryGetValue(file.Path, out var roots))
+            _parsed[file.Path] = roots = file.Path.EndsWith(".razor", StringComparison.OrdinalIgnoreCase)
+                ? [.. RazorCode().Matches(file.Text).Select(m => CSharpSyntaxTree.ParseText("class __Razor " + file.Text[(m.Index + m.Length - 1)..]).GetRoot())]
+                : [CSharpSyntaxTree.ParseText(file.Text).GetRoot()];
+        return roots;
     }
+
+    // The C# of a component is in its @code and @functions blocks: parsed as the body of a class, from the opening brace; what
+    // follows the closing brace (markup) is left over and read as nothing.
+    [GeneratedRegex(@"@(?:code|functions)\s*\{")]
+    private static partial Regex RazorCode();
 
     private List<BaseTypeDeclarationSyntax> Declarations(string type)
     {
@@ -87,7 +100,7 @@ public sealed partial class ProseReferences(IReadOnlyList<SourceFile> sources)
         return _types[type] =
         [
             .. sources.Where(s => s.Path.EndsWith(".cs", StringComparison.OrdinalIgnoreCase) && s.Text.Contains(type, StringComparison.Ordinal) && rx.IsMatch(s.Text))
-                .SelectMany(s => Root(s).DescendantNodes().OfType<BaseTypeDeclarationSyntax>().Where(t => t.Identifier.Text == type)),
+                .SelectMany(s => Roots(s).SelectMany(r => r.DescendantNodes()).OfType<BaseTypeDeclarationSyntax>().Where(t => t.Identifier.Text == type)),
         ];
     }
 
